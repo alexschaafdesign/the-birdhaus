@@ -6,8 +6,9 @@ export default async function ShowsPage() {
   const shows = await Promise.all(slugs.map((slug) => getShowBySlug(slug)));
   
   // Sort by date, newest first
-  shows.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-
+// Sort by date, soonest first
+  shows.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  
   return (
     <main className="min-h-screen bg-black text-white p-8">
       <div className="max-w-4xl mx-auto">

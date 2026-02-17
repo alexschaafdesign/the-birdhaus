@@ -1,8 +1,8 @@
 ---
-title: "Opening Night"
-date: "2024-01-15"
-bands: ["The Basement Tapes", "Echo Chamber", "Static Dreams"]
-description: "First show at the Birdhaus - packed house!"
+title: "Keep for Cheap, Fend, Kate Malanaphy"
+date: "2026-03-28"
+bands: ["Keep for Cheap", "Fend", "Kate Malanaphy"]
+description: "Kate's birthday show!"
 videos:
   - youtube: "dQw4w9WgXcQ"
     title: "The Basement Tapes - Full Set"
@@ -13,4 +13,3 @@ audio:
     title: "Static Dreams - Live Recording"
 ---
 
-Great energy tonight. The Basement Tapes opened strong, Echo Chamber brought the noise, and Static Dreams closed it out perfectly. Can't wait for the next one.
