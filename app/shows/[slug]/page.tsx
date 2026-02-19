@@ -21,13 +21,31 @@ export default async function ShowPage({ params }: { params: Promise<{ slug: str
         <p className="text-xl text-gray-400 mb-4">{show.date}</p>
         
         <div className="mb-8">
-          <h2 className="text-2xl font-bold mb-2">Lineup</h2>
-          <ul className="space-y-1">
-            {show.bands.map((band) => (
-              <li key={band} className="text-lg">{band}</li>
-            ))}
-          </ul>
-        </div>
+  <h2 className="text-2xl font-bold mb-2">Lineup</h2>
+  <ul className="space-y-1">
+    {show.bands.map((band, index) => {
+      const bandName = typeof band === 'string' ? band : band.name;
+      const instagram = typeof band === 'string' ? null : band.instagram;
+      
+      return (
+        <li key={index} className="text-lg">
+          {instagram ? (
+            <a 
+              href={instagram} 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="hover:text-gray-400 underline"
+            >
+              {bandName}
+            </a>
+          ) : (
+            bandName
+          )}
+        </li>
+      );
+    })}
+  </ul>
+</div>
 
         {show.description && (
           <p className="text-lg text-gray-300 mb-8">{show.description}</p>

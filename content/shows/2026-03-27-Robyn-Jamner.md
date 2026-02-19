@@ -1,7 +1,13 @@
 ---
 title: "Robyn Jamner, Fruit Form, Delicate Friend"
 date: "2026-03-27"
-bands: ["Robyn Jamner", "Fruit Form", "Delicate Friend"]
+bands:
+  - name: "Robyn Jamner"
+    instagram: "https://www.instagram.com/robynjamner/"
+  - name: "fruit form"
+    instagram: "https://www.instagram.com/fruit.form/"
+  - name: "Delicate Friend"
+    instagram: "https://www.instagram.com/delicatefriendmusic/"
 description: "Robyn's birthday show!"
 videos:
   - youtube: "VR0J6noc-kc"

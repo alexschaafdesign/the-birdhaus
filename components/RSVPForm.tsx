@@ -41,6 +41,8 @@ export default function RSVPForm({ showTitle }: { showTitle: string }) {
   return (
     <div className="border border-gray-800 rounded-lg p-8 mb-12">
       <h2 className="text-3xl font-bold mb-6">RSVP for this show</h2>
+      <p className="text-gray-400 mb-6">The exact address for the Birdhaus will be emailed to all RSVPs as we get closer to the show.</p>
+
       
       {status === 'success' ? (
         <div className="bg-green-900/20 border border-green-800 rounded p-4 text-green-400">
