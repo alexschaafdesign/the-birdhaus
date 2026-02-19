@@ -60,8 +60,9 @@ export default async function ShowPage({ params }: { params: Promise<{ slug: str
           <p className="text-lg text-gray-300 mb-8">{show.description}</p>
         )}
 
-        <RSVPForm showTitle={show.title} />
-
+        {new Date(show.date) >= new Date() && (
+          <RSVPForm showTitle={show.title} />   
+          )}
         {show.videos && show.videos.length > 0 && (
           <div className="mb-12">
             <h2 className="text-3xl font-bold mb-6">Videos</h2>
