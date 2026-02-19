@@ -1,5 +1,6 @@
 import { getShowBySlug, getAllShowSlugs } from '@/lib/shows';
 import RSVPForm from '@/components/RSVPForm';
+import PhotoGallery from '@/components/PhotoGallery';
 
 export async function generateStaticParams() {
   const slugs = getAllShowSlugs();
@@ -102,6 +103,32 @@ export default async function ShowPage({ params }: { params: Promise<{ slug: str
             </div>
           </div>
         )}
+
+        {show.photos && show.photos.length > 0 && (
+  <div className="mb-12">
+    <h2 className="text-3xl font-bold mb-2">Photos</h2>
+    {show.photographer && (
+      <p className="text-gray-400 mb-6">
+        Photos by{' '}
+        {typeof show.photographer === 'string' ? (
+          show.photographer
+        ) : show.photographer.instagram ? (
+          <a 
+            href={show.photographer.instagram}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hover:text-white underline"
+          >
+            {show.photographer.name}
+          </a>
+        ) : (
+          show.photographer.name
+        )}
+      </p>
+    )}
+    <PhotoGallery photos={show.photos} showTitle={show.title} />
+  </div>
+)}
 
         {show.content && (
           <div 

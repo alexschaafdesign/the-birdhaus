@@ -1,17 +1,17 @@
 import { getAllShowSlugs, getShowBySlug } from '@/lib/shows';
 import Link from 'next/link';
 
-export default async function ShowsPage() {
+export default async function ArchivePage() {
   const slugs = getAllShowSlugs();
   const shows = await Promise.all(slugs.map((slug) => getShowBySlug(slug)));
   
-  // Filter for future shows only
+  // Filter for past shows only
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  const upcomingShows = shows.filter((show) => new Date(show.date) >= today);
+  const pastShows = shows.filter((show) => new Date(show.date) < today);
   
-  // Sort by date, soonest first
-  upcomingShows.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  // Sort by date, newest first
+  pastShows.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   return (
     <main className="min-h-screen bg-black text-white p-8">
@@ -20,13 +20,13 @@ export default async function ShowsPage() {
           ← Back to home
         </a>
 
-        <h1 className="text-5xl font-bold mb-8">Upcoming Shows</h1>
+        <h1 className="text-5xl font-bold mb-8">Archive</h1>
 
-        {upcomingShows.length === 0 ? (
-          <p className="text-gray-400">No upcoming shows scheduled.</p>
+        {pastShows.length === 0 ? (
+          <p className="text-gray-400">No past shows yet.</p>
         ) : (
           <div className="space-y-6">
-            {upcomingShows.map((show) => (
+            {pastShows.map((show) => (
               <Link 
                 key={show.slug} 
                 href={`/shows/${show.slug}`}
