@@ -19,33 +19,41 @@ export default async function ShowPage({ params }: { params: Promise<{ slug: str
 
         <h1 className="text-5xl font-bold mb-2">{show.title}</h1>
         <p className="text-xl text-gray-400 mb-4">{show.date}</p>
+
+        {show.flyer && (
+          <img 
+            src={show.flyer} 
+            alt={`${show.title} flyer`}
+            className="w-full max-w-2xl mx-auto rounded mb-8"
+          />
+        )}
         
         <div className="mb-8">
-  <h2 className="text-2xl font-bold mb-2">Lineup</h2>
-  <ul className="space-y-1">
-    {show.bands.map((band, index) => {
-      const bandName = typeof band === 'string' ? band : band.name;
-      const instagram = typeof band === 'string' ? null : band.instagram;
-      
-      return (
-        <li key={index} className="text-lg">
-          {instagram ? (
-            <a 
-              href={instagram} 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="hover:text-gray-400 underline"
-            >
-              {bandName}
-            </a>
-          ) : (
-            bandName
-          )}
-        </li>
-      );
-    })}
-  </ul>
-</div>
+          <h2 className="text-2xl font-bold mb-2">Lineup</h2>
+          <ul className="space-y-1">
+            {show.bands.map((band, index) => {
+              const bandName = typeof band === 'string' ? band : band.name;
+              const instagram = typeof band === 'string' ? null : band.instagram;
+              
+              return (
+                <li key={index} className="text-lg">
+                  {instagram ? (
+                    <a 
+                      href={instagram} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="hover:text-gray-400 underline"
+                    >
+                      {bandName}
+                    </a>
+                  ) : (
+                    bandName
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </div>
 
         {show.description && (
           <p className="text-lg text-gray-300 mb-8">{show.description}</p>
@@ -71,6 +79,24 @@ export default async function ShowPage({ params }: { params: Promise<{ slug: str
                       className="rounded"
                     ></iframe>
                   </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {show.audio && show.audio.length > 0 && (
+          <div className="mb-12">
+            <h2 className="text-3xl font-bold mb-6">Audio</h2>
+            <div className="space-y-8">
+              {show.audio.map((audio, index) => (
+                <div key={index}>
+                  <h3 className="text-xl mb-3">{audio.title}</h3>
+                  <iframe
+                    style={{ border: 0, width: '100%', height: '120px' }}
+                    src={audio.bandcamp}
+                    seamless
+                  ></iframe>
                 </div>
               ))}
             </div>

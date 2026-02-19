@@ -1,6 +1,7 @@
 ---
 title: "Robyn Jamner, Fruit Form, Delicate Friend"
 date: "2026-03-27"
+flyer: "/images/shows/2026-03-27-flyer.png"
 bands:
   - name: "Robyn Jamner"
     instagram: "https://www.instagram.com/robynjamner/"
@@ -13,7 +14,7 @@ videos:
   - youtube: "VR0J6noc-kc"
   - youtube: "UTgwYWn9CqE"
 audio:
-  - bandcamp: "https://bandcamp.com/EmbeddedPlayer/album=123456/size=large/bgcol=ffffff/linkcol=0687f5/tracklist=false/artwork=small/transparent=true/"
-    title: "Static Dreams - Live Recording"
+  - bandcamp: "https://bandcamp.com/EmbeddedPlayer/album=936601721/size=large/bgcol=ffffff/linkcol=0687f5/tracklist=false/artwork=small/transparent=true/"
+    title: "Delicate Friend - Gone Yesterday"
 ---
 

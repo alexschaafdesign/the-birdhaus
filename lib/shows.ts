@@ -10,6 +10,7 @@ export interface Show {
   slug: string;
   title: string;
   date: string;
+  flyer?: string;  // Add this line
   bands: Array<{ name: string; instagram?: string }> | string[];
   description?: string;
   videos?: Array<{ youtube: string; title: string }>;
@@ -31,6 +32,7 @@ const realSlug = slug.replace(/\.md$/, '');
     slug: realSlug,
     title: data.title,
     date: data.date,
+    flyer: data.flyer, 
     bands: data.bands || [],
     description: data.description,
     videos: data.videos,
