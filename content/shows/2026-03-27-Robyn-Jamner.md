@@ -1,7 +1,7 @@
 ---
 title: "Robyn Jamner, Fruit Form, Delicate Friend"
 date: "2026-03-27"
-flyer: "/images/shows/2026-03-27-flyer.png"
+flyer: "https://res.cloudinary.com/defdv9zw7/image/upload/v1771963039/generic_show_flyer_u8tnib.png"
 bands:
   - name: "Robyn Jamner"
     instagram: "https://www.instagram.com/robynjamner/"
