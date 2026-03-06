@@ -8,8 +8,9 @@ export default async function Home() {
   // Filter for future shows only
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  const upcomingShows = shows.filter((show) => new Date(show.date) >= today);
-  
+  const upcomingShows = shows.filter((show) => 
+  new Date(show.date) >= today && show.announced === true
+  );  
   // Sort by date, soonest first
   upcomingShows.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
@@ -61,18 +62,24 @@ export default async function Home() {
           <div className="space-y-6">
             {upcomingShows.map((show) => (
               <Link 
-                key={show.slug} 
-                href={`/shows/${show.slug}`}
+                  key={show.slug} 
+                  href={`/shows/${show.slug}`}
                   className="block border border-gray-300 rounded p-6 hover:border-gray-600 transition-colors"
-              >
-                <p className="text-gray-600 mb-1">{show.date}</p>
-                <h3 className="text-2xl font-bold mb-2">{show.title}</h3>
-                <p className="text-gray-600">
-                  {Array.isArray(show.bands) && show.bands.map((band) => 
-                    typeof band === 'string' ? band : band.name
-                  ).join(', ')}
-                </p>
-              </Link>
+                >
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="flex-1">
+                      <p className="text-gray-600 mb-1">{show.date}</p>
+                      <h3 className="text-2xl font-bold">{show.title}</h3>
+                    </div>
+                    {show.flyer && (
+                      <img
+                        src={show.flyer}
+                        alt={`${show.title} flyer`}
+                        className="w-16 h-16 object-cover rounded flex-shrink-0"
+                      />
+                    )}
+                  </div>
+                </Link>
             ))}
           </div>
         )}

@@ -10,6 +10,8 @@ bands:
   - name: "Delicate Friend"
     instagram: "https://www.instagram.com/delicatefriendmusic/"
 description: "Robyn's birthday show!"
+announced: true
+
 videos:
   - youtube: "VR0J6noc-kc"
   - youtube: "UTgwYWn9CqE"

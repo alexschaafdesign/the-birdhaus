@@ -18,6 +18,8 @@ export interface Show {
   audio?: Array<{ bandcamp: string; title: string }>;
   photos?: string[];
   content: string;
+  announced?: boolean;
+
 }
 
 export async function getShowBySlug(slug: string): Promise<Show> {
@@ -41,6 +43,8 @@ const realSlug = slug.replace(/\.md$/, '');
     audio: data.audio,
     photos: data.photos,
     content: contentHtml,
+    announced: data.announced ?? false,  // 👈 this was missing
+
   };
 }
 
