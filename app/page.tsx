@@ -24,7 +24,7 @@ export default async function Home() {
               alt="The Birdhaus logo"
               className="w-32 h-32 md:w-40 md:h-40"
             />
-            <h1 className="text-4xl md:text-6xl font-bold text-center">The Birdhaus</h1>
+            <h1 className="text-4xl md:text-6xl font-bold text-center">the BIRDHAUS</h1>
           </div>
           <div className="flex flex-col md:flex-row items-center justify-center gap-2 md:gap-6 text-sm">
             <a href="#upcoming-shows" className="hover:underline">Upcoming Shows</a>
