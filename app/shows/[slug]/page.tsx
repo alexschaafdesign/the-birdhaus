@@ -7,16 +7,21 @@ export async function generateStaticParams() {
   return slugs.map((slug) => ({ slug }));
 }
 
+
+
 export default async function ShowPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const show = await getShowBySlug(slug);
 
+const isPast = new Date(show.date) < new Date();
+
+
   return (
     <main className="min-h-screen bg-black text-white p-8">
       <div className="max-w-4xl mx-auto">
-        <a href="/" className="text-gray-400 hover:text-white mb-8 inline-block">
-          ← Back to home
-        </a>
+        <a href={isPast ? "/archive" : "/"} className="text-gray-400 hover:text-white mb-8 inline-block">
+  ← {isPast ? "Back to archive" : "Back to home"}
+</a>
 
         <h1 className="text-5xl font-bold mb-2">{show.title}</h1>
         <p className="text-xl text-gray-400 mb-4">{show.date}</p>
