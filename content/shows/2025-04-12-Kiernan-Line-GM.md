@@ -15,6 +15,10 @@ photos:
   - "https://res.cloudinary.com/defdv9zw7/image/upload/v1773523789/00764CE7-BB5B-4317-8FAE-7FAA6E13DCD3_1_105_c_hzbfzj.jpg"
   - "https://res.cloudinary.com/defdv9zw7/image/upload/v1773523791/9C3FE748-90FC-4DDB-9835-483F3070271B_1_105_c_to3z6p.jpg"
 
+videos:
+  - youtube: "ic1xIVN6PbU"
+  - youtube: "VpUvNPFXpM4"
+  - youtube: "wAbtfKI-PR0"
 
 
 ---
