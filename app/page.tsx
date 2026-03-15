@@ -29,7 +29,9 @@ export default async function Home() {
           <div className="flex flex-col md:flex-row items-center justify-center gap-2 md:gap-6 text-sm">
             <a href="#upcoming-shows" className="hover:underline">Upcoming Shows</a>
             <span className="hidden md:inline">•</span>
-            <a href="/archive" className="hover:underline text-center">Archive (recordings of past shows)</a>
+            <a href="/archive" className="hover:underline text-center">Archive</a>
+              <span className="hidden md:inline">•</span>
+              <a href="/videos" className="hover:underline">Video</a>
           </div>
         </div>
 

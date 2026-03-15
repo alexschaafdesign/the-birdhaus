@@ -5,13 +5,8 @@ export default async function ShowsPage() {
   const slugs = getAllShowSlugs();
   const shows = await Promise.all(slugs.map((slug) => getShowBySlug(slug)));
   
-  // Filter for future shows only
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const upcomingShows = shows.filter((show) => new Date(show.date) >= today);
-  
-  // Sort by date, soonest first
-  upcomingShows.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+// Sort by date, soonest first
+  shows.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
   return (
     <main className="min-h-screen bg-black text-white p-8">
@@ -20,29 +15,21 @@ export default async function ShowsPage() {
           ← Back to home
         </a>
 
-        <h1 className="text-5xl font-bold mb-8">Upcoming Shows</h1>
+        <h1 className="text-5xl font-bold mb-8">Shows</h1>
 
-        {upcomingShows.length === 0 ? (
-          <p className="text-gray-400">No upcoming shows scheduled.</p>
-        ) : (
-          <div className="space-y-6">
-            {upcomingShows.map((show) => (
-              <Link 
-                key={show.slug} 
-                href={`/shows/${show.slug}`}
-                className="block border border-gray-800 rounded p-6 hover:border-gray-500 transition-colors"
-              >
-                <p className="text-gray-400 mb-1">{show.date}</p>
-                <h2 className="text-2xl font-bold mb-2">{show.title}</h2>
-                <p className="text-gray-400">
-                  {Array.isArray(show.bands) && show.bands.map((band) => 
-                    typeof band === 'string' ? band : band.name
-                  ).join(', ')}
-                </p>
-              </Link>
-            ))}
-          </div>
-        )}
+        <div className="space-y-6">
+          {shows.map((show) => (
+            <Link 
+              key={show.slug} 
+              href={`/shows/${show.slug}`}
+              className="block border border-gray-800 rounded p-6 hover:border-gray-500 transition-colors"
+            >
+              <p className="text-gray-400 mb-1">{show.date}</p>
+              <h2 className="text-2xl font-bold mb-2">{show.title}</h2>
+              <p className="text-gray-400">{show.bands.join(', ')}</p>
+            </Link>
+          ))}
+        </div>
       </div>
     </main>
   );

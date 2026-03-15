@@ -14,7 +14,7 @@ export interface Show {
   bands: Array<{ name: string; instagram?: string }> | string[];
   description?: string;
   photographer?: string | { name: string; instagram?: string };
-  videos?: Array<{ youtube: string; title: string }>;
+  videos: Array<{ youtube: string; title: string }>;
   audio?: Array<{ bandcamp: string; title: string }>;
   photos?: string[];
   content: string;
@@ -39,9 +39,9 @@ const realSlug = slug.replace(/\.md$/, '');
     bands: data.bands || [],
     description: data.description,
     photographer: data.photographer,
-    videos: data.videos,
-    audio: data.audio,
-    photos: data.photos,
+    videos: data.videos || [],
+    audio: data.audio || [],
+    photos: data.photos || [],
     content: contentHtml,
     announced: data.announced ?? false,  // 👈 this was missing
 
