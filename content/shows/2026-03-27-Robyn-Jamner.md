@@ -11,6 +11,9 @@ bands:
     instagram: "https://www.instagram.com/delicatefriendmusic/"
 description: "Robyn's birthday show!"
 announced: true
+rsvpUrl: "https://script.google.com/macros/s/AKfycbyiWZccRkQfTkA0-aeNimiOTQ2UhMu-Hjjmuw3Xvnqb5LlSkkbpg2NAd-DeRJGbYO2V/exec"
+
+
 
 videos:
   - youtube: "VR0J6noc-kc"

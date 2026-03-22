@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 
-export default function RSVPForm({ showTitle }: { showTitle: string }) {
+export default function RSVPForm({ showTitle, rsvpUrl }: { showTitle: string; rsvpUrl?: string }) {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -16,7 +16,7 @@ export default function RSVPForm({ showTitle }: { showTitle: string }) {
     setStatus('submitting');
 
     try {
-      const response = await fetch('https://script.google.com/macros/s/AKfycbwlKLbNE4IaAvx61hJ25K0c9QxPVJdt87P65EtnHuCl2AvCdvkJCBMdgh_IagfqwtEzEA/exec', {
+      const response = await fetch(rsvpUrl || 'https://script.google.com/macros/s/AKfycbwlKLbNE4IaAvx61hJ25K0c9QxPVJdt87P65EtnHuCl2AvCdvkJCBMdgh_IagfqwtEzEA/exec', {
         method: 'POST',
         mode: 'no-cors',
         headers: {
@@ -41,12 +41,12 @@ export default function RSVPForm({ showTitle }: { showTitle: string }) {
   return (
     <div className="border border-gray-800 rounded-lg p-8 mb-12">
       <h2 className="text-3xl font-bold mb-6">RSVP for this show</h2>
-      <p className="text-gray-400 mb-6">The exact address for the Birdhaus will be emailed to all RSVPs as we get closer to the show.</p>
+      <p className="text-gray-400 mb-6">The venue address and other details will be emailed to you upon filling out this form.</p>
 
       
       {status === 'success' ? (
         <div className="bg-green-900/20 border border-green-800 rounded p-4 text-green-400">
-          Thanks for your RSVP! See you there.
+          Thanks for your RSVP! Check your email for the full details.
         </div>
       ) : (
         <form onSubmit={handleSubmit} className="space-y-4">

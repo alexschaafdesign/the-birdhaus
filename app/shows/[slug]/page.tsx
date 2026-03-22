@@ -66,7 +66,7 @@ const isPast = new Date(show.date) < new Date();
         )}
 
         {new Date(show.date) >= new Date() && (
-          <RSVPForm showTitle={show.title} />   
+          <RSVPForm showTitle={show.title} rsvpUrl={show.rsvpUrl} />
           )}
         {show.videos && show.videos.length > 0 && (
           <div className="mb-12">
