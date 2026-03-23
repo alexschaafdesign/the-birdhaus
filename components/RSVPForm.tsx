@@ -28,7 +28,7 @@ export default function RSVPForm({
     setStatus('submitting');
 
     try {
-      const response = await fetch('https://script.google.com/macros/s/AKfycbzkftRi67d4rKmqLJDo6sONCaQMSJ-JjROjhaJ1Ee_D9kHcyeZnbguEDmyC3j2e7zRG2w/exec', {
+      const response = await fetch('https://script.google.com/macros/s/AKfycbyqjkeA5Ik4w6pTpB9ZbZ-J0X8R3g6Zi0MAhlkEOBWTjZ2ncFmXH6AUH2IN5dqutsDPpA/exec', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
