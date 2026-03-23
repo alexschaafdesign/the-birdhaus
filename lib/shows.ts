@@ -10,6 +10,8 @@ export interface Show {
   slug: string;
   title: string;
   date: string;
+  doorsTime?: string;  
+  showTime?: string;
   flyer?: string; 
   bands: Array<{ name: string; instagram?: string }> | string[];
   description?: string;
@@ -36,6 +38,8 @@ const realSlug = slug.replace(/\.md$/, '');
     slug: realSlug,
     title: data.title,
     date: data.date,
+    doorsTime: data.doorsTime, 
+    showTime: data.showTime,
     flyer: data.flyer, 
     bands: data.bands || [],
     description: data.description,
