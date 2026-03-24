@@ -1,6 +1,8 @@
 ---
 title: "FRESH CUTS V7"
 date: "2026-04-17"
+doorsTime: "7:00pm"
+showTime: "8:00pm"
 bands:
   - name: "One Big Quilt"
     instagram: ""
