@@ -8,9 +8,11 @@ export default async function Home() {
   // Filter for future shows only
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  const upcomingShows = shows.filter((show) => 
-  new Date(show.date) >= today && show.announced === true
-  );  
+  const upcomingShows = shows.filter((show) => {
+    const [year, month, day] = show.date.split('-').map(Number);
+    const showDate = new Date(year, month - 1, day); // local time, no timezone shift
+    return showDate >= today && show.announced === true;
+  });
   // Sort by date, soonest first
   upcomingShows.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
