@@ -11,7 +11,9 @@ export default async function ShowPage({ params }: { params: Promise<{ slug: str
   const { slug } = await params;
   const show = await getShowBySlug(slug);
 
-  const isPast = new Date(show.date) < new Date();
+const [year, month, day] = show.date.split('-').map(Number);
+const showDate = new Date(year, month - 1, day);
+const isPast = showDate < new Date(new Date().setHours(0, 0, 0, 0));
 
   // Format date nicely
   const dateObj = new Date(show.date + 'T00:00:00');
