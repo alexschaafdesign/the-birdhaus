@@ -5,12 +5,12 @@ export default async function Home() {
   const slugs = getAllShowSlugs();
   const shows = await Promise.all(slugs.map((slug) => getShowBySlug(slug)));
   
-  // Filter for future shows only
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  // Filter for future shows only — use Central Time to match Minneapolis
+  const todayStr = new Date().toLocaleDateString('en-US', { timeZone: 'America/Chicago' });
+  const today = new Date(todayStr);
   const upcomingShows = shows.filter((show) => {
     const [year, month, day] = show.date.split('-').map(Number);
-    const showDate = new Date(year, month - 1, day); // local time, no timezone shift
+    const showDate = new Date(year, month - 1, day);
     return showDate >= today && show.announced === true;
   });
   // Sort by date, soonest first
