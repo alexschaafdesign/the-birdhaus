@@ -12,6 +12,7 @@ description: "Robyn's birthday show!"
 announced: true
 videos:
   - youtube: "wdQHTPjQuts"
+  - youtube: "mK21gP95osw"
 audio:
   - bandcamp: "https://bandcamp.com/EmbeddedPlayer/album=936601721/size=large/bgcol=ffffff/linkcol=0687f5/tracklist=false/artwork=small/transparent=true/"
     title: "Delicate Friend - Gone Yesterday"
