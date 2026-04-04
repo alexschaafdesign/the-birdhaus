@@ -5,18 +5,27 @@ export default async function ArchivePage() {
   const slugs = getAllShowSlugs();
   const shows = await Promise.all(slugs.map((slug) => getShowBySlug(slug)));
   
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const pastShows = shows.filter((show) => new Date(show.date) < today);
+  const today = new Date().toLocaleDateString('en-US', { timeZone: 'America/Chicago' });
+  const todayDate = new Date(today);
+  const pastShows = shows.filter((show) => new Date(show.date) < todayDate);
   pastShows.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   const showCount = pastShows.length;
-  const uniqueBands = new Set(
-    pastShows.flatMap((show) =>
-      show.bands.map((band) => (typeof band === 'string' ? band : band.name))
-    )
+
+  // Build band frequency map
+  const bandCounts = new Map<string, number>();
+  for (const show of pastShows) {
+    for (const band of show.bands) {
+      const name = typeof band === 'string' ? band : band.name;
+      bandCounts.set(name, (bandCounts.get(name) ?? 0) + 1);
+    }
+  }
+  const bandCount = bandCounts.size;
+
+  // Sort: most appearances first, then alphabetical
+  const sortedBands = Array.from(bandCounts.entries()).sort((a, b) =>
+    b[1] - a[1] || a[0].localeCompare(b[0])
   );
-  const bandCount = uniqueBands.size;
 
   return (
     <main className="min-h-screen bg-black text-white p-8">
@@ -25,21 +34,40 @@ export default async function ArchivePage() {
           ← Back to home
         </a>
 
-       <div className="flex items-center justify-between mb-8">
-  <h1 className="text-5xl font-bold">ARCHIVE</h1>
-  <div className="font-mono text-sm border border-yellow-500/40 rounded-lg p-4 bg-yellow-500/5">
-    <div className="flex gap-8">
-      <div>
-        <span className="text-yellow-500/60 uppercase tracking-widest text-xs block mb-1">Shows</span>
-        <span className="text-yellow-400 text-2xl">{String(showCount).padStart(3, '0')}</span>
-      </div>
-      <div className="border-l border-yellow-500/20 pl-8">
-        <span className="text-yellow-500/60 uppercase tracking-widest text-xs block mb-1">Bands</span>
-        <span className="text-yellow-400 text-2xl">{String(bandCount).padStart(3, '0')}</span>
-      </div>
-    </div>
-  </div>
-</div>
+        <div className="flex items-center justify-between mb-8">
+          <h1 className="text-5xl font-bold">ARCHIVE</h1>
+          <div className="font-mono text-sm border border-yellow-500/40 rounded-lg p-4 bg-yellow-500/5">
+            <div className="flex gap-8">
+              <div>
+                <span className="text-yellow-500/60 uppercase tracking-widest text-xs block mb-1">Shows</span>
+                <span className="text-yellow-400 text-2xl">{String(showCount).padStart(3, '0')}</span>
+              </div>
+              <div className="border-l border-yellow-500/20 pl-8">
+                <span className="text-yellow-500/60 uppercase tracking-widest text-xs block mb-1">Bands</span>
+                <span className="text-yellow-400 text-2xl">{String(bandCount).padStart(3, '0')}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Band roster */}
+        <details className="mb-10 border border-gray-800 rounded-lg group">
+          <summary className="px-4 py-3 cursor-pointer text-sm text-gray-400 hover:text-white uppercase tracking-widest select-none list-none flex justify-between items-center">
+            <span>Birdhaus alums - click to expand</span>
+            <span className="text-xs text-gray-600 group-open:hidden">▸ expand</span>
+            <span className="text-xs text-gray-600 hidden group-open:inline">▾ collapse</span>
+          </summary>
+          <div className="px-4 pb-4 pt-2 columns-2 sm:columns-3 gap-x-6">
+            {sortedBands.map(([name, count]) => (
+              <div key={name} className="flex justify-between items-baseline gap-2 py-1 border-b border-gray-900 break-inside-avoid">
+                <span className="text-sm text-gray-200 truncate">{name}</span>
+                {count > 1 && (
+                  <span className="text-xs text-yellow-500/70 font-mono flex-shrink-0">×{count}</span>
+                )}
+              </div>
+            ))}
+          </div>
+        </details>
 
         {pastShows.length === 0 ? (
           <p className="text-gray-400">No past shows yet.</p>
@@ -51,7 +79,6 @@ export default async function ArchivePage() {
                 href={`/shows/${show.slug}`}
                 className="flex gap-6 border border-gray-800 rounded-lg p-4 hover:border-gray-500 hover:bg-gray-900 transition-colors"
               >
-                {/* Flyer thumbnail */}
                 <div className="w-24 h-24 flex-shrink-0 rounded overflow-hidden bg-gray-900">
                   {show.flyer ? (
                     <img
@@ -65,8 +92,6 @@ export default async function ArchivePage() {
                     </div>
                   )}
                 </div>
-
-                {/* Show info */}
                 <div className="flex flex-col justify-center min-w-0">
                   <p className="text-gray-500 text-sm mb-1">{show.date}</p>
                   <h2 className="text-xl font-bold mb-1 truncate">{show.title}</h2>
