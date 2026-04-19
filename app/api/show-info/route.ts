@@ -58,7 +58,7 @@ function buildMessage(): string {
     message += `The next show is ${formatted}, featuring ${bands}. `;
   }
 
-  message += "Check the-birdhaus.org for full details and tickets. See you soon.";
+  message += "Check the-birdhaus.org for full details and tickets. See you soon. I love you.";
   return message;
 }
 
