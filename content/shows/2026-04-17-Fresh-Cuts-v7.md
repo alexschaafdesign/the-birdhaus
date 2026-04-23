@@ -18,6 +18,10 @@ description: "Short sets, new songs only"
 flyer: "https://res.cloudinary.com/defdv9zw7/image/upload/v1774121609/fresh_cuts_v7_flyer_ylxbjb.png"
 announced: true
 rsvpUrl: "https://script.google.com/macros/s/AKfycbzqZHQ4Ld2C04hBVShlh91wKa-midZOW0HUaaTnLXhxymA60nqoyCV6jjdXqDkgPc2G/exec"
-
+videos:
+  - youtube: "LxOQTBk0MmA"
+  - youtube: "tlOyhgEcyF0"
+  - youtube: "oFTA6HYKow0"
+  - youtube: "2kFb1KqHU4k"
 ---
 
