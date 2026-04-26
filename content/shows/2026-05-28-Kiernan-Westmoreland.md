@@ -9,6 +9,8 @@ bands:
   - name: "Westmoreland"
 flyer: "https://res.cloudinary.com/defdv9zw7/image/upload/q_auto/f_auto/v1776351596/MAY_28_KIERNAN_ejynxz.png"
 announced: true
+ticketUrl: "https://square.link/u/xyE0srs7"
+
 ---
 
 

@@ -1,41 +1,41 @@
-  import { getShowBySlug, getAllShowSlugs } from '@/lib/shows';
-  import RSVPForm from '@/components/RSVPForm';
-  import PhotoGallery from '@/components/PhotoGallery';
+import { getShowBySlug, getAllShowSlugs } from '@/lib/shows';
+import RSVPForm from '@/components/RSVPForm';
+import PhotoGallery from '@/components/PhotoGallery';
 
-  export async function generateStaticParams() {
-    const slugs = getAllShowSlugs();
-    return slugs.map((slug) => ({ slug }));
-  }
+export async function generateStaticParams() {
+  const slugs = getAllShowSlugs();
+  return slugs.map((slug) => ({ slug }));
+}
 
-  export default async function ShowPage({ params }: { params: Promise<{ slug: string }> }) {
-    const { slug } = await params;
-    const show = await getShowBySlug(slug);
+export default async function ShowPage({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
+  const show = await getShowBySlug(slug);
 
-const todayStr = new Date().toLocaleDateString('en-US', { timeZone: 'America/Chicago' });
-const today = new Date(todayStr);
-const [year, month, day] = show.date.split('-').map(Number);
-const showDate = new Date(year, month - 1, day);
-const isPast = showDate < today;
+  const todayStr = new Date().toLocaleDateString('en-US', { timeZone: 'America/Chicago' });
+  const today = new Date(todayStr);
+  const [year, month, day] = show.date.split('-').map(Number);
+  const showDate = new Date(year, month - 1, day);
+  const isPast = showDate < today;
 
-    // Format date nicely
-    const dateObj = new Date(show.date + 'T00:00:00');
-    const formattedDate = dateObj.toLocaleDateString('en-US', { 
-      weekday: 'long', 
-      year: 'numeric', 
-      month: 'long', 
-      day: 'numeric' 
-    });
+  // Format date nicely
+  const dateObj = new Date(show.date + 'T00:00:00');
+  const formattedDate = dateObj.toLocaleDateString('en-US', { 
+    weekday: 'long', 
+    year: 'numeric', 
+    month: 'long', 
+    day: 'numeric' 
+  });
 
-    return (
-      <main className="min-h-screen bg-white text-black">
-        <div className="max-w-5xl mx-auto px-6 py-12">
-          {/* Back link */}
-          <a 
-            href={isPast ? "/archive" : "/"} 
-            className="text-gray-600 hover:text-black mb-8 inline-block text-sm uppercase tracking-wide"
-          >
-            ← {isPast ? "Back to archive" : "Back to home"}
-          </a>
+  return (
+    <main className="min-h-screen bg-white text-black">
+      <div className="max-w-5xl mx-auto px-6 py-12">
+        {/* Back link */}
+        <a 
+          href={isPast ? "/archive" : "/"} 
+          className="text-gray-600 hover:text-black mb-8 inline-block text-sm uppercase tracking-wide"
+        >
+          ← {isPast ? "Back to archive" : "Back to home"}
+        </a>
 
         {/* Header section */}
         <div className="mb-10">
@@ -107,98 +107,98 @@ const isPast = showDate < today;
             })}
           </div>
         </div>
-        
 
-          {/* RSVP Form */}
-          {!isPast && (
-            <RSVPForm 
-              showTitle={show.title}
-              showDate={show.date}
-              doorsTime={show.doorsTime}
-              showTime={show.showTime}
-              flyerUrl={show.flyer}
-            />
-          )}
+        {/* RSVP Form */}
+        {!isPast && (
+          <RSVPForm 
+            showTitle={show.title}
+            showDate={show.date}
+            doorsTime={show.doorsTime}
+            showTime={show.showTime}
+            flyerUrl={show.flyer}
+            ticketUrl={show.ticketUrl}
+          />
+        )}
 
-          {/* Videos */}
-          {show.videos && show.videos.length > 0 && (
-            <div className="mb-12">
-              <h2 className="text-3xl font-bold mb-6">Videos</h2>
-              <div className="space-y-8">
-                {show.videos.map((video, index) => (
-                  <div key={index}>
-                    <h3 className="text-xl mb-3 font-medium">{video.title}</h3>
-                    <div className="aspect-video rounded-lg overflow-hidden shadow-lg">
-                      <iframe
-                        width="100%"
-                        height="100%"
-                        src={`https://www.youtube.com/embed/${video.youtube}`}
-                        title={video.title}
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                        allowFullScreen
-                      ></iframe>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Audio */}
-          {show.audio && show.audio.length > 0 && (
-            <div className="mb-12">
-              <h2 className="text-3xl font-bold mb-6">Audio</h2>
-              <div className="space-y-8">
-                {show.audio.map((audio, index) => (
-                  <div key={index}>
-                    <h3 className="text-xl mb-3 font-medium">{audio.title}</h3>
+        {/* Videos */}
+        {show.videos && show.videos.length > 0 && (
+          <div className="mb-12">
+            <h2 className="text-3xl font-bold mb-6">Videos</h2>
+            <div className="space-y-8">
+              {show.videos.map((video, index) => (
+                <div key={index}>
+                  <h3 className="text-xl mb-3 font-medium">{video.title}</h3>
+                  <div className="aspect-video rounded-lg overflow-hidden shadow-lg">
                     <iframe
-                      style={{ border: 0, width: '100%', height: '120px' }}
-                      src={audio.bandcamp}
-                      seamless
-                      className="rounded-lg"
+                      width="100%"
+                      height="100%"
+                      src={`https://www.youtube.com/embed/${video.youtube}`}
+                      title={video.title}
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
                     ></iframe>
                   </div>
-                ))}
-              </div>
+                </div>
+              ))}
             </div>
-          )}
+          </div>
+        )}
 
-          {/* Photos */}
-          {show.photos && show.photos.length > 0 && (
-            <div className="mb-12">
-              <h2 className="text-3xl font-bold mb-2">Photos</h2>
-              {show.photographer && (
-                <p className="text-gray-600 mb-6">
-                  Photos by{' '}
-                  {typeof show.photographer === 'string' ? (
-                    show.photographer
-                  ) : show.photographer.instagram ? (
-                    <a 
-                      href={show.photographer.instagram}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="hover:text-black underline"
-                    >
-                      {show.photographer.name}
-                    </a>
-                  ) : (
-                    show.photographer.name
-                  )}
-                </p>
-              )}
-              <PhotoGallery photos={show.photos} showTitle={show.title} />
+        {/* Audio */}
+        {show.audio && show.audio.length > 0 && (
+          <div className="mb-12">
+            <h2 className="text-3xl font-bold mb-6">Audio</h2>
+            <div className="space-y-8">
+              {show.audio.map((audio, index) => (
+                <div key={index}>
+                  <h3 className="text-xl mb-3 font-medium">{audio.title}</h3>
+                  <iframe
+                    style={{ border: 0, width: '100%', height: '120px' }}
+                    src={audio.bandcamp}
+                    seamless
+                    className="rounded-lg"
+                  ></iframe>
+                </div>
+              ))}
             </div>
-          )}
+          </div>
+        )}
 
-          {/* Content */}
-          {show.content && (
-            <div 
-              className="prose prose-lg max-w-none"
-              dangerouslySetInnerHTML={{ __html: show.content }}
-            />
-          )}
-        </div>
-      </main>
-    );
-  }
+        {/* Photos */}
+        {show.photos && show.photos.length > 0 && (
+          <div className="mb-12">
+            <h2 className="text-3xl font-bold mb-2">Photos</h2>
+            {show.photographer && (
+              <p className="text-gray-600 mb-6">
+                Photos by{' '}
+                {typeof show.photographer === 'string' ? (
+                  show.photographer
+                ) : show.photographer.instagram ? (
+                  <a 
+                    href={show.photographer.instagram}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="hover:text-black underline"
+                  >
+                    {show.photographer.name}
+                  </a>
+                ) : (
+                  show.photographer.name
+                )}
+              </p>
+            )}
+            <PhotoGallery photos={show.photos} showTitle={show.title} />
+          </div>
+        )}
+
+        {/* Content */}
+        {show.content && (
+          <div 
+            className="prose prose-lg max-w-none"
+            dangerouslySetInnerHTML={{ __html: show.content }}
+          />
+        )}
+      </div>
+    </main>
+  );
+}

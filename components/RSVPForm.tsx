@@ -7,13 +7,15 @@ export default function RSVPForm({
   showDate,
   doorsTime,
   showTime,
-  flyerUrl 
+  flyerUrl,
+  ticketUrl
 }: { 
   showTitle: string;
   showDate: string;
   doorsTime?: string;
   showTime?: string;
   flyerUrl?: string;
+  ticketUrl?: string;
 }) {
   const [formData, setFormData] = useState({
     name: '',
@@ -56,11 +58,34 @@ export default function RSVPForm({
   return (
     <div className="border-2 border-gray-200 rounded-lg p-8 mb-12 bg-gray-50">
       <h2 className="text-3xl font-bold mb-2">RSVP for this show</h2>
-      <p className="text-gray-600 mb-6">The venue address and other details will be emailed to you upon filling out this form.</p>
+      <p className="text-gray-600 mb-6">
+        RSVP below to get the venue address and show details emailed to you.
+        {ticketUrl && (
+          <> After submitting, you'll have the option to <strong>buy an advance ticket</strong> to guarantee your spot.</>
+        )}
+      </p>
 
       {status === 'success' ? (
-        <div className="bg-green-50 border-2 border-green-500 rounded-lg p-4 text-green-800">
-          Thanks for your RSVP! Check your email for the full details.
+        <div className="space-y-4">
+          <div className="bg-green-50 border-2 border-green-500 rounded-lg p-4 text-green-800">
+            Thanks for your RSVP! Check your email for the full details.
+          </div>
+          {ticketUrl && (
+            <div className="bg-black text-white rounded-lg p-6">
+              <p className="text-lg font-bold mb-1">🎟 Want to guarantee your spot?</p>
+              <p className="text-gray-300 text-sm mb-5">
+                RSVPs are first-come, first-served and the venue is small. Buying an advance ticket means you're in — no matter how packed it gets.
+              </p>
+              <a
+                href={ticketUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-block bg-white text-black font-bold py-3 px-6 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                Buy a Ticket →
+              </a>
+            </div>
+          )}
         </div>
       ) : (
         <form onSubmit={handleSubmit} className="space-y-6">

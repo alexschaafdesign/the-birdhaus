@@ -17,16 +17,16 @@ export interface Show {
   description?: string;
   photographer?: string | { name: string; instagram?: string };
   rsvpUrl?: string; 
+  ticketUrl?: string;
   videos: Array<{ youtube: string; title: string }>;
   audio?: Array<{ bandcamp: string; title: string }>;
   photos?: string[];
   content: string;
   announced?: boolean;
-
 }
 
 export async function getShowBySlug(slug: string): Promise<Show> {
-const realSlug = slug.replace(/\.md$/, '');
+  const realSlug = slug.replace(/\.md$/, '');
   const fullPath = path.join(showsDirectory, `${realSlug}.md`);
   const fileContents = fs.readFileSync(fullPath, 'utf8');
   const { data, content } = matter(fileContents);
@@ -44,13 +44,13 @@ const realSlug = slug.replace(/\.md$/, '');
     bands: data.bands || [],
     description: data.description,
     photographer: data.photographer,
-    rsvpUrl: data.rsvpUrl, 
+    rsvpUrl: data.rsvpUrl,
+    ticketUrl: data.ticketUrl,
     videos: data.videos || [],
     audio: data.audio || [],
     photos: data.photos || [],
     content: contentHtml,
-    announced: data.announced ?? false,  
-
+    announced: data.announced ?? false,
   };
 }
 
