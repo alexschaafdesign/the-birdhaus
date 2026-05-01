@@ -37,13 +37,12 @@ export default async function Home() {
       <div className="pt-12 pb-8 px-8">
         <div className="flex flex-col items-center justify-center gap-4 mb-4">
           <img 
-            src="https://res.cloudinary.com/defdv9zw7/image/upload/v1771535143/BIRDHAUS_PNG_smaller_vlsqhf.png"
-            alt="The Birdhaus logo"
-            className="w-32 h-32 md:w-40 md:h-40"
+            src="https://res.cloudinary.com/defdv9zw7/image/upload/v1777667646/BHR_LOGO_-_THE_BIRDHAUS_horizontal_1_zr5a8s.svg"
+            alt="The Birdhaus"
+            className="w-full max-w-sm h-auto"
           />
-          <h1 className="text-4xl md:text-6xl font-bold text-center">the BIRDHAUS</h1>
         </div>
-        <div className="flex flex-col md:flex-row items-center justify-center gap-2 md:gap-6 text-sm">
+        <div className="flex flex-col md:flex-row items-center justify-center gap-2 md:gap-6 text-sm mb-4">
           <a href="#upcoming-shows" className="hover:underline">Upcoming Shows</a>
           <span className="hidden md:inline">•</span>
           <a href="/archive" className="hover:underline text-center">Archive</a>
@@ -54,7 +53,7 @@ export default async function Home() {
         </div>
       </div>
 
-         {/* About */}
+      {/* About */}
       <div className="max-w-4xl mx-auto px-8 mb-8">
         <p className="text-lg md:text-xl text-gray-600 text-center">
           the BIRDHAUS is a DIY house venue located in Powderhorn, Minneapolis
@@ -131,8 +130,6 @@ export default async function Home() {
             ))}
           </div>
         )}
-
-        
 
         <div className="mt-8">
           <a href="/archive" className="block text-2xl hover:text-gray-600">
