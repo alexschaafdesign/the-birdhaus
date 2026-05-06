@@ -14,6 +14,8 @@ bands:
     instagram: ""
   - name: "Beemer"
     instagram: ""
+  - name: "Yellow Ostrich"
+    instagram: ""
 description: "Short sets, new songs only"
 flyer: "https://res.cloudinary.com/defdv9zw7/image/upload/v1778087877/FRESH_CUTS_V8_bp85h4.png"
 announced: true
