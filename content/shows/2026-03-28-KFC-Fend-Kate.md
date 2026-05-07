@@ -12,6 +12,7 @@ flyer: "https://res.cloudinary.com/defdv9zw7/image/upload/v1773080504/642945179_
 announced: true
 videos:
   - youtube: "E8EoL-csBmk"
+  - youtube: "0nRCYPy2-H4"
 
 ---
 
