@@ -37,7 +37,7 @@ export default async function Home() {
       <div className="pt-12 pb-8 px-8">
         <div className="flex flex-col items-center justify-center gap-4 mb-4">
           <img 
-            src="https://res.cloudinary.com/defdv9zw7/image/upload/v1777667646/BHR_LOGO_-_THE_BIRDHAUS_horizontal_1_zr5a8s.svg"
+            src="https://res.cloudinary.com/defdv9zw7/image/upload/v1778512014/HORIZ_BLUE_mtqadx.svg"
             alt="The Birdhaus"
             className="w-full max-w-sm h-auto"
           />
