@@ -56,7 +56,7 @@ export default async function Home() {
       {/* About */}
       <div className="max-w-4xl mx-auto px-8 mb-8">
         <p className="text-lg md:text-xl text-gray-600 text-center">
-          the BIRDHAUS is a DIY house venue located in Powderhorn, Minneapolis
+          the BIRDHAUS is a DIY house venue and record label located in Powderhorn, Minneapolis
         </p>
       </div>
 

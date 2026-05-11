@@ -7,7 +7,7 @@ bands:
   - name: "Eldest Daughter"
   - name: "Bathtub Cig"
   - name: "Canary Room"
-flyer: "https://res.cloudinary.com/defdv9zw7/image/upload/v1778512467/June_5_2026_Eldest_Daughter_hfz98h.jpg"
+flyer: "https://res.cloudinary.com/defdv9zw7/image/upload/v1778514561/June_5_2026_Eldest_Daughter_c9ebwk.jpg"
 announced: true
 ticketUrl: "https://square.link/u/XoBYXSU2"
 ---
