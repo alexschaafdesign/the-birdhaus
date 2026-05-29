@@ -35,9 +35,15 @@ export default function ContactPage() {
     <main className="min-h-screen">
       <div className="max-w-xl mx-auto px-8 pb-16">
         <h2 className="text-4xl font-bold mb-2">Contact</h2>
-        <p className="text-[#E8E0D0]/70 text-lg mb-8">
+        <p className="text-[#E8E0D0]/70 text-lg mb-6">
           Questions about shows, booking, or anything else — drop us a line.
         </p>
+
+        <div className="border border-[#E8E0D0]/30 rounded-lg p-4 mb-8 bg-[#E8E0D0]/5">
+          <p className="text-sm">
+            <span className="font-semibold">Heads up:</span> the BIRDHAUS will be closed for shows from October through December 2026.
+          </p>
+        </div>
 
         {status === 'success' ? (
           <p className="text-lg">Got it — we'll be in touch.</p>
