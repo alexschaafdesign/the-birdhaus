@@ -56,9 +56,9 @@ export default function RSVPForm({
   };
 
   return (
-    <div className="border-2 border-gray-200 rounded-lg p-8 mb-12 bg-gray-50">
+    <div className="border-2 border-[#E8E0D0]/20 rounded-lg p-8 mb-12 bg-[#E8E0D0]/5">
       <h2 className="text-3xl font-bold mb-2">RSVP for this show</h2>
-      <p className="text-gray-600 mb-6">
+      <p className="text-[#E8E0D0]/70 mb-6">
         RSVP below to get the venue address and show details emailed to you.
         {ticketUrl && (
           <> After submitting, you'll have the option to <strong>buy an advance ticket</strong> to guarantee your spot.</>
@@ -67,20 +67,20 @@ export default function RSVPForm({
 
       {status === 'success' ? (
         <div className="space-y-4">
-          <div className="bg-green-50 border-2 border-green-500 rounded-lg p-4 text-green-800">
+          <div className="bg-green-900/30 border-2 border-green-500 rounded-lg p-4 text-green-300">
             Thanks for your RSVP! Check your email for the full details.
           </div>
           {ticketUrl && (
-            <div className="bg-black text-white rounded-lg p-6">
+            <div className="bg-[#E8E0D0] text-[#2A2420] rounded-lg p-6">
               <p className="text-lg font-bold mb-1">🎟 Want to guarantee your spot?</p>
-              <p className="text-gray-300 text-sm mb-5">
+              <p className="text-[#2A2420]/70 text-sm mb-5">
                 RSVPs are first-come, first-served and the venue is small. Buying an advance ticket means you're in — no matter how packed it gets.
               </p>
               <a
                 href={ticketUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-block bg-white text-black font-bold py-3 px-6 rounded-lg hover:bg-gray-200 transition-colors"
+                className="inline-block bg-[#2A2420] text-[#E8E0D0] font-bold py-3 px-6 rounded-lg hover:bg-[#2A2420]/80 transition-colors"
               >
                 Buy a Ticket →
               </a>
@@ -90,7 +90,7 @@ export default function RSVPForm({
       ) : (
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
-            <label htmlFor="name" className="block text-sm font-medium mb-2 text-gray-700">
+            <label htmlFor="name" className="block text-sm font-medium mb-2 text-[#E8E0D0]/80">
               Name
             </label>
             <input
@@ -99,12 +99,12 @@ export default function RSVPForm({
               required
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              className="w-full bg-white border-2 border-gray-300 rounded-lg px-4 py-3 text-black focus:border-black focus:outline-none transition-colors"
+              className="w-full bg-[#2A2420] border-2 border-[#E8E0D0]/30 rounded-lg px-4 py-3 text-[#E8E0D0] focus:border-[#E8E0D0] focus:outline-none transition-colors"
             />
           </div>
 
           <div>
-            <label htmlFor="email" className="block text-sm font-medium mb-2 text-gray-700">
+            <label htmlFor="email" className="block text-sm font-medium mb-2 text-[#E8E0D0]/80">
               Email
             </label>
             <input
@@ -113,19 +113,19 @@ export default function RSVPForm({
               required
               value={formData.email}
               onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-              className="w-full bg-white border-2 border-gray-300 rounded-lg px-4 py-3 text-black focus:border-black focus:outline-none transition-colors"
+              className="w-full bg-[#2A2420] border-2 border-[#E8E0D0]/30 rounded-lg px-4 py-3 text-[#E8E0D0] focus:border-[#E8E0D0] focus:outline-none transition-colors"
             />
           </div>
 
           <div>
-            <label htmlFor="guests" className="block text-sm font-medium mb-2 text-gray-700">
+            <label htmlFor="guests" className="block text-sm font-medium mb-2 text-[#E8E0D0]/80">
               Number of guests (including you)
             </label>
             <select
               id="guests"
               value={formData.guests}
               onChange={(e) => setFormData({ ...formData, guests: e.target.value })}
-              className="w-full bg-white border-2 border-gray-300 rounded-lg px-4 py-3 text-black focus:border-black focus:outline-none transition-colors"
+              className="w-full bg-[#2A2420] border-2 border-[#E8E0D0]/30 rounded-lg px-4 py-3 text-[#E8E0D0] focus:border-[#E8E0D0] focus:outline-none transition-colors"
             >
               <option value="1">1</option>
               <option value="2">2</option>
@@ -141,9 +141,9 @@ export default function RSVPForm({
               id="emailList"
               checked={formData.emailList}
               onChange={(e) => setFormData({ ...formData, emailList: e.target.checked })}
-              className="w-5 h-5 rounded border-2 border-gray-300 text-black focus:ring-black"
+              className="w-5 h-5 rounded border-2 border-[#E8E0D0]/30 text-[#E8E0D0] focus:ring-[#E8E0D0]"
             />
-            <label htmlFor="emailList" className="text-sm text-gray-700">
+            <label htmlFor="emailList" className="text-sm text-[#E8E0D0]/80">
               Add me to the email list for future shows
             </label>
           </div>
@@ -151,13 +151,13 @@ export default function RSVPForm({
           <button
             type="submit"
             disabled={status === 'submitting'}
-            className="w-full bg-black text-white font-bold py-4 px-6 rounded-lg hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="w-full bg-[#E8E0D0] text-[#2A2420] font-bold py-4 px-6 rounded-lg hover:bg-[#E8E0D0]/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             {status === 'submitting' ? 'Submitting...' : 'Submit RSVP'}
           </button>
 
           {status === 'error' && (
-            <div className="bg-red-50 border-2 border-red-500 rounded-lg p-4 text-red-800">
+            <div className="bg-red-900/30 border-2 border-red-500 rounded-lg p-4 text-red-300">
               Something went wrong. Please try again.
             </div>
           )}

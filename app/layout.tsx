@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Instrument_Sans } from "next/font/google";
 import "./globals.css";
+import Header from "@/components/Header";
 
 const instrumentSans = Instrument_Sans({
   subsets: ["latin"],
@@ -17,8 +18,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body className={instrumentSans.className}>
+    <html lang="en" style={{ backgroundColor: "#2A2420", color: "#E8E0D0" }}>
+      <body className={instrumentSans.className} style={{ backgroundColor: "#2A2420", color: "#E8E0D0" }}>
+        <Header />
         {children}
       </body>
     </html>

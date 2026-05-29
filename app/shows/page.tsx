@@ -9,24 +9,20 @@ export default async function ShowsPage() {
   shows.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
   return (
-    <main className="min-h-screen bg-black text-white p-8">
+    <main className="min-h-screen p-8">
       <div className="max-w-4xl mx-auto">
-        <a href="/" className="text-gray-400 hover:text-white mb-8 inline-block">
-          ← Back to home
-        </a>
-
         <h1 className="text-5xl font-bold mb-8">Shows</h1>
 
         <div className="space-y-6">
           {shows.map((show) => (
-            <Link 
-              key={show.slug} 
+            <Link
+              key={show.slug}
               href={`/shows/${show.slug}`}
-              className="block border border-gray-800 rounded p-6 hover:border-gray-500 transition-colors"
+              className="block border border-[#E8E0D0]/20 rounded p-6 hover:border-[#E8E0D0]/50 transition-colors"
             >
-              <p className="text-gray-400 mb-1">{show.date}</p>
+              <p className="text-[#E8E0D0]/60 mb-1">{show.date}</p>
               <h2 className="text-2xl font-bold mb-2">{show.title}</h2>
-              <p className="text-gray-400">{show.bands.join(', ')}</p>
+              <p className="text-[#E8E0D0]/60">{show.bands.join(', ')}</p>
             </Link>
           ))}
         </div>

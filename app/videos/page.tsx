@@ -22,12 +22,8 @@ export default async function VideosPage() {
   const videoCount = allVideos.length;
 
   return (
-    <main className="min-h-screen bg-black text-white p-8">
+    <main className="min-h-screen p-8">
       <div className="max-w-4xl mx-auto">
-        <a href="/" className="text-gray-400 hover:text-white mb-8 inline-block">
-          ← Back to home
-        </a>
-
         <div className="flex items-center justify-between mb-8">
           <h1 className="text-5xl font-bold">Video</h1>
           <div className="font-mono text-sm border border-yellow-500/40 rounded-lg p-4 bg-yellow-500/5">
@@ -39,11 +35,11 @@ export default async function VideosPage() {
         </div>
 
         {allVideos.length === 0 ? (
-          <p className="text-gray-400">No videos yet.</p>
+          <p className="text-[#E8E0D0]/60">No videos yet.</p>
         ) : (
           <div className="space-y-12">
             {allVideos.map((video, index) => (
-              <div key={index} className="border border-gray-800 rounded-lg overflow-hidden">
+              <div key={index} className="border border-[#E8E0D0]/20 rounded-lg overflow-hidden">
                 <div className="aspect-video">
                   <iframe
                     width="100%"
@@ -56,11 +52,11 @@ export default async function VideosPage() {
                 </div>
                 <div className="p-4">
                   <h2 className="text-xl font-bold mb-1">{video.title}</h2>
-                  <p className="text-gray-500 text-sm font-mono">
+                  <p className="text-[#E8E0D0]/50 text-sm font-mono">
                     {video.showDate} ·{' '}
-                    
+
                       <a href={`/shows/${video.showSlug}`}
-                      className="hover:text-gray-300 transition-colors"
+                      className="hover:text-[#E8E0D0]/80 transition-colors"
                     >
                       {video.showTitle}
                     </a>

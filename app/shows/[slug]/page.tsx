@@ -27,12 +27,12 @@ export default async function ShowPage({ params }: { params: Promise<{ slug: str
   });
 
   return (
-    <main className="min-h-screen bg-white text-black">
+    <main className="min-h-screen">
       <div className="max-w-5xl mx-auto px-6 py-12">
         {/* Back link */}
-        <a 
-          href={isPast ? "/archive" : "/"} 
-          className="text-gray-600 hover:text-black mb-8 inline-block text-sm uppercase tracking-wide"
+        <a
+          href={isPast ? "/archive" : "/"}
+          className="text-[#E8E0D0]/70 hover:text-[#E8E0D0] mb-8 inline-block text-sm uppercase tracking-wide"
         >
           ← {isPast ? "Back to archive" : "Back to home"}
         </a>
@@ -41,7 +41,7 @@ export default async function ShowPage({ params }: { params: Promise<{ slug: str
         <div className="mb-10">
           <h1 className="text-5xl md:text-6xl font-bold mb-3 leading-tight">{show.title}</h1>
           
-          <div className="flex flex-wrap gap-3 text-base text-gray-600">
+          <div className="flex flex-wrap gap-3 text-base text-[#E8E0D0]/70">
             <div className="flex items-center gap-2">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -81,7 +81,7 @@ export default async function ShowPage({ params }: { params: Promise<{ slug: str
         )}
 
         {/* Lineup */}
-        <div className="mb-10 bg-gray-50 rounded-lg p-6 border border-gray-200">
+        <div className="mb-10 bg-[#E8E0D0]/5 rounded-lg p-6 border border-[#E8E0D0]/20">
           <h2 className="text-2xl font-bold mb-4">Lineup</h2>
           <div className="space-y-2">
             {show.bands.map((band, index) => {
@@ -95,7 +95,7 @@ export default async function ShowPage({ params }: { params: Promise<{ slug: str
                       href={instagram} 
                       target="_blank" 
                       rel="noopener noreferrer"
-                      className="hover:text-gray-600 underline decoration-2 underline-offset-2 transition-colors"
+                      className="hover:text-[#E8E0D0]/70 underline decoration-2 underline-offset-2 transition-colors"
                     >
                       {bandName}
                     </a>
@@ -169,16 +169,16 @@ export default async function ShowPage({ params }: { params: Promise<{ slug: str
           <div className="mb-12">
             <h2 className="text-3xl font-bold mb-2">Photos</h2>
             {show.photographer && (
-              <p className="text-gray-600 mb-6">
+              <p className="text-[#E8E0D0]/70 mb-6">
                 Photos by{' '}
                 {typeof show.photographer === 'string' ? (
                   show.photographer
                 ) : show.photographer.instagram ? (
-                  <a 
+                  <a
                     href={show.photographer.instagram}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="hover:text-black underline"
+                    className="hover:text-[#E8E0D0] underline"
                   >
                     {show.photographer.name}
                   </a>

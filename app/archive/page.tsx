@@ -28,12 +28,8 @@ export default async function ArchivePage() {
   );
 
   return (
-    <main className="min-h-screen bg-black text-white p-8">
+    <main className="min-h-screen p-8">
       <div className="max-w-4xl mx-auto">
-        <a href="/" className="text-gray-400 hover:text-white mb-8 inline-block">
-          ← Back to home
-        </a>
-
         <div className="flex items-center justify-between mb-8">
           <h1 className="text-5xl font-bold">ARCHIVE</h1>
           <div className="font-mono text-sm border border-yellow-500/40 rounded-lg p-4 bg-yellow-500/5">
@@ -51,16 +47,16 @@ export default async function ArchivePage() {
         </div>
 
         {/* Band roster */}
-        <details className="mb-10 border border-gray-800 rounded-lg group">
-          <summary className="px-4 py-3 cursor-pointer text-sm text-gray-400 hover:text-white uppercase tracking-widest select-none list-none flex justify-between items-center">
+        <details className="mb-10 border border-[#E8E0D0]/20 rounded-lg group">
+          <summary className="px-4 py-3 cursor-pointer text-sm text-[#E8E0D0]/60 hover:text-[#E8E0D0] uppercase tracking-widest select-none list-none flex justify-between items-center">
             <span>Birdhaus alums - click to expand</span>
-            <span className="text-xs text-gray-600 group-open:hidden">▸ expand</span>
-            <span className="text-xs text-gray-600 hidden group-open:inline">▾ collapse</span>
+            <span className="text-xs text-[#E8E0D0]/40 group-open:hidden">▸ expand</span>
+            <span className="text-xs text-[#E8E0D0]/40 hidden group-open:inline">▾ collapse</span>
           </summary>
           <div className="px-4 pb-4 pt-2 columns-2 sm:columns-3 gap-x-6">
             {sortedBands.map(([name, count]) => (
-              <div key={name} className="flex justify-between items-baseline gap-2 py-1 border-b border-gray-900 break-inside-avoid">
-                <span className="text-sm text-gray-200 truncate">{name}</span>
+              <div key={name} className="flex justify-between items-baseline gap-2 py-1 border-b border-[#E8E0D0]/10 break-inside-avoid">
+                <span className="text-sm text-[#E8E0D0]/90 truncate">{name}</span>
                 {count > 1 && (
                   <span className="text-xs text-yellow-500/70 font-mono flex-shrink-0">×{count}</span>
                 )}
@@ -70,16 +66,16 @@ export default async function ArchivePage() {
         </details>
 
         {pastShows.length === 0 ? (
-          <p className="text-gray-400">No past shows yet.</p>
+          <p className="text-[#E8E0D0]/60">No past shows yet.</p>
         ) : (
           <div className="space-y-4">
             {pastShows.map((show) => (
               <Link
                 key={show.slug}
                 href={`/shows/${show.slug}`}
-                className="flex gap-6 border border-gray-800 rounded-lg p-4 hover:border-gray-500 hover:bg-gray-900 transition-colors"
+                className="flex gap-6 border border-[#E8E0D0]/20 rounded-lg p-4 hover:border-[#E8E0D0]/50 hover:bg-[#E8E0D0]/5 transition-colors"
               >
-                <div className="w-24 h-24 flex-shrink-0 rounded overflow-hidden bg-gray-900">
+                <div className="w-24 h-24 flex-shrink-0 rounded overflow-hidden bg-[#E8E0D0]/10">
                   {show.flyer ? (
                     <img
                       src={show.flyer}
@@ -87,15 +83,15 @@ export default async function ArchivePage() {
                       className="w-full h-full object-cover"
                     />
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center text-gray-700 text-xs text-center px-2">
+                    <div className="w-full h-full flex items-center justify-center text-[#E8E0D0]/40 text-xs text-center px-2">
                       No flyer
                     </div>
                   )}
                 </div>
                 <div className="flex flex-col justify-center min-w-0">
-                  <p className="text-gray-500 text-sm mb-1">{show.date}</p>
+                  <p className="text-[#E8E0D0]/50 text-sm mb-1">{show.date}</p>
                   <h2 className="text-xl font-bold mb-1 truncate">{show.title}</h2>
-                  <p className="text-gray-400 text-sm truncate">
+                  <p className="text-[#E8E0D0]/60 text-sm truncate">
                     {Array.isArray(show.bands) && show.bands.map((band) =>
                       typeof band === 'string' ? band : band.name
                     ).join(', ')}
