@@ -5,8 +5,8 @@ flyer: "https://res.cloudinary.com/defdv9zw7/image/upload/v1773522260/472464066_
 bands:
   - name: "Harlow"
   - name: "Nadia Hulett"
-  - name: "Rosie"
-  - name: "Calvin Keyes / Too Champagne"
+  - name: "IAMJOY"
+  - name: "Too Champagne"
   - name: "Dusty Forever"
   - name: "True Green"
 

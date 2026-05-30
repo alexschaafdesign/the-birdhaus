@@ -3,7 +3,7 @@ title: "Fresh Cuts v3"
 date: "2024-08-23"
 flyer: "https://res.cloudinary.com/defdv9zw7/image/upload/v1773512403/625100443_18133612933446992_7992294225451306785_n_dahylk.jpg"
 bands:
-  - name: "Peter Miller / We are the Willows"
+  - name: "We are the Willows"
   - name: "Karl Remus"
   - name: "26BATS!"
   - name: "Morgan Kavanagh"

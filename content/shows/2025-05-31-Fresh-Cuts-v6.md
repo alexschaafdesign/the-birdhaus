@@ -5,7 +5,7 @@ flyer: "https://res.cloudinary.com/defdv9zw7/image/upload/v1773524116/499722327_
 bands:
   - name: "bird dog"
   - name: "Tea Doggy"
-  - name: "Mary Traxler"
+  - name: "fruit form"
   - name: "Waterdrinker"
   - name: "Oceanographer"
 
