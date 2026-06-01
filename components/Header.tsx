@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
 const navLinks = [
-  { href: '/', label: 'Upcoming Shows' },
+  { href: '/upcoming', label: 'Upcoming Shows' },
   { href: '/archive', label: 'Archive' },
   { href: '/videos', label: 'Video' },
   { href: 'https://birdhausrecords.bandcamp.com', label: 'Record Label', external: true },
@@ -19,7 +19,7 @@ export default function Header() {
       <div className="flex flex-col items-center justify-center gap-4 mb-4">
         <Link href="/">
           <img
-            src="https://res.cloudinary.com/defdv9zw7/image/upload/v1779904935/TheBHhoriz_hhuzsm.png"
+            src="https://res.cloudinary.com/defdv9zw7/image/upload/v1780325979/Horiz_mkva70.png"
             alt="The Birdhaus"
             className="w-full max-w-sm h-auto"
           />
