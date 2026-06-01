@@ -25,22 +25,26 @@ export default function Header() {
           />
         </Link>
       </div>
-      <nav className="flex flex-col md:flex-row items-center justify-center gap-2 md:gap-6 text-sm">
+      <nav className="grid grid-cols-2 gap-2 md:flex md:flex-row md:items-center md:justify-center md:gap-6 text-sm max-w-sm md:max-w-none mx-auto">
         {navLinks.map((link, i) => {
           const isActive = !link.external && pathname === link.href;
-          const className = `hover:underline${isActive ? ' font-semibold' : ''}`;
+          const isLast = i === navLinks.length - 1;
+          const linkClass = `block w-full text-center rounded border border-[#E8E0D0]/30 px-4 py-3 transition-colors hover:border-[#E8E0D0] hover:bg-[#E8E0D0]/5 md:w-auto md:rounded-none md:border-0 md:p-0 md:hover:bg-transparent md:hover:underline${isActive ? ' bg-[#E8E0D0]/10 font-semibold md:bg-transparent' : ''}`;
           return (
-            <span key={link.href} className="flex items-center gap-2 md:gap-6">
+            <span
+              key={link.href}
+              className={`flex items-center md:gap-6${isLast && navLinks.length % 2 === 1 ? ' col-span-2 md:col-auto' : ''}`}
+            >
               {link.external ? (
-                <a href={link.href} target="_blank" rel="noopener noreferrer" className={className}>
+                <a href={link.href} target="_blank" rel="noopener noreferrer" className={linkClass}>
                   {link.label}
                 </a>
               ) : (
-                <Link href={link.href} className={className}>
+                <Link href={link.href} className={linkClass}>
                   {link.label}
                 </Link>
               )}
-              {i < navLinks.length - 1 && <span className="hidden md:inline">•</span>}
+              {!isLast && <span className="hidden md:inline">•</span>}
             </span>
           );
         })}
