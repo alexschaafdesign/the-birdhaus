@@ -2,7 +2,44 @@
 
 import { useState } from 'react';
 
-export default function RSVPForm({ 
+// Basic RFC-ish format check.
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+// Common typo TLDs -> the TLD the user almost certainly meant.
+const TLD_TYPOS: Record<string, string> = {
+  con: 'com',
+  cpm: 'com',
+  ocm: 'com',
+  cmo: 'com',
+  comm: 'com',
+  co: 'com',
+  vom: 'com',
+  xom: 'com',
+  nett: 'net',
+  ne: 'net',
+  orgg: 'org',
+  ogr: 'org',
+  rog: 'org',
+  edi: 'edu',
+};
+
+// Returns an error message if the email is invalid, otherwise null.
+function validateEmail(email: string): string | null {
+  const trimmed = email.trim();
+  if (!EMAIL_REGEX.test(trimmed)) {
+    return 'Please enter a valid email address.';
+  }
+
+  const tld = trimmed.split('.').pop()?.toLowerCase() ?? '';
+  if (TLD_TYPOS[tld]) {
+    const suggested = trimmed.replace(new RegExp(`\\.${tld}$`, 'i'), `.${TLD_TYPOS[tld]}`);
+    return `Did you mean "${suggested}"?`;
+  }
+
+  return null;
+}
+
+export default function RSVPForm({
   showTitle, 
   showDate,
   doorsTime,
@@ -24,9 +61,18 @@ export default function RSVPForm({
     emailList: false,
   });
   const [status, setStatus] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle');
+  const [emailError, setEmailError] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    const error = validateEmail(formData.email);
+    if (error) {
+      setEmailError(error);
+      return;
+    }
+    setEmailError(null);
+
     setStatus('submitting');
 
     try {
@@ -112,9 +158,21 @@ export default function RSVPForm({
               id="email"
               required
               value={formData.email}
-              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-              className="w-full bg-[#2A2420] border-2 border-[#E8E0D0]/30 rounded-lg px-4 py-3 text-[#E8E0D0] focus:border-[#E8E0D0] focus:outline-none transition-colors"
+              onChange={(e) => {
+                setFormData({ ...formData, email: e.target.value });
+                if (emailError) setEmailError(null);
+              }}
+              onBlur={(e) => {
+                if (e.target.value.trim()) setEmailError(validateEmail(e.target.value));
+              }}
+              aria-invalid={emailError ? true : undefined}
+              className={`w-full bg-[#2A2420] border-2 rounded-lg px-4 py-3 text-[#E8E0D0] focus:outline-none transition-colors ${
+                emailError ? 'border-red-500 focus:border-red-500' : 'border-[#E8E0D0]/30 focus:border-[#E8E0D0]'
+              }`}
             />
+            {emailError && (
+              <p className="mt-2 text-sm text-red-400">{emailError}</p>
+            )}
           </div>
 
           <div>
