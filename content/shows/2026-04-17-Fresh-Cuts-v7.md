@@ -23,5 +23,7 @@ videos:
   - youtube: "tlOyhgEcyF0"
   - youtube: "oFTA6HYKow0"
   - youtube: "2kFb1KqHU4k"
+photoFolder: "2026-04-17"
+photoCredit: "Kristiana Tu"
 ---
 
