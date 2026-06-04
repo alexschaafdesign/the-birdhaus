@@ -21,6 +21,8 @@ export interface Show {
   videos: Array<{ youtube: string; title: string }>;
   audio?: Array<{ bandcamp: string; title: string }>;
   photos?: string[];
+  photoFolder?: string;
+  photoCredit?: string;
   content: string;
   announced?: boolean;
 }
@@ -49,6 +51,8 @@ export async function getShowBySlug(slug: string): Promise<Show> {
     videos: data.videos || [],
     audio: data.audio || [],
     photos: data.photos || [],
+    photoFolder: data.photoFolder,
+    photoCredit: data.photoCredit,
     content: contentHtml,
     announced: data.announced ?? false,
   };

@@ -1,6 +1,8 @@
 import { getShowBySlug, getAllShowSlugs } from '@/lib/shows';
+import { getPhotosFromFolder } from '@/lib/cloudinary';
 import RSVPForm from '@/components/RSVPForm';
 import PhotoGallery from '@/components/PhotoGallery';
+import CloudinaryGallery from '@/components/CloudinaryGallery';
 
 export async function generateStaticParams() {
   const slugs = getAllShowSlugs();
@@ -10,6 +12,10 @@ export async function generateStaticParams() {
 export default async function ShowPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const show = await getShowBySlug(slug);
+
+  const galleryPhotos = show.photoFolder
+    ? await getPhotosFromFolder(show.photoFolder)
+    : [];
 
   const todayStr = new Date().toLocaleDateString('en-US', { timeZone: 'America/Chicago' });
   const today = new Date(todayStr);
@@ -188,6 +194,19 @@ export default async function ShowPage({ params }: { params: Promise<{ slug: str
               </p>
             )}
             <PhotoGallery photos={show.photos} showTitle={show.title} />
+          </div>
+        )}
+
+        {/* Cloudinary gallery */}
+        {show.photoFolder && galleryPhotos.length > 0 && (
+          <div className="mb-12">
+            <div className="flex flex-wrap items-baseline gap-x-3 mb-6">
+              <h2 className="text-3xl font-bold">Gallery</h2>
+              {show.photoCredit && (
+                <span className="text-sm text-[#E8E0D0]/50">Photos by {show.photoCredit}</span>
+              )}
+            </div>
+            <CloudinaryGallery photos={galleryPhotos} showTitle={show.title} />
           </div>
         )}
 

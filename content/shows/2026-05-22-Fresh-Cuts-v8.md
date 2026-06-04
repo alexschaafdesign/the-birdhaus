@@ -21,6 +21,8 @@ flyer: "https://res.cloudinary.com/defdv9zw7/image/upload/v1778087877/FRESH_CUTS
 announced: true
 rsvpUrl: "https://script.google.com/macros/s/AKfycbzqZHQ4Ld2C04hBVShlh91wKa-midZOW0HUaaTnLXhxymA60nqoyCV6jjdXqDkgPc2G/exec"
 ticketUrl: "https://square.link/u/PbtZjk20"
+photoFolder: "2026-05-22"
+photoCredit: "Jeremy Nelson"
 
 ---
 
