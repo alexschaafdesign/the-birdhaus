@@ -23,6 +23,13 @@ rsvpUrl: "https://script.google.com/macros/s/AKfycbzqZHQ4Ld2C04hBVShlh91wKa-midZ
 ticketUrl: "https://square.link/u/PbtZjk20"
 photoFolder: "2026-05-22"
 photoCredit: "Jeremy Nelson"
+videos: 
+  - youtube: "HNnUpf802c0"
+  - youtube: "ot4i_4qWInc"
+  - youtube: "GnB7HKxrJus"
+  - youtube: "EtMXzrofYtU"
+  - youtube: "JLvAVK9Q9is"
+  - youtube: "0TvfbiCsk5k"
 
 ---
 
