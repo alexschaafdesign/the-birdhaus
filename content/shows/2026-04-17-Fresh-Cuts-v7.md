@@ -6,7 +6,7 @@ showTime: "8:00pm"
 bands:
   - name: "One Big Quilt"
     instagram: ""
-  - name: "Zoe Grigsby"
+  - name: "Yellow Ostrich"
     instagram: ""
   - name: "Toby Ramaswamy and Eric Mayson"
     instagram: ""
