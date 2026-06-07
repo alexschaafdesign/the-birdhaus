@@ -87,6 +87,7 @@ export default function RSVPForm({
           doorsTime: doorsTime || '',
           showTime: showTime || '',
           flyerUrl: flyerUrl || '',
+          ticketUrl: ticketUrl || '',
           name: formData.name,
           email: formData.email,
           guests: formData.guests,
