@@ -1,5 +1,5 @@
 ---
-title: "FRESH CUTS V8"
+title: "FRESH CUTS V9"
 date: "2026-05-22"
 doorsTime: "7:00pm"
 showTime: "8:00pm"
@@ -17,7 +17,7 @@ bands:
   - name: "Yellow Ostrich"
     instagram: ""
 description: "Short sets, new songs only"
-flyer: "https://res.cloudinary.com/defdv9zw7/image/upload/v1778087877/FRESH_CUTS_V8_bp85h4.png"
+flyer: "https://res.cloudinary.com/defdv9zw7/image/upload/v1780970275/Fresh_Cuts_v9_fixed_flyer_l9i1w5.png"
 announced: true
 rsvpUrl: "https://script.google.com/macros/s/AKfycbzqZHQ4Ld2C04hBVShlh91wKa-midZOW0HUaaTnLXhxymA60nqoyCV6jjdXqDkgPc2G/exec"
 ticketUrl: "https://square.link/u/PbtZjk20"

@@ -1,5 +1,5 @@
 ---
-title: "FRESH CUTS V7"
+title: "FRESH CUTS V8"
 date: "2026-04-17"
 doorsTime: "7:00pm"
 showTime: "8:00pm"
@@ -15,7 +15,7 @@ bands:
   - name: "Second Spring"
     instagram: ""
 description: "Short sets, new songs only"
-flyer: "https://res.cloudinary.com/defdv9zw7/image/upload/v1774121609/fresh_cuts_v7_flyer_ylxbjb.png"
+flyer: "https://res.cloudinary.com/defdv9zw7/image/upload/v1780970198/Fresh_Cuts_v8_fixed_flyer_pu3rpi.png"
 announced: true
 rsvpUrl: "https://script.google.com/macros/s/AKfycbzqZHQ4Ld2C04hBVShlh91wKa-midZOW0HUaaTnLXhxymA60nqoyCV6jjdXqDkgPc2G/exec"
 videos:
