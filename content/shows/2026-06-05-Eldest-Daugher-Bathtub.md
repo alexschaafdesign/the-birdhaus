@@ -10,6 +10,10 @@ bands:
 flyer: "https://res.cloudinary.com/defdv9zw7/image/upload/v1778514561/June_5_2026_Eldest_Daughter_c9ebwk.jpg"
 announced: true
 ticketUrl: "https://square.link/u/XoBYXSU2"
+videos:
+  - youtube: "FkPnij5dfw8"
+  - youtube: "eP4m7uTCchQ"
+  - youtube: "iCBXJqW_m24"
 ---
 
 
