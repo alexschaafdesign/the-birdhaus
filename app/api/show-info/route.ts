@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import fs from "fs";
 import path from "path";
 import matter from "gray-matter";
+import { getTodayCentral } from "@/lib/shows";
 
 interface ShowFrontmatter {
   title: string;
@@ -24,7 +25,7 @@ function getShows(): ShowFrontmatter[] {
 }
 
 function buildMessage(): string {
-  const today = new Date().toISOString().split("T")[0]; // "2026-04-19"
+  const today = getTodayCentral(); // "2026-04-19" in Central Time
   const shows = getShows().filter((s) => s.announced !== false);
 
   // Check for a show today

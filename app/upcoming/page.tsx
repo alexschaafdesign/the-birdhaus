@@ -1,19 +1,20 @@
-import { getAllShowSlugs, getShowBySlug } from '@/lib/shows';
+import { getAllShowSlugs, getShowBySlug, getTodayCentral } from '@/lib/shows';
 import Link from 'next/link';
+
+// Evaluate the upcoming/past split per request so it reflects the current date,
+// not the date the site was last built/deployed.
+export const dynamic = 'force-dynamic';
 
 export default async function UpcomingShows() {
   const slugs = getAllShowSlugs();
   const shows = await Promise.all(slugs.map((slug) => getShowBySlug(slug)));
 
-  const todayStr = new Date().toLocaleDateString('en-US', { timeZone: 'America/Chicago' });
-  const today = new Date(todayStr);
+  const today = getTodayCentral();
 
-  const upcomingShows = shows.filter((show) => {
-    const [year, month, day] = show.date.split('-').map(Number);
-    const showDate = new Date(year, month - 1, day);
-    return showDate >= today && show.announced === true;
-  });
-  upcomingShows.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  const upcomingShows = shows.filter(
+    (show) => show.date >= today && show.announced === true
+  );
+  upcomingShows.sort((a, b) => a.date.localeCompare(b.date));
 
   return (
     <main className="min-h-screen">

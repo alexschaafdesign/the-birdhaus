@@ -58,6 +58,14 @@ export async function getShowBySlug(slug: string): Promise<Show> {
   };
 }
 
+// Today's date in Central Time as "YYYY-MM-DD". Because show.date is also stored
+// as "YYYY-MM-DD", these can be compared lexicographically: a show is upcoming while
+// show.date >= getTodayCentral(), and flips to past at midnight Central (i.e. right
+// after 11:59pm on the day of the show).
+export function getTodayCentral(): string {
+  return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Chicago' });
+}
+
 export function getAllShowSlugs(): string[] {
   const fileNames = fs.readdirSync(showsDirectory);
   return fileNames.map((fileName) => fileName.replace(/\.md$/, ''));

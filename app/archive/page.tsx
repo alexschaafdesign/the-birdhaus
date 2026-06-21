@@ -1,14 +1,17 @@
-import { getAllShowSlugs, getShowBySlug } from '@/lib/shows';
+import { getAllShowSlugs, getShowBySlug, getTodayCentral } from '@/lib/shows';
 import Link from 'next/link';
+
+// Evaluate the upcoming/past split per request so it reflects the current date,
+// not the date the site was last built/deployed.
+export const dynamic = 'force-dynamic';
 
 export default async function ArchivePage() {
   const slugs = getAllShowSlugs();
   const shows = await Promise.all(slugs.map((slug) => getShowBySlug(slug)));
-  
-  const today = new Date().toLocaleDateString('en-US', { timeZone: 'America/Chicago' });
-  const todayDate = new Date(today);
-  const pastShows = shows.filter((show) => new Date(show.date) < todayDate);
-  pastShows.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+  const today = getTodayCentral();
+  const pastShows = shows.filter((show) => show.date < today);
+  pastShows.sort((a, b) => b.date.localeCompare(a.date));
 
   const showCount = pastShows.length;
 
