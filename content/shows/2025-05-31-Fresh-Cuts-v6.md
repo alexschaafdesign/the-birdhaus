@@ -7,7 +7,7 @@ bands:
   - name: "Tea Doggy"
   - name: "fruit form"
   - name: "Waterdrinker"
-  - name: "Oceanographer"
+  - name: "Gill Weather"
 
 photos:
   - "https://res.cloudinary.com/defdv9zw7/image/upload/v1773524200/A5537772-8E36-4F18-BB67-DE62EC0169A4_1_105_c_vfvivr.jpg"
