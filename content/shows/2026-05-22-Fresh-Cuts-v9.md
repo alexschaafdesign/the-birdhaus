@@ -10,7 +10,7 @@ bands:
     instagram: ""
   - name: "Zaq Baker"
     instagram: ""
-  - name: "The Weeping Convenant"
+  - name: "The Weeping Covenant"
     instagram: ""
   - name: "Beemer"
     instagram: ""
