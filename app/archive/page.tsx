@@ -34,19 +34,19 @@ export default async function ArchivePage() {
   return (
     <main className="min-h-screen p-8">
       <div className="max-w-4xl mx-auto">
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-8">
           <h1 className="text-5xl font-bold">ARCHIVE</h1>
           <div className="font-mono text-sm border border-yellow-500/40 rounded-lg p-4 bg-yellow-500/5">
-            <div className="flex gap-8">
+            <div className="flex gap-4 sm:gap-8">
               <div>
                 <span className="text-yellow-500/60 uppercase tracking-widest text-xs block mb-1">Shows</span>
                 <span className="text-yellow-400 text-2xl">{String(showCount).padStart(3, '0')}</span>
               </div>
-              <div className="border-l border-yellow-500/20 pl-8">
+              <div className="border-l border-yellow-500/20 pl-4 sm:pl-8">
                 <span className="text-yellow-500/60 uppercase tracking-widest text-xs block mb-1">Bands</span>
                 <span className="text-yellow-400 text-2xl">{String(bandCount).padStart(3, '0')}</span>
               </div>
-              <div className="border-l border-yellow-500/20 pl-8">
+              <div className="border-l border-yellow-500/20 pl-4 sm:pl-8">
                 <span className="text-yellow-500/60 uppercase tracking-widest text-xs block mb-1">Sets</span>
                 <span className="text-yellow-400 text-2xl">{String(setCount).padStart(3, '0')}</span>
               </div>
