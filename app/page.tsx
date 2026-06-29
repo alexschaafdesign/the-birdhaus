@@ -28,6 +28,7 @@ export default async function Home() {
   const sortedBands = Array.from(bandCounts.entries()).sort((a, b) =>
     b[1] - a[1] || a[0].localeCompare(b[0])
   );
+  const setCount = Array.from(bandCounts.values()).reduce((sum, count) => sum + count, 0);
 
   return (
     <main className="min-h-screen">
@@ -45,7 +46,7 @@ export default async function Home() {
             <summary className="px-5 py-4 cursor-pointer select-none list-none flex items-center justify-between">
               <div className="flex items-baseline gap-3">
                 <span className="font-bold">BIRDHAUS alums</span>
-                <span className="text-[#E8E0D0]/50 text-sm">{sortedBands.length} bands and counting</span>
+                <span className="text-[#E8E0D0]/50 text-sm">{sortedBands.length} bands ({setCount} total sets) and counting...</span>
               </div>
               <span className="text-xs uppercase tracking-widest text-[#E8E0D0]/50 group-open:hidden">Show ▸</span>
               <span className="text-xs uppercase tracking-widest text-[#E8E0D0]/50 hidden group-open:inline">Hide ▾</span>

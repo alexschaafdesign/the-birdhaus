@@ -24,6 +24,7 @@ export default async function ArchivePage() {
     }
   }
   const bandCount = bandCounts.size;
+  const setCount = Array.from(bandCounts.values()).reduce((sum, count) => sum + count, 0);
 
   // Sort: most appearances first, then alphabetical
   const sortedBands = Array.from(bandCounts.entries()).sort((a, b) =>
@@ -44,6 +45,10 @@ export default async function ArchivePage() {
               <div className="border-l border-yellow-500/20 pl-8">
                 <span className="text-yellow-500/60 uppercase tracking-widest text-xs block mb-1">Bands</span>
                 <span className="text-yellow-400 text-2xl">{String(bandCount).padStart(3, '0')}</span>
+              </div>
+              <div className="border-l border-yellow-500/20 pl-8">
+                <span className="text-yellow-500/60 uppercase tracking-widest text-xs block mb-1">Sets</span>
+                <span className="text-yellow-400 text-2xl">{String(setCount).padStart(3, '0')}</span>
               </div>
             </div>
           </div>
