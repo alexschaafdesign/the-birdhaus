@@ -75,6 +75,13 @@ export default async function ShowPage({ params }: { params: Promise<{ slug: str
           </div>
         </div>
 
+        {/* Description */}
+        {show.description && (
+          <p className="text-lg text-[#E8E0D0]/80 mb-10 max-w-3xl leading-relaxed whitespace-pre-line">
+            {show.description}
+          </p>
+        )}
+
         {/* Flyer */}
         {show.flyer && (
           <div className="mb-10">
@@ -115,7 +122,7 @@ export default async function ShowPage({ params }: { params: Promise<{ slug: str
         </div>
 
         {/* RSVP Form */}
-        {!isPast && (
+        {!isPast && show.rsvpForm && (
           <RSVPForm 
             showTitle={show.title}
             showDate={show.date}
@@ -124,6 +131,24 @@ export default async function ShowPage({ params }: { params: Promise<{ slug: str
             flyerUrl={show.flyer}
             ticketUrl={show.ticketUrl}
           />
+        )}
+
+        {/* External ticket link (e.g. promoter's ticket page) */}
+        {!isPast && show.externalTicketUrl && (
+          <div className="border-2 border-[#E8E0D0]/20 rounded-lg p-8 mb-12 bg-[#E8E0D0]/5">
+            <h2 className="text-3xl font-bold mb-2">Tickets</h2>
+            <p className="text-[#E8E0D0]/70 mb-6">
+              Tickets for this show are handled by an external promoter.
+            </p>
+            <a
+              href={show.externalTicketUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-block bg-[#E8E0D0] text-[#2A2420] font-bold py-4 px-6 rounded-lg hover:bg-[#E8E0D0]/80 transition-colors"
+            >
+              Get Tickets →
+            </a>
+          </div>
         )}
 
         {/* Videos */}
