@@ -10,4 +10,9 @@ bands:
 flyer: "https://res.cloudinary.com/defdv9zw7/image/upload/v1780528390/GM_RELEASE_SHOW_FLYER_1.3_tcu2xz.png"
 announced: true
 ticketUrl: "https://square.link/u/PFXtZ6Ux"
+videos:
+  - youtube: "nwbGOc2-iOs"
+
 ---
+
+
