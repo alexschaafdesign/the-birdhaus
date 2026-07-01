@@ -54,6 +54,10 @@ export default async function ArchivePage() {
           </div>
         </div>
 
+        <p className="text-[#E8E0D0]/70 mb-10 max-w-2xl leading-relaxed">
+          We pride ourselves on recording every band&apos;s full set, check em all out below!
+        </p>
+
         {/* Band roster */}
         <details className="mb-10 border border-[#E8E0D0]/20 rounded-lg group">
           <summary className="px-4 py-3 cursor-pointer text-sm text-[#E8E0D0]/60 hover:text-[#E8E0D0] uppercase tracking-widest select-none list-none flex justify-between items-center">
