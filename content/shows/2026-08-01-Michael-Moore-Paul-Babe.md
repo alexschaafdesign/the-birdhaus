@@ -7,7 +7,7 @@ bands:
   - name: "Michael Moore"
   - name: "Paul Babe"
   - name: "alone-a"
-flyer: "https://images.thebirdhaus.org/flyers/Aug%201%20Michael%20Moore.png"
+flyer: "https://images.thebirdhaus.org/flyers/Aug%201%20v2.png"
 announced: true
 ticketUrl: "https://square.link/u/0EjI1W8o"
 ---
