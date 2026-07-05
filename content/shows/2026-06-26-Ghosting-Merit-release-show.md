@@ -12,6 +12,7 @@ announced: true
 ticketUrl: "https://square.link/u/PFXtZ6Ux"
 videos:
   - youtube: "nwbGOc2-iOs"
+  - youtube: "a2Mn9oFaFs0"
 
 ---
 
