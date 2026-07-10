@@ -47,12 +47,21 @@ export default function ContactPage() {
     if (error) { setSrEmailError(error); return; }
     setSrEmailError(null);
     setSrStatus('sending');
+
+    // Backup copy in the Google Sheet — fire-and-forget, doesn't affect success/error state.
+    fetch(SHOW_REQUEST_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ action: 'showrequest', ...sr }).toString(),
+    }).catch(() => {});
+
     try {
-      await fetch(SHOW_REQUEST_URL, {
+      const res = await fetch('/api/show-request', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({ action: 'showrequest', ...sr }).toString(),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(sr),
       });
+      if (!res.ok) throw new Error('Request failed');
       setSrStatus('success');
     } catch {
       setSrStatus('error');

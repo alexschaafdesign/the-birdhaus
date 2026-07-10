@@ -6,12 +6,15 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "db:migrate": "node scripts/migrate.mjs",
+    "db:import": "node scripts/import-submissions.mjs"
   },
   "dependencies": {
     "cloudinary": "^2.10.0",
     "gray-matter": "^4.0.3",
     "next": "16.1.6",
+    "postgres": "^3.4.9",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "remark": "^15.0.1",
@@ -23,6 +26,7 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "csv-parse": "^7.0.1",
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
     "tailwindcss": "^4",
