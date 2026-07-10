@@ -1,5 +1,5 @@
 ---
-title: "HAIRLESS TWIN / GREYDEER / LIVESTOCK / TWISTED PIGEON
+title: "HAIRLESS TWIN / GREYDEER / LIVESTOCK / TWISTED PIGEON"
 date: "2026-08-15"
 doorsTime: "7:00pm"
 showTime: "7:30pm"
