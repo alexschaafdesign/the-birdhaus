@@ -1,6 +1,8 @@
 'use client';
 
 import { useState } from 'react';
+import AvailabilityPicker from '@/components/AvailabilityPicker';
+import { parseAvailability, formatAvailabilityEntries, type AvailabilityEntry } from '@/lib/submissions';
 
 const SHOW_REQUEST_URL = 'https://script.google.com/macros/s/AKfycbyh6Pw2VoQT7cu_Qt-6rwfRlP4xtcLhIx5jbFuzHOjhiW7mZgz-KqugsCHrgsOaVXeqSQ/exec';
 const CONTACT_URL = 'https://script.google.com/macros/s/AKfycbyqjkeA5Ik4w6pTpB9ZbZ-J0X8R3g6Zi0MAhlkEOBWTjZ2ncFmXH6AUH2IN5dqutsDPpA/exec';
@@ -33,9 +35,11 @@ type Tab = 'play' | 'contact';
 export default function ContactPage() {
   const [activeTab, setActiveTab] = useState<Tab>('play');
 
-  const [sr, setSr] = useState({ contactName: '', bandName: '', email: '', social: '', vibe: '', dates: '', comments: '' });
+  const [sr, setSr] = useState({ contactName: '', bandName: '', email: '', social: '', vibe: '', comments: '' });
+  const [srAvailability, setSrAvailability] = useState<AvailabilityEntry[]>([]);
   const [srStatus, setSrStatus] = useState<'idle' | 'sending' | 'success' | 'error'>('idle');
   const [srEmailError, setSrEmailError] = useState<string | null>(null);
+  const [srDatesError, setSrDatesError] = useState<string | null>(null);
 
   const [ct, setCt] = useState({ name: '', email: '', message: '' });
   const [ctStatus, setCtStatus] = useState<'idle' | 'sending' | 'success' | 'error'>('idle');
@@ -46,20 +50,35 @@ export default function ContactPage() {
     const error = validateEmail(sr.email);
     if (error) { setSrEmailError(error); return; }
     setSrEmailError(null);
+
+    if (srAvailability.length === 0) {
+      setSrDatesError('Please add at least one date or date range.');
+      return;
+    }
+    const availability = parseAvailability(srAvailability);
+    if (!availability) {
+      setSrDatesError('Please fill in every date field, or remove incomplete ones.');
+      return;
+    }
+    setSrDatesError(null);
     setSrStatus('sending');
 
     // Backup copy in the Google Sheet — fire-and-forget, doesn't affect success/error state.
     fetch(SHOW_REQUEST_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({ action: 'showrequest', ...sr }).toString(),
+      body: new URLSearchParams({
+        action: 'showrequest',
+        ...sr,
+        dates: formatAvailabilityEntries(availability),
+      }).toString(),
     }).catch(() => {});
 
     try {
       const res = await fetch('/api/show-request', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(sr),
+        body: JSON.stringify({ ...sr, availability }),
       });
       if (!res.ok) throw new Error('Request failed');
       setSrStatus('success');
@@ -187,13 +206,19 @@ export default function ContactPage() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1">Dates you're looking for</label>
-                  <input
-                    type="text"
-                    value={sr.dates}
-                    onChange={e => setSr(p => ({ ...p, dates: e.target.value }))}
-                    placeholder="Specific dates or a general range"
-                    className="w-full bg-transparent border border-[#E8E0D0]/30 rounded px-4 py-2 focus:outline-none focus:border-[#E8E0D0] placeholder:text-[#E8E0D0]/30"
+                  <p className="text-sm text-[#E8E0D0]/50 mb-2">
+                    Add as many specific dates or date ranges as needed.
+                  </p>
+                  <AvailabilityPicker
+                    entries={srAvailability}
+                    onChange={(next) => {
+                      setSrAvailability(next);
+                      if (srDatesError) setSrDatesError(null);
+                    }}
+                    inputClassName="bg-transparent border border-[#E8E0D0]/30 rounded px-3 py-2 focus:outline-none focus:border-[#E8E0D0] w-40"
+                    size="md"
                   />
+                  {srDatesError && <p className="mt-2 text-sm text-red-400">{srDatesError}</p>}
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1">Anything else</label>

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { sql } from '@/lib/db';
+import { parseAvailability, formatAvailabilityEntries } from '@/lib/submissions';
 
 function nullableTrim(value: unknown): string | null {
   if (typeof value !== 'string') return null;
@@ -23,9 +24,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Missing or invalid required fields' }, { status: 400 });
   }
 
+  const availability = parseAvailability(body.availability) ?? [];
+  const availabilityText = availability.length > 0 ? formatAvailabilityEntries(availability) : null;
+
   await sql`
     insert into submissions (
-      band_name, contact_name, email, socials, genre, availability_text, comments, source
+      band_name, contact_name, email, socials, genre, availability_text, availability, comments, source
     )
     values (
       ${bandName},
@@ -33,7 +37,8 @@ export async function POST(request: Request) {
       ${email},
       ${nullableTrim(body.social)},
       ${nullableTrim(body.vibe)},
-      ${nullableTrim(body.dates)},
+      ${availabilityText},
+      ${sql.json(availability)},
       ${nullableTrim(body.comments)},
       'form'
     )

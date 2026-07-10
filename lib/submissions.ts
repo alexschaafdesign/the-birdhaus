@@ -93,3 +93,26 @@ export function availabilityEntryOverlaps(
   }
   return entry.from <= filterTo && entry.to >= filterFrom;
 }
+
+// New Date("2026-08-01") parses as UTC midnight, which can shift a day backward
+// once formatted in a timezone behind UTC — build the date from local parts instead.
+function formatIsoDate(iso: string): string {
+  const [year, month, day] = iso.split('-').map(Number);
+  return new Date(year, month - 1, day).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
+}
+
+// Human-readable summary used to populate availability_text from structured entries,
+// e.g. "Aug 1 – Sep 30, 2026, Oct 5, 2026".
+export function formatAvailabilityEntries(entries: AvailabilityEntry[]): string {
+  return entries
+    .map((entry) =>
+      entry.type === 'date'
+        ? formatIsoDate(entry.value)
+        : `${formatIsoDate(entry.from)} – ${formatIsoDate(entry.to)}`
+    )
+    .join(', ');
+}

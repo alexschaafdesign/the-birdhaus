@@ -1,19 +1,22 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import AvailabilityPicker from '@/components/AvailabilityPicker';
 import {
   STATUS_LABELS,
   STATUS_COLORS,
   SUBMISSION_STATUSES,
   parseAvailability,
   availabilityEntryOverlaps,
+  formatAvailabilityEntries,
   type AvailabilityEntry,
   type Submission,
   type SubmissionStatus,
 } from '@/lib/submissions';
+import type { AvailableDate } from '@/lib/available-dates';
 
 const inputClass =
-  'w-full bg-transparent border border-[#E8E0D0]/30 rounded px-3 py-1.5 text-sm focus:outline-none focus:border-[#E8E0D0] placeholder:text-[#E8E0D0]/30';
+  'bg-transparent border border-[#E8E0D0]/30 rounded px-3 py-1.5 text-sm focus:outline-none focus:border-[#E8E0D0] placeholder:text-[#E8E0D0]/30';
 
 async function patchSubmission(id: number, patch: Record<string, unknown>) {
   const res = await fetch(`/api/admin/submissions/${id}`, {
@@ -25,18 +28,38 @@ async function patchSubmission(id: number, patch: Record<string, unknown>) {
   return res.json();
 }
 
-export default function SubmissionsBoard({ initialSubmissions }: { initialSubmissions: Submission[] }) {
+export default function SubmissionsBoard({
+  initialSubmissions,
+  initialAvailableDates,
+}: {
+  initialSubmissions: Submission[];
+  initialAvailableDates: AvailableDate[];
+}) {
   const [submissions, setSubmissions] = useState<Submission[]>(initialSubmissions);
+  const [availableDates, setAvailableDates] = useState<AvailableDate[]>(initialAvailableDates);
+  const [newAvailableDate, setNewAvailableDate] = useState('');
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<Set<SubmissionStatus>>(
     new Set(SUBMISSION_STATUSES)
   );
+  const [dateMode, setDateMode] = useState<'single' | 'range'>('single');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [includeUndated, setIncludeUndated] = useState(true);
   const [sortBy, setSortBy] = useState<'newest' | 'band_name'>('newest');
   const [showAddForm, setShowAddForm] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const availableDateCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const d of availableDates) {
+      const count = submissions.filter((s) =>
+        s.availability.some((entry) => availabilityEntryOverlaps(entry, d.date, d.date))
+      ).length;
+      counts.set(d.date, count);
+    }
+    return counts;
+  }, [availableDates, submissions]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -81,6 +104,52 @@ export default function SubmissionsBoard({ initialSubmissions }: { initialSubmis
 
     return rows;
   }, [submissions, search, statusFilter, dateFrom, dateTo, includeUndated, sortBy]);
+
+  function switchDateMode(mode: 'single' | 'range') {
+    setDateMode(mode);
+    if (mode === 'single') {
+      setDateTo(dateFrom);
+    }
+  }
+
+  function clearDateFilter() {
+    setDateFrom('');
+    setDateTo('');
+  }
+
+  function selectAvailableDate(date: string) {
+    setDateMode('single');
+    setDateFrom(date);
+    setDateTo(date);
+  }
+
+  async function handleAddAvailableDate(e: React.FormEvent) {
+    e.preventDefault();
+    if (!newAvailableDate) return;
+    try {
+      const res = await fetch('/api/admin/available-dates', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ date: newAvailableDate }),
+      });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body?.error || 'Failed to add date');
+      setAvailableDates((prev) => [...prev, body].sort((a, b) => a.date.localeCompare(b.date)));
+      setNewAvailableDate('');
+    } catch (err) {
+      setErrorMessage(err instanceof Error ? err.message : 'Failed to add date');
+    }
+  }
+
+  async function handleRemoveAvailableDate(id: number) {
+    setAvailableDates((prev) => prev.filter((d) => d.id !== id));
+    try {
+      const res = await fetch(`/api/admin/available-dates/${id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error();
+    } catch {
+      setErrorMessage('Failed to remove date — refresh and try again.');
+    }
+  }
 
   function toggleStatus(status: SubmissionStatus) {
     setStatusFilter((prev) => {
@@ -145,24 +214,77 @@ export default function SubmissionsBoard({ initialSubmissions }: { initialSubmis
             placeholder="Search band, contact, genre, availability, notes..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className={`${inputClass} max-w-sm`}
+            className={`${inputClass} w-full max-w-sm`}
           />
 
-          <input
-            type="date"
-            value={dateFrom}
-            onChange={(e) => setDateFrom(e.target.value)}
-            className={`${inputClass} w-auto`}
-            title="Available from"
-          />
-          <span className="text-[#E8E0D0]/40 text-sm">to</span>
-          <input
-            type="date"
-            value={dateTo}
-            onChange={(e) => setDateTo(e.target.value)}
-            className={`${inputClass} w-auto`}
-            title="Available to"
-          />
+          <div className="flex items-center gap-2">
+            <div className="flex text-xs rounded border border-[#E8E0D0]/30 overflow-hidden">
+              <button
+                type="button"
+                onClick={() => switchDateMode('single')}
+                className="px-2.5 py-1.5 transition-colors"
+                style={{
+                  backgroundColor: dateMode === 'single' ? '#E8E0D0' : 'transparent',
+                  color: dateMode === 'single' ? '#2A2420' : '#E8E0D080',
+                }}
+              >
+                On date
+              </button>
+              <button
+                type="button"
+                onClick={() => switchDateMode('range')}
+                className="px-2.5 py-1.5 transition-colors border-l border-[#E8E0D0]/30"
+                style={{
+                  backgroundColor: dateMode === 'range' ? '#E8E0D0' : 'transparent',
+                  color: dateMode === 'range' ? '#2A2420' : '#E8E0D080',
+                }}
+              >
+                Date range
+              </button>
+            </div>
+
+            {dateMode === 'single' ? (
+              <input
+                type="date"
+                value={dateFrom}
+                onChange={(e) => {
+                  setDateFrom(e.target.value);
+                  setDateTo(e.target.value);
+                }}
+                className={`${inputClass} w-40`}
+                title="Available on"
+              />
+            ) : (
+              <div className="flex items-center gap-1.5">
+                <input
+                  type="date"
+                  value={dateFrom}
+                  onChange={(e) => setDateFrom(e.target.value)}
+                  className={`${inputClass} w-36`}
+                  title="Available from"
+                />
+                <span className="text-[#E8E0D0]/40 text-sm">&ndash;</span>
+                <input
+                  type="date"
+                  value={dateTo}
+                  onChange={(e) => setDateTo(e.target.value)}
+                  className={`${inputClass} w-36`}
+                  title="Available to"
+                />
+              </div>
+            )}
+
+            {(dateFrom || dateTo) && (
+              <button
+                type="button"
+                onClick={clearDateFilter}
+                className="text-xs text-[#E8E0D0]/40 hover:text-[#E8E0D0]"
+              >
+                clear
+              </button>
+            )}
+          </div>
+
           {(dateFrom || dateTo) && (
             <label className="flex items-center gap-1.5 text-sm text-[#E8E0D0]/60">
               <input
@@ -214,6 +336,66 @@ export default function SubmissionsBoard({ initialSubmissions }: { initialSubmis
         <p className="text-xs text-[#E8E0D0]/40">
           {filtered.length} of {submissions.length} submissions shown
         </p>
+      </div>
+
+      <div className="border border-[#E8E0D0]/15 rounded-lg p-4 mb-4">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-sm font-semibold text-[#E8E0D0]/80">Venue open dates</h3>
+          {availableDates.length > 0 && (
+            <span className="text-xs text-[#E8E0D0]/40">click a date to see who&rsquo;s free</span>
+          )}
+        </div>
+        <div className="flex flex-wrap gap-2 items-center">
+          {availableDates.map((d) => {
+            const active = dateMode === 'single' && dateFrom === d.date && dateTo === d.date;
+            const count = availableDateCounts.get(d.date) ?? 0;
+            return (
+              <div
+                key={d.id}
+                className="flex items-center rounded-full border text-xs transition-colors"
+                style={{
+                  borderColor: active ? '#E8E0D0' : '#E8E0D050',
+                  backgroundColor: active ? '#E8E0D022' : 'transparent',
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={() => selectAvailableDate(d.date)}
+                  className="pl-3 pr-1.5 py-1 hover:underline"
+                  style={{ color: active ? '#E8E0D0' : '#E8E0D0B0' }}
+                >
+                  {formatAvailabilityEntries([{ type: 'date', value: d.date }])}
+                  {count > 0 && <span className="opacity-60"> · {count}</span>}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleRemoveAvailableDate(d.id)}
+                  className="pr-2 pl-1 py-1 text-[#E8E0D0]/40 hover:text-red-400"
+                  aria-label={`Remove ${d.date}`}
+                >
+                  ×
+                </button>
+              </div>
+            );
+          })}
+          {availableDates.length === 0 && (
+            <p className="text-xs text-[#E8E0D0]/30">No open dates added yet.</p>
+          )}
+          <form onSubmit={handleAddAvailableDate} className="flex items-center gap-1.5">
+            <input
+              type="date"
+              value={newAvailableDate}
+              onChange={(e) => setNewAvailableDate(e.target.value)}
+              className={`${inputClass} w-40`}
+            />
+            <button
+              type="submit"
+              className="text-xs border border-[#E8E0D0]/30 rounded px-2 py-1.5 hover:bg-[#E8E0D0]/10"
+            >
+              + add
+            </button>
+          </form>
+        </div>
       </div>
 
       {showAddForm && <AddSubmissionForm onAdd={handleAdd} onCancel={() => setShowAddForm(false)} />}
@@ -315,7 +497,11 @@ function SubmissionCard({
             <label className="block text-xs uppercase tracking-wide text-[#E8E0D0]/40 mb-1">
               Availability
             </label>
-            <AvailabilityEditor entries={availabilityDraft} onChange={handleAvailabilityChange} />
+            <AvailabilityPicker
+              entries={availabilityDraft}
+              onChange={handleAvailabilityChange}
+              inputClassName={`${inputClass} w-36`}
+            />
           </div>
 
           {submission.comments && (
@@ -341,7 +527,7 @@ function SubmissionCard({
                 }
               }}
               placeholder="Private notes only you see..."
-              className={`${inputClass} resize-none`}
+              className={`${inputClass} w-full resize-none`}
             />
           </div>
 
@@ -353,83 +539,6 @@ function SubmissionCard({
           </div>
         </div>
       )}
-    </div>
-  );
-}
-
-function AvailabilityEditor({
-  entries,
-  onChange,
-}: {
-  entries: AvailabilityEntry[];
-  onChange: (entries: AvailabilityEntry[]) => void;
-}) {
-  function updateEntry(index: number, entry: AvailabilityEntry) {
-    onChange(entries.map((e, i) => (i === index ? entry : e)));
-  }
-  function removeEntry(index: number) {
-    onChange(entries.filter((_, i) => i !== index));
-  }
-
-  return (
-    <div className="space-y-2">
-      {entries.map((entry, i) => (
-        <div key={i} className="flex flex-wrap items-center gap-2">
-          <span className="text-xs text-[#E8E0D0]/40 w-10 flex-shrink-0">
-            {entry.type === 'date' ? 'date' : 'range'}
-          </span>
-          {entry.type === 'date' ? (
-            <input
-              type="date"
-              value={entry.value}
-              onChange={(e) => updateEntry(i, { type: 'date', value: e.target.value })}
-              className={`${inputClass} w-auto`}
-            />
-          ) : (
-            <>
-              <input
-                type="date"
-                value={entry.from}
-                onChange={(e) => updateEntry(i, { ...entry, from: e.target.value })}
-                className={`${inputClass} w-auto`}
-              />
-              <span className="text-[#E8E0D0]/40 text-sm">to</span>
-              <input
-                type="date"
-                value={entry.to}
-                onChange={(e) => updateEntry(i, { ...entry, to: e.target.value })}
-                className={`${inputClass} w-auto`}
-              />
-            </>
-          )}
-          <button
-            type="button"
-            onClick={() => removeEntry(i)}
-            className="text-red-400/70 hover:text-red-400 text-xs"
-          >
-            remove
-          </button>
-        </div>
-      ))}
-      {entries.length === 0 && (
-        <p className="text-xs text-[#E8E0D0]/30">No structured dates set yet.</p>
-      )}
-      <div className="flex gap-2">
-        <button
-          type="button"
-          onClick={() => onChange([...entries, { type: 'date', value: '' }])}
-          className="text-xs border border-[#E8E0D0]/30 rounded px-2 py-1 hover:bg-[#E8E0D0]/10"
-        >
-          + date
-        </button>
-        <button
-          type="button"
-          onClick={() => onChange([...entries, { type: 'range', from: '', to: '' }])}
-          className="text-xs border border-[#E8E0D0]/30 rounded px-2 py-1 hover:bg-[#E8E0D0]/10"
-        >
-          + range
-        </button>
-      </div>
     </div>
   );
 }
@@ -470,43 +579,43 @@ function AddSubmissionForm({
         placeholder="Band / artist name*"
         value={form.band_name}
         onChange={(e) => set('band_name', e.target.value)}
-        className={inputClass}
+        className={`${inputClass} w-full`}
       />
       <input
         placeholder="Contact name"
         value={form.contact_name}
         onChange={(e) => set('contact_name', e.target.value)}
-        className={inputClass}
+        className={`${inputClass} w-full`}
       />
       <input
         placeholder="Email"
         value={form.email}
         onChange={(e) => set('email', e.target.value)}
-        className={inputClass}
+        className={`${inputClass} w-full`}
       />
       <input
         placeholder="Socials"
         value={form.socials}
         onChange={(e) => set('socials', e.target.value)}
-        className={inputClass}
+        className={`${inputClass} w-full`}
       />
       <input
         placeholder="Genre / vibe"
         value={form.genre}
         onChange={(e) => set('genre', e.target.value)}
-        className={inputClass}
+        className={`${inputClass} w-full`}
       />
       <input
         placeholder="Dates / availability (free text)"
         value={form.availability_text}
         onChange={(e) => set('availability_text', e.target.value)}
-        className={inputClass}
+        className={`${inputClass} w-full`}
       />
       <textarea
         placeholder="Comments"
         value={form.comments}
         onChange={(e) => set('comments', e.target.value)}
-        className={`${inputClass} sm:col-span-2 resize-none`}
+        className={`${inputClass} w-full sm:col-span-2 resize-none`}
         rows={2}
       />
       <div className="sm:col-span-2 flex gap-2 justify-end">
