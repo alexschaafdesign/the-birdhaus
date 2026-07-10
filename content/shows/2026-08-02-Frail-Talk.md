@@ -7,7 +7,7 @@ bands:
   - name: "Frail Talk"
   - name: "Kiernan"
   - name: "Voulouse"
-flyer: "https://images.thebirdhaus.org/flyers/82%20Minneapolis%20%20(1).jpg"
+flyer: "https://images.thebirdhaus.org/flyers/82%20Minneapolis%20.png"
 announced: true
 ticketUrl: "https://square.link/u/LpDy0Mc7"
 ---
