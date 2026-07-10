@@ -14,6 +14,13 @@ import {
   type SubmissionStatus,
 } from '@/lib/submissions';
 import type { AvailableDate } from '@/lib/available-dates';
+import {
+  DATE_OFFER_STATUSES,
+  DATE_OFFER_LABELS,
+  DATE_OFFER_COLORS,
+  type DateOffer,
+  type DateOfferStatus,
+} from '@/lib/date-offers';
 
 const inputClass =
   'bg-transparent border border-[#E8E0D0]/30 rounded px-3 py-1.5 text-sm focus:outline-none focus:border-[#E8E0D0] placeholder:text-[#E8E0D0]/30';
@@ -31,13 +38,16 @@ async function patchSubmission(id: number, patch: Record<string, unknown>) {
 export default function SubmissionsBoard({
   initialSubmissions,
   initialAvailableDates,
+  initialDateOffers,
 }: {
   initialSubmissions: Submission[];
   initialAvailableDates: AvailableDate[];
+  initialDateOffers: DateOffer[];
 }) {
   const [submissions, setSubmissions] = useState<Submission[]>(initialSubmissions);
   const [availableDates, setAvailableDates] = useState<AvailableDate[]>(initialAvailableDates);
   const [newAvailableDate, setNewAvailableDate] = useState('');
+  const [dateOffers, setDateOffers] = useState<DateOffer[]>(initialDateOffers);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<Set<SubmissionStatus>>(
     new Set(SUBMISSION_STATUSES)
@@ -60,6 +70,21 @@ export default function SubmissionsBoard({
     }
     return counts;
   }, [availableDates, submissions]);
+
+  const offersBySubmission = useMemo(() => {
+    const map = new Map<number, DateOffer[]>();
+    for (const offer of dateOffers) {
+      const list = map.get(offer.submission_id);
+      if (list) list.push(offer);
+      else map.set(offer.submission_id, [offer]);
+    }
+    for (const list of map.values()) list.sort((a, b) => a.date.localeCompare(b.date));
+    return map;
+  }, [dateOffers]);
+
+  // When a single specific date is selected (not a range), submission cards get a
+  // quick "log contact for this date" affordance for that exact date.
+  const activeFilterDate = dateMode === 'single' && dateFrom && dateFrom === dateTo ? dateFrom : null;
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -148,6 +173,46 @@ export default function SubmissionsBoard({
       if (!res.ok) throw new Error();
     } catch {
       setErrorMessage('Failed to remove date — refresh and try again.');
+    }
+  }
+
+  // Upserts a contact log entry — logging the same submission/date again just changes its status.
+  async function logDateOffer(submissionId: number, date: string, status: DateOfferStatus = 'contacted') {
+    try {
+      const res = await fetch('/api/admin/date-offers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ submission_id: submissionId, date, status }),
+      });
+      if (!res.ok) throw new Error('Failed to log contact');
+      const saved: DateOffer = await res.json();
+      setDateOffers((prev) => [...prev.filter((o) => o.id !== saved.id), saved]);
+    } catch {
+      setErrorMessage('Failed to log contact — try again.');
+    }
+  }
+
+  async function updateDateOfferStatus(offerId: number, status: DateOfferStatus) {
+    setDateOffers((prev) => prev.map((o) => (o.id === offerId ? { ...o, status } : o)));
+    try {
+      const res = await fetch(`/api/admin/date-offers/${offerId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status }),
+      });
+      if (!res.ok) throw new Error();
+    } catch {
+      setErrorMessage('Failed to update contact status — refresh and try again.');
+    }
+  }
+
+  async function removeDateOffer(offerId: number) {
+    setDateOffers((prev) => prev.filter((o) => o.id !== offerId));
+    try {
+      const res = await fetch(`/api/admin/date-offers/${offerId}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error();
+    } catch {
+      setErrorMessage('Failed to remove — refresh and try again.');
     }
   }
 
@@ -407,6 +472,11 @@ export default function SubmissionsBoard({
             submission={submission}
             onUpdate={handleUpdate}
             onDelete={handleDelete}
+            offers={offersBySubmission.get(submission.id) ?? []}
+            activeFilterDate={activeFilterDate}
+            onLogOffer={logDateOffer}
+            onUpdateOfferStatus={updateDateOfferStatus}
+            onRemoveOffer={removeDateOffer}
           />
         ))}
         {filtered.length === 0 && (
@@ -421,14 +491,42 @@ function SubmissionCard({
   submission,
   onUpdate,
   onDelete,
+  offers,
+  activeFilterDate,
+  onLogOffer,
+  onUpdateOfferStatus,
+  onRemoveOffer,
 }: {
   submission: Submission;
   onUpdate: (id: number, patch: Record<string, unknown>) => void;
   onDelete: (id: number) => void;
+  offers: DateOffer[];
+  activeFilterDate: string | null;
+  onLogOffer: (submissionId: number, date: string, status?: DateOfferStatus) => void;
+  onUpdateOfferStatus: (offerId: number, status: DateOfferStatus) => void;
+  onRemoveOffer: (offerId: number) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [notesDraft, setNotesDraft] = useState(submission.notes ?? '');
   const [availabilityDraft, setAvailabilityDraft] = useState<AvailabilityEntry[]>(submission.availability);
+  const [newOfferDate, setNewOfferDate] = useState('');
+
+  const activeFilterOffer = activeFilterDate ? offers.find((o) => o.date === activeFilterDate) : undefined;
+  const activeFilterStatus: DateOfferStatus | 'new' = activeFilterOffer?.status ?? 'new';
+  const activeFilterColor = activeFilterStatus === 'new' ? STATUS_COLORS.new : DATE_OFFER_COLORS[activeFilterStatus];
+  const shortActiveDate = activeFilterDate
+    ? formatAvailabilityEntries([{ type: 'date', value: activeFilterDate }])
+    : '';
+
+  function handleActiveDateStatusChange(value: string) {
+    if (!activeFilterDate) return;
+    if (value === 'new') {
+      if (activeFilterOffer) onRemoveOffer(activeFilterOffer.id);
+      return;
+    }
+    if (activeFilterOffer) onUpdateOfferStatus(activeFilterOffer.id, value as DateOfferStatus);
+    else onLogOffer(submission.id, activeFilterDate, value as DateOfferStatus);
+  }
 
   function handleAvailabilityChange(next: AvailabilityEntry[]) {
     setAvailabilityDraft(next);
@@ -472,6 +570,48 @@ function SubmissionCard({
               📅 {submission.availability_text}
             </p>
           )}
+
+          {offers.filter((o) => o.date !== activeFilterDate).length > 0 && (
+            <div className="flex flex-wrap gap-1.5 mt-2 items-center">
+              {offers
+                .filter((o) => o.date !== activeFilterDate)
+                .map((offer) => (
+                  <div
+                    key={offer.id}
+                    className="flex items-center rounded-full border text-xs"
+                    style={{
+                      borderColor: `${DATE_OFFER_COLORS[offer.status]}55`,
+                      backgroundColor: `${DATE_OFFER_COLORS[offer.status]}15`,
+                      color: DATE_OFFER_COLORS[offer.status],
+                    }}
+                  >
+                    <span className="pl-2.5 py-0.5">
+                      {formatAvailabilityEntries([{ type: 'date', value: offer.date }])}
+                    </span>
+                    <select
+                      value={offer.status}
+                      onChange={(e) => onUpdateOfferStatus(offer.id, e.target.value as DateOfferStatus)}
+                      className="bg-transparent text-xs pl-1 pr-0.5 py-0.5 focus:outline-none"
+                      style={{ color: DATE_OFFER_COLORS[offer.status] }}
+                    >
+                      {DATE_OFFER_STATUSES.map((s) => (
+                        <option key={s} value={s} className="text-[#2A2420]">
+                          {DATE_OFFER_LABELS[s]}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      onClick={() => onRemoveOffer(offer.id)}
+                      className="pr-2 pl-0.5 py-0.5 opacity-50 hover:opacity-100"
+                      aria-label={`Remove contact log for ${offer.date}`}
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+            </div>
+          )}
         </div>
 
         <div className="flex items-center gap-2 flex-shrink-0">
@@ -487,6 +627,24 @@ function SubmissionCard({
               </option>
             ))}
           </select>
+
+          {activeFilterDate && (
+            <select
+              value={activeFilterStatus}
+              onChange={(e) => handleActiveDateStatusChange(e.target.value)}
+              className="text-xs rounded px-2 py-1 border bg-[#171412]"
+              style={{ borderColor: activeFilterColor, color: activeFilterColor }}
+              title={`Contact status for ${shortActiveDate}`}
+            >
+              <option value="new">New</option>
+              {DATE_OFFER_STATUSES.map((s) => (
+                <option key={s} value={s}>
+                  {DATE_OFFER_LABELS[s]} for {shortActiveDate}
+                </option>
+              ))}
+            </select>
+          )}
+
           <span className="text-xs text-[#E8E0D0]/30">{createdDate}</span>
         </div>
       </div>
@@ -502,6 +660,34 @@ function SubmissionCard({
               onChange={handleAvailabilityChange}
               inputClassName={`${inputClass} w-36`}
             />
+          </div>
+
+          <div className="sm:col-span-2">
+            <label className="block text-xs uppercase tracking-wide text-[#E8E0D0]/40 mb-1">
+              Log contact for a date
+            </label>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (!newOfferDate) return;
+                onLogOffer(submission.id, newOfferDate);
+                setNewOfferDate('');
+              }}
+              className="flex items-center gap-1.5"
+            >
+              <input
+                type="date"
+                value={newOfferDate}
+                onChange={(e) => setNewOfferDate(e.target.value)}
+                className={`${inputClass} w-40`}
+              />
+              <button
+                type="submit"
+                className="text-xs border border-[#E8E0D0]/30 rounded px-2 py-1.5 hover:bg-[#E8E0D0]/10"
+              >
+                + log
+              </button>
+            </form>
           </div>
 
           {submission.comments && (
