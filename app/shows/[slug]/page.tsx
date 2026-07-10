@@ -96,24 +96,32 @@ export default async function ShowPage({ params }: { params: Promise<{ slug: str
         {/* Lineup */}
         <div className="mb-10 bg-[#E8E0D0]/5 rounded-lg p-6 border border-[#E8E0D0]/20">
           <h2 className="text-2xl font-bold mb-4">Lineup</h2>
-          <div className="space-y-2">
+          <div className="space-y-4">
             {show.bands.map((band, index) => {
               const bandName = typeof band === 'string' ? band : band.name;
               const instagram = typeof band === 'string' ? null : band.instagram;
-              
+              const bio = typeof band === 'string' ? null : band.bio;
+
               return (
-                <div key={index} className="text-lg font-medium">
-                  {instagram ? (
-                    <a 
-                      href={instagram} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="hover:text-[#E8E0D0]/70 underline decoration-2 underline-offset-2 transition-colors"
-                    >
-                      {bandName}
-                    </a>
-                  ) : (
-                    bandName
+                <div key={index}>
+                  <div className="text-lg font-medium">
+                    {instagram ? (
+                      <a
+                        href={instagram}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="hover:text-[#E8E0D0]/70 underline decoration-2 underline-offset-2 transition-colors"
+                      >
+                        {bandName}
+                      </a>
+                    ) : (
+                      bandName
+                    )}
+                  </div>
+                  {bio && (
+                    <p className="text-[#E8E0D0]/70 mt-1 max-w-3xl leading-relaxed whitespace-pre-line">
+                      {bio}
+                    </p>
                   )}
                 </div>
               );

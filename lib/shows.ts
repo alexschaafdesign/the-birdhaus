@@ -13,7 +13,7 @@ export interface Show {
   doorsTime?: string;  
   showTime?: string;
   flyer?: string; 
-  bands: Array<{ name: string; instagram?: string }> | string[];
+  bands: Array<{ name: string; instagram?: string; bio?: string }> | string[];
   description?: string;
   photographer?: string | { name: string; instagram?: string };
   rsvpUrl?: string;
