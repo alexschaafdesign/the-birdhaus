@@ -59,7 +59,10 @@ interface BandRow {
 
 function rowToBand(row: BandRow): Band {
   return {
-    id: row.id,
+    // bands.id is bigserial — the postgres driver serializes int8 columns as
+    // strings over the wire despite BandRow's `number` annotation; coerce back
+    // so Band.id matches the bandId numbers stored in shows.bands JSON.
+    id: Number(row.id),
     slug: row.slug,
     name: row.name,
     instagram: row.instagram ?? undefined,
@@ -121,7 +124,7 @@ export async function getBandBySlug(slug: string): Promise<Band | null> {
 // page and the home/archive alum rosters to resolve a bandId into a link.
 export async function getAllBandSlugs(): Promise<Map<number, string>> {
   const rows = await sql<Array<{ id: number; slug: string }>>`select id, slug from bands`;
-  return new Map(rows.map((r) => [r.id, r.slug]));
+  return new Map(rows.map((r) => [Number(r.id), r.slug]));
 }
 
 export interface BandShow {
@@ -190,7 +193,10 @@ export async function resolveShowBandEntries(bands: Show['bands'], tx: Tx): Prom
     `;
 
     if (existing) {
-      resolved.push({ ...band, bandId: existing.id });
+      // bands.id is bigserial — the driver returns int8 columns as strings
+      // despite the `{ id: number }` annotation above; coerce so the bandId
+      // stored in this show's JSON is a real number, not "93".
+      resolved.push({ ...band, bandId: Number(existing.id) });
       continue;
     }
 
@@ -203,7 +209,7 @@ export async function resolveShowBandEntries(bands: Show['bands'], tx: Tx): Prom
       values (${slug}, ${name}, ${instagram}, ${bio}, ${photo})
       returning id
     `;
-    resolved.push({ ...band, bandId: created.id });
+    resolved.push({ ...band, bandId: Number(created.id) });
   }
 
   return resolved as Show['bands'];

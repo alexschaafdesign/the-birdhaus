@@ -7,6 +7,7 @@ import {
   isValidAudioInput,
   isValidPhotosInput,
   normalizePhotographerInput,
+  normalizeBandIds,
   slugify,
   type Show,
 } from '@/lib/shows';
@@ -85,18 +86,20 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
   let bandsInput: Show['bands'] | undefined;
   if ('bands' in body) {
-    if (!isValidBandsInput(body.bands)) {
+    const normalizedBands = normalizeBandIds(body.bands);
+    if (!isValidBandsInput(normalizedBands)) {
       return NextResponse.json({ error: 'Invalid bands' }, { status: 400 });
     }
-    bandsInput = body.bands;
+    bandsInput = normalizedBands;
   }
 
   let videosInput: unknown[] | undefined;
   if ('videos' in body) {
-    if (!isValidVideosInput(body.videos)) {
+    const normalizedVideos = normalizeBandIds(body.videos);
+    if (!isValidVideosInput(normalizedVideos)) {
       return NextResponse.json({ error: 'Invalid videos' }, { status: 400 });
     }
-    videosInput = body.videos;
+    videosInput = normalizedVideos as unknown[];
   }
 
   if ('audio' in body) {

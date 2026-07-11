@@ -12,6 +12,7 @@
     "db:import-shows": "node scripts/import-shows.mjs",
     "db:backfill-bands": "node scripts/backfill-bands.mjs",
     "db:backfill-video-bands": "node scripts/backfill-video-bands.mjs",
+    "db:backfill-band-id-types": "node scripts/backfill-band-id-types.mjs",
     "db:import-twinscene-bands": "node scripts/import-twinscene-bands.mjs"
   },
   "dependencies": {

@@ -7,6 +7,7 @@ import {
   isValidAudioInput,
   isValidPhotosInput,
   normalizePhotographerInput,
+  normalizeBandIds,
   slugify,
 } from '@/lib/shows';
 import { resolveShowBandEntries, resolveVideoBandIds } from '@/lib/bands';
@@ -41,12 +42,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Could not derive a slug from title/date' }, { status: 400 });
   }
 
-  const bands = body?.bands === undefined ? [] : body.bands;
+  const bands = normalizeBandIds(body?.bands === undefined ? [] : body.bands);
   if (!isValidBandsInput(bands)) {
     return NextResponse.json({ error: 'Invalid bands' }, { status: 400 });
   }
 
-  const videos = body?.videos === undefined ? [] : body.videos;
+  const videos = normalizeBandIds(body?.videos === undefined ? [] : body.videos);
   if (!isValidVideosInput(videos)) {
     return NextResponse.json({ error: 'Invalid videos' }, { status: 400 });
   }

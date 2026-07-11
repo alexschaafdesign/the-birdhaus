@@ -114,6 +114,23 @@ export function slugify(text: string): string {
 
 export const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
+// bands.id is bigserial, so the postgres driver has always serialized it as a
+// string over JSON — every show saved before that was caught has a numeric-string
+// bandId baked into its stored bands/videos JSON. Coerce those back to real numbers
+// before validating, so simply re-saving an existing show self-heals its data
+// instead of getting rejected by the (correctly) strict number check below.
+function coerceBandId(value: unknown): unknown {
+  return typeof value === 'string' && /^\d+$/.test(value) ? Number(value) : value;
+}
+
+export function normalizeBandIds(input: unknown): unknown {
+  if (!Array.isArray(input)) return input;
+  return input.map((entry) => {
+    if (!entry || typeof entry !== 'object' || !('bandId' in entry)) return entry;
+    return { ...entry, bandId: coerceBandId((entry as { bandId?: unknown }).bandId) };
+  });
+}
+
 export function isValidBandsInput(input: unknown): input is Show['bands'] {
   return (
     Array.isArray(input) &&

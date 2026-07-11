@@ -34,7 +34,11 @@ export default function BandNameInput({
     debounceRef.current = setTimeout(() => {
       fetch(`/api/admin/bands?q=${encodeURIComponent(query)}`)
         .then((res) => (res.ok ? res.json() : []))
-        .then((data) => setMatches(Array.isArray(data) ? data : []))
+        // bands.id is bigserial, so the postgres driver serializes it as a string over JSON —
+        // coerce back to a number here so it matches the BandMatch type everywhere downstream.
+        .then((data) =>
+          setMatches(Array.isArray(data) ? data.map((m) => ({ ...m, id: Number(m.id) })) : [])
+        )
         .catch(() => {
           // typeahead is best-effort; a failed lookup just means no suggestions
         });
