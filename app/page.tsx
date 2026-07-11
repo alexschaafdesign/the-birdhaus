@@ -20,6 +20,13 @@ export default async function Home() {
 
   const pastShows = shows.filter((show) => show.date < today);
 
+  // The calendar view doubles as a navigable archive, so it includes past shows
+  // (regardless of announced status, since they already happened) alongside
+  // announced upcoming ones.
+  const calendarShows = [...pastShows, ...upcomingShows].sort((a, b) =>
+    a.date.localeCompare(b.date)
+  );
+
   const bandCounts = new Map<string, { count: number; bandId: number | null }>();
   for (const show of pastShows) {
     for (const band of show.bands) {
@@ -97,7 +104,7 @@ export default async function Home() {
           <h2 className="text-4xl font-bold mb-2">Upcoming Shows</h2>
           <p className="text-[#E8E0D0]/70 text-lg">Click a show to RSVP and get details</p>
         </div>
-        <ShowsBrowser shows={upcomingShows} />
+        <ShowsBrowser upcomingShows={upcomingShows} calendarShows={calendarShows} today={today} />
 
         <div className="mt-8">
           <a href="/archive" className="block text-2xl hover:text-[#E8E0D0]/70">

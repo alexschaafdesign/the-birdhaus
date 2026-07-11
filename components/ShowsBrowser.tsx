@@ -5,10 +5,18 @@ import type { Show } from '@/lib/shows';
 import ShowCard from './ShowCard';
 import CalendarView from './CalendarView';
 
-export default function ShowsBrowser({ shows }: { shows: Show[] }) {
+export default function ShowsBrowser({
+  upcomingShows,
+  calendarShows,
+  today,
+}: {
+  upcomingShows: Show[];
+  calendarShows: Show[];
+  today: string;
+}) {
   const [view, setView] = useState<'list' | 'calendar'>('list');
 
-  if (shows.length === 0) {
+  if (upcomingShows.length === 0 && calendarShows.length === 0) {
     return <p className="text-[#E8E0D0]/70">No upcoming shows scheduled.</p>;
   }
 
@@ -31,13 +39,17 @@ export default function ShowsBrowser({ shows }: { shows: Show[] }) {
       </div>
 
       {view === 'list' ? (
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {shows.map((show) => (
-            <ShowCard key={show.slug} show={show} />
-          ))}
-        </div>
+        upcomingShows.length === 0 ? (
+          <p className="text-[#E8E0D0]/70">No upcoming shows scheduled.</p>
+        ) : (
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {upcomingShows.map((show) => (
+              <ShowCard key={show.slug} show={show} />
+            ))}
+          </div>
+        )
       ) : (
-        <CalendarView shows={shows} />
+        <CalendarView shows={calendarShows} today={today} />
       )}
     </div>
   );

@@ -15,6 +15,12 @@ export default async function UpcomingShows() {
   );
   upcomingShows.sort((a, b) => a.date.localeCompare(b.date));
 
+  // The calendar view doubles as a navigable archive, so it includes past shows
+  // (regardless of announced status, since they already happened) alongside
+  // announced upcoming ones.
+  const calendarShows = shows.filter((show) => show.date < today || show.announced === true);
+  calendarShows.sort((a, b) => a.date.localeCompare(b.date));
+
   return (
     <main className="min-h-screen">
       {/* Upcoming Shows */}
@@ -23,7 +29,7 @@ export default async function UpcomingShows() {
           <h2 className="text-4xl font-bold mb-2">Upcoming Shows</h2>
           <p className="text-[#E8E0D0]/70 text-lg">Click a show to RSVP and get details</p>
         </div>
-        <ShowsBrowser shows={upcomingShows} />
+        <ShowsBrowser upcomingShows={upcomingShows} calendarShows={calendarShows} today={today} />
 
         <div className="mt-8">
           <a href="/archive" className="block text-2xl hover:text-[#E8E0D0]/70">

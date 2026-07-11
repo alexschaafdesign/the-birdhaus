@@ -4,9 +4,11 @@ import type { Show } from '@/lib/shows';
 function formatCardDate(dateStr: string) {
   const [year, month, day] = dateStr.split('-').map(Number);
   const date = new Date(year, month - 1, day);
-  return date
-    .toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
-    .toUpperCase();
+  return {
+    day: date.getDate(),
+    weekday: date.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase(),
+    month: date.toLocaleDateString('en-US', { month: 'short' }).toUpperCase(),
+  };
 }
 
 function bandNames(show: Show) {
@@ -14,6 +16,8 @@ function bandNames(show: Show) {
 }
 
 export default function ShowCard({ show }: { show: Show }) {
+  const { day, weekday, month } = formatCardDate(show.date);
+
   return (
     <Link
       href={`/shows/${show.slug}`}
@@ -31,11 +35,13 @@ export default function ShowCard({ show }: { show: Show }) {
             {show.title}
           </div>
         )}
-        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent px-4 pb-3 pt-12">
-          <p className="mb-1 font-mono text-xs uppercase tracking-widest text-[#E8E0D0]/70">
-            {formatCardDate(show.date)}
-          </p>
-          <h3 className="text-lg font-bold leading-tight text-[#E8E0D0]">{show.title}</h3>
+        <div className="absolute inset-x-0 bottom-0 flex items-baseline gap-2 bg-gradient-to-t from-black via-black/85 via-40% to-transparent px-4 pb-3 pt-16 [text-shadow:0_1px_4px_rgba(0,0,0,0.8)]">
+          <span className="text-3xl font-black leading-none text-[#E8E0D0]">
+            {day} {month}
+          </span>
+          <span className="font-mono text-sm uppercase tracking-widest text-[#E8E0D0]/80">
+            - {weekday}
+          </span>
         </div>
       </div>
       <div className="flex items-center justify-between gap-3 px-4 py-3">
