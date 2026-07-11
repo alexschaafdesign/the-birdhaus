@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server';
 import { sql } from '@/lib/db';
+import { getAvailableDates } from '@/lib/available-dates';
 
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 export async function GET() {
-  const rows = await sql`select id, date::text as date, created_at from available_dates order by date asc`;
+  const rows = await getAvailableDates();
   return NextResponse.json(rows);
 }
 

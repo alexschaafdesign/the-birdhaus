@@ -11,7 +11,19 @@ function parseLocalDate(dateStr: string) {
   return new Date(year, month - 1, day);
 }
 
-export default function CalendarView({ shows, today }: { shows: Show[]; today: string }) {
+export default function CalendarView({
+  shows,
+  today,
+  draftShows,
+  availableDates,
+  isAdmin,
+}: {
+  shows: Show[];
+  today: string;
+  draftShows?: Show[];
+  availableDates?: string[];
+  isAdmin?: boolean;
+}) {
   const todayDate = parseLocalDate(today);
   const [cursor, setCursor] = useState({
     year: todayDate.getFullYear(),
@@ -33,6 +45,26 @@ export default function CalendarView({ shows, today }: { shows: Show[]; today: s
     const date = parseLocalDate(show.date);
     if (date.getFullYear() === cursor.year && date.getMonth() === cursor.month) {
       showsByDay.set(date.getDate(), show);
+    }
+  }
+
+  const draftShowsByDay = new Map<number, Show>();
+  if (isAdmin && draftShows) {
+    for (const show of draftShows) {
+      const date = parseLocalDate(show.date);
+      if (date.getFullYear() === cursor.year && date.getMonth() === cursor.month) {
+        draftShowsByDay.set(date.getDate(), show);
+      }
+    }
+  }
+
+  const availableDaysSet = new Set<number>();
+  if (isAdmin && availableDates) {
+    for (const dateStr of availableDates) {
+      const date = parseLocalDate(dateStr);
+      if (date.getFullYear() === cursor.year && date.getMonth() === cursor.month) {
+        availableDaysSet.add(date.getDate());
+      }
     }
   }
 
@@ -88,6 +120,49 @@ export default function CalendarView({ shows, today }: { shows: Show[]; today: s
 
           const show = showsByDay.get(day);
           if (!show) {
+            const draftShow = draftShowsByDay.get(day);
+            if (draftShow) {
+              return (
+                <Link
+                  key={day}
+                  href={`/admin/shows/${draftShow.id}`}
+                  title={`${draftShow.title} (draft)`}
+                  className="group relative flex aspect-square items-center justify-center overflow-hidden rounded border border-dashed border-yellow-500/50 transition-all hover:border-yellow-400"
+                >
+                  {draftShow.flyer ? (
+                    <img
+                      src={draftShow.flyer}
+                      alt={`${draftShow.title} flyer`}
+                      className="h-full w-full object-cover opacity-60"
+                    />
+                  ) : (
+                    <div className="h-full w-full bg-yellow-500/10" />
+                  )}
+                  <span className="absolute left-1 top-0.5 text-[10px] font-bold text-white drop-shadow">
+                    {day}
+                  </span>
+                  <span className="absolute bottom-0.5 right-0.5 rounded bg-yellow-500 px-1 text-[8px] font-bold uppercase tracking-wide text-black">
+                    Draft
+                  </span>
+                </Link>
+              );
+            }
+
+            if (availableDaysSet.has(day)) {
+              const dateStr = `${cursor.year}-${String(cursor.month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+              return (
+                <Link
+                  key={day}
+                  href={`/admin/shows/new?date=${dateStr}`}
+                  title="Available date — click to draft a show"
+                  className="relative flex aspect-square items-center justify-center rounded border border-dotted border-green-500/40 text-sm text-[#E8E0D0]/40 transition-all hover:border-green-400 hover:text-[#E8E0D0]"
+                >
+                  {day}
+                  <span className="absolute bottom-1 right-1 h-1.5 w-1.5 rounded-full bg-green-500" />
+                </Link>
+              );
+            }
+
             return (
               <div
                 key={day}

@@ -4,6 +4,11 @@ import { DATE_OFFER_STATUSES } from '@/lib/date-offers';
 
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
+export async function GET() {
+  const rows = await sql`select id, submission_id, date::text as date, status, created_at, updated_at from submission_date_offers order by date asc`;
+  return NextResponse.json(rows);
+}
+
 // Logs (or updates) that a specific submission was contacted about a specific
 // date — upserted so re-marking the same submission/date just changes its status.
 export async function POST(request: Request) {

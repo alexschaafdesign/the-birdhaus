@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import BandNameInput, { type BandMatch } from './BandNameInput';
 import ImageUploadField from './ImageUploadField';
+import ShowDateAvailability from './ShowDateAvailability';
 
 const inputClass =
   'bg-transparent border border-[#E8E0D0]/30 rounded px-3 py-1.5 text-sm focus:outline-none focus:border-[#E8E0D0] placeholder:text-[#E8E0D0]/30';
@@ -485,6 +486,8 @@ export default function ShowForm({
           />
         </div>
       </div>
+
+      <ShowDateAvailability date={form.date} />
 
       <div className="border border-[#E8E0D0]/15 rounded-lg p-4">
         <div className="flex items-center justify-between mb-3">

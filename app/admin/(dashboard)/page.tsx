@@ -1,28 +1,19 @@
 import { sql } from '@/lib/db';
 import SubmissionsBoard from '@/components/admin/SubmissionsBoard';
 import type { Submission } from '@/lib/submissions';
-import type { AvailableDate } from '@/lib/available-dates';
+import { getAvailableDates } from '@/lib/available-dates';
 import type { DateOffer } from '@/lib/date-offers';
 
 export const dynamic = 'force-dynamic';
 
 async function getSubmissions(): Promise<Submission[]> {
-  const rows = await sql<Submission[]>`select * from submissions order by created_at desc`;
-  return rows;
-}
-
-async function getAvailableDates(): Promise<AvailableDate[]> {
-  const rows = await sql<
-    AvailableDate[]
-  >`select id, date::text as date, created_at from available_dates order by date asc`;
-  return rows;
+  return sql<Submission[]>`select * from submissions order by created_at desc`;
 }
 
 async function getDateOffers(): Promise<DateOffer[]> {
-  const rows = await sql<
+  return sql<
     DateOffer[]
   >`select id, submission_id, date::text as date, status, created_at, updated_at from submission_date_offers order by date asc`;
-  return rows;
 }
 
 export default async function AdminPage() {
