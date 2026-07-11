@@ -111,6 +111,12 @@ export default async function Home() {
             Archive →
           </a>
         </div>
+
+        <div className="mt-16 text-center">
+          <Link href="/admin/login" className="text-xs uppercase tracking-widest text-[#E8E0D0]/40 hover:text-[#E8E0D0]/70">
+            Admin Login
+          </Link>
+        </div>
       </div>
     </main>
   );
