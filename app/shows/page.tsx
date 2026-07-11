@@ -1,12 +1,8 @@
-import { getAllShowSlugs, getShowBySlug } from '@/lib/shows';
+import { getAllShows } from '@/lib/shows';
 import Link from 'next/link';
 
 export default async function ShowsPage() {
-  const slugs = getAllShowSlugs();
-  const shows = await Promise.all(slugs.map((slug) => getShowBySlug(slug)));
-  
-// Sort by date, soonest first
-  shows.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  const shows = await getAllShows();
 
   return (
     <main className="min-h-screen p-8">

@@ -1,8 +1,7 @@
-import { getAllShowSlugs, getShowBySlug } from '@/lib/shows';
+import { getAllShows } from '@/lib/shows';
 
 export default async function VideosPage() {
-  const slugs = getAllShowSlugs();
-  const shows = await Promise.all(slugs.map((slug) => getShowBySlug(slug)));
+  const shows = await getAllShows();
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   

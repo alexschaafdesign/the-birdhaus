@@ -1,32 +1,9 @@
 import { NextResponse } from "next/server";
-import fs from "fs";
-import path from "path";
-import matter from "gray-matter";
-import { getTodayCentral } from "@/lib/shows";
+import { getAllShows, getTodayCentral } from "@/lib/shows";
 
-interface ShowFrontmatter {
-  title: string;
-  date: string;
-  doorsTime?: string;
-  showTime?: string;
-  bands?: { name: string }[];
-  announced?: boolean;
-}
-
-function getShows(): ShowFrontmatter[] {
-  const showsDir = path.join(process.cwd(), "content/shows");
-  const files = fs.readdirSync(showsDir).filter((f) => f.endsWith(".md"));
-
-  return files.map((file) => {
-    const raw = fs.readFileSync(path.join(showsDir, file), "utf-8");
-    const { data } = matter(raw);
-    return data as ShowFrontmatter;
-  });
-}
-
-function buildMessage(): string {
+async function buildMessage(): Promise<string> {
   const today = getTodayCentral(); // "2026-04-19" in Central Time
-  const shows = getShows().filter((s) => s.announced !== false);
+  const shows = (await getAllShows()).filter((s) => s.announced !== false);
 
   // Check for a show today
   const tonightShow = shows.find((s) => s.date === today);
@@ -39,7 +16,9 @@ function buildMessage(): string {
   let message = "Thanks for calling the Birdhaus hotline. ";
 
   if (tonightShow) {
-    const bands = tonightShow.bands?.map((b) => b.name).join(", ") ?? tonightShow.title;
+    const bands =
+      tonightShow.bands.map((b) => (typeof b === "string" ? b : b.name)).join(", ") ||
+      tonightShow.title;
     message += `There IS a show tonight. `;
     if (tonightShow.doorsTime) message += `Doors are at ${tonightShow.doorsTime}. `;
     if (tonightShow.showTime) message += `Music starts at ${tonightShow.showTime}. `;
@@ -55,7 +34,9 @@ function buildMessage(): string {
       month: "long",
       day: "numeric",
     });
-    const bands = upcoming.bands?.map((b) => b.name).join(", ") ?? upcoming.title;
+    const bands =
+      upcoming.bands.map((b) => (typeof b === "string" ? b : b.name)).join(", ") ||
+      upcoming.title;
     message += `The next show is ${formatted}, featuring ${bands}. `;
   }
 
@@ -64,7 +45,7 @@ function buildMessage(): string {
 }
 
 export async function POST() {
-  const message = buildMessage();
+  const message = await buildMessage();
 
   // Twilio expects TwiML XML in response
   const twiml = `<?xml version="1.0" encoding="UTF-8"?>

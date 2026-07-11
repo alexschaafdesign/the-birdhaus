@@ -1,4 +1,4 @@
-import { getAllShowSlugs, getShowBySlug, getTodayCentral } from '@/lib/shows';
+import { getAllShows, getTodayCentral } from '@/lib/shows';
 import Link from 'next/link';
 
 // Evaluate the upcoming/past split per request so it reflects the current date,
@@ -6,8 +6,7 @@ import Link from 'next/link';
 export const dynamic = 'force-dynamic';
 
 export default async function UpcomingShows() {
-  const slugs = getAllShowSlugs();
-  const shows = await Promise.all(slugs.map((slug) => getShowBySlug(slug)));
+  const shows = await getAllShows();
 
   const today = getTodayCentral();
 

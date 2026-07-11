@@ -1,21 +1,26 @@
-import { getShowBySlug, getAllShowSlugs } from '@/lib/shows';
+import { getShowBySlug, getAllShows } from '@/lib/shows';
 import { getPhotosFromFolder } from '@/lib/cloudinary';
+import { getAllBandSlugs } from '@/lib/bands';
+import { notFound } from 'next/navigation';
+import Link from 'next/link';
 import RSVPForm from '@/components/RSVPForm';
 import PhotoGallery from '@/components/PhotoGallery';
 import CloudinaryGallery from '@/components/CloudinaryGallery';
 
 export async function generateStaticParams() {
-  const slugs = getAllShowSlugs();
-  return slugs.map((slug) => ({ slug }));
+  const shows = await getAllShows();
+  return shows.map(({ slug }) => ({ slug }));
 }
 
 export default async function ShowPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const show = await getShowBySlug(slug);
+  if (!show) notFound();
 
   const galleryPhotos = show.photoFolder
     ? await getPhotosFromFolder(show.photoFolder)
     : [];
+  const bandSlugs = await getAllBandSlugs();
 
   const todayStr = new Date().toLocaleDateString('en-US', { timeZone: 'America/Chicago' });
   const today = new Date(todayStr);
@@ -101,11 +106,25 @@ export default async function ShowPage({ params }: { params: Promise<{ slug: str
               const bandName = typeof band === 'string' ? band : band.name;
               const instagram = typeof band === 'string' ? null : band.instagram;
               const bio = typeof band === 'string' ? null : band.bio;
+              const photo = typeof band === 'string' ? null : band.photo;
+              const bandId = typeof band === 'string' ? null : band.bandId;
+              const bandSlug = bandId ? bandSlugs.get(bandId) : undefined;
 
               return (
                 <div key={index}>
-                  <div className="text-lg font-medium">
-                    {instagram ? (
+                  <div className="text-lg font-medium flex items-center gap-2">
+                    {photo && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={photo} alt="" className="w-8 h-8 rounded-full object-cover" />
+                    )}
+                    {bandSlug ? (
+                      <Link
+                        href={`/bands/${bandSlug}`}
+                        className="hover:text-[#E8E0D0]/70 underline decoration-2 underline-offset-2 transition-colors"
+                      >
+                        {bandName}
+                      </Link>
+                    ) : instagram ? (
                       <a
                         href={instagram}
                         target="_blank"
@@ -116,6 +135,16 @@ export default async function ShowPage({ params }: { params: Promise<{ slug: str
                       </a>
                     ) : (
                       bandName
+                    )}
+                    {bandSlug && instagram && (
+                      <a
+                        href={instagram}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs text-[#E8E0D0]/50 hover:text-[#E8E0D0]/80 underline"
+                      >
+                        Instagram ↗
+                      </a>
                     )}
                   </div>
                   {bio && (

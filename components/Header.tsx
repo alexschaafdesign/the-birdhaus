@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 const navLinks = [
   { href: '/upcoming', label: 'Upcoming Shows' },
   { href: '/archive', label: 'Archive' },
+  { href: '/bands', label: 'Bands' },
   { href: '/videos', label: 'Video' },
   { href: 'https://birdhausrecords.bandcamp.com', label: 'Record Label', external: true },
   { href: '/contact', label: 'Contact' },

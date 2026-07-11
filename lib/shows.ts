@@ -1,19 +1,16 @@
-import fs from 'fs';
-import path from 'path';
-import matter from 'gray-matter';
 import { remark } from 'remark';
 import html from 'remark-html';
-
-const showsDirectory = path.join(process.cwd(), 'content/shows');
+import { sql } from './db';
 
 export interface Show {
+  id: number;
   slug: string;
   title: string;
   date: string;
-  doorsTime?: string;  
+  doorsTime?: string;
   showTime?: string;
-  flyer?: string; 
-  bands: Array<{ name: string; instagram?: string; bio?: string }> | string[];
+  flyer?: string;
+  bands: Array<{ name: string; instagram?: string; bio?: string; photo?: string; bandId?: number }> | string[];
   description?: string;
   photographer?: string | { name: string; instagram?: string };
   rsvpUrl?: string;
@@ -29,37 +26,72 @@ export interface Show {
   announced?: boolean;
 }
 
-export async function getShowBySlug(slug: string): Promise<Show> {
-  const realSlug = slug.replace(/\.md$/, '');
-  const fullPath = path.join(showsDirectory, `${realSlug}.md`);
-  const fileContents = fs.readFileSync(fullPath, 'utf8');
-  const { data, content } = matter(fileContents);
+interface ShowRow {
+  id: number;
+  slug: string;
+  title: string;
+  date: string;
+  doors_time: string | null;
+  show_time: string | null;
+  flyer: string | null;
+  bands: unknown;
+  description: string | null;
+  photographer: unknown;
+  rsvp_url: string | null;
+  ticket_url: string | null;
+  external_ticket_url: string | null;
+  rsvp_form: boolean;
+  videos: unknown;
+  audio: unknown;
+  photos: unknown;
+  photo_folder: string | null;
+  photo_credit: string | null;
+  content_markdown: string;
+  announced: boolean;
+}
 
-  const processedContent = await remark().use(html).process(content);
-  const contentHtml = processedContent.toString();
+async function renderMarkdown(markdown: string): Promise<string> {
+  const processed = await remark().use(html).process(markdown);
+  return processed.toString();
+}
 
+async function rowToShow(row: ShowRow): Promise<Show> {
   return {
-    slug: realSlug,
-    title: data.title,
-    date: data.date,
-    doorsTime: data.doorsTime, 
-    showTime: data.showTime,
-    flyer: data.flyer, 
-    bands: data.bands || [],
-    description: data.description,
-    photographer: data.photographer,
-    rsvpUrl: data.rsvpUrl,
-    ticketUrl: data.ticketUrl,
-    externalTicketUrl: data.externalTicketUrl,
-    rsvpForm: data.rsvpForm ?? true,
-    videos: data.videos || [],
-    audio: data.audio || [],
-    photos: data.photos || [],
-    photoFolder: data.photoFolder,
-    photoCredit: data.photoCredit,
-    content: contentHtml,
-    announced: data.announced ?? false,
+    id: row.id,
+    slug: row.slug,
+    title: row.title,
+    date: row.date,
+    doorsTime: row.doors_time ?? undefined,
+    showTime: row.show_time ?? undefined,
+    flyer: row.flyer ?? undefined,
+    bands: (row.bands as Show['bands']) ?? [],
+    description: row.description ?? undefined,
+    photographer: (row.photographer as Show['photographer']) ?? undefined,
+    rsvpUrl: row.rsvp_url ?? undefined,
+    ticketUrl: row.ticket_url ?? undefined,
+    externalTicketUrl: row.external_ticket_url ?? undefined,
+    rsvpForm: row.rsvp_form,
+    videos: (row.videos as Show['videos']) ?? [],
+    audio: (row.audio as Show['audio']) ?? [],
+    photos: (row.photos as string[]) ?? [],
+    photoFolder: row.photo_folder ?? undefined,
+    photoCredit: row.photo_credit ?? undefined,
+    content: await renderMarkdown(row.content_markdown),
+    announced: row.announced,
   };
+}
+
+export async function getAllShows(): Promise<Show[]> {
+  const rows = await sql<ShowRow[]>`select *, date::text as date from shows order by shows.date asc`;
+  return Promise.all(rows.map(rowToShow));
+}
+
+export async function getShowBySlug(slug: string): Promise<Show | null> {
+  const [row] = await sql<
+    ShowRow[]
+  >`select *, date::text as date from shows where slug = ${slug} limit 1`;
+  if (!row) return null;
+  return rowToShow(row);
 }
 
 // Today's date in Central Time as "YYYY-MM-DD". Because show.date is also stored
@@ -70,7 +102,83 @@ export function getTodayCentral(): string {
   return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Chicago' });
 }
 
-export function getAllShowSlugs(): string[] {
-  const fileNames = fs.readdirSync(showsDirectory);
-  return fileNames.map((fileName) => fileName.replace(/\.md$/, ''));
+// Derives a URL slug from a show's date and title, e.g. "2026-08-15" + "Hairless
+// Twin / Greydeer" -> "2026-08-15-hairless-twin-greydeer" — mirrors the naming
+// convention already used by the hand-authored content/shows/*.md filenames.
+export function slugify(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+export const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+export function isValidBandsInput(input: unknown): input is Show['bands'] {
+  return (
+    Array.isArray(input) &&
+    input.every((band) => {
+      if (typeof band === 'string') return true;
+      if (!band || typeof band !== 'object') return false;
+      const b = band as Record<string, unknown>;
+      return (
+        typeof b.name === 'string' &&
+        (b.instagram === undefined || typeof b.instagram === 'string') &&
+        (b.bio === undefined || typeof b.bio === 'string') &&
+        (b.photo === undefined || typeof b.photo === 'string') &&
+        (b.bandId === undefined || (typeof b.bandId === 'number' && Number.isInteger(b.bandId)))
+      );
+    })
+  );
+}
+
+export function isValidVideosInput(input: unknown): input is Show['videos'] {
+  return (
+    Array.isArray(input) &&
+    input.every(
+      (video) =>
+        !!video &&
+        typeof video === 'object' &&
+        typeof (video as Record<string, unknown>).youtube === 'string' &&
+        typeof (video as Record<string, unknown>).title === 'string'
+    )
+  );
+}
+
+export function isValidAudioInput(input: unknown): input is NonNullable<Show['audio']> {
+  return (
+    Array.isArray(input) &&
+    input.every(
+      (audio) =>
+        !!audio &&
+        typeof audio === 'object' &&
+        typeof (audio as Record<string, unknown>).bandcamp === 'string' &&
+        typeof (audio as Record<string, unknown>).title === 'string'
+    )
+  );
+}
+
+export function isValidPhotosInput(input: unknown): input is string[] {
+  return Array.isArray(input) && input.every((photo) => typeof photo === 'string');
+}
+
+// Normalizes an incoming photographer value (string, object, or empty) down to the
+// object shape the admin form always writes. Garbage input (wrong type) is
+// treated as "no photographer" rather than rejected outright.
+export function normalizePhotographerInput(
+  input: unknown
+): { name: string; instagram?: string } | null {
+  if (input == null) return null;
+  if (typeof input === 'string') {
+    const name = input.trim();
+    return name ? { name } : null;
+  }
+  if (typeof input === 'object') {
+    const obj = input as Record<string, unknown>;
+    const name = typeof obj.name === 'string' ? obj.name.trim() : '';
+    if (!name) return null;
+    const instagram = typeof obj.instagram === 'string' ? obj.instagram.trim() : '';
+    return instagram ? { name, instagram } : { name };
+  }
+  return null;
 }
