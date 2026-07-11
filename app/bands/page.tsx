@@ -39,6 +39,11 @@ export default async function BandsPage() {
                 <p className="mt-2 text-center font-medium truncate group-hover:text-[#E8E0D0]/70 transition-colors">
                   {band.name}
                 </p>
+                {band.isTouring && (
+                  <p className="text-center text-xs text-[#E8E0D0]/40 truncate">
+                    Touring{band.hometown ? ` · ${band.hometown}` : ''}
+                  </p>
+                )}
               </Link>
             ))}
           </div>

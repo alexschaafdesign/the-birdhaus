@@ -9,6 +9,8 @@ export interface BandListItem {
   name: string;
   instagram: string | null;
   photo: string | null;
+  is_touring: boolean;
+  hometown: string | null;
   show_count: number;
 }
 
@@ -85,6 +87,11 @@ export default function BandsList({ initialBands }: { initialBands: BandListItem
               <span className="text-xs px-2 py-0.5 rounded-full border border-[#E8E0D0]/30 text-[#E8E0D0]/50 flex-shrink-0">
                 {band.show_count} show{band.show_count === 1 ? '' : 's'}
               </span>
+              {band.is_touring && (
+                <span className="text-xs px-2 py-0.5 rounded-full border border-[#E8E0D0]/30 text-[#E8E0D0]/50 flex-shrink-0">
+                  Touring{band.hometown ? ` · ${band.hometown}` : ''}
+                </span>
+              )}
             </div>
             <div className="flex items-center gap-3 flex-shrink-0 text-sm">
               <Link href={`/bands/${band.slug}`} target="_blank" className="text-[#E8E0D0]/50 hover:text-[#E8E0D0]">

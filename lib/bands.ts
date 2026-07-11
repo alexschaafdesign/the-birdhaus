@@ -9,6 +9,8 @@ export interface Band {
   instagram?: string;
   bio?: string;
   photo?: string;
+  isTouring: boolean;
+  hometown?: string;
 }
 
 interface BandRow {
@@ -18,6 +20,8 @@ interface BandRow {
   instagram: string | null;
   bio: string | null;
   photo: string | null;
+  is_touring: boolean;
+  hometown: string | null;
 }
 
 function rowToBand(row: BandRow): Band {
@@ -28,6 +32,8 @@ function rowToBand(row: BandRow): Band {
     instagram: row.instagram ?? undefined,
     bio: row.bio ?? undefined,
     photo: row.photo ?? undefined,
+    isTouring: row.is_touring,
+    hometown: row.hometown ?? undefined,
   };
 }
 

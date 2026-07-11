@@ -15,6 +15,8 @@ export interface BandFormInitialValues {
   instagram?: string | null;
   bio?: string | null;
   photo?: string | null;
+  isTouring?: boolean;
+  hometown?: string | null;
 }
 
 export default function BandForm({
@@ -31,8 +33,15 @@ export default function BandForm({
   const [instagram, setInstagram] = useState(initialValues?.instagram ?? '');
   const [bio, setBio] = useState(initialValues?.bio ?? '');
   const [photo, setPhoto] = useState(initialValues?.photo ?? '');
+  const [isTouring, setIsTouring] = useState(initialValues?.isTouring ?? false);
+  const [hometown, setHometown] = useState(initialValues?.hometown ?? '');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  function selectLocal() {
+    setIsTouring(false);
+    setHometown(''); // clear rather than just hide, so a stale value can't linger
+  }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -48,6 +57,10 @@ export default function BandForm({
       instagram: instagram.trim() || undefined,
       bio: bio.trim() || undefined,
       photo: photo.trim() || undefined,
+      isTouring,
+      // Explicitly null (not omitted) when not touring — PATCH only clears a
+      // stored hometown when the "hometown" key is actually present in the body.
+      hometown: isTouring ? hometown.trim() || null : null,
     };
 
     setSubmitting(true);
@@ -123,6 +136,42 @@ export default function BandForm({
             onChange={(e) => setInstagram(e.target.value)}
             className={`${inputClass} w-full`}
           />
+        </div>
+
+        <div>
+          <label className="block text-xs uppercase tracking-wide text-[#E8E0D0]/40 mb-1">Local or touring?</label>
+          <div className="flex text-xs rounded border border-[#E8E0D0]/30 overflow-hidden w-fit">
+            <button
+              type="button"
+              onClick={selectLocal}
+              className="px-3 py-1.5 transition-colors"
+              style={{
+                backgroundColor: !isTouring ? '#E8E0D0' : 'transparent',
+                color: !isTouring ? '#2A2420' : '#E8E0D080',
+              }}
+            >
+              Local
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsTouring(true)}
+              className="px-3 py-1.5 transition-colors border-l border-[#E8E0D0]/30"
+              style={{
+                backgroundColor: isTouring ? '#E8E0D0' : 'transparent',
+                color: isTouring ? '#2A2420' : '#E8E0D080',
+              }}
+            >
+              Touring
+            </button>
+          </div>
+          {isTouring && (
+            <input
+              placeholder="Hometown — e.g. Austin, TX"
+              value={hometown}
+              onChange={(e) => setHometown(e.target.value)}
+              className={`${inputClass} w-full mt-2`}
+            />
+          )}
         </div>
 
         <ImageUploadField

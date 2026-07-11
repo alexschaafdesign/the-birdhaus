@@ -47,10 +47,17 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Could not derive a slug from name' }, { status: 400 });
   }
 
+  const isTouring = Boolean(body.isTouring);
+  // Only meaningful when touring — never store a stale hometown on a local band.
+  const hometown = isTouring ? nullableTrim(body.hometown) : null;
+
   try {
     const [row] = await sql`
-      insert into bands (slug, name, instagram, bio, photo)
-      values (${slug}, ${name}, ${nullableTrim(body.instagram)}, ${nullableTrim(body.bio)}, ${nullableTrim(body.photo)})
+      insert into bands (slug, name, instagram, bio, photo, is_touring, hometown)
+      values (
+        ${slug}, ${name}, ${nullableTrim(body.instagram)}, ${nullableTrim(body.bio)}, ${nullableTrim(body.photo)},
+        ${isTouring}, ${hometown}
+      )
       returning *
     `;
     return NextResponse.json(row, { status: 201 });

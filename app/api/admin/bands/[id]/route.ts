@@ -47,6 +47,18 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     assignments.push(sql`slug = ${slug}`);
   }
 
+  if ('isTouring' in body) {
+    assignments.push(sql`is_touring = ${Boolean(body.isTouring)}`);
+  }
+
+  if ('hometown' in body) {
+    // Only meaningful when touring — if this request also sets isTouring to
+    // false, drop any hometown value rather than storing a stale one.
+    const isTouring = 'isTouring' in body ? Boolean(body.isTouring) : undefined;
+    const trimmed = typeof body.hometown === 'string' ? body.hometown.trim() || null : null;
+    assignments.push(sql`hometown = ${isTouring === false ? null : trimmed}`);
+  }
+
   if (assignments.length === 0) {
     return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 });
   }

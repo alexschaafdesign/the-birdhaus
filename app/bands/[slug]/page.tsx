@@ -36,6 +36,9 @@ export default async function BandPage({ params }: { params: Promise<{ slug: str
           )}
           <div>
             <h1 className="text-4xl font-bold leading-tight">{band.name}</h1>
+            <p className="text-[#E8E0D0]/50 text-sm mt-1">
+              {band.isTouring ? (band.hometown ? `Touring · ${band.hometown}` : 'Touring') : 'Local'}
+            </p>
             {band.instagram && (
               <a
                 href={band.instagram}
