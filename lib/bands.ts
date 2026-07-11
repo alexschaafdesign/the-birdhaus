@@ -2,6 +2,12 @@ import postgres from 'postgres';
 import { sql } from './db';
 import type { Show } from './shows';
 
+export interface FeaturedLink {
+  url: string;
+  label: string;
+  image: string;
+}
+
 export interface Band {
   id: number;
   slug: string;
@@ -11,6 +17,21 @@ export interface Band {
   photo?: string;
   isTouring: boolean;
   hometown?: string;
+  // Fields absorbed from the Twin Scene directory — not yet surfaced in
+  // Birdhaus's own admin/public UI, but stored so a future consumer (Twin
+  // Scene, or another project) can read them from this shared table.
+  genres: string[];
+  city?: string;
+  neighborhoods: string[];
+  members: string[];
+  contactEmail?: string;
+  contactMethod?: string;
+  website?: string;
+  bandcamp?: string;
+  bandcampEmbedUrl?: string;
+  bandcampEmbedHeight?: number;
+  featuredLinks: FeaturedLink[];
+  twinsceneSlug?: string;
 }
 
 interface BandRow {
@@ -22,6 +43,18 @@ interface BandRow {
   photo: string | null;
   is_touring: boolean;
   hometown: string | null;
+  genres: unknown;
+  city: string | null;
+  neighborhoods: unknown;
+  members: unknown;
+  contact_email: string | null;
+  contact_method: string | null;
+  website: string | null;
+  bandcamp: string | null;
+  bandcamp_embed_url: string | null;
+  bandcamp_embed_height: number | null;
+  featured_links: unknown;
+  twinscene_slug: string | null;
 }
 
 function rowToBand(row: BandRow): Band {
@@ -34,6 +67,18 @@ function rowToBand(row: BandRow): Band {
     photo: row.photo ?? undefined,
     isTouring: row.is_touring,
     hometown: row.hometown ?? undefined,
+    genres: (row.genres as string[]) ?? [],
+    city: row.city ?? undefined,
+    neighborhoods: (row.neighborhoods as string[]) ?? [],
+    members: (row.members as string[]) ?? [],
+    contactEmail: row.contact_email ?? undefined,
+    contactMethod: row.contact_method ?? undefined,
+    website: row.website ?? undefined,
+    bandcamp: row.bandcamp ?? undefined,
+    bandcampEmbedUrl: row.bandcamp_embed_url ?? undefined,
+    bandcampEmbedHeight: row.bandcamp_embed_height ?? undefined,
+    featuredLinks: (row.featured_links as FeaturedLink[]) ?? [],
+    twinsceneSlug: row.twinscene_slug ?? undefined,
   };
 }
 
@@ -50,6 +95,21 @@ export function slugify(text: string): string {
 export async function getAllBands(): Promise<Band[]> {
   const rows = await sql<BandRow[]>`select * from bands order by name asc`;
   return rows.map(rowToBand);
+}
+
+// Same as getAllBands, plus how many Birdhaus shows each band has actually
+// played — used by the public gallery to default to "played here" while
+// still letting the full shared directory (including Twin Scene imports
+// that never played Birdhaus) be revealed on demand.
+export async function getAllBandsWithPlayCount(): Promise<Array<Band & { playCount: number }>> {
+  const rows = await sql<Array<BandRow & { play_count: number }>>`
+    select b.*,
+      (select count(*)::int from shows s, jsonb_array_elements(s.bands) e
+       where e ? 'bandId' and (e->>'bandId')::int = b.id) as play_count
+    from bands b
+    order by b.name asc
+  `;
+  return rows.map((row) => ({ ...rowToBand(row), playCount: row.play_count }));
 }
 
 export async function getBandBySlug(slug: string): Promise<Band | null> {

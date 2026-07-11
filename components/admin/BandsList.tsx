@@ -20,13 +20,19 @@ const inputClass =
 export default function BandsList({ initialBands }: { initialBands: BandListItem[] }) {
   const [bands, setBands] = useState<BandListItem[]>(initialBands);
   const [search, setSearch] = useState('');
+  const [showAll, setShowAll] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const scoped = useMemo(
+    () => (showAll ? bands : bands.filter((b) => b.show_count > 0)),
+    [bands, showAll]
+  );
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return bands;
-    return bands.filter((b) => b.name.toLowerCase().includes(q) || b.slug.includes(q));
-  }, [bands, search]);
+    if (!q) return scoped;
+    return scoped.filter((b) => b.name.toLowerCase().includes(q) || b.slug.includes(q));
+  }, [scoped, search]);
 
   async function handleDelete(id: number, name: string) {
     if (!confirm(`Delete "${name}"? This can't be undone.`)) return;
@@ -66,8 +72,13 @@ export default function BandsList({ initialBands }: { initialBands: BandListItem
         </Link>
       </div>
 
+      <label className="flex items-center gap-2 text-sm text-[#E8E0D0]/60 select-none mb-3 w-fit">
+        <input type="checkbox" checked={showAll} onChange={(e) => setShowAll(e.target.checked)} />
+        Show all Twin Cities bands (in-progress)
+      </label>
+
       <p className="text-xs text-[#E8E0D0]/40 mb-3">
-        {filtered.length} of {bands.length} bands shown
+        {filtered.length} of {scoped.length} bands shown
       </p>
 
       <div className="space-y-2">

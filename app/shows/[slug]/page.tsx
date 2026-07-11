@@ -1,6 +1,6 @@
 import { getShowBySlug, getAllShows } from '@/lib/shows';
 import { getPhotosFromFolder } from '@/lib/cloudinary';
-import { getAllBandSlugs } from '@/lib/bands';
+import { getAllBands } from '@/lib/bands';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import RSVPForm from '@/components/RSVPForm';
@@ -20,7 +20,10 @@ export default async function ShowPage({ params }: { params: Promise<{ slug: str
   const galleryPhotos = show.photoFolder
     ? await getPhotosFromFolder(show.photoFolder)
     : [];
-  const bandSlugs = await getAllBandSlugs();
+  // Per-show band entries can override name/bio/photo/instagram, but almost
+  // never do in practice — the band's own profile (curated centrally via
+  // /admin/bands) is where this actually gets filled in. Fall back to that.
+  const bandsById = new Map((await getAllBands()).map((b) => [b.id, b]));
 
   const todayStr = new Date().toLocaleDateString('en-US', { timeZone: 'America/Chicago' });
   const today = new Date(todayStr);
@@ -99,60 +102,64 @@ export default async function ShowPage({ params }: { params: Promise<{ slug: str
         )}
 
         {/* Lineup */}
-        <div className="mb-10 bg-[#E8E0D0]/5 rounded-lg p-6 border border-[#E8E0D0]/20">
+        <div className="mb-10">
           <h2 className="text-2xl font-bold mb-4">Lineup</h2>
-          <div className="space-y-4">
+          <div className="grid gap-4 sm:grid-cols-2">
             {show.bands.map((band, index) => {
               const bandName = typeof band === 'string' ? band : band.name;
-              const instagram = typeof band === 'string' ? null : band.instagram;
-              const bio = typeof band === 'string' ? null : band.bio;
-              const photo = typeof band === 'string' ? null : band.photo;
               const bandId = typeof band === 'string' ? null : band.bandId;
-              const bandSlug = bandId ? bandSlugs.get(bandId) : undefined;
+              const centralBand = bandId ? bandsById.get(bandId) : undefined;
 
-              return (
-                <div key={index}>
-                  <div className="text-lg font-medium flex items-center gap-2">
-                    {photo && (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={photo} alt="" className="w-8 h-8 rounded-full object-cover" />
+              const instagram = (typeof band === 'string' ? null : band.instagram) || centralBand?.instagram || null;
+              const bio = (typeof band === 'string' ? null : band.bio) || centralBand?.bio || null;
+              const photo = (typeof band === 'string' ? null : band.photo) || centralBand?.photo || null;
+              const bandSlug = centralBand?.slug;
+
+              const cardBody = (
+                <div className="flex gap-4 border border-[#E8E0D0]/20 rounded-lg p-4 h-full group-hover:border-[#E8E0D0]/50 transition-colors">
+                  {photo ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={photo}
+                      alt={bandName}
+                      className="w-24 h-24 rounded-lg object-cover flex-shrink-0"
+                    />
+                  ) : (
+                    <div className="w-24 h-24 rounded-lg bg-[#E8E0D0]/5 flex items-center justify-center flex-shrink-0">
+                      <span className="text-2xl font-bold text-[#E8E0D0]/20">
+                        {bandName.charAt(0).toUpperCase()}
+                      </span>
+                    </div>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <p className="font-semibold text-lg group-hover:text-[#E8E0D0]/70 transition-colors">
+                      {bandName}
+                    </p>
+                    {bio && (
+                      <p className="text-sm text-[#E8E0D0]/70 mt-1 leading-relaxed whitespace-pre-line line-clamp-4">
+                        {bio}
+                      </p>
                     )}
-                    {bandSlug ? (
-                      <Link
-                        href={`/bands/${bandSlug}`}
-                        className="hover:text-[#E8E0D0]/70 underline decoration-2 underline-offset-2 transition-colors"
-                      >
-                        {bandName}
-                      </Link>
-                    ) : instagram ? (
+                    {!bandSlug && instagram && (
                       <a
                         href={instagram}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="hover:text-[#E8E0D0]/70 underline decoration-2 underline-offset-2 transition-colors"
-                      >
-                        {bandName}
-                      </a>
-                    ) : (
-                      bandName
-                    )}
-                    {bandSlug && instagram && (
-                      <a
-                        href={instagram}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-xs text-[#E8E0D0]/50 hover:text-[#E8E0D0]/80 underline"
+                        className="text-xs text-[#E8E0D0]/50 hover:text-[#E8E0D0]/80 underline mt-2 inline-block"
                       >
                         Instagram ↗
                       </a>
                     )}
                   </div>
-                  {bio && (
-                    <p className="text-[#E8E0D0]/70 mt-1 max-w-3xl leading-relaxed whitespace-pre-line">
-                      {bio}
-                    </p>
-                  )}
                 </div>
+              );
+
+              return bandSlug ? (
+                <Link key={index} href={`/bands/${bandSlug}`} className="group block">
+                  {cardBody}
+                </Link>
+              ) : (
+                <div key={index}>{cardBody}</div>
               );
             })}
           </div>

@@ -25,31 +25,30 @@ export default async function BandPage({ params }: { params: Promise<{ slug: str
           ← Back to home
         </Link>
 
-        <div className="flex items-center gap-5 mb-6">
-          {band.photo && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={band.photo}
-              alt={band.name}
-              className="w-24 h-24 rounded-full object-cover flex-shrink-0"
-            />
+        {band.photo && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={band.photo}
+            alt={band.name}
+            className="w-full max-w-md aspect-square object-cover rounded-lg shadow-lg mb-6"
+          />
+        )}
+
+        <div className="mb-6">
+          <h1 className="text-4xl font-bold leading-tight">{band.name}</h1>
+          <p className="text-[#E8E0D0]/50 text-sm mt-1">
+            {band.isTouring ? (band.hometown ? `Touring · ${band.hometown}` : 'Touring') : 'Local'}
+          </p>
+          {band.instagram && (
+            <a
+              href={band.instagram}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[#E8E0D0]/60 hover:text-[#E8E0D0] underline text-sm"
+            >
+              Instagram ↗
+            </a>
           )}
-          <div>
-            <h1 className="text-4xl font-bold leading-tight">{band.name}</h1>
-            <p className="text-[#E8E0D0]/50 text-sm mt-1">
-              {band.isTouring ? (band.hometown ? `Touring · ${band.hometown}` : 'Touring') : 'Local'}
-            </p>
-            {band.instagram && (
-              <a
-                href={band.instagram}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-[#E8E0D0]/60 hover:text-[#E8E0D0] underline text-sm"
-              >
-                Instagram ↗
-              </a>
-            )}
-          </div>
         </div>
 
         {band.bio && (
