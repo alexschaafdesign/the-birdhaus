@@ -74,6 +74,22 @@ export async function getShowsForBand(bandId: number): Promise<BandShow[]> {
   `;
 }
 
+export interface BandVideo {
+  showSlug: string;
+  showTitle: string;
+  youtube: string;
+  title: string;
+}
+
+export async function getVideosForBand(bandId: number): Promise<BandVideo[]> {
+  return sql<BandVideo[]>`
+    select s.slug as "showSlug", s.title as "showTitle", v->>'youtube' as youtube, v->>'title' as title
+    from shows s, jsonb_array_elements(s.videos) v
+    where v ? 'bandId' and (v->>'bandId')::int = ${bandId}
+    order by s.date desc
+  `;
+}
+
 type Tx = postgres.TransactionSql;
 
 async function uniqueSlug(tx: Tx, base: string): Promise<string> {
@@ -125,4 +141,24 @@ export async function resolveShowBandEntries(bands: Show['bands'], tx: Tx): Prom
   }
 
   return resolved as Show['bands'];
+}
+
+// Maps each video's transient `bandIndex` (the video row's position within
+// the *same request's* bands array, as sent by ShowForm.tsx) to the real
+// bandId that resolveShowBandEntries just resolved that position to — bridges
+// "which band row is this a video of" to a real id even when that band was
+// just created in this same save. `bandIndex` is never itself persisted; a
+// video that already carries a `bandId` (from a prior save) keeps it as-is.
+export function resolveVideoBandIds(
+  videos: unknown[],
+  resolvedBands: Show['bands'] | undefined
+): Show['videos'] {
+  return videos.map((raw) => {
+    const { bandIndex, ...rest } = raw as Record<string, unknown>;
+    if (typeof bandIndex === 'number' && resolvedBands?.[bandIndex]) {
+      const bandId = (resolvedBands[bandIndex] as { bandId?: number }).bandId;
+      if (bandId) return { ...rest, bandId } as Show['videos'][number];
+    }
+    return rest as Show['videos'][number];
+  });
 }

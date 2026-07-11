@@ -10,7 +10,7 @@ import {
   slugify,
   type Show,
 } from '@/lib/shows';
-import { resolveShowBandEntries } from '@/lib/bands';
+import { resolveShowBandEntries, resolveVideoBandIds } from '@/lib/bands';
 
 // Maps the camelCase keys the client sends (matching the `Show` interface) to
 // their snake_case columns for the plain text/URL fields. Fields with their own
@@ -91,11 +91,12 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     bandsInput = body.bands;
   }
 
+  let videosInput: unknown[] | undefined;
   if ('videos' in body) {
     if (!isValidVideosInput(body.videos)) {
       return NextResponse.json({ error: 'Invalid videos' }, { status: 400 });
     }
-    updates.push({ column: 'videos', value: body.videos, json: true });
+    videosInput = body.videos;
   }
 
   if ('audio' in body) {
@@ -124,15 +125,21 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     updates.push({ column: 'announced', value: Boolean(body.announced) });
   }
 
-  if (updates.length === 0 && bandsInput === undefined) {
+  if (updates.length === 0 && bandsInput === undefined && videosInput === undefined) {
     return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 });
   }
 
   try {
     const row = await sql.begin(async (tx) => {
+      let resolvedBands: Show['bands'] | undefined;
       if (bandsInput !== undefined) {
-        const resolvedBands = await resolveShowBandEntries(bandsInput, tx);
+        resolvedBands = await resolveShowBandEntries(bandsInput, tx);
         updates.push({ column: 'bands', value: resolvedBands, json: true });
+      }
+
+      if (videosInput !== undefined) {
+        const resolvedVideos = resolveVideoBandIds(videosInput, resolvedBands);
+        updates.push({ column: 'videos', value: resolvedVideos, json: true });
       }
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any

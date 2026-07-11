@@ -10,7 +10,8 @@
     "db:migrate": "node scripts/migrate.mjs",
     "db:import": "node scripts/import-submissions.mjs",
     "db:import-shows": "node scripts/import-shows.mjs",
-    "db:backfill-bands": "node scripts/backfill-bands.mjs"
+    "db:backfill-bands": "node scripts/backfill-bands.mjs",
+    "db:backfill-video-bands": "node scripts/backfill-video-bands.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1085.0",

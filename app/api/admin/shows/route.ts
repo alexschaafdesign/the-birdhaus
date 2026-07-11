@@ -9,7 +9,7 @@ import {
   normalizePhotographerInput,
   slugify,
 } from '@/lib/shows';
-import { resolveShowBandEntries } from '@/lib/bands';
+import { resolveShowBandEntries, resolveVideoBandIds } from '@/lib/bands';
 
 export async function GET() {
   const rows = await sql`select *, date::text as date from shows order by shows.date desc`;
@@ -68,6 +68,7 @@ export async function POST(request: Request) {
   try {
     const row = await sql.begin(async (tx) => {
       const resolvedBands = await resolveShowBandEntries(bands, tx);
+      const resolvedVideos = resolveVideoBandIds(videos, resolvedBands);
       const [row] = await tx`
         insert into shows (
           slug, title, date, doors_time, show_time, flyer, bands, description,
@@ -79,7 +80,7 @@ export async function POST(request: Request) {
           ${nullableTrim(body.flyer)}, ${tx.json(resolvedBands)}, ${nullableTrim(body.description)},
           ${tx.json(photographer)}, ${nullableTrim(body.rsvpUrl)}, ${nullableTrim(body.ticketUrl)},
           ${nullableTrim(body.externalTicketUrl)}, ${rsvpForm},
-          ${tx.json(videos)}, ${tx.json(audio)}, ${tx.json(photos)},
+          ${tx.json(resolvedVideos)}, ${tx.json(audio)}, ${tx.json(photos)},
           ${nullableTrim(body.photoFolder)}, ${nullableTrim(body.photoCredit)},
           ${typeof body.content === 'string' ? body.content : ''}, ${announced}
         )

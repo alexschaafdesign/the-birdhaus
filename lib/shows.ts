@@ -17,7 +17,7 @@ export interface Show {
   ticketUrl?: string;
   externalTicketUrl?: string;
   rsvpForm?: boolean;
-  videos: Array<{ youtube: string; title: string }>;
+  videos: Array<{ youtube: string; title: string; bandId?: number }>;
   audio?: Array<{ bandcamp: string; title: string }>;
   photos?: string[];
   photoFolder?: string;
@@ -135,13 +135,15 @@ export function isValidBandsInput(input: unknown): input is Show['bands'] {
 export function isValidVideosInput(input: unknown): input is Show['videos'] {
   return (
     Array.isArray(input) &&
-    input.every(
-      (video) =>
-        !!video &&
-        typeof video === 'object' &&
-        typeof (video as Record<string, unknown>).youtube === 'string' &&
-        typeof (video as Record<string, unknown>).title === 'string'
-    )
+    input.every((video) => {
+      if (!video || typeof video !== 'object') return false;
+      const v = video as Record<string, unknown>;
+      return (
+        typeof v.youtube === 'string' &&
+        typeof v.title === 'string' &&
+        (v.bandId === undefined || (typeof v.bandId === 'number' && Number.isInteger(v.bandId)))
+      );
+    })
   );
 }
 

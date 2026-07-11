@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { getAllBands, getBandBySlug, getShowsForBand } from '@/lib/bands';
+import { getAllBands, getBandBySlug, getShowsForBand, getVideosForBand } from '@/lib/bands';
 
 export async function generateStaticParams() {
   const bands = await getAllBands();
@@ -13,6 +13,7 @@ export default async function BandPage({ params }: { params: Promise<{ slug: str
   if (!band) notFound();
 
   const shows = await getShowsForBand(band.id);
+  const videos = await getVideosForBand(band.id);
 
   return (
     <main className="min-h-screen">
@@ -73,6 +74,34 @@ export default async function BandPage({ params }: { params: Promise<{ slug: str
             </div>
           )}
         </div>
+
+        {videos.length > 0 && (
+          <div className="border-t border-[#E8E0D0]/15 pt-8 mt-8">
+            <h2 className="text-2xl font-bold mb-4">Videos</h2>
+            <div className="space-y-8">
+              {videos.map((video, index) => (
+                <div key={index}>
+                  <Link
+                    href={`/shows/${video.showSlug}`}
+                    className="text-sm text-[#E8E0D0]/50 hover:text-[#E8E0D0] mb-2 inline-block"
+                  >
+                    {video.showTitle}
+                  </Link>
+                  <div className="aspect-video rounded-lg overflow-hidden shadow-lg">
+                    <iframe
+                      width="100%"
+                      height="100%"
+                      src={`https://www.youtube.com/embed/${video.youtube}`}
+                      title={video.title}
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                    ></iframe>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </main>
   );

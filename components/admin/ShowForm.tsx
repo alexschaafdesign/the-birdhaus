@@ -63,6 +63,7 @@ interface Band {
 interface Video {
   youtube: string;
   title: string;
+  bandIndex: number | null;
 }
 
 interface Audio {
@@ -84,7 +85,7 @@ export interface ShowFormInitialValues {
   ticketUrl?: string | null;
   externalTicketUrl?: string | null;
   rsvpForm?: boolean;
-  videos?: Array<{ youtube: string; title: string }>;
+  videos?: Array<{ youtube: string; title: string; bandId?: number }>;
   audio?: Array<{ bandcamp: string; title: string }>;
   photos?: string[];
   photoFolder?: string | null;
@@ -143,7 +144,19 @@ function initFormState(initial?: ShowFormInitialValues): FormState {
     ticketUrl: initial?.ticketUrl ?? '',
     externalTicketUrl: initial?.externalTicketUrl ?? '',
     rsvpForm: initial?.rsvpForm ?? true,
-    videos: initial?.videos ?? [],
+    videos: (initial?.videos ?? []).map((v) => ({
+      youtube: v.youtube,
+      title: v.title,
+      // Reverse-map the stored bandId back to a position in the bands list
+      // above, so the dropdown pre-selects correctly. Falls back to "none"
+      // if that band is no longer in this show's lineup.
+      bandIndex:
+        v.bandId != null
+          ? (initial?.bands ?? []).findIndex(
+              (b) => typeof b !== 'string' && b.bandId === v.bandId
+            )
+          : -1,
+    })),
     audio: initial?.audio ?? [],
     photosText: (initial?.photos ?? []).join('\n'),
     photoFolder: initial?.photoFolder ?? '',
@@ -212,15 +225,25 @@ export default function ShowForm({
     setForm((prev) => ({ ...prev, bands: prev.bands.filter((_, i) => i !== index) }));
   }
 
-  function updateVideo(index: number, field: keyof Video, value: string) {
+  function updateVideo(index: number, field: 'youtube' | 'title', value: string) {
     setForm((prev) => {
       const videos = [...prev.videos];
       videos[index] = { ...videos[index], [field]: value };
       return { ...prev, videos };
     });
   }
+  function updateVideoBandIndex(index: number, bandIndex: number) {
+    setForm((prev) => {
+      const videos = [...prev.videos];
+      videos[index] = { ...videos[index], bandIndex };
+      return { ...prev, videos };
+    });
+  }
   function addVideo() {
-    setForm((prev) => ({ ...prev, videos: [...prev.videos, { youtube: '', title: '' }] }));
+    setForm((prev) => ({
+      ...prev,
+      videos: [...prev.videos, { youtube: '', title: '', bandIndex: -1 }],
+    }));
   }
   function removeVideo(index: number) {
     setForm((prev) => ({ ...prev, videos: prev.videos.filter((_, i) => i !== index) }));
@@ -285,6 +308,24 @@ export default function ShowForm({
       return;
     }
 
+    // Bands with an empty name get dropped from the submitted array, which
+    // shifts positions — so a video's bandIndex (recorded against form.bands'
+    // original positions) needs remapping to where its band actually lands
+    // in the filtered array the server will resolve against.
+    const nonEmptyBands = form.bands
+      .map((b, originalIndex) => ({ b, originalIndex }))
+      .filter(({ b }) => b.name.trim());
+    const filteredIndexByOriginal = new Map(
+      nonEmptyBands.map(({ originalIndex }, filteredIndex) => [originalIndex, filteredIndex])
+    );
+    const bandsPayload = nonEmptyBands.map(({ b }) => ({
+      name: b.name.trim(),
+      ...(b.instagram.trim() ? { instagram: b.instagram.trim() } : {}),
+      ...(b.bio.trim() ? { bio: b.bio.trim() } : {}),
+      ...(b.photo.trim() ? { photo: b.photo.trim() } : {}),
+      ...(b.bandId ? { bandId: b.bandId } : {}),
+    }));
+
     const payload = {
       title: form.title.trim(),
       slug: slugify(form.slug) || undefined,
@@ -292,15 +333,7 @@ export default function ShowForm({
       doorsTime: form.doorsTime.trim() || undefined,
       showTime: form.showTime.trim() || undefined,
       flyer: form.flyer.trim() || undefined,
-      bands: form.bands
-        .filter((b) => b.name.trim())
-        .map((b) => ({
-          name: b.name.trim(),
-          ...(b.instagram.trim() ? { instagram: b.instagram.trim() } : {}),
-          ...(b.bio.trim() ? { bio: b.bio.trim() } : {}),
-          ...(b.photo.trim() ? { photo: b.photo.trim() } : {}),
-          ...(b.bandId ? { bandId: b.bandId } : {}),
-        })),
+      bands: bandsPayload,
       description: form.description.trim() || undefined,
       photographer: form.photographerName.trim()
         ? {
@@ -313,7 +346,19 @@ export default function ShowForm({
       ticketUrl: form.ticketUrl.trim() || undefined,
       externalTicketUrl: form.externalTicketUrl.trim() || undefined,
       rsvpForm: form.rsvpForm,
-      videos: form.videos.filter((v) => v.youtube.trim() && v.title.trim()),
+      videos: form.videos
+        .filter((v) => v.youtube.trim() && v.title.trim())
+        .map((v) => {
+          const filteredIndex =
+            v.bandIndex != null && v.bandIndex >= 0
+              ? filteredIndexByOriginal.get(v.bandIndex)
+              : undefined;
+          return {
+            youtube: v.youtube.trim(),
+            title: v.title.trim(),
+            ...(filteredIndex !== undefined ? { bandIndex: filteredIndex } : {}),
+          };
+        }),
       audio: form.audio.filter((a) => a.bandcamp.trim() && a.title.trim()),
       photos: form.photosText
         .split('\n')
@@ -574,26 +619,42 @@ export default function ShowForm({
         </div>
         <div className="space-y-2">
           {form.videos.map((video, index) => (
-            <div key={index} className="grid gap-2 sm:grid-cols-[1fr_1fr_auto] items-start">
-              <input
-                placeholder="YouTube video ID"
-                value={video.youtube}
-                onChange={(e) => updateVideo(index, 'youtube', e.target.value)}
-                className={`${inputClass} w-full`}
-              />
-              <input
-                placeholder="Title"
-                value={video.title}
-                onChange={(e) => updateVideo(index, 'title', e.target.value)}
-                className={`${inputClass} w-full`}
-              />
-              <button
-                type="button"
-                onClick={() => removeVideo(index)}
-                className="text-red-400/70 hover:text-red-400 text-sm px-2"
-              >
-                Remove
-              </button>
+            <div key={index} className="border border-[#E8E0D0]/10 rounded p-3 space-y-2">
+              <div className="grid gap-2 sm:grid-cols-[1fr_1fr_auto] items-start">
+                <input
+                  placeholder="YouTube video ID"
+                  value={video.youtube}
+                  onChange={(e) => updateVideo(index, 'youtube', e.target.value)}
+                  className={`${inputClass} w-full`}
+                />
+                <input
+                  placeholder="Title"
+                  value={video.title}
+                  onChange={(e) => updateVideo(index, 'title', e.target.value)}
+                  className={`${inputClass} w-full`}
+                />
+                <button
+                  type="button"
+                  onClick={() => removeVideo(index)}
+                  className="text-red-400/70 hover:text-red-400 text-sm px-2"
+                >
+                  Remove
+                </button>
+              </div>
+              {form.bands.length > 0 && (
+                <select
+                  value={video.bandIndex ?? -1}
+                  onChange={(e) => updateVideoBandIndex(index, Number(e.target.value))}
+                  className={`${inputClass} w-full`}
+                >
+                  <option value={-1}>Which band is this a video of? (optional)</option>
+                  {form.bands.map((band, bandIdx) => (
+                    <option key={bandIdx} value={bandIdx}>
+                      {band.name || `Band ${bandIdx + 1}`}
+                    </option>
+                  ))}
+                </select>
+              )}
             </div>
           ))}
           {form.videos.length === 0 && <p className="text-xs text-[#E8E0D0]/30">No videos added yet.</p>}
