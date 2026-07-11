@@ -68,6 +68,8 @@ export default function CalendarView({
     }
   }
 
+  const isToday = (day: number) => isCurrentMonth && day === todayDate.getDate();
+
   const firstOfMonth = new Date(cursor.year, cursor.month, 1);
   const daysInMonth = new Date(cursor.year, cursor.month + 1, 0).getDate();
   const cells: Array<number | null> = [
@@ -138,8 +140,9 @@ export default function CalendarView({
                   ) : (
                     <div className="h-full w-full bg-yellow-500/10" />
                   )}
-                  <span className="absolute left-1 top-0.5 text-[10px] font-bold text-white drop-shadow">
+                  <span className="absolute left-1 top-0.5 flex items-center gap-1 text-[10px] font-bold text-white drop-shadow">
                     {day}
+                    {isToday(day) && <span className="h-1 w-1 rounded-full bg-yellow-300" />}
                   </span>
                   <span className="absolute bottom-0.5 right-0.5 rounded bg-yellow-500 px-1 text-[8px] font-bold uppercase tracking-wide text-black">
                     Draft
@@ -155,9 +158,10 @@ export default function CalendarView({
                   key={day}
                   href={`/admin/shows/new?date=${dateStr}`}
                   title="Available date — click to draft a show"
-                  className="relative flex aspect-square items-center justify-center rounded border border-dotted border-green-500/40 text-sm text-[#E8E0D0]/40 transition-all hover:border-green-400 hover:text-[#E8E0D0]"
+                  className="relative flex aspect-square flex-col items-center justify-center gap-0.5 rounded border border-dotted border-green-500/40 text-sm text-[#E8E0D0]/40 transition-all hover:border-green-400 hover:text-[#E8E0D0]"
                 >
                   {day}
+                  {isToday(day) && <span className="h-1 w-1 rounded-full bg-yellow-400" />}
                   <span className="absolute bottom-1 right-1 h-1.5 w-1.5 rounded-full bg-green-500" />
                 </Link>
               );
@@ -166,9 +170,12 @@ export default function CalendarView({
             return (
               <div
                 key={day}
-                className="flex aspect-square items-center justify-center text-sm text-[#E8E0D0]/30"
+                className={`flex aspect-square flex-col items-center justify-center gap-0.5 text-sm ${
+                  isToday(day) ? 'text-[#E8E0D0]' : 'text-[#E8E0D0]/30'
+                }`}
               >
                 {day}
+                {isToday(day) && <span className="h-1 w-1 rounded-full bg-yellow-400" />}
               </div>
             );
           }
@@ -195,8 +202,9 @@ export default function CalendarView({
               ) : (
                 <div className="h-full w-full bg-[#E8E0D0]/10" />
               )}
-              <span className="absolute left-1 top-0.5 text-[10px] font-bold text-white drop-shadow">
+              <span className="absolute left-1 top-0.5 flex items-center gap-1 text-[10px] font-bold text-white drop-shadow">
                 {day}
+                {isToday(day) && <span className="h-1 w-1 rounded-full bg-yellow-300" />}
               </span>
             </Link>
           );
