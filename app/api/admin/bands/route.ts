@@ -26,8 +26,7 @@ export async function GET(request: Request) {
 
   const rows = await sql`
     select b.*,
-      (select count(*)::int from shows s, jsonb_array_elements(s.bands) e
-       where e ? 'bandId' and (e->>'bandId')::int = b.id) as show_count
+      (select count(*)::int from show_bands sb where sb.band_id = b.id) as show_count
     from bands b
     order by b.name asc
   `;

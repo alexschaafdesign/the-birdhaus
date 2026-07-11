@@ -81,15 +81,67 @@ async function rowToShow(row: ShowRow): Promise<Show> {
   };
 }
 
+// Aggregates show_bands -> bands into the same shape the bands JSONB column
+// used to hold, so this join is a drop-in replacement wherever shows.bands
+// was read. json_strip_nulls drops absent optional fields (instagram/bio/photo)
+// instead of leaving them as explicit nulls, matching the old JSONB's shape.
+// A fresh fragment per call site, per postgres.js's dynamic composition pattern.
+// Exported so other raw-SQL reads of shows (admin routes/pages) can reuse it.
+export function bandsJoinFragment() {
+  return sql`
+    coalesce((
+      select json_strip_nulls(json_agg(json_build_object(
+        'bandId', b.id, 'name', b.name, 'instagram', b.instagram, 'bio', b.bio, 'photo', b.photo
+      ) order by sb.sort_order))
+      from show_bands sb
+      join bands b on b.id = sb.band_id
+      where sb.show_id = shows.id
+    ), '[]'::json) as bands
+  `;
+}
+
+// Same drop-in-replacement approach as bandsJoinFragment, for show_videos ->
+// videos. The old JSONB shape only ever carried a single optional bandId per
+// video, so the correlated subquery picks just the first-tagged band (by
+// sort_order) rather than fanning out — band_videos can hold more than one
+// tag per video (new capability), but that only shows up here once something
+// besides the show form starts using it.
+export function videosJoinFragment() {
+  return sql`
+    coalesce((
+      select json_strip_nulls(json_agg(json_build_object(
+        'youtube', v.youtube,
+        'title', v.title,
+        'bandId', (
+          select bv.band_id from band_videos bv
+          where bv.video_id = v.id
+          order by bv.sort_order
+          limit 1
+        )
+      ) order by sv.sort_order))
+      from show_videos sv
+      join videos v on v.id = sv.video_id
+      where sv.show_id = shows.id
+    ), '[]'::json) as videos
+  `;
+}
+
 export async function getAllShows(): Promise<Show[]> {
-  const rows = await sql<ShowRow[]>`select *, date::text as date from shows order by shows.date asc`;
+  const rows = await sql<ShowRow[]>`
+    select *, date::text as date, ${bandsJoinFragment()}, ${videosJoinFragment()}
+    from shows
+    order by shows.date asc
+  `;
   return Promise.all(rows.map(rowToShow));
 }
 
 export async function getShowBySlug(slug: string): Promise<Show | null> {
-  const [row] = await sql<
-    ShowRow[]
-  >`select *, date::text as date from shows where slug = ${slug} limit 1`;
+  const [row] = await sql<ShowRow[]>`
+    select *, date::text as date, ${bandsJoinFragment()}, ${videosJoinFragment()}
+    from shows
+    where slug = ${slug}
+    limit 1
+  `;
   if (!row) return null;
   return rowToShow(row);
 }

@@ -107,8 +107,7 @@ export async function getAllBands(): Promise<Band[]> {
 export async function getAllBandsWithPlayCount(): Promise<Array<Band & { playCount: number }>> {
   const rows = await sql<Array<BandRow & { play_count: number }>>`
     select b.*,
-      (select count(*)::int from shows s, jsonb_array_elements(s.bands) e
-       where e ? 'bandId' and (e->>'bandId')::int = b.id) as play_count
+      (select count(*)::int from show_bands sb where sb.band_id = b.id) as play_count
     from bands b
     order by b.name asc
   `;
@@ -137,8 +136,9 @@ export interface BandShow {
 export async function getShowsForBand(bandId: number): Promise<BandShow[]> {
   return sql<BandShow[]>`
     select s.id, s.slug, s.title, s.date::text as date
-    from shows s, jsonb_array_elements(s.bands) b
-    where b ? 'bandId' and (b->>'bandId')::int = ${bandId}
+    from show_bands sb
+    join shows s on s.id = sb.show_id
+    where sb.band_id = ${bandId}
     order by s.date desc
   `;
 }
@@ -152,9 +152,12 @@ export interface BandVideo {
 
 export async function getVideosForBand(bandId: number): Promise<BandVideo[]> {
   return sql<BandVideo[]>`
-    select s.slug as "showSlug", s.title as "showTitle", v->>'youtube' as youtube, v->>'title' as title
-    from shows s, jsonb_array_elements(s.videos) v
-    where v ? 'bandId' and (v->>'bandId')::int = ${bandId}
+    select s.slug as "showSlug", s.title as "showTitle", v.youtube, v.title
+    from band_videos bv
+    join videos v on v.id = bv.video_id
+    join show_videos sv on sv.video_id = v.id
+    join shows s on s.id = sv.show_id
+    where bv.band_id = ${bandId}
     order by s.date desc
   `;
 }
@@ -213,6 +216,31 @@ export async function resolveShowBandEntries(bands: Show['bands'], tx: Tx): Prom
   }
 
   return resolved as Show['bands'];
+}
+
+export interface ShowBandPair {
+  bandId: number;
+  sortOrder: number;
+}
+
+// Derives the show_bands rows (bandId + array-position sort order) from a
+// resolveShowBandEntries() result — every entry is guaranteed a bandId by then.
+export function toShowBandPairs(resolved: Show['bands']): ShowBandPair[] {
+  return resolved.map((band, index) => ({
+    bandId: (band as { bandId?: number }).bandId as number,
+    sortOrder: index,
+  }));
+}
+
+// Replaces a show's show_bands rows wholesale — simplest correct way to apply
+// reordering/additions/removals from a full-array save without diffing. Runs
+// in the same transaction as the show save, alongside (not replacing) the
+// existing bands JSONB write.
+export async function setShowBands(showId: number, bands: ShowBandPair[], tx: Tx): Promise<void> {
+  await tx`delete from show_bands where show_id = ${showId}`;
+  if (bands.length === 0) return;
+  const rows = bands.map((b) => ({ show_id: showId, band_id: b.bandId, sort_order: b.sortOrder }));
+  await tx`insert into show_bands ${tx(rows, 'show_id', 'band_id', 'sort_order')}`;
 }
 
 // Maps each video's transient `bandIndex` (the video row's position within

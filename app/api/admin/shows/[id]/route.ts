@@ -11,7 +11,8 @@ import {
   slugify,
   type Show,
 } from '@/lib/shows';
-import { resolveShowBandEntries, resolveVideoBandIds } from '@/lib/bands';
+import { resolveShowBandEntries, resolveVideoBandIds, setShowBands, toShowBandPairs } from '@/lib/bands';
+import { resolveShowVideos, setShowVideos, setVideoBands } from '@/lib/videos';
 
 // Maps the camelCase keys the client sends (matching the `Show` interface) to
 // their snake_case columns for the plain text/URL fields. Fields with their own
@@ -138,11 +139,17 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       if (bandsInput !== undefined) {
         resolvedBands = await resolveShowBandEntries(bandsInput, tx);
         updates.push({ column: 'bands', value: resolvedBands, json: true });
+        await setShowBands(showId, toShowBandPairs(resolvedBands), tx);
       }
 
       if (videosInput !== undefined) {
         const resolvedVideos = resolveVideoBandIds(videosInput, resolvedBands);
         updates.push({ column: 'videos', value: resolvedVideos, json: true });
+        const resolvedVideoRows = await resolveShowVideos(resolvedVideos, tx);
+        await setShowVideos(showId, resolvedVideoRows, tx);
+        for (const v of resolvedVideoRows) {
+          await setVideoBands(v.videoId, v.bandId ? [v.bandId] : [], tx);
+        }
       }
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any

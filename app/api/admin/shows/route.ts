@@ -9,11 +9,18 @@ import {
   normalizePhotographerInput,
   normalizeBandIds,
   slugify,
+  bandsJoinFragment,
+  videosJoinFragment,
 } from '@/lib/shows';
-import { resolveShowBandEntries, resolveVideoBandIds } from '@/lib/bands';
+import { resolveShowBandEntries, resolveVideoBandIds, setShowBands, toShowBandPairs } from '@/lib/bands';
+import { resolveShowVideos, setShowVideos, setVideoBands } from '@/lib/videos';
 
 export async function GET() {
-  const rows = await sql`select *, date::text as date from shows order by shows.date desc`;
+  const rows = await sql`
+    select *, date::text as date, ${bandsJoinFragment()}, ${videosJoinFragment()}
+    from shows
+    order by shows.date desc
+  `;
   return NextResponse.json(rows);
 }
 
@@ -70,6 +77,7 @@ export async function POST(request: Request) {
     const row = await sql.begin(async (tx) => {
       const resolvedBands = await resolveShowBandEntries(bands, tx);
       const resolvedVideos = resolveVideoBandIds(videos, resolvedBands);
+      const resolvedVideoRows = await resolveShowVideos(resolvedVideos, tx);
       const [row] = await tx`
         insert into shows (
           slug, title, date, doors_time, show_time, flyer, bands, description,
@@ -87,6 +95,11 @@ export async function POST(request: Request) {
         )
         returning *, date::text as date
       `;
+      await setShowBands(Number(row.id), toShowBandPairs(resolvedBands), tx);
+      await setShowVideos(Number(row.id), resolvedVideoRows, tx);
+      for (const v of resolvedVideoRows) {
+        await setVideoBands(v.videoId, v.bandId ? [v.bandId] : [], tx);
+      }
       return row;
     });
     return NextResponse.json(row, { status: 201 });

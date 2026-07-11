@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation';
 import { sql } from '@/lib/db';
+import { bandsJoinFragment, videosJoinFragment } from '@/lib/shows';
 import ShowForm, { type ShowFormInitialValues } from '@/components/admin/ShowForm';
 
 export const dynamic = 'force-dynamic';
@@ -33,7 +34,11 @@ export default async function EditShowPage({ params }: { params: Promise<{ id: s
   const showId = Number(id);
   if (!Number.isInteger(showId)) notFound();
 
-  const [row] = await sql<ShowRow[]>`select *, date::text as date from shows where id = ${showId}`;
+  const [row] = await sql<ShowRow[]>`
+    select *, date::text as date, ${bandsJoinFragment()}, ${videosJoinFragment()}
+    from shows
+    where id = ${showId}
+  `;
   if (!row) notFound();
 
   const initialValues: ShowFormInitialValues = {
