@@ -1,6 +1,8 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { getAllBands, getBandBySlug, getShowsForBand, getVideosForBand } from '@/lib/bands';
+import AdminEditFAB from '@/components/admin/AdminEditFAB';
+import { isAdminSession } from '@/lib/admin-session';
 
 export async function generateStaticParams() {
   const bands = await getAllBands();
@@ -14,9 +16,11 @@ export default async function BandPage({ params }: { params: Promise<{ slug: str
 
   const shows = await getShowsForBand(band.id);
   const videos = await getVideosForBand(band.id);
+  const isAdmin = await isAdminSession();
 
   return (
     <main className="min-h-screen">
+      {isAdmin && <AdminEditFAB href={`/admin/bands/${band.id}`} label="Edit Band" />}
       <div className="max-w-3xl mx-auto px-6 py-12">
         <Link
           href="/"

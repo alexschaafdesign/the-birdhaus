@@ -6,6 +6,8 @@ import Link from 'next/link';
 import RSVPForm from '@/components/RSVPForm';
 import PhotoGallery from '@/components/PhotoGallery';
 import CloudinaryGallery from '@/components/CloudinaryGallery';
+import AdminEditFAB from '@/components/admin/AdminEditFAB';
+import { isAdminSession } from '@/lib/admin-session';
 
 export async function generateStaticParams() {
   const shows = await getAllShows();
@@ -16,6 +18,8 @@ export default async function ShowPage({ params }: { params: Promise<{ slug: str
   const { slug } = await params;
   const show = await getShowBySlug(slug);
   if (!show) notFound();
+
+  const isAdmin = await isAdminSession();
 
   const galleryPhotos = show.photoFolder
     ? await getPhotosFromFolder(show.photoFolder)
@@ -42,6 +46,7 @@ export default async function ShowPage({ params }: { params: Promise<{ slug: str
 
   return (
     <main className="min-h-screen">
+      {isAdmin && <AdminEditFAB href={`/admin/shows/${show.id}`} label="Edit Show" />}
       <div className="max-w-5xl mx-auto px-6 py-12">
         {/* Back link */}
         <a
