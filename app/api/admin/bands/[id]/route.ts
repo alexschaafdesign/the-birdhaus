@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { revalidatePath } from 'next/cache';
 import { sql } from '@/lib/db';
 import { slugify } from '@/lib/bands';
 
@@ -79,6 +80,14 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     if (!row) {
       return NextResponse.json({ error: 'Not found' }, { status: 404 });
     }
+
+    // Band pages, and show pages (which embed each band's bio/photo), are
+    // statically generated with no revalidate window.
+    revalidatePath('/bands/[slug]', 'page');
+    revalidatePath('/shows/[slug]', 'page');
+    revalidatePath('/bands');
+    revalidatePath('/shows');
+
     return NextResponse.json(row);
   } catch (error) {
     if (error instanceof Error && 'code' in error && error.code === '23505') {
@@ -96,5 +105,9 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
   }
 
   await sql`delete from bands where id = ${bandId}`;
+  revalidatePath('/bands/[slug]', 'page');
+  revalidatePath('/shows/[slug]', 'page');
+  revalidatePath('/bands');
+  revalidatePath('/shows');
   return NextResponse.json({ ok: true });
 }

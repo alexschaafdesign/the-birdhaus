@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { revalidatePath } from 'next/cache';
 import { sql } from '@/lib/db';
 import {
   ISO_DATE_RE,
@@ -102,6 +103,10 @@ export async function POST(request: Request) {
       }
       return row;
     });
+    revalidatePath('/shows/[slug]', 'page');
+    revalidatePath('/bands/[slug]', 'page');
+    revalidatePath('/shows');
+    revalidatePath('/bands');
     return NextResponse.json(row, { status: 201 });
   } catch (error) {
     if (error instanceof Error && 'code' in error && error.code === '23505') {

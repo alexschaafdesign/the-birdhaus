@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { revalidatePath } from 'next/cache';
 import { sql } from '@/lib/db';
 import { slugify } from '@/lib/bands';
 
@@ -59,6 +60,8 @@ export async function POST(request: Request) {
       )
       returning *
     `;
+    revalidatePath('/bands/[slug]', 'page');
+    revalidatePath('/bands');
     return NextResponse.json(row, { status: 201 });
   } catch (error) {
     if (error instanceof Error && 'code' in error && error.code === '23505') {

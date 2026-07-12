@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { revalidatePath } from 'next/cache';
 import { sql } from '@/lib/db';
 import {
   ISO_DATE_RE,
@@ -177,6 +178,15 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     if (!row) {
       return NextResponse.json({ error: 'Not found' }, { status: 404 });
     }
+
+    // Show pages (and band pages, since a show edit can create/link a band)
+    // are statically generated with no revalidate window — without this the
+    // public site keeps serving pre-edit HTML until the next deploy.
+    revalidatePath('/shows/[slug]', 'page');
+    revalidatePath('/bands/[slug]', 'page');
+    revalidatePath('/shows');
+    revalidatePath('/bands');
+
     return NextResponse.json(row);
   } catch (error) {
     if (error instanceof Error && 'code' in error && error.code === '23505') {
@@ -194,5 +204,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
   }
 
   await sql`delete from shows where id = ${showId}`;
+  revalidatePath('/shows/[slug]', 'page');
+  revalidatePath('/shows');
   return NextResponse.json({ ok: true });
 }
