@@ -186,6 +186,26 @@ export async function resolveShowBandEntries(bands: Show['bands'], tx: Tx): Prom
     const band = typeof raw === 'string' ? { name: raw } : raw;
     const existingBandId = (band as { bandId?: number }).bandId;
     if (existingBandId) {
+      // The operator can edit instagram/bio/photo for an already-linked band
+      // right here in the show form — without this, those edits only ever
+      // landed in this show's own `bands` JSONB, which the Bands directory
+      // never reads, so they'd silently vanish from the band's real profile.
+      // coalesce() so a field the operator left blank on this particular show
+      // doesn't blank out an existing value on the band's profile.
+      const instagram = (band as { instagram?: string }).instagram ?? null;
+      const bio = (band as { bio?: string }).bio ?? null;
+      const photo = (band as { photo?: string }).photo ?? null;
+      if (instagram !== null || bio !== null || photo !== null) {
+        await tx`
+          update bands
+          set
+            instagram = coalesce(${instagram}, instagram),
+            bio = coalesce(${bio}, bio),
+            photo = coalesce(${photo}, photo),
+            updated_at = now()
+          where id = ${existingBandId}
+        `;
+      }
       resolved.push(band);
       continue;
     }
