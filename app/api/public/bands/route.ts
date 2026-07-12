@@ -1,0 +1,79 @@
+import { NextResponse } from 'next/server';
+import crypto from 'crypto';
+import { sql } from '@/lib/db';
+import { getAllBands, type Band } from '@/lib/bands';
+
+// Explicit public allowlist, decided deliberately with the site owner field
+// by field — see conversation history, not derived from the Band type. A new
+// field added to Band later is NOT exposed here until someone adds it below
+// on purpose. Excluded on purpose: id (internal PK), contactEmail/contactMethod
+// (ours, about the band, not public), twinsceneSlug (their own bookkeeping
+// identifier, circular to hand back), members (personal names — consent for
+// "shown on our bio page" isn't consent for "redistributed via a scrapable
+// third-party feed").
+const PUBLIC_BAND_FIELDS = [
+  'slug',
+  'name',
+  'instagram',
+  'bio',
+  'photo',
+  'isTouring',
+  'hometown',
+  'genres',
+  'city',
+  'neighborhoods',
+  'website',
+  'bandcamp',
+  'bandcampEmbedUrl',
+  'bandcampEmbedHeight',
+  'featuredLinks',
+] as const;
+
+// Fails to compile if a typo'd or renamed field above no longer exists on Band.
+const _publicFieldsAreValid: ReadonlyArray<keyof Band> = PUBLIC_BAND_FIELDS;
+
+type PublicBand = Pick<Band, (typeof PUBLIC_BAND_FIELDS)[number]>;
+
+function toPublicBand(band: Band): PublicBand {
+  const result = {} as PublicBand;
+  for (const field of PUBLIC_BAND_FIELDS) {
+    (result as Record<string, unknown>)[field] = band[field];
+  }
+  return result;
+}
+
+// CORS governs which browser-side JS can call this directly — it is not the
+// access control. The x-api-key check below is. A stolen/leaked key still
+// works from curl or a server regardless of this header.
+const CORS_HEADERS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, OPTIONS',
+  'Access-Control-Allow-Headers': 'x-api-key',
+};
+
+export async function OPTIONS() {
+  return new NextResponse(null, { status: 204, headers: CORS_HEADERS });
+}
+
+export async function GET(request: Request) {
+  const apiKey = request.headers.get('x-api-key');
+  if (!apiKey) {
+    return NextResponse.json({ error: 'Missing x-api-key header' }, { status: 401, headers: CORS_HEADERS });
+  }
+
+  const keyHash = crypto.createHash('sha256').update(apiKey).digest('hex');
+  const [key] = await sql<Array<{ id: number }>>`
+    select id from api_keys
+    where key_hash = ${keyHash} and revoked_at is null
+    limit 1
+  `;
+
+  if (!key) {
+    return NextResponse.json({ error: 'Invalid or revoked API key' }, { status: 401, headers: CORS_HEADERS });
+  }
+
+  await sql`update api_keys set last_used_at = now() where id = ${key.id}`;
+
+  const bands = await getAllBands();
+  return NextResponse.json(bands.map(toPublicBand), { headers: CORS_HEADERS });
+}
