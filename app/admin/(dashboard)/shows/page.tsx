@@ -1,20 +1,23 @@
 import { sql } from '@/lib/db';
-import ShowsList, { type ShowListItem } from '@/components/admin/ShowsList';
+import { getTodayCentral } from '@/lib/shows';
+import { type ShowListItem } from '@/components/admin/ShowsList';
+import AdminShowsBrowser from '@/components/admin/ShowsBrowser';
 
 export const dynamic = 'force-dynamic';
 
 async function getShows(): Promise<ShowListItem[]> {
   const rows = await sql<
     ShowListItem[]
-  >`select id, slug, title, date::text as date, announced from shows order by date desc`;
+  >`select id, slug, title, date::text as date, announced, flyer from shows order by date desc`;
   return rows;
 }
 
 export default async function AdminShowsPage() {
   const shows = await getShows();
+  const today = getTodayCentral();
   return (
     <main className="max-w-6xl mx-auto px-6 pb-16 pt-6">
-      <ShowsList initialShows={shows} />
+      <AdminShowsBrowser initialShows={shows} today={today} />
     </main>
   );
 }

@@ -9,6 +9,7 @@ export interface ShowListItem {
   title: string;
   date: string;
   announced: boolean;
+  flyer?: string | null;
 }
 
 const inputClass =

@@ -2,7 +2,17 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import type { Show } from '@/lib/shows';
+
+// Deliberately narrower than lib/shows.ts's full Show — this is all any caller
+// (public upcoming-shows page, admin shows page) has needed to render a cell.
+// A full Show satisfies this structurally, so existing callers pass Show[] as-is.
+export interface CalendarShow {
+  id: number;
+  slug: string;
+  title: string;
+  date: string;
+  flyer?: string | null;
+}
 
 const WEEKDAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
@@ -17,12 +27,16 @@ export default function CalendarView({
   draftShows,
   availableDates,
   isAdmin,
+  showHref = (show) => `/shows/${show.slug}`,
 }: {
-  shows: Show[];
+  shows: CalendarShow[];
   today: string;
-  draftShows?: Show[];
+  draftShows?: CalendarShow[];
   availableDates?: string[];
   isAdmin?: boolean;
+  // Overridable so a management view (e.g. admin shows page) can point every
+  // cell at the edit page instead of the public show page.
+  showHref?: (show: CalendarShow) => string;
 }) {
   const todayDate = parseLocalDate(today);
   const [cursor, setCursor] = useState({
@@ -40,7 +54,7 @@ export default function CalendarView({
   const isCurrentMonth =
     cursor.year === todayDate.getFullYear() && cursor.month === todayDate.getMonth();
 
-  const showsByDay = new Map<number, Show>();
+  const showsByDay = new Map<number, CalendarShow>();
   for (const show of shows) {
     const date = parseLocalDate(show.date);
     if (date.getFullYear() === cursor.year && date.getMonth() === cursor.month) {
@@ -48,7 +62,7 @@ export default function CalendarView({
     }
   }
 
-  const draftShowsByDay = new Map<number, Show>();
+  const draftShowsByDay = new Map<number, CalendarShow>();
   if (isAdmin && draftShows) {
     for (const show of draftShows) {
       const date = parseLocalDate(show.date);
@@ -185,7 +199,7 @@ export default function CalendarView({
           return (
             <Link
               key={day}
-              href={`/shows/${show.slug}`}
+              href={showHref(show)}
               title={show.title}
               className={`group relative aspect-square overflow-hidden rounded border transition-all ${
                 isPast
