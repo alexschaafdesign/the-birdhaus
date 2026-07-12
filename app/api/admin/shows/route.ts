@@ -79,6 +79,14 @@ export async function POST(request: Request) {
       const resolvedBands = await resolveShowBandEntries(bands, tx);
       const resolvedVideos = resolveVideoBandIds(videos, resolvedBands);
       const resolvedVideoRows = await resolveShowVideos(resolvedVideos, tx);
+
+      // TEMPORARY: dual-write for migration safety. Remove once Part C in TODO.md is executed.
+      // This JSONB write is superseded by show_bands — see resolveShowBandEntries/setShowBands.
+      const bandsJson = tx.json(resolvedBands);
+      // TEMPORARY: dual-write for migration safety. Remove once Part C in TODO.md is executed.
+      // This JSONB write is superseded by show_videos/band_videos — see resolveShowVideos/setShowVideos.
+      const videosJson = tx.json(resolvedVideos);
+
       const [row] = await tx`
         insert into shows (
           slug, title, date, doors_time, show_time, flyer, bands, description,
@@ -87,10 +95,10 @@ export async function POST(request: Request) {
         )
         values (
           ${slug}, ${title}, ${date}, ${nullableTrim(body.doorsTime)}, ${nullableTrim(body.showTime)},
-          ${nullableTrim(body.flyer)}, ${tx.json(resolvedBands)}, ${nullableTrim(body.description)},
+          ${nullableTrim(body.flyer)}, ${bandsJson}, ${nullableTrim(body.description)},
           ${tx.json(photographer)}, ${nullableTrim(body.rsvpUrl)}, ${nullableTrim(body.ticketUrl)},
           ${nullableTrim(body.externalTicketUrl)}, ${rsvpForm},
-          ${tx.json(resolvedVideos)}, ${tx.json(audio)}, ${tx.json(photos)},
+          ${videosJson}, ${tx.json(audio)}, ${tx.json(photos)},
           ${nullableTrim(body.photoFolder)}, ${nullableTrim(body.photoCredit)},
           ${typeof body.content === 'string' ? body.content : ''}, ${announced}
         )

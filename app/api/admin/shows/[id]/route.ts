@@ -139,12 +139,16 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       let resolvedBands: Show['bands'] | undefined;
       if (bandsInput !== undefined) {
         resolvedBands = await resolveShowBandEntries(bandsInput, tx);
+        // TEMPORARY: dual-write for migration safety. Remove once Part C in TODO.md is executed.
+        // This JSONB write is superseded by show_bands — see resolveShowBandEntries/setShowBands.
         updates.push({ column: 'bands', value: resolvedBands, json: true });
         await setShowBands(showId, toShowBandPairs(resolvedBands), tx);
       }
 
       if (videosInput !== undefined) {
         const resolvedVideos = resolveVideoBandIds(videosInput, resolvedBands);
+        // TEMPORARY: dual-write for migration safety. Remove once Part C in TODO.md is executed.
+        // This JSONB write is superseded by show_videos/band_videos — see resolveShowVideos/setShowVideos.
         updates.push({ column: 'videos', value: resolvedVideos, json: true });
         const resolvedVideoRows = await resolveShowVideos(resolvedVideos, tx);
         await setShowVideos(showId, resolvedVideoRows, tx);
