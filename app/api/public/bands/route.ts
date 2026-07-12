@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { sql } from '@/lib/db';
-import { getAllBands, type Band } from '@/lib/bands';
+import { getAllBands, findOrCreateBandByName, type Band } from '@/lib/bands';
 
 // Explicit public allowlist, decided deliberately with the site owner field
 // by field — see conversation history, not derived from the Band type. A new
@@ -47,15 +47,17 @@ function toPublicBand(band: Band): PublicBand {
 // works from curl or a server regardless of this header.
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, OPTIONS',
-  'Access-Control-Allow-Headers': 'x-api-key',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'x-api-key, content-type',
 };
 
 export async function OPTIONS() {
   return new NextResponse(null, { status: 204, headers: CORS_HEADERS });
 }
 
-export async function GET(request: Request) {
+// Shared by GET and POST. Returns an error response to short-circuit on, or
+// null if the key checked out (and last_used_at was bumped).
+async function authenticate(request: Request): Promise<NextResponse | null> {
   const apiKey = request.headers.get('x-api-key');
   if (!apiKey) {
     return NextResponse.json({ error: 'Missing x-api-key header' }, { status: 401, headers: CORS_HEADERS });
@@ -73,7 +75,33 @@ export async function GET(request: Request) {
   }
 
   await sql`update api_keys set last_used_at = now() where id = ${key.id}`;
+  return null;
+}
+
+export async function GET(request: Request) {
+  const authError = await authenticate(request);
+  if (authError) return authError;
 
   const bands = await getAllBands();
   return NextResponse.json(bands.map(toPublicBand), { headers: CORS_HEADERS });
+}
+
+// Lets a partner project (Twin Scene) match a scraped show lineup against our
+// band directory, creating a new unreviewed band when no match exists rather
+// than dropping the lineup entry.
+export async function POST(request: Request) {
+  const authError = await authenticate(request);
+  if (authError) return authError;
+
+  const body = await request.json().catch(() => null);
+  const name = typeof body?.name === 'string' ? body.name.trim() : '';
+  if (!name) {
+    return NextResponse.json({ error: 'name is required' }, { status: 400, headers: CORS_HEADERS });
+  }
+
+  const result = await findOrCreateBandByName(name);
+  if (result.created) {
+    console.log(`[public/bands] auto-created unreviewed band "${name}" -> slug "${result.slug}"`);
+  }
+  return NextResponse.json(result, { status: result.created ? 201 : 200, headers: CORS_HEADERS });
 }

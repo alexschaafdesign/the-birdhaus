@@ -52,6 +52,10 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     assignments.push(sql`is_touring = ${Boolean(body.isTouring)}`);
   }
 
+  if ('unreviewed' in body) {
+    assignments.push(sql`unreviewed = ${Boolean(body.unreviewed)}`);
+  }
+
   if ('hometown' in body) {
     // Only meaningful when touring — if this request also sets isTouring to
     // false, drop any hometown value rather than storing a stale one.

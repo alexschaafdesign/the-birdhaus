@@ -12,6 +12,7 @@ export interface BandListItem {
   is_touring: boolean;
   hometown: string | null;
   show_count: number;
+  unreviewed: boolean;
 }
 
 const inputClass =
@@ -21,12 +22,18 @@ export default function BandsList({ initialBands }: { initialBands: BandListItem
   const [bands, setBands] = useState<BandListItem[]>(initialBands);
   const [search, setSearch] = useState('');
   const [showAll, setShowAll] = useState(false);
+  const [filter, setFilter] = useState<'all' | 'unreviewed'>('all');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const scoped = useMemo(
-    () => (showAll ? bands : bands.filter((b) => b.show_count > 0)),
-    [bands, showAll]
-  );
+  const unreviewedCount = useMemo(() => bands.filter((b) => b.unreviewed).length, [bands]);
+
+  const scoped = useMemo(() => {
+    // Unreviewed bands are almost always freshly auto-created with 0 shows,
+    // so this tab ignores the "show all" scoping entirely — otherwise they'd
+    // never appear without also checking that box.
+    if (filter === 'unreviewed') return bands.filter((b) => b.unreviewed);
+    return showAll ? bands : bands.filter((b) => b.show_count > 0);
+  }, [bands, showAll, filter]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -45,6 +52,21 @@ export default function BandsList({ initialBands }: { initialBands: BandListItem
     }
   }
 
+  async function handleMarkReviewed(id: number) {
+    setBands((prev) => prev.map((b) => (b.id === id ? { ...b, unreviewed: false } : b)));
+    try {
+      const res = await fetch(`/api/admin/bands/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ unreviewed: false }),
+      });
+      if (!res.ok) throw new Error();
+    } catch {
+      setBands((prev) => prev.map((b) => (b.id === id ? { ...b, unreviewed: true } : b)));
+      setErrorMessage('Failed to mark reviewed — refresh and try again.');
+    }
+  }
+
   return (
     <div>
       {errorMessage && (
@@ -55,6 +77,22 @@ export default function BandsList({ initialBands }: { initialBands: BandListItem
           </button>
         </div>
       )}
+
+      <div className="mb-4 flex gap-2">
+        {(['all', 'unreviewed'] as const).map((option) => (
+          <button
+            key={option}
+            onClick={() => setFilter(option)}
+            className={`rounded px-3 py-1.5 font-mono text-sm uppercase tracking-widest transition-colors ${
+              filter === option
+                ? 'bg-[#E8E0D0] text-[#171412]'
+                : 'border border-[#E8E0D0]/30 text-[#E8E0D0]/60 hover:text-[#E8E0D0]'
+            }`}
+          >
+            {option === 'all' ? 'All' : `Unreviewed (${unreviewedCount})`}
+          </button>
+        ))}
+      </div>
 
       <div className="flex flex-wrap gap-3 items-center mb-4">
         <input
@@ -103,8 +141,21 @@ export default function BandsList({ initialBands }: { initialBands: BandListItem
                   Touring{band.hometown ? ` · ${band.hometown}` : ''}
                 </span>
               )}
+              {band.unreviewed && (
+                <span className="text-xs px-2 py-0.5 rounded-full border border-yellow-400/40 text-yellow-300/80 flex-shrink-0">
+                  Unreviewed
+                </span>
+              )}
             </div>
             <div className="flex items-center gap-3 flex-shrink-0 text-sm">
+              {band.unreviewed && (
+                <button
+                  onClick={() => handleMarkReviewed(band.id)}
+                  className="text-[#E8E0D0]/80 hover:text-[#E8E0D0] underline"
+                >
+                  Mark reviewed
+                </button>
+              )}
               <Link href={`/bands/${band.slug}`} target="_blank" className="text-[#E8E0D0]/50 hover:text-[#E8E0D0]">
                 View
               </Link>

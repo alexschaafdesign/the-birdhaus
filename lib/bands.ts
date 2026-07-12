@@ -238,6 +238,33 @@ export async function resolveShowBandEntries(bands: Show['bands'], tx: Tx): Prom
   return resolved as Show['bands'];
 }
 
+export interface ResolvedBand {
+  slug: string;
+  created: boolean;
+}
+
+// Used by the public write-back endpoint (Twin Scene lineup matching against
+// our band directory). Same case-insensitive match + slug generation as
+// resolveShowBandEntries, but standalone rather than operating over a show's
+// bands array, and marks new rows unreviewed so they can be triaged in admin
+// before being treated as a real Birdhaus band rather than scraper noise.
+export async function findOrCreateBandByName(name: string): Promise<ResolvedBand> {
+  return sql.begin(async (tx) => {
+    const [existing] = await tx<Array<{ slug: string }>>`
+      select slug from bands where lower(name) = lower(${name}) limit 1
+    `;
+    if (existing) return { slug: existing.slug, created: false };
+
+    const slug = await uniqueSlug(tx, slugify(name) || 'band');
+    const [created] = await tx<Array<{ slug: string }>>`
+      insert into bands (slug, name, unreviewed)
+      values (${slug}, ${name}, true)
+      returning slug
+    `;
+    return { slug: created.slug, created: true };
+  });
+}
+
 export interface ShowBandPair {
   bandId: number;
   sortOrder: number;
