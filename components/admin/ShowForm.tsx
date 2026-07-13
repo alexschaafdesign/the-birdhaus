@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import BandNameInput, { type BandMatch } from './BandNameInput';
 import ImageUploadField from './ImageUploadField';
 import ShowDateAvailability from './ShowDateAvailability';
@@ -408,13 +409,23 @@ export default function ShowForm({
     <form onSubmit={handleSubmit} className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">{mode === 'create' ? 'New show' : 'Edit show'}</h1>
-        <button
-          type="button"
-          onClick={() => router.push('/admin/shows')}
-          className="text-sm text-[#E8E0D0]/60 hover:text-[#E8E0D0]"
-        >
-          ← Back to shows
-        </button>
+        <div className="flex items-center gap-4">
+          {mode === 'edit' && initialValues?.id && (
+            <Link
+              href={`/admin/shows/${initialValues.id}/settlement`}
+              className="text-sm text-[#E8E0D0]/60 hover:text-[#E8E0D0]"
+            >
+              Settlement →
+            </Link>
+          )}
+          <button
+            type="button"
+            onClick={() => router.push('/admin/shows')}
+            className="text-sm text-[#E8E0D0]/60 hover:text-[#E8E0D0]"
+          >
+            ← Back to shows
+          </button>
+        </div>
       </div>
 
       {error && (

@@ -7,6 +7,7 @@ const LINKS = [
   { href: '/admin', label: 'Submissions' },
   { href: '/admin/shows', label: 'Shows' },
   { href: '/admin/bands', label: 'Bands' },
+  { href: '/admin/settlements', label: 'Settlements' },
 ];
 
 export default function AdminNav() {
