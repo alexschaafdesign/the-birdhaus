@@ -10,6 +10,8 @@ export interface ShowListItem {
   date: string;
   announced: boolean;
   flyer?: string | null;
+  rsvp_count?: number;
+  guest_count?: number;
 }
 
 const inputClass =
@@ -87,6 +89,12 @@ export default function ShowsList({ initialShows }: { initialShows: ShowListItem
                 ) : (
                   <span className="text-xs px-2 py-0.5 rounded-full border border-[#E8E0D0]/30 text-[#E8E0D0]/50">
                     Draft
+                  </span>
+                )}
+                {!!show.rsvp_count && (
+                  <span className="text-xs px-2 py-0.5 rounded-full border border-[#E8E0D0]/30 text-[#E8E0D0]/60 whitespace-nowrap">
+                    {show.rsvp_count} RSVP{show.rsvp_count === 1 ? '' : 's'} · {show.guest_count} guest
+                    {show.guest_count === 1 ? '' : 's'}
                   </span>
                 )}
               </div>
