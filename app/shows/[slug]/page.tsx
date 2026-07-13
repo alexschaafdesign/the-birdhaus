@@ -172,12 +172,8 @@ export default async function ShowPage({ params }: { params: Promise<{ slug: str
 
         {/* RSVP Form */}
         {!isPast && show.rsvpForm && (
-          <RSVPForm 
-            showTitle={show.title}
-            showDate={show.date}
-            doorsTime={show.doorsTime}
-            showTime={show.showTime}
-            flyerUrl={show.flyer}
+          <RSVPForm
+            showId={show.id}
             ticketUrl={show.ticketUrl}
           />
         )}

@@ -40,18 +40,10 @@ function validateEmail(email: string): string | null {
 }
 
 export default function RSVPForm({
-  showTitle, 
-  showDate,
-  doorsTime,
-  showTime,
-  flyerUrl,
+  showId,
   ticketUrl
-}: { 
-  showTitle: string;
-  showDate: string;
-  doorsTime?: string;
-  showTime?: string;
-  flyerUrl?: string;
+}: {
+  showId: number;
   ticketUrl?: string;
 }) {
   const [formData, setFormData] = useState({
@@ -76,24 +68,21 @@ export default function RSVPForm({
     setStatus('submitting');
 
     try {
-      const response = await fetch('https://script.google.com/macros/s/AKfycbyqjkeA5Ik4w6pTpB9ZbZ-J0X8R3g6Zi0MAhlkEOBWTjZ2ncFmXH6AUH2IN5dqutsDPpA/exec', {
+      const response = await fetch('/api/rsvp', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
+          'Content-Type': 'application/json',
         },
-        body: new URLSearchParams({
-          show: showTitle,
-          date: showDate,
-          doorsTime: doorsTime || '',
-          showTime: showTime || '',
-          flyerUrl: flyerUrl || '',
-          ticketUrl: ticketUrl || '',
+        body: JSON.stringify({
+          showId,
           name: formData.name,
           email: formData.email,
           guests: formData.guests,
-          emailList: formData.emailList.toString(),
-        }).toString(),
+          emailList: formData.emailList,
+        }),
       });
+
+      if (!response.ok) throw new Error('RSVP submission failed');
 
       setStatus('success');
       setFormData({ name: '', email: '', guests: '1', emailList: false });
