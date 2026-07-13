@@ -30,6 +30,21 @@ export default function ShowsList({ initialShows }: { initialShows: ShowListItem
     );
   }, [shows, search]);
 
+  const { upcoming, past } = useMemo(() => {
+    // Local YYYY-MM-DD; dates are date-only strings so string comparison is safe.
+    const now = new Date();
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(
+      now.getDate()
+    ).padStart(2, '0')}`;
+    const upcoming = filtered
+      .filter((s) => s.date >= today)
+      .sort((a, b) => a.date.localeCompare(b.date)); // next show first
+    const past = filtered
+      .filter((s) => s.date < today)
+      .sort((a, b) => b.date.localeCompare(a.date)); // most recent first
+    return { upcoming, past };
+  }, [filtered]);
+
   async function handleDelete(id: number, title: string) {
     if (!confirm(`Delete "${title}"? This can't be undone.`)) return;
     setShows((prev) => prev.filter((s) => s.id !== id));
@@ -72,8 +87,35 @@ export default function ShowsList({ initialShows }: { initialShows: ShowListItem
         {filtered.length} of {shows.length} shows shown
       </p>
 
+      {filtered.length === 0 ? (
+        <p className="text-[#E8E0D0]/40 text-sm py-8 text-center">No shows match this search.</p>
+      ) : (
+        <div className="space-y-8">
+          <ShowGroup title="Upcoming Shows" shows={upcoming} onDelete={handleDelete} />
+          <ShowGroup title="Past Shows" shows={past} onDelete={handleDelete} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ShowGroup({
+  title,
+  shows,
+  onDelete,
+}: {
+  title: string;
+  shows: ShowListItem[];
+  onDelete: (id: number, title: string) => void;
+}) {
+  if (shows.length === 0) return null;
+  return (
+    <section>
+      <h2 className="text-xs uppercase tracking-wide text-[#E8E0D0]/40 mb-3">
+        {title} <span className="text-[#E8E0D0]/25">({shows.length})</span>
+      </h2>
       <div className="space-y-2">
-        {filtered.map((show) => (
+        {shows.map((show) => (
           <div
             key={show.id}
             className="flex items-center justify-between gap-4 border border-[#E8E0D0]/15 rounded-lg px-4 py-3"
@@ -111,7 +153,7 @@ export default function ShowsList({ initialShows }: { initialShows: ShowListItem
                 Edit
               </Link>
               <button
-                onClick={() => handleDelete(show.id, show.title)}
+                onClick={() => onDelete(show.id, show.title)}
                 className="text-red-400/70 hover:text-red-400"
               >
                 Delete
@@ -119,10 +161,7 @@ export default function ShowsList({ initialShows }: { initialShows: ShowListItem
             </div>
           </div>
         ))}
-        {filtered.length === 0 && (
-          <p className="text-[#E8E0D0]/40 text-sm py-8 text-center">No shows match this search.</p>
-        )}
       </div>
-    </div>
+    </section>
   );
 }
