@@ -77,7 +77,7 @@ export default async function EditShowPage({ params }: { params: Promise<{ id: s
   return (
     <main className="max-w-4xl mx-auto px-6 pb-16 pt-6 space-y-6">
       <ShowForm mode="edit" initialValues={initialValues} />
-      <RsvpSummary {...rsvpSummary} />
+      <RsvpSummary showId={row.id} {...rsvpSummary} />
     </main>
   );
 }
