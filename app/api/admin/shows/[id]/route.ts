@@ -133,6 +133,10 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     updates.push({ column: 'announced', value: Boolean(body.announced) });
   }
 
+  if ('advanceSent' in body) {
+    updates.push({ column: 'advance_sent', value: Boolean(body.advanceSent) });
+  }
+
   if ('targetBandCount' in body) {
     updates.push({ column: 'target_band_count', value: normalizeTargetBandCount(body.targetBandCount) });
   }

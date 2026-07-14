@@ -27,6 +27,7 @@ function computeIssues(show: ShowListItem, today: string): Issue[] {
   if (!show.sound_engineer_name?.trim()) issues.push({ key: 'sound', label: 'No sound engineer' });
   if (!show.flyer?.trim()) issues.push({ key: 'flyer', label: 'No flyer' });
   if (show.rsvp_form === false) issues.push({ key: 'rsvp-off', label: 'RSVP form disabled' });
+  if (!show.advance_sent) issues.push({ key: 'advance', label: 'Not advanced yet' });
 
   const bandsNeeded = (show.target_band_count ?? 3) - (show.band_count ?? 0);
   if (bandsNeeded > 0) {

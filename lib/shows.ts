@@ -27,6 +27,7 @@ export interface Show {
   soundEngineerName?: string;
   targetBandCount: number;
   ignoredHealthChecks: string[];
+  advanceSent?: boolean;
 }
 
 interface ShowRow {
@@ -54,6 +55,7 @@ interface ShowRow {
   sound_engineer_name: string | null;
   target_band_count: number;
   ignored_health_checks: unknown;
+  advance_sent: boolean;
 }
 
 async function renderMarkdown(markdown: string): Promise<string> {
@@ -87,6 +89,7 @@ async function rowToShow(row: ShowRow): Promise<Show> {
     soundEngineerName: row.sound_engineer_name ?? undefined,
     targetBandCount: row.target_band_count,
     ignoredHealthChecks: (row.ignored_health_checks as string[]) ?? [],
+    advanceSent: row.advance_sent,
   };
 }
 

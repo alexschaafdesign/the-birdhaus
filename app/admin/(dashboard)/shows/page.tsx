@@ -9,7 +9,7 @@ async function getShows(): Promise<ShowListItem[]> {
   const rows = await sql<ShowListItem[]>`
     select
       s.id, s.slug, s.title, s.date::text as date, s.announced, s.flyer,
-      s.sound_engineer_name, s.rsvp_form, s.target_band_count, s.ignored_health_checks,
+      s.sound_engineer_name, s.rsvp_form, s.target_band_count, s.ignored_health_checks, s.advance_sent,
       coalesce(b.band_count, 0)::int as band_count,
       coalesce(r.rsvp_count, 0)::int as rsvp_count,
       coalesce(r.guest_count, 0)::int as guest_count

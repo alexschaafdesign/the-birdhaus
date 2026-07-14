@@ -15,6 +15,7 @@ export interface ShowListItem {
   band_count?: number;
   target_band_count?: number;
   ignored_health_checks?: string[];
+  advance_sent?: boolean;
   rsvp_count?: number;
   guest_count?: number;
 }

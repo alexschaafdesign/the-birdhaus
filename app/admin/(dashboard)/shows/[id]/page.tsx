@@ -31,6 +31,7 @@ interface ShowRow {
   announced: boolean;
   sound_engineer_name: string | null;
   target_band_count: number;
+  advance_sent: boolean;
 }
 
 export default async function EditShowPage({ params }: { params: Promise<{ id: string }> }) {
@@ -70,6 +71,7 @@ export default async function EditShowPage({ params }: { params: Promise<{ id: s
     announced: row.announced,
     soundEngineerName: row.sound_engineer_name,
     targetBandCount: row.target_band_count,
+    advanceSent: row.advance_sent,
   };
 
   return (

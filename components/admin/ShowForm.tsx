@@ -125,6 +125,7 @@ export interface ShowFormInitialValues {
   announced?: boolean;
   soundEngineerName?: string | null;
   targetBandCount?: number;
+  advanceSent?: boolean;
 }
 
 interface FormState {
@@ -151,6 +152,7 @@ interface FormState {
   announced: boolean;
   soundEngineerName: string;
   targetBandCount: number;
+  advanceSent: boolean;
 }
 
 function initFormState(initial?: ShowFormInitialValues): FormState {
@@ -200,6 +202,7 @@ function initFormState(initial?: ShowFormInitialValues): FormState {
     announced: initial?.announced ?? false,
     soundEngineerName: initial?.soundEngineerName ?? '',
     targetBandCount: initial?.targetBandCount ?? 3,
+    advanceSent: initial?.advanceSent ?? false,
   };
 }
 
@@ -407,6 +410,7 @@ export default function ShowForm({
       announced: form.announced,
       soundEngineerName: form.soundEngineerName.trim() || undefined,
       targetBandCount: form.targetBandCount,
+      advanceSent: form.advanceSent,
     };
 
     setSubmitting(true);
@@ -678,6 +682,14 @@ export default function ShowForm({
             onChange={(e) => set('announced', e.target.checked)}
           />
           Announced (visible on /upcoming)
+        </label>
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={form.advanceSent}
+            onChange={(e) => set('advanceSent', e.target.checked)}
+          />
+          Advanced via email
         </label>
       </div>
 

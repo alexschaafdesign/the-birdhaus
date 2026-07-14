@@ -75,6 +75,7 @@ export async function POST(request: Request) {
   const rsvpForm = body?.rsvpForm === undefined ? true : Boolean(body.rsvpForm);
   const announced = Boolean(body?.announced);
   const targetBandCount = normalizeTargetBandCount(body?.targetBandCount);
+  const advanceSent = Boolean(body?.advanceSent);
 
   try {
     const row = await sql.begin(async (tx) => {
@@ -94,7 +95,7 @@ export async function POST(request: Request) {
           slug, title, date, doors_time, show_time, flyer, bands, description,
           photographer, rsvp_url, ticket_url, external_ticket_url, rsvp_form,
           videos, audio, photos, photo_folder, photo_credit, content_markdown, announced,
-          sound_engineer_name, target_band_count
+          sound_engineer_name, target_band_count, advance_sent
         )
         values (
           ${slug}, ${title}, ${date}, ${nullableTrim(body.doorsTime)}, ${nullableTrim(body.showTime)},
@@ -104,7 +105,7 @@ export async function POST(request: Request) {
           ${videosJson}, ${tx.json(audio)}, ${tx.json(photos)},
           ${nullableTrim(body.photoFolder)}, ${nullableTrim(body.photoCredit)},
           ${typeof body.content === 'string' ? body.content : ''}, ${announced},
-          ${nullableTrim(body.soundEngineerName)}, ${targetBandCount}
+          ${nullableTrim(body.soundEngineerName)}, ${targetBandCount}, ${advanceSent}
         )
         returning *, date::text as date
       `;
