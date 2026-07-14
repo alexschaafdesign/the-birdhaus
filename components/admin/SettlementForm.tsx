@@ -2,6 +2,7 @@
 
 import { useMemo, useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
+import PayeeNameInput from './PayeeNameInput';
 import {
   computeSettlementSummary,
   formatCurrency,
@@ -224,10 +225,11 @@ export default function SettlementForm({ showId, bandCount, initialValues }: Set
                   className={`${inputClass} w-full`}
                 />
                 {payee && (
-                  <input
+                  <PayeeNameInput
+                    role={payee.nameKey}
                     placeholder="Paid to"
                     value={form[payee.nameKey]}
-                    onChange={(e) => set(payee.nameKey, e.target.value)}
+                    onChange={(value) => set(payee.nameKey, value)}
                     className={`${inputClass} w-full mt-1`}
                   />
                 )}
