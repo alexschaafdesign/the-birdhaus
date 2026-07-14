@@ -2,9 +2,18 @@ import { Resend } from 'resend';
 import type { Show } from './shows';
 import { splitName } from './name';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
-
 const BCC_EMAIL = 'alex@thebirdhaus.org';
+
+// Instantiate lazily rather than at module load: Resend's constructor throws
+// when the API key is missing, and Next imports this module during `next build`
+// (page-data collection for /api/rsvp), so a build-time absence of the key would
+// crash the whole build. Deferring to request time keeps the build independent
+// of the runtime secret.
+function getResendClient(): Resend {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) throw new Error('RESEND_API_KEY is not set');
+  return new Resend(apiKey);
+}
 
 // Matches the old Apps Script's `Utilities.formatDate(dateObj, tz, 'EEEE, MMMM d')` —
 // weekday + month + day, no year, no ordinal suffix (e.g. "Saturday, August 15").
@@ -92,7 +101,7 @@ export async function sendRsvpConfirmationEmail({
   if (!from) throw new Error('RESEND_FROM_EMAIL is not set');
 
   const { subject, html } = renderRsvpConfirmationEmail(show, name);
-  const { error } = await resend.emails.send({
+  const { error } = await getResendClient().emails.send({
     from,
     to: email,
     bcc: BCC_EMAIL,
