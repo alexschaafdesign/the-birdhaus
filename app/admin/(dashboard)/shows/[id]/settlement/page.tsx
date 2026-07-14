@@ -6,6 +6,7 @@ import {
   dealTermsLabel,
   formatCurrency,
   settlementValuesFromRow,
+  PAYEE_EXPENSE_FIELDS,
   SHOW_INCOME_FIELDS,
   VENUE_EXPENSE_FIELDS,
   VENUE_ADDITIONAL_INCOME_FIELDS,
@@ -96,9 +97,13 @@ export default async function SettlementPage({ params }: { params: Promise<{ id:
 
           <div className="space-y-2 text-sm">
             <h2 className="text-xs font-semibold uppercase tracking-wide text-[#E8E0D0]/40 mb-2">Venue Expenses</h2>
-            {VENUE_EXPENSE_FIELDS.map(({ key, label }) => (
-              <Row key={key} label={label} value={formatCurrency(values[key])} />
-            ))}
+            {VENUE_EXPENSE_FIELDS.map(({ key, label }) => {
+              const payee = PAYEE_EXPENSE_FIELDS.find((p) => p.amountKey === key);
+              const name = payee ? values[payee.nameKey] : null;
+              return (
+                <Row key={key} label={name ? `${label} — ${name}` : label} value={formatCurrency(values[key])} />
+              );
+            })}
             {expenseItems.map((item, i) => (
               <Row key={`extra-expense-${i}`} label={item.label} value={formatCurrency(item.amount)} />
             ))}

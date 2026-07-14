@@ -7,6 +7,7 @@ import {
   formatCurrency,
   DEFAULT_SETTLEMENT_VALUES,
   NUMERIC_FIELDS,
+  PAYEE_EXPENSE_FIELDS,
   SHOW_INCOME_FIELDS,
   VENUE_EXPENSE_FIELDS,
   VENUE_ADDITIONAL_INCOME_FIELDS,
@@ -33,6 +34,8 @@ interface SettlementFormProps {
 type FormState = {
   dealType: DealType;
   notes: string;
+  photographerName: string;
+  soundEngineerName: string;
   extraLineItems: FormExtraLineItem[];
 } & Record<NumericField, string>;
 
@@ -45,6 +48,8 @@ function toFormState(values: SettlementValues): FormState {
     ...numeric,
     dealType: values.dealType,
     notes: values.notes ?? '',
+    photographerName: values.photographerName ?? '',
+    soundEngineerName: values.soundEngineerName ?? '',
     extraLineItems: values.extraLineItems.map((item) => ({ ...item, amount: String(item.amount) })),
   };
 }
@@ -86,6 +91,8 @@ export default function SettlementForm({ showId, bandCount, initialValues }: Set
       ...numericValues,
       dealType: form.dealType,
       notes: form.notes,
+      photographerName: form.photographerName,
+      soundEngineerName: form.soundEngineerName,
       extraLineItems: form.extraLineItems.map((item) => ({
         type: item.type,
         label: item.label,
@@ -102,6 +109,8 @@ export default function SettlementForm({ showId, bandCount, initialValues }: Set
     const payload: Record<string, unknown> = {
       dealType: form.dealType,
       notes: form.notes,
+      photographerName: form.photographerName.trim() || null,
+      soundEngineerName: form.soundEngineerName.trim() || null,
       extraLineItems: form.extraLineItems
         .filter((item) => item.label.trim())
         .map((item) => ({ type: item.type, label: item.label.trim(), amount: Number(item.amount) || 0 })),
@@ -202,18 +211,29 @@ export default function SettlementForm({ showId, bandCount, initialValues }: Set
       <div className="border border-[#E8E0D0]/15 rounded-lg p-4">
         <h2 className="text-sm font-semibold text-[#E8E0D0]/80 mb-3">Venue Expenses</h2>
         <div className="grid gap-3 sm:grid-cols-3">
-          {VENUE_EXPENSE_FIELDS.map(({ key, label }) => (
-            <div key={key}>
-              <label className="block text-xs uppercase tracking-wide text-[#E8E0D0]/40 mb-1">{label}</label>
-              <input
-                type="number"
-                step="0.01"
-                value={form[key]}
-                onChange={(e) => set(key, e.target.value)}
-                className={`${inputClass} w-full`}
-              />
-            </div>
-          ))}
+          {VENUE_EXPENSE_FIELDS.map(({ key, label }) => {
+            const payee = PAYEE_EXPENSE_FIELDS.find((p) => p.amountKey === key);
+            return (
+              <div key={key}>
+                <label className="block text-xs uppercase tracking-wide text-[#E8E0D0]/40 mb-1">{label}</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={form[key]}
+                  onChange={(e) => set(key, e.target.value)}
+                  className={`${inputClass} w-full`}
+                />
+                {payee && (
+                  <input
+                    placeholder="Paid to"
+                    value={form[payee.nameKey]}
+                    onChange={(e) => set(payee.nameKey, e.target.value)}
+                    className={`${inputClass} w-full mt-1`}
+                  />
+                )}
+              </div>
+            );
+          })}
         </div>
       </div>
 

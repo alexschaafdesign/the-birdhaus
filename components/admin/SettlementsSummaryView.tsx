@@ -33,10 +33,21 @@ interface PerShowRow {
   dealType: DealType;
 }
 
+interface PayeeAmount {
+  name: string;
+  amount: number;
+}
+
+interface PayeeBreakdownEntry {
+  role: string;
+  payees: PayeeAmount[];
+}
+
 interface SummaryResponse {
   totals: Totals;
   incomeByMethod: IncomeByMethod;
   expensesByCategory: ExpenseCategory[];
+  payeeBreakdown: PayeeBreakdownEntry[];
   perShow: PerShowRow[];
   availableYears: number[];
 }
@@ -87,6 +98,15 @@ function buildCsv(data: SummaryResponse): string {
   lines.push(['Category', 'Amount'].join(','));
   for (const cat of data.expensesByCategory) {
     lines.push([cat.label, cat.amount].map(csvEscape).join(','));
+  }
+  lines.push('');
+
+  lines.push('Paid to');
+  lines.push(['Role', 'Name', 'Amount'].join(','));
+  for (const entry of data.payeeBreakdown) {
+    for (const payee of entry.payees) {
+      lines.push([entry.role, payee.name, payee.amount].map(csvEscape).join(','));
+    }
   }
   lines.push('');
 
@@ -265,6 +285,30 @@ export default function SettlementsSummaryView() {
                 ))}
               </dl>
             </div>
+          </div>
+
+          <div className={cardClass}>
+            <h2 className="text-sm font-semibold text-[#E8E0D0]/80 mb-3">Paid to</h2>
+            {data.payeeBreakdown.every((entry) => entry.payees.length === 0) ? (
+              <p className="text-xs text-[#E8E0D0]/30">No payee amounts recorded in this range.</p>
+            ) : (
+              <div className="grid gap-4 sm:grid-cols-2">
+                {data.payeeBreakdown.map((entry) => (
+                  <div key={entry.role}>
+                    <h3 className="text-xs uppercase tracking-wide text-[#E8E0D0]/40 mb-2">{entry.role}</h3>
+                    {entry.payees.length === 0 ? (
+                      <p className="text-xs text-[#E8E0D0]/30">None recorded.</p>
+                    ) : (
+                      <dl className="space-y-2 text-sm">
+                        {entry.payees.map((payee) => (
+                          <Row key={payee.name} label={payee.name} value={formatCurrency(payee.amount)} />
+                        ))}
+                      </dl>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className={cardClass}>

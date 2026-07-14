@@ -27,10 +27,14 @@ export const NUMERIC_FIELDS = [
 
 export type NumericField = (typeof NUMERIC_FIELDS)[number];
 
+export type PayeeNameField = 'photographerName' | 'soundEngineerName';
+
 export type SettlementValues = {
   dealType: DealType;
   extraLineItems: ExtraLineItem[];
   notes: string | null;
+  photographerName: string | null;
+  soundEngineerName: string | null;
 } & Record<NumericField, number>;
 
 export const DEFAULT_SETTLEMENT_VALUES: SettlementValues = {
@@ -53,7 +57,16 @@ export const DEFAULT_SETTLEMENT_VALUES: SettlementValues = {
   beverageIncomeCash: 0,
   extraLineItems: [],
   notes: null,
+  photographerName: null,
+  soundEngineerName: null,
 };
+
+// Links an expense field to the payee-name field tracking who it was paid to,
+// so the form/view/summary can render "who got paid" without hardcoding the pair.
+export const PAYEE_EXPENSE_FIELDS: Array<{ amountKey: NumericField; nameKey: PayeeNameField; label: string }> = [
+  { amountKey: 'expPhotos', nameKey: 'photographerName', label: 'Photographer' },
+  { amountKey: 'expSoundEngineer', nameKey: 'soundEngineerName', label: 'Sound engineer' },
+];
 
 export const SHOW_INCOME_FIELDS: Array<{ key: NumericField; label: string }> = [
   { key: 'incomeSquare', label: 'Square' },
@@ -177,6 +190,8 @@ export interface SettlementDbRow {
   beverage_income_cash: string;
   extra_line_items: ExtraLineItem[];
   notes: string | null;
+  photographer_name: string | null;
+  sound_engineer_name: string | null;
 }
 
 export function settlementValuesFromRow(row: SettlementDbRow): SettlementValues {
@@ -200,5 +215,7 @@ export function settlementValuesFromRow(row: SettlementDbRow): SettlementValues 
     beverageIncomeCash: Number(row.beverage_income_cash),
     extraLineItems: row.extra_line_items ?? [],
     notes: row.notes,
+    photographerName: row.photographer_name,
+    soundEngineerName: row.sound_engineer_name,
   };
 }

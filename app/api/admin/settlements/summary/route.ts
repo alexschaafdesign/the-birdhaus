@@ -3,7 +3,9 @@ import { sql } from '@/lib/db';
 import {
   computeSettlementSummary,
   settlementValuesFromRow,
+  PAYEE_EXPENSE_FIELDS,
   VENUE_EXPENSE_FIELDS,
+  type PayeeNameField,
   type SettlementDbRow,
 } from '@/lib/settlements';
 
@@ -72,6 +74,10 @@ export async function GET(request: Request) {
   let extraIncomeTotal = 0;
   let extraExpenseTotal = 0;
 
+  const payeeTotals = new Map<PayeeNameField, Map<string, number>>(
+    PAYEE_EXPENSE_FIELDS.map(({ nameKey }) => [nameKey, new Map<string, number>()])
+  );
+
   const perShow = rows.map((row) => {
     const values = settlementValuesFromRow(row);
     const summary = computeSettlementSummary(values, 0);
@@ -95,6 +101,14 @@ export async function GET(request: Request) {
       else extraExpenseTotal += item.amount;
     }
 
+    for (const { amountKey, nameKey } of PAYEE_EXPENSE_FIELDS) {
+      const amount = values[amountKey];
+      if (amount <= 0) continue;
+      const name = values[nameKey]?.trim() || 'Unspecified';
+      const totals = payeeTotals.get(nameKey)!;
+      totals.set(name, (totals.get(name) ?? 0) + amount);
+    }
+
     return {
       showId: Number(row.show_id),
       showName: row.show_title,
@@ -112,10 +126,18 @@ export async function GET(request: Request) {
     { key: 'other', label: 'Other', amount: extraExpenseTotal - extraIncomeTotal },
   ];
 
+  const payeeBreakdown = PAYEE_EXPENSE_FIELDS.map(({ nameKey, label }) => ({
+    role: label,
+    payees: Array.from(payeeTotals.get(nameKey)!, ([name, amount]) => ({ name, amount })).sort(
+      (a, b) => b.amount - a.amount
+    ),
+  }));
+
   return NextResponse.json({
     totals: { grossIncome, artistPayouts, venueExpenses, venueAdditionalIncome, venueNet },
     incomeByMethod: { square: incomeSquare, venmo: incomeVenmo, cash: incomeCash },
     expensesByCategory,
+    payeeBreakdown,
     perShow,
     availableYears: yearRows.map((r) => r.year),
   });
