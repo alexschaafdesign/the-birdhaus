@@ -46,6 +46,19 @@ export async function createRsvp(input: {
   return row;
 }
 
+export async function updateRsvp(
+  id: number,
+  input: { name: string; email: string; guests: number; emailListOptIn: boolean }
+): Promise<Rsvp | null> {
+  const [row] = await sql<Rsvp[]>`
+    update rsvps
+    set name = ${input.name}, email = ${input.email}, guests = ${input.guests}, email_list_opt_in = ${input.emailListOptIn}
+    where id = ${id}
+    returning id, show_id, name, email, guests, email_list_opt_in, confirmation_email_sent_at, created_at
+  `;
+  return row ?? null;
+}
+
 export async function deleteRsvp(id: number): Promise<boolean> {
   const result = await sql`delete from rsvps where id = ${id}`;
   return result.count > 0;
