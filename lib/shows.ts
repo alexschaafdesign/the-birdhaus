@@ -146,6 +146,17 @@ export async function getShowBySlug(slug: string): Promise<Show | null> {
   return rowToShow(row);
 }
 
+export async function getShowById(id: number): Promise<Show | null> {
+  const [row] = await sql<ShowRow[]>`
+    select *, date::text as date, ${bandsJoinFragment()}, ${videosJoinFragment()}
+    from shows
+    where id = ${id}
+    limit 1
+  `;
+  if (!row) return null;
+  return rowToShow(row);
+}
+
 // Today's date in Central Time as "YYYY-MM-DD". Because show.date is also stored
 // as "YYYY-MM-DD", these can be compared lexicographically: a show is upcoming while
 // show.date >= getTodayCentral(), and flips to past at midnight Central (i.e. right

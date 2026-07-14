@@ -1,7 +1,9 @@
 import { notFound } from 'next/navigation';
 import { sql } from '@/lib/db';
 import { bandsJoinFragment, videosJoinFragment } from '@/lib/shows';
+import { getRsvpsForShow } from '@/lib/rsvps';
 import ShowForm, { type ShowFormInitialValues } from '@/components/admin/ShowForm';
+import RsvpSummary from '@/components/admin/RsvpSummary';
 
 export const dynamic = 'force-dynamic';
 
@@ -41,6 +43,8 @@ export default async function EditShowPage({ params }: { params: Promise<{ id: s
   `;
   if (!row) notFound();
 
+  const rsvpSummary = await getRsvpsForShow(showId);
+
   const initialValues: ShowFormInitialValues = {
     id: row.id,
     slug: row.slug,
@@ -65,8 +69,9 @@ export default async function EditShowPage({ params }: { params: Promise<{ id: s
   };
 
   return (
-    <main className="max-w-4xl mx-auto px-6 pb-16 pt-6">
+    <main className="max-w-4xl mx-auto px-6 pb-16 pt-6 space-y-6">
       <ShowForm mode="edit" initialValues={initialValues} />
+      <RsvpSummary {...rsvpSummary} />
     </main>
   );
 }
