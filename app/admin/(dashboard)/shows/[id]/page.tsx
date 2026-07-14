@@ -29,6 +29,8 @@ interface ShowRow {
   photo_credit: string | null;
   content_markdown: string;
   announced: boolean;
+  sound_engineer_name: string | null;
+  target_band_count: number;
 }
 
 export default async function EditShowPage({ params }: { params: Promise<{ id: string }> }) {
@@ -66,6 +68,8 @@ export default async function EditShowPage({ params }: { params: Promise<{ id: s
     photoCredit: row.photo_credit,
     content: row.content_markdown,
     announced: row.announced,
+    soundEngineerName: row.sound_engineer_name,
+    targetBandCount: row.target_band_count,
   };
 
   return (

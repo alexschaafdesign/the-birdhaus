@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import ShowsList, { type ShowListItem } from './ShowsList';
+import ShowHealthPanel from './ShowHealthPanel';
 import CalendarView from '@/components/CalendarView';
 
 // Same List/Calendar toggle as the public upcoming-shows page's ShowsBrowser,
@@ -28,6 +29,7 @@ export default function AdminShowsBrowser({
 
   return (
     <div>
+      <ShowHealthPanel shows={initialShows} today={today} />
       <div className="mb-6 flex gap-2">
         {(['list', 'calendar'] as const).map((option) => (
           <button

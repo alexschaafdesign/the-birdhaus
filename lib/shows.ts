@@ -24,6 +24,9 @@ export interface Show {
   photoCredit?: string;
   content: string;
   announced?: boolean;
+  soundEngineerName?: string;
+  targetBandCount: number;
+  ignoredHealthChecks: string[];
 }
 
 interface ShowRow {
@@ -48,6 +51,9 @@ interface ShowRow {
   photo_credit: string | null;
   content_markdown: string;
   announced: boolean;
+  sound_engineer_name: string | null;
+  target_band_count: number;
+  ignored_health_checks: unknown;
 }
 
 async function renderMarkdown(markdown: string): Promise<string> {
@@ -78,6 +84,9 @@ async function rowToShow(row: ShowRow): Promise<Show> {
     photoCredit: row.photo_credit ?? undefined,
     content: await renderMarkdown(row.content_markdown),
     announced: row.announced,
+    soundEngineerName: row.sound_engineer_name ?? undefined,
+    targetBandCount: row.target_band_count,
+    ignoredHealthChecks: (row.ignored_health_checks as string[]) ?? [],
   };
 }
 
@@ -177,6 +186,14 @@ export function slugify(text: string): string {
 
 export const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
+// Falls back to the default 3-band bill assumption for missing/invalid input,
+// rather than rejecting the request — this field is a soft planning aid, not
+// something worth failing a save over.
+export function normalizeTargetBandCount(input: unknown): number {
+  const n = Number(input);
+  return Number.isInteger(n) && n >= 1 ? n : 3;
+}
+
 // bands.id is bigserial, so the postgres driver has always serialized it as a
 // string over JSON — every show saved before that was caught has a numeric-string
 // bandId baked into its stored bands/videos JSON. Coerce those back to real numbers
@@ -242,6 +259,10 @@ export function isValidAudioInput(input: unknown): input is NonNullable<Show['au
 
 export function isValidPhotosInput(input: unknown): input is string[] {
   return Array.isArray(input) && input.every((photo) => typeof photo === 'string');
+}
+
+export function isValidIgnoredHealthChecksInput(input: unknown): input is string[] {
+  return Array.isArray(input) && input.every((key) => typeof key === 'string');
 }
 
 // Normalizes an incoming photographer value (string, object, or empty) down to the

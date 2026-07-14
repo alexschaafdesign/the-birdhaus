@@ -123,6 +123,8 @@ export interface ShowFormInitialValues {
   photoCredit?: string | null;
   content?: string;
   announced?: boolean;
+  soundEngineerName?: string | null;
+  targetBandCount?: number;
 }
 
 interface FormState {
@@ -147,6 +149,8 @@ interface FormState {
   photoCredit: string;
   content: string;
   announced: boolean;
+  soundEngineerName: string;
+  targetBandCount: number;
 }
 
 function initFormState(initial?: ShowFormInitialValues): FormState {
@@ -194,6 +198,8 @@ function initFormState(initial?: ShowFormInitialValues): FormState {
     photoCredit: initial?.photoCredit ?? '',
     content: initial?.content ?? '',
     announced: initial?.announced ?? false,
+    soundEngineerName: initial?.soundEngineerName ?? '',
+    targetBandCount: initial?.targetBandCount ?? 3,
   };
 }
 
@@ -399,6 +405,8 @@ export default function ShowForm({
       photoCredit: form.photoCredit.trim() || undefined,
       content: form.content,
       announced: form.announced,
+      soundEngineerName: form.soundEngineerName.trim() || undefined,
+      targetBandCount: form.targetBandCount,
     };
 
     setSubmitting(true);
@@ -517,6 +525,14 @@ export default function ShowForm({
           </div>
         </div>
         <div className="sm:col-span-2">
+          <label className="block text-xs uppercase tracking-wide text-[#E8E0D0]/40 mb-1">Sound engineer</label>
+          <input
+            value={form.soundEngineerName}
+            onChange={(e) => set('soundEngineerName', e.target.value)}
+            className={`${inputClass} w-full`}
+          />
+        </div>
+        <div className="sm:col-span-2">
           <ImageUploadField
             label="Flyer"
             value={form.flyer}
@@ -532,9 +548,21 @@ export default function ShowForm({
       <div className="border border-[#E8E0D0]/15 rounded-lg p-4">
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-sm font-semibold text-[#E8E0D0]/80">Bands</h2>
-          <button type="button" onClick={addBand} className="text-xs border border-[#E8E0D0]/30 rounded px-2 py-1 hover:bg-[#E8E0D0]/10">
-            + add band
-          </button>
+          <div className="flex items-center gap-3">
+            <label className="flex items-center gap-2 text-xs text-[#E8E0D0]/60">
+              Bill size
+              <input
+                type="number"
+                min={1}
+                value={form.targetBandCount}
+                onChange={(e) => set('targetBandCount', Math.max(1, Number(e.target.value) || 1))}
+                className={`${inputClass} w-14 text-center`}
+              />
+            </label>
+            <button type="button" onClick={addBand} className="text-xs border border-[#E8E0D0]/30 rounded px-2 py-1 hover:bg-[#E8E0D0]/10">
+              + add band
+            </button>
+          </div>
         </div>
         <div className="space-y-3">
           {form.bands.map((band, index) => (

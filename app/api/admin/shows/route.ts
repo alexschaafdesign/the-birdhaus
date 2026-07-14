@@ -9,6 +9,7 @@ import {
   isValidPhotosInput,
   normalizePhotographerInput,
   normalizeBandIds,
+  normalizeTargetBandCount,
   slugify,
   bandsJoinFragment,
   videosJoinFragment,
@@ -73,6 +74,7 @@ export async function POST(request: Request) {
   const photographer = normalizePhotographerInput(body?.photographer);
   const rsvpForm = body?.rsvpForm === undefined ? true : Boolean(body.rsvpForm);
   const announced = Boolean(body?.announced);
+  const targetBandCount = normalizeTargetBandCount(body?.targetBandCount);
 
   try {
     const row = await sql.begin(async (tx) => {
@@ -91,7 +93,8 @@ export async function POST(request: Request) {
         insert into shows (
           slug, title, date, doors_time, show_time, flyer, bands, description,
           photographer, rsvp_url, ticket_url, external_ticket_url, rsvp_form,
-          videos, audio, photos, photo_folder, photo_credit, content_markdown, announced
+          videos, audio, photos, photo_folder, photo_credit, content_markdown, announced,
+          sound_engineer_name, target_band_count
         )
         values (
           ${slug}, ${title}, ${date}, ${nullableTrim(body.doorsTime)}, ${nullableTrim(body.showTime)},
@@ -100,7 +103,8 @@ export async function POST(request: Request) {
           ${nullableTrim(body.externalTicketUrl)}, ${rsvpForm},
           ${videosJson}, ${tx.json(audio)}, ${tx.json(photos)},
           ${nullableTrim(body.photoFolder)}, ${nullableTrim(body.photoCredit)},
-          ${typeof body.content === 'string' ? body.content : ''}, ${announced}
+          ${typeof body.content === 'string' ? body.content : ''}, ${announced},
+          ${nullableTrim(body.soundEngineerName)}, ${targetBandCount}
         )
         returning *, date::text as date
       `;

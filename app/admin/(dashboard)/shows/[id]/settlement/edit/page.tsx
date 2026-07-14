@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { sql } from '@/lib/db';
-import { settlementValuesFromRow, type SettlementDbRow } from '@/lib/settlements';
+import { DEFAULT_SETTLEMENT_VALUES, settlementValuesFromRow, type SettlementDbRow } from '@/lib/settlements';
 import SettlementForm from '@/components/admin/SettlementForm';
 
 export const dynamic = 'force-dynamic';
@@ -11,7 +11,9 @@ export default async function EditSettlementPage({ params }: { params: Promise<{
   const showId = Number(id);
   if (!Number.isInteger(showId)) notFound();
 
-  const [show] = await sql<{ id: number; title: string }[]>`select id, title from shows where id = ${showId}`;
+  const [show] = await sql<{ id: number; title: string; sound_engineer_name: string | null }[]>`
+    select id, title, sound_engineer_name from shows where id = ${showId}
+  `;
   if (!show) notFound();
 
   const [settlementRow] = await sql<SettlementDbRow[]>`select * from settlements where show_id = ${showId}`;
@@ -19,7 +21,9 @@ export default async function EditSettlementPage({ params }: { params: Promise<{
     { count: number }[]
   >`select count(*)::int as count from show_bands where show_id = ${showId}`;
 
-  const initialValues = settlementRow ? settlementValuesFromRow(settlementRow) : null;
+  const initialValues = settlementRow
+    ? settlementValuesFromRow(settlementRow)
+    : { ...DEFAULT_SETTLEMENT_VALUES, soundEngineerName: show.sound_engineer_name };
 
   return (
     <main className="max-w-4xl mx-auto px-6 pb-16 pt-6 space-y-6">

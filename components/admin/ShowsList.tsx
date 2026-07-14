@@ -10,6 +10,11 @@ export interface ShowListItem {
   date: string;
   announced: boolean;
   flyer?: string | null;
+  sound_engineer_name?: string | null;
+  rsvp_form?: boolean;
+  band_count?: number;
+  target_band_count?: number;
+  ignored_health_checks?: string[];
   rsvp_count?: number;
   guest_count?: number;
 }
@@ -91,7 +96,7 @@ export default function ShowsList({ initialShows }: { initialShows: ShowListItem
         <p className="text-[#E8E0D0]/40 text-sm py-8 text-center">No shows match this search.</p>
       ) : (
         <div className="space-y-8">
-          <ShowGroup title="Upcoming Shows" shows={upcoming} onDelete={handleDelete} />
+          <ShowGroup title="Upcoming Shows" shows={upcoming} onDelete={handleDelete} showIssueBadges />
           <ShowGroup title="Past Shows" shows={past} onDelete={handleDelete} />
         </div>
       )}
@@ -103,10 +108,12 @@ function ShowGroup({
   title,
   shows,
   onDelete,
+  showIssueBadges,
 }: {
   title: string;
   shows: ShowListItem[];
   onDelete: (id: number, title: string) => void;
+  showIssueBadges?: boolean;
 }) {
   if (shows.length === 0) return null;
   return (
@@ -115,7 +122,9 @@ function ShowGroup({
         {title} <span className="text-[#E8E0D0]/25">({shows.length})</span>
       </h2>
       <div className="space-y-2">
-        {shows.map((show) => (
+        {shows.map((show) => {
+          const ignored = new Set(show.ignored_health_checks ?? []);
+          return (
           <div
             key={show.id}
             className="flex items-center justify-between gap-4 border border-[#E8E0D0]/15 rounded-lg px-4 py-3"
@@ -139,6 +148,17 @@ function ShowGroup({
                     {show.guest_count === 1 ? '' : 's'}
                   </span>
                 )}
+                {showIssueBadges && !ignored.has('sound') && !show.sound_engineer_name?.trim() && (
+                  <span className="text-xs px-2 py-0.5 rounded-full border border-amber-400/40 text-amber-300 whitespace-nowrap">
+                    No sound engineer
+                  </span>
+                )}
+                {showIssueBadges && !ignored.has('bands') && (show.band_count ?? 0) < (show.target_band_count ?? 3) && (
+                  <span className="text-xs px-2 py-0.5 rounded-full border border-amber-400/40 text-amber-300 whitespace-nowrap">
+                    Need {(show.target_band_count ?? 3) - (show.band_count ?? 0)} band
+                    {(show.target_band_count ?? 3) - (show.band_count ?? 0) === 1 ? '' : 's'}
+                  </span>
+                )}
               </div>
             </div>
             <div className="flex items-center gap-3 flex-shrink-0 text-sm">
@@ -160,7 +180,8 @@ function ShowGroup({
               </button>
             </div>
           </div>
-        ))}
+          );
+        })}
       </div>
     </section>
   );

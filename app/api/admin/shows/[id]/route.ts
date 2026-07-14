@@ -7,8 +7,10 @@ import {
   isValidVideosInput,
   isValidAudioInput,
   isValidPhotosInput,
+  isValidIgnoredHealthChecksInput,
   normalizePhotographerInput,
   normalizeBandIds,
+  normalizeTargetBandCount,
   slugify,
   type Show,
 } from '@/lib/shows';
@@ -31,6 +33,7 @@ const TEXT_FIELD_MAP: Record<string, string> = {
   photoFolder: 'photo_folder',
   photoCredit: 'photo_credit',
   content: 'content_markdown',
+  soundEngineerName: 'sound_engineer_name',
 };
 
 function parseId(id: string): number | null {
@@ -128,6 +131,17 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
   if ('announced' in body) {
     updates.push({ column: 'announced', value: Boolean(body.announced) });
+  }
+
+  if ('targetBandCount' in body) {
+    updates.push({ column: 'target_band_count', value: normalizeTargetBandCount(body.targetBandCount) });
+  }
+
+  if ('ignoredHealthChecks' in body) {
+    if (!isValidIgnoredHealthChecksInput(body.ignoredHealthChecks)) {
+      return NextResponse.json({ error: 'Invalid ignoredHealthChecks' }, { status: 400 });
+    }
+    updates.push({ column: 'ignored_health_checks', value: body.ignoredHealthChecks, json: true });
   }
 
   if (updates.length === 0 && bandsInput === undefined && videosInput === undefined) {
