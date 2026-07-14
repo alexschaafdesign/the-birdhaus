@@ -54,6 +54,35 @@ function formatShowTime(input: string): string {
   return `${hour}:${minute.padStart(2, '0')}${meridiem}`;
 }
 
+// Accepts a bare YouTube video ID or a full URL (watch, youtu.be, embed,
+// shorts — with or without extra query params like &t= or &list=) and
+// normalizes it down to the bare ID used for embedding. Anything it doesn't
+// recognize as a YouTube URL is left untouched, so a raw ID passes through.
+function extractYoutubeId(input: string): string {
+  const trimmed = input.trim();
+  if (!trimmed) return trimmed;
+
+  let url: URL;
+  try {
+    url = new URL(trimmed);
+  } catch {
+    return trimmed;
+  }
+
+  const host = url.hostname.replace(/^www\./, '').replace(/^m\./, '');
+  if (host === 'youtu.be') {
+    return url.pathname.slice(1).split('/')[0] || trimmed;
+  }
+  if (host === 'youtube.com' || host === 'music.youtube.com') {
+    const v = url.searchParams.get('v');
+    if (v) return v;
+    const match = url.pathname.match(/^\/(?:embed|shorts|live)\/([^/]+)/);
+    if (match) return match[1];
+  }
+
+  return trimmed;
+}
+
 interface Band {
   bandId: number | null;
   name: string;
@@ -636,9 +665,10 @@ export default function ShowForm({
             <div key={index} className="border border-[#E8E0D0]/10 rounded p-3 space-y-2">
               <div className="grid gap-2 sm:grid-cols-[1fr_1fr_auto] items-start">
                 <input
-                  placeholder="YouTube video ID"
+                  placeholder="YouTube URL or video ID"
                   value={video.youtube}
                   onChange={(e) => updateVideo(index, 'youtube', e.target.value)}
+                  onBlur={(e) => updateVideo(index, 'youtube', extractYoutubeId(e.target.value))}
                   className={`${inputClass} w-full`}
                 />
                 <input
