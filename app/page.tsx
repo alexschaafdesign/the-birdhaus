@@ -1,7 +1,9 @@
 import { getAllShows, getTodayCentral } from '@/lib/shows';
 import { getAllBandSlugs } from '@/lib/bands';
+import { heroImages } from '@/lib/heroImages';
 import Link from 'next/link';
 import ShowsBrowser from '@/components/ShowsBrowser';
+import HeroGallery from '@/components/HeroGallery';
 
 // Evaluate the upcoming/past split per request so it reflects the current date,
 // not the date the site was last built/deployed.
@@ -88,14 +90,9 @@ export default async function Home() {
         </div>
       )}
 
-      {/* Hero Image */}
-      <div className="w-full max-w-6xl mx-auto px-8 mb-12">
-        <img 
-          src="https://res.cloudinary.com/defdv9zw7/image/upload/v1771535212/IMG_7246_vdubka.jpg"
-          alt="The Birdhaus venue"
-          className="w-full h-auto rounded-lg mb-2"
-        />
-        <p className="text-sm text-[#E8E0D0]/70 text-center">Mary Jam on 1/23/26 - Photo by Sabrina Rose</p>
+      {/* Hero Gallery */}
+      <div className="w-full max-w-5xl mx-auto px-8 mb-12">
+        <HeroGallery images={heroImages} />
       </div>
 
       {/* Upcoming Shows */}
