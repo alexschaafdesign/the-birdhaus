@@ -16,6 +16,11 @@ import {
 } from '@/lib/shows';
 import { resolveShowBandEntries, resolveVideoBandIds, setShowBands, toShowBandPairs } from '@/lib/bands';
 import { resolveShowVideos, setShowVideos, setVideoBands } from '@/lib/videos';
+import {
+  isValidSoundEngineersInput,
+  setShowSoundEngineers,
+  type ShowSoundEngineer,
+} from '@/lib/sound-engineers';
 
 export async function GET() {
   const rows = await sql`
@@ -71,6 +76,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Invalid photos' }, { status: 400 });
   }
 
+  const soundEngineers = body?.soundEngineers ?? [];
+  if (!isValidSoundEngineersInput(soundEngineers)) {
+    return NextResponse.json({ error: 'Invalid sound engineers' }, { status: 400 });
+  }
+
   const photographer = normalizePhotographerInput(body?.photographer);
   const rsvpForm = body?.rsvpForm === undefined ? true : Boolean(body.rsvpForm);
   const announced = Boolean(body?.announced);
@@ -114,6 +124,7 @@ export async function POST(request: Request) {
       for (const v of resolvedVideoRows) {
         await setVideoBands(v.videoId, v.bandId ? [v.bandId] : [], tx);
       }
+      await setShowSoundEngineers(Number(row.id), soundEngineers as ShowSoundEngineer[], tx);
       return row;
     });
     revalidatePath('/shows/[slug]', 'page');

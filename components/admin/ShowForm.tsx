@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import BandNameInput, { type BandMatch } from './BandNameInput';
+import SoundEngineerNameInput, { type SoundEngineerMatch } from './SoundEngineerNameInput';
 import ImageUploadField from './ImageUploadField';
 import ShowDateAvailability from './ShowDateAvailability';
 
@@ -102,6 +103,17 @@ interface Audio {
   title: string;
 }
 
+// Sound-engineer statuses from the API, kept in sync with lib/sound-engineers.ts.
+type SoundEngineerStatus = 'confirmed' | 'asked' | 'declined';
+
+// An engineer the operator asked but who isn't the confirmed one — `declined`
+// distinguishes "still waiting" from "said no" (the checkbox in the UI).
+interface AskedEngineer {
+  soundEngineerId: number | null;
+  name: string;
+  declined: boolean;
+}
+
 export interface ShowFormInitialValues {
   id?: number;
   slug?: string;
@@ -123,9 +135,9 @@ export interface ShowFormInitialValues {
   photoCredit?: string | null;
   content?: string;
   announced?: boolean;
-  soundEngineerName?: string | null;
   targetBandCount?: number;
   advanceSent?: boolean;
+  soundEngineers?: Array<{ soundEngineerId?: number | null; name: string; status: SoundEngineerStatus }>;
 }
 
 interface FormState {
@@ -150,12 +162,17 @@ interface FormState {
   photoCredit: string;
   content: string;
   announced: boolean;
-  soundEngineerName: string;
   targetBandCount: number;
   advanceSent: boolean;
+  // The one assigned engineer. id is null until it resolves to a registry row on save.
+  confirmedEngineerName: string;
+  confirmedEngineerId: number | null;
+  // Everyone else who was asked, whether pending or declined.
+  askedEngineers: AskedEngineer[];
 }
 
 function initFormState(initial?: ShowFormInitialValues): FormState {
+  const confirmed = (initial?.soundEngineers ?? []).find((e) => e.status === 'confirmed');
   return {
     slug: initial?.slug ?? '',
     slugTouched: Boolean(initial?.slug),
@@ -200,9 +217,17 @@ function initFormState(initial?: ShowFormInitialValues): FormState {
     photoCredit: initial?.photoCredit ?? '',
     content: initial?.content ?? '',
     announced: initial?.announced ?? false,
-    soundEngineerName: initial?.soundEngineerName ?? '',
     targetBandCount: initial?.targetBandCount ?? 3,
     advanceSent: initial?.advanceSent ?? false,
+    confirmedEngineerName: confirmed?.name ?? '',
+    confirmedEngineerId: confirmed?.soundEngineerId ?? null,
+    askedEngineers: (initial?.soundEngineers ?? [])
+      .filter((e) => e.status !== 'confirmed')
+      .map((e) => ({
+        soundEngineerId: e.soundEngineerId ?? null,
+        name: e.name,
+        declined: e.status === 'declined',
+      })),
   };
 }
 
@@ -303,6 +328,49 @@ export default function ShowForm({
     setForm((prev) => ({ ...prev, audio: prev.audio.filter((_, i) => i !== index) }));
   }
 
+  // Retyping the confirmed engineer's name severs the link to a registry row —
+  // it either re-matches on save or becomes a new engineer.
+  function updateConfirmedEngineerName(value: string) {
+    setForm((prev) => ({ ...prev, confirmedEngineerName: value, confirmedEngineerId: null }));
+  }
+  function selectConfirmedEngineer(match: SoundEngineerMatch) {
+    setForm((prev) => ({ ...prev, confirmedEngineerName: match.name, confirmedEngineerId: match.id }));
+  }
+
+  function updateAskedEngineerName(index: number, value: string) {
+    setForm((prev) => {
+      const askedEngineers = [...prev.askedEngineers];
+      askedEngineers[index] = { ...askedEngineers[index], name: value, soundEngineerId: null };
+      return { ...prev, askedEngineers };
+    });
+  }
+  function selectAskedEngineer(index: number, match: SoundEngineerMatch) {
+    setForm((prev) => {
+      const askedEngineers = [...prev.askedEngineers];
+      askedEngineers[index] = { ...askedEngineers[index], name: match.name, soundEngineerId: match.id };
+      return { ...prev, askedEngineers };
+    });
+  }
+  function toggleAskedEngineerDeclined(index: number, declined: boolean) {
+    setForm((prev) => {
+      const askedEngineers = [...prev.askedEngineers];
+      askedEngineers[index] = { ...askedEngineers[index], declined };
+      return { ...prev, askedEngineers };
+    });
+  }
+  function addAskedEngineer() {
+    setForm((prev) => ({
+      ...prev,
+      askedEngineers: [...prev.askedEngineers, { soundEngineerId: null, name: '', declined: false }],
+    }));
+  }
+  function removeAskedEngineer(index: number) {
+    setForm((prev) => ({
+      ...prev,
+      askedEngineers: prev.askedEngineers.filter((_, i) => i !== index),
+    }));
+  }
+
   // Uploads a file and appends its URL as a new line, rather than replacing
   // the textarea's existing content like ImageUploadField's single-value fields do.
   async function handlePhotosUpload(file: File) {
@@ -366,6 +434,34 @@ export default function ShowForm({
       ...(b.bandId ? { bandId: b.bandId } : {}),
     }));
 
+    // Confirmed engineer (if named) + everyone asked, deduped by name against
+    // the confirmed one and each other so the server's uniqueness check passes.
+    const soundEngineers: Array<{
+      soundEngineerId: number | null;
+      name: string;
+      status: SoundEngineerStatus;
+    }> = [];
+    const seenEngineerNames = new Set<string>();
+    const confirmedName = form.confirmedEngineerName.trim();
+    if (confirmedName) {
+      soundEngineers.push({
+        soundEngineerId: form.confirmedEngineerId,
+        name: confirmedName,
+        status: 'confirmed',
+      });
+      seenEngineerNames.add(confirmedName.toLowerCase());
+    }
+    for (const asked of form.askedEngineers) {
+      const name = asked.name.trim();
+      if (!name || seenEngineerNames.has(name.toLowerCase())) continue;
+      seenEngineerNames.add(name.toLowerCase());
+      soundEngineers.push({
+        soundEngineerId: asked.soundEngineerId,
+        name,
+        status: asked.declined ? 'declined' : 'asked',
+      });
+    }
+
     const payload = {
       title: form.title.trim(),
       slug: slugify(form.slug) || undefined,
@@ -408,9 +504,9 @@ export default function ShowForm({
       photoCredit: form.photoCredit.trim() || undefined,
       content: form.content,
       announced: form.announced,
-      soundEngineerName: form.soundEngineerName.trim() || undefined,
       targetBandCount: form.targetBandCount,
       advanceSent: form.advanceSent,
+      soundEngineers,
     };
 
     setSubmitting(true);
@@ -529,14 +625,6 @@ export default function ShowForm({
           </div>
         </div>
         <div className="sm:col-span-2">
-          <label className="block text-xs uppercase tracking-wide text-[#E8E0D0]/40 mb-1">Sound engineer</label>
-          <input
-            value={form.soundEngineerName}
-            onChange={(e) => set('soundEngineerName', e.target.value)}
-            className={`${inputClass} w-full`}
-          />
-        </div>
-        <div className="sm:col-span-2">
           <ImageUploadField
             label="Flyer"
             value={form.flyer}
@@ -644,6 +732,75 @@ export default function ShowForm({
             onChange={(e) => set('photographerInstagram', e.target.value)}
             className={`${inputClass} w-full`}
           />
+        </div>
+      </div>
+
+      <div className="border border-[#E8E0D0]/15 rounded-lg p-4 space-y-4">
+        <h2 className="text-sm font-semibold text-[#E8E0D0]/80">Sound engineer</h2>
+        <div>
+          <label className="block text-xs uppercase tracking-wide text-[#E8E0D0]/40 mb-1">
+            Confirmed engineer
+          </label>
+          <div className="sm:max-w-sm">
+            <SoundEngineerNameInput
+              placeholder="Start typing a name…"
+              value={form.confirmedEngineerName}
+              onChange={updateConfirmedEngineerName}
+              onSelect={selectConfirmedEngineer}
+              className={`${inputClass} w-full`}
+            />
+          </div>
+          {form.confirmedEngineerId && (
+            <p className="text-xs text-green-400/70 mt-1">🔗 Linked to existing engineer</p>
+          )}
+        </div>
+
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <label className="block text-xs uppercase tracking-wide text-[#E8E0D0]/40">
+              Also asked
+            </label>
+            <button
+              type="button"
+              onClick={addAskedEngineer}
+              className="text-xs border border-[#E8E0D0]/30 rounded px-2 py-1 hover:bg-[#E8E0D0]/10"
+            >
+              + ask another
+            </button>
+          </div>
+          <div className="space-y-2">
+            {form.askedEngineers.map((engineer, index) => (
+              <div key={index} className="grid gap-2 sm:grid-cols-[1fr_auto_auto] items-center">
+                <SoundEngineerNameInput
+                  placeholder="Engineer name"
+                  value={engineer.name}
+                  onChange={(value) => updateAskedEngineerName(index, value)}
+                  onSelect={(match) => selectAskedEngineer(index, match)}
+                  className={`${inputClass} w-full`}
+                />
+                <label className="flex items-center gap-2 text-sm text-[#E8E0D0]/70 px-1 whitespace-nowrap">
+                  <input
+                    type="checkbox"
+                    checked={engineer.declined}
+                    onChange={(e) => toggleAskedEngineerDeclined(index, e.target.checked)}
+                  />
+                  said no
+                </label>
+                <button
+                  type="button"
+                  onClick={() => removeAskedEngineer(index)}
+                  className="text-red-400/70 hover:text-red-400 text-sm px-2"
+                >
+                  Remove
+                </button>
+              </div>
+            ))}
+            {form.askedEngineers.length === 0 && (
+              <p className="text-xs text-[#E8E0D0]/30">
+                Track engineers you&apos;ve reached out to — check &ldquo;said no&rdquo; when they decline.
+              </p>
+            )}
+          </div>
         </div>
       </div>
 

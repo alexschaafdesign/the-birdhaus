@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation';
 import { sql } from '@/lib/db';
 import { bandsJoinFragment, videosJoinFragment } from '@/lib/shows';
+import { soundEngineersJoinFragment, type ShowSoundEngineer } from '@/lib/sound-engineers';
 import { getRsvpsForShow } from '@/lib/rsvps';
 import ShowForm, { type ShowFormInitialValues } from '@/components/admin/ShowForm';
 import RsvpSummary from '@/components/admin/RsvpSummary';
@@ -29,9 +30,9 @@ interface ShowRow {
   photo_credit: string | null;
   content_markdown: string;
   announced: boolean;
-  sound_engineer_name: string | null;
   target_band_count: number;
   advance_sent: boolean;
+  sound_engineers: unknown;
 }
 
 export default async function EditShowPage({ params }: { params: Promise<{ id: string }> }) {
@@ -40,7 +41,7 @@ export default async function EditShowPage({ params }: { params: Promise<{ id: s
   if (!Number.isInteger(showId)) notFound();
 
   const [row] = await sql<ShowRow[]>`
-    select *, date::text as date, ${bandsJoinFragment()}, ${videosJoinFragment()}
+    select *, date::text as date, ${bandsJoinFragment()}, ${videosJoinFragment()}, ${soundEngineersJoinFragment()}
     from shows
     where id = ${showId}
   `;
@@ -69,9 +70,9 @@ export default async function EditShowPage({ params }: { params: Promise<{ id: s
     photoCredit: row.photo_credit,
     content: row.content_markdown,
     announced: row.announced,
-    soundEngineerName: row.sound_engineer_name,
     targetBandCount: row.target_band_count,
     advanceSent: row.advance_sent,
+    soundEngineers: (row.sound_engineers as ShowSoundEngineer[]) ?? [],
   };
 
   return (

@@ -21,6 +21,9 @@ export default async function EditSettlementPage({ params }: { params: Promise<{
     { count: number }[]
   >`select count(*)::int as count from show_bands where show_id = ${showId}`;
 
+  // Pre-fill the sound-engineer payee from the show's confirmed engineer (cached
+  // on shows.sound_engineer_name, kept in sync by setShowSoundEngineers) when no
+  // settlement exists yet.
   const initialValues = settlementRow
     ? settlementValuesFromRow(settlementRow)
     : { ...DEFAULT_SETTLEMENT_VALUES, soundEngineerName: show.sound_engineer_name };

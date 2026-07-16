@@ -16,6 +16,11 @@ import {
 } from '@/lib/shows';
 import { resolveShowBandEntries, resolveVideoBandIds, setShowBands, toShowBandPairs } from '@/lib/bands';
 import { resolveShowVideos, setShowVideos, setVideoBands } from '@/lib/videos';
+import {
+  isValidSoundEngineersInput,
+  setShowSoundEngineers,
+  type ShowSoundEngineer,
+} from '@/lib/sound-engineers';
 
 // Maps the camelCase keys the client sends (matching the `Show` interface) to
 // their snake_case columns for the plain text/URL fields. Fields with their own
@@ -33,7 +38,6 @@ const TEXT_FIELD_MAP: Record<string, string> = {
   photoFolder: 'photo_folder',
   photoCredit: 'photo_credit',
   content: 'content_markdown',
-  soundEngineerName: 'sound_engineer_name',
 };
 
 function parseId(id: string): number | null {
@@ -107,6 +111,14 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     videosInput = normalizedVideos as unknown[];
   }
 
+  let soundEngineersInput: ShowSoundEngineer[] | undefined;
+  if ('soundEngineers' in body) {
+    if (!isValidSoundEngineersInput(body.soundEngineers)) {
+      return NextResponse.json({ error: 'Invalid sound engineers' }, { status: 400 });
+    }
+    soundEngineersInput = (body.soundEngineers ?? []) as ShowSoundEngineer[];
+  }
+
   if ('audio' in body) {
     if (!isValidAudioInput(body.audio)) {
       return NextResponse.json({ error: 'Invalid audio' }, { status: 400 });
@@ -148,7 +160,12 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     updates.push({ column: 'ignored_health_checks', value: body.ignoredHealthChecks, json: true });
   }
 
-  if (updates.length === 0 && bandsInput === undefined && videosInput === undefined) {
+  if (
+    updates.length === 0 &&
+    bandsInput === undefined &&
+    videosInput === undefined &&
+    soundEngineersInput === undefined
+  ) {
     return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 });
   }
 
@@ -175,6 +192,10 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         }
       }
 
+      if (soundEngineersInput !== undefined) {
+        await setShowSoundEngineers(showId, soundEngineersInput, tx);
+      }
+
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const assignments: any[] = updates.map((u) =>
         u.json
@@ -188,12 +209,22 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         null
       );
 
-      const [row] = await tx`
-        update shows
-        set ${setClause}, updated_at = now()
-        where id = ${showId}
-        returning *, date::text as date
-      `;
+      // Sound engineers live only in show_sound_engineers, so a save that touches
+      // *only* them leaves `updates` empty (no shows-column assignments). Fall back
+      // to bumping updated_at alone so setClause is never a null fragment.
+      const [row] = setClause
+        ? await tx`
+            update shows
+            set ${setClause}, updated_at = now()
+            where id = ${showId}
+            returning *, date::text as date
+          `
+        : await tx`
+            update shows
+            set updated_at = now()
+            where id = ${showId}
+            returning *, date::text as date
+          `;
       return row;
     });
 
