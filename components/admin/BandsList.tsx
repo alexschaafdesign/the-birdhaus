@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 export interface BandListItem {
   id: number;
@@ -19,11 +20,14 @@ const inputClass =
   'bg-transparent border border-[#E8E0D0]/30 rounded px-3 py-1.5 text-sm focus:outline-none focus:border-[#E8E0D0] placeholder:text-[#E8E0D0]/30';
 
 export default function BandsList({ initialBands }: { initialBands: BandListItem[] }) {
+  const router = useRouter();
   const [bands, setBands] = useState<BandListItem[]>(initialBands);
   const [search, setSearch] = useState('');
   const [showAll, setShowAll] = useState(false);
   const [filter, setFilter] = useState<'all' | 'unreviewed'>('all');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [syncStatus, setSyncStatus] = useState<string | null>(null);
+  const [syncing, setSyncing] = useState(false);
 
   const unreviewedCount = useMemo(() => bands.filter((b) => b.unreviewed).length, [bands]);
 
@@ -67,6 +71,26 @@ export default function BandsList({ initialBands }: { initialBands: BandListItem
     }
   }
 
+  async function handleSyncTwinScene() {
+    setSyncing(true);
+    setSyncStatus(null);
+    try {
+      const res = await fetch('/api/admin/bands/sync-twinscene', { method: 'POST' });
+      if (!res.ok) throw new Error();
+      const result: { checked: number; updated: number } = await res.json();
+      setSyncStatus(
+        result.updated > 0
+          ? `Filled in fields on ${result.updated} of ${result.checked} linked band(s).`
+          : `Checked ${result.checked} linked band(s) — nothing to fill in.`
+      );
+      if (result.updated > 0) router.refresh();
+    } catch {
+      setSyncStatus('Sync failed — check TWINSCENE_API_KEY / TWINSCENE_API_URL and try again.');
+    } finally {
+      setSyncing(false);
+    }
+  }
+
   return (
     <div>
       {errorMessage && (
@@ -102,13 +126,22 @@ export default function BandsList({ initialBands }: { initialBands: BandListItem
           onChange={(e) => setSearch(e.target.value)}
           className={`${inputClass} w-full max-w-sm`}
         />
+        <button
+          onClick={handleSyncTwinScene}
+          disabled={syncing}
+          className="ml-auto border border-[#E8E0D0]/40 rounded px-4 py-1.5 text-sm hover:bg-[#E8E0D0]/10 transition-colors disabled:opacity-50"
+        >
+          {syncing ? 'Syncing…' : 'Sync from Twin Scene'}
+        </button>
         <Link
           href="/admin/bands/new"
-          className="ml-auto border border-[#E8E0D0]/40 rounded px-4 py-1.5 text-sm hover:bg-[#E8E0D0]/10 transition-colors"
+          className="border border-[#E8E0D0]/40 rounded px-4 py-1.5 text-sm hover:bg-[#E8E0D0]/10 transition-colors"
         >
           + New band
         </Link>
       </div>
+
+      {syncStatus && <p className="text-xs text-[#E8E0D0]/50 mb-3">{syncStatus}</p>}
 
       <label className="flex items-center gap-2 text-sm text-[#E8E0D0]/60 select-none mb-3 w-fit">
         <input type="checkbox" checked={showAll} onChange={(e) => setShowAll(e.target.checked)} />
