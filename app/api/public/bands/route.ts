@@ -1,3 +1,9 @@
+// DEPRECATED as of 2026-07-17 — see TODO.md ("Part D: Remove deprecated
+// /api/public/bands"). Twin Scene's scraper lineup matcher now queries its
+// own canonical bands table directly instead of calling this route, and
+// Crawlspace's createTwinSceneBand() now posts through Twin Scene's own
+// /api/public/bands instead of this one. Kept live (not deleted) until the
+// no-traffic window in TODO.md confirms no other consumer depends on it.
 import { NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { sql } from '@/lib/db';
