@@ -53,6 +53,16 @@ export default async function BandPage({ params }: { params: Promise<{ slug: str
               Instagram ↗
             </a>
           )}
+          {band.twinsceneSlug && (
+            <a
+              href={`https://www.twinscene.org/bands/${band.twinsceneSlug}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[#E8E0D0]/60 hover:text-[#E8E0D0] underline text-sm ml-3"
+            >
+              Twin Scene ↗
+            </a>
+          )}
         </div>
 
         {band.bio && (
