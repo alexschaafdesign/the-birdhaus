@@ -12,7 +12,7 @@ export default function PhotoGallery({ photos, showTitle }: { photos: string[]; 
 
   return (
     <>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
         {photos.map((photo, idx) => (
           <img
             key={idx}

@@ -58,9 +58,9 @@ export default async function ShowPage({ params }: { params: Promise<{ slug: str
 
         {/* Header section */}
         <div className="mb-10">
-          <h1 className="text-5xl md:text-6xl font-bold mb-3 leading-tight">{show.title}</h1>
-          
-          <div className="flex flex-wrap gap-3 text-base text-[#E8E0D0]/70">
+          <h1 className="text-3xl md:text-4xl font-bold mb-3 leading-tight">{show.title}</h1>
+
+          <div className="flex flex-wrap gap-3 text-sm text-[#E8E0D0]/70">
             <div className="flex items-center gap-2">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -90,26 +90,55 @@ export default async function ShowPage({ params }: { params: Promise<{ slug: str
 
         {/* Description */}
         {show.description && (
-          <p className="text-lg text-[#E8E0D0]/80 mb-10 max-w-3xl leading-relaxed whitespace-pre-line">
+          <p className="text-base text-[#E8E0D0]/80 mb-10 max-w-3xl leading-relaxed whitespace-pre-line">
             {show.description}
           </p>
         )}
 
-        {/* Flyer */}
-        {show.flyer && (
-          <div className="mb-10">
-            <img 
-              src={show.flyer} 
-              alt={`${show.title} flyer`}
-              className="w-full max-w-2xl mx-auto rounded-lg shadow-lg"
-            />
+        {/* Flyer + RSVP/tickets side by side */}
+        {(show.flyer || (!isPast && (show.rsvpForm || show.externalTicketUrl))) && (
+          <div className="grid md:grid-cols-2 gap-8 mb-10 items-start">
+            {show.flyer && (
+              <img
+                src={show.flyer}
+                alt={`${show.title} flyer`}
+                className="w-full max-w-lg mx-auto rounded-lg shadow-lg"
+              />
+            )}
+
+            {!isPast && show.rsvpForm && (
+              <div className="aspect-square">
+                <RSVPForm
+                  showId={show.id}
+                  ticketUrl={show.ticketUrl}
+                />
+              </div>
+            )}
+
+            {/* External ticket link (e.g. promoter's ticket page) */}
+            {!isPast && !show.rsvpForm && show.externalTicketUrl && (
+              <div className="border-2 border-[#E8E0D0]/20 rounded-lg p-6 bg-[#E8E0D0]/5">
+                <h2 className="text-xl font-bold mb-2">Tickets</h2>
+                <p className="text-sm text-[#E8E0D0]/70 mb-6">
+                  Tickets for this show are handled by an external promoter.
+                </p>
+                <a
+                  href={show.externalTicketUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-block bg-[#E8E0D0] text-[#2A2420] font-bold py-3 px-6 rounded-lg hover:bg-[#E8E0D0]/80 transition-colors"
+                >
+                  Get Tickets →
+                </a>
+              </div>
+            )}
           </div>
         )}
 
         {/* Lineup */}
         <div className="mb-10">
-          <h2 className="text-2xl font-bold mb-4">Lineup</h2>
-          <div className="grid gap-4 sm:grid-cols-2">
+          <h2 className="text-xl font-bold mb-4">Lineup</h2>
+          <div className="grid gap-4 grid-cols-1">
             {show.bands.map((band, index) => {
               const bandName = typeof band === 'string' ? band : band.name;
               const bandId = typeof band === 'string' ? null : band.bandId;
@@ -127,17 +156,17 @@ export default async function ShowPage({ params }: { params: Promise<{ slug: str
                     <img
                       src={photo}
                       alt={bandName}
-                      className="w-24 h-24 rounded-lg object-cover flex-shrink-0"
+                      className="w-16 h-16 rounded-lg object-cover flex-shrink-0"
                     />
                   ) : (
-                    <div className="w-24 h-24 rounded-lg bg-[#E8E0D0]/5 flex items-center justify-center flex-shrink-0">
-                      <span className="text-2xl font-bold text-[#E8E0D0]/20">
+                    <div className="w-16 h-16 rounded-lg bg-[#E8E0D0]/5 flex items-center justify-center flex-shrink-0">
+                      <span className="text-lg font-bold text-[#E8E0D0]/20">
                         {bandName.charAt(0).toUpperCase()}
                       </span>
                     </div>
                   )}
                   <div className="min-w-0 flex-1">
-                    <p className="font-semibold text-lg group-hover:text-[#E8E0D0]/70 transition-colors">
+                    <p className="font-semibold text-base group-hover:text-[#E8E0D0]/70 transition-colors">
                       {bandName}
                     </p>
                     {bio && (
@@ -170,40 +199,14 @@ export default async function ShowPage({ params }: { params: Promise<{ slug: str
           </div>
         </div>
 
-        {/* RSVP Form */}
-        {!isPast && show.rsvpForm && (
-          <RSVPForm
-            showId={show.id}
-            ticketUrl={show.ticketUrl}
-          />
-        )}
-
-        {/* External ticket link (e.g. promoter's ticket page) */}
-        {!isPast && show.externalTicketUrl && (
-          <div className="border-2 border-[#E8E0D0]/20 rounded-lg p-8 mb-12 bg-[#E8E0D0]/5">
-            <h2 className="text-3xl font-bold mb-2">Tickets</h2>
-            <p className="text-[#E8E0D0]/70 mb-6">
-              Tickets for this show are handled by an external promoter.
-            </p>
-            <a
-              href={show.externalTicketUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-block bg-[#E8E0D0] text-[#2A2420] font-bold py-4 px-6 rounded-lg hover:bg-[#E8E0D0]/80 transition-colors"
-            >
-              Get Tickets →
-            </a>
-          </div>
-        )}
-
         {/* Videos */}
         {show.videos && show.videos.length > 0 && (
           <div className="mb-12">
-            <h2 className="text-3xl font-bold mb-6">Videos</h2>
+            <h2 className="text-2xl font-bold mb-6">Videos</h2>
             <div className="space-y-8">
               {show.videos.map((video, index) => (
                 <div key={index}>
-                  <h3 className="text-xl mb-3 font-medium">{video.title}</h3>
+                  <h3 className="text-base mb-3 font-medium">{video.title}</h3>
                   <div className="aspect-video rounded-lg overflow-hidden shadow-lg">
                     <iframe
                       width="100%"
@@ -223,11 +226,11 @@ export default async function ShowPage({ params }: { params: Promise<{ slug: str
         {/* Audio */}
         {show.audio && show.audio.length > 0 && (
           <div className="mb-12">
-            <h2 className="text-3xl font-bold mb-6">Audio</h2>
+            <h2 className="text-2xl font-bold mb-6">Audio</h2>
             <div className="space-y-8">
               {show.audio.map((audio, index) => (
                 <div key={index}>
-                  <h3 className="text-xl mb-3 font-medium">{audio.title}</h3>
+                  <h3 className="text-base mb-3 font-medium">{audio.title}</h3>
                   <iframe
                     style={{ border: 0, width: '100%', height: '120px' }}
                     src={audio.bandcamp}
@@ -243,9 +246,9 @@ export default async function ShowPage({ params }: { params: Promise<{ slug: str
         {/* Photos */}
         {show.photos && show.photos.length > 0 && (
           <div className="mb-12">
-            <h2 className="text-3xl font-bold mb-2">Photos</h2>
+            <h2 className="text-2xl font-bold mb-2">Photos</h2>
             {show.photographer && (
-              <p className="text-[#E8E0D0]/70 mb-6">
+              <p className="text-sm text-[#E8E0D0]/70 mb-6">
                 Photos by{' '}
                 {typeof show.photographer === 'string' ? (
                   show.photographer
@@ -271,7 +274,7 @@ export default async function ShowPage({ params }: { params: Promise<{ slug: str
         {show.photoFolder && galleryPhotos.length > 0 && (
           <div className="mb-12">
             <div className="flex flex-wrap items-baseline gap-x-3 mb-6">
-              <h2 className="text-3xl font-bold">Gallery</h2>
+              <h2 className="text-2xl font-bold">Gallery</h2>
               {show.photoCredit && (
                 <span className="text-sm text-[#E8E0D0]/50">Photos by {show.photoCredit}</span>
               )}
