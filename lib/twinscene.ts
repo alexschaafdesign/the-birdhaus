@@ -1,26 +1,43 @@
-// Read-only client for Twin Scene's public band directory. Twin Scene is now
-// the canonical source of band profile data (bio, photo, genres, ...);
-// Birdhaus's own `bands` table is an overlay keyed to it via
-// bands.twin_scene_band_id (see migration 017_bands_overlay.sql). This client
-// backs the enrichment pull in enrichBandFromTwinScene() (lib/bands.ts).
+// Client for Twin Scene's public band directory. Twin Scene is now the
+// canonical source of band profile data (bio, photo, genres, ...) and, since
+// the bands-overlay migration (017), the canonical band directory itself —
+// Birdhaus's own `bands` table is a local overlay keyed to it via
+// bands.twin_scene_band_id. Backs two consumers in lib/bands.ts: the Edit
+// Show form typeahead's just-in-time sync (syncBandFromTwinScene) and the
+// admin-triggered bulk enrichment pull (enrichBandsFromTwinScene).
 //
 // Mirrors Twin Scene's own lib/birdhaus.ts (its client for reading Birdhaus's
 // public API) — same defensive-parse-every-field approach, since this reads
-// a response shape owned by another codebase.
+// a response shape owned by another codebase. Also mirrors the contract
+// Birdhaus itself exposes to Twin Scene at app/api/public/bands/route.ts:
+// x-api-key auth, full-list only, no per-id lookup.
+
+export interface TwinSceneSocials {
+  instagram?: string;
+  website?: string;
+  bandcamp?: string;
+  bandcampLink?: string;
+}
+
+export interface TwinSceneFeaturedLink {
+  url: string;
+  label: string;
+  image: string;
+}
 
 export interface TwinSceneBand {
   id: number;
   slug: string;
   name: string;
   genre: string;
-  socials: { instagram?: string; website?: string; bandcamp?: string };
+  socials: TwinSceneSocials;
   bio: string;
   photo: string;
   city: string;
   neighborhoods: string[];
   bandcampEmbedUrl: string;
   bandcampEmbedHeight: number | null;
-  featuredLinks: Array<{ url: string; label: string; image: string }>;
+  featuredLinks: TwinSceneFeaturedLink[];
   members: string[];
 }
 
@@ -32,7 +49,7 @@ function asStringArray(v: unknown): string[] {
   return Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string' && x.trim() !== '') : [];
 }
 
-function asFeaturedLinks(v: unknown): TwinSceneBand['featuredLinks'] {
+function asFeaturedLinks(v: unknown): TwinSceneFeaturedLink[] {
   if (!Array.isArray(v)) return [];
   return v
     .filter((l): l is Record<string, unknown> => !!l && typeof l === 'object')
@@ -41,15 +58,23 @@ function asFeaturedLinks(v: unknown): TwinSceneBand['featuredLinks'] {
 }
 
 // `socials` is a free-form { platform: url } jsonb blob on Twin Scene's side.
-// Its `bandcamp` entry in practice holds a raw <iframe> embed snippet, not a
-// page URL — bandcampEmbedUrl (a separate, already-clean column) is the right
-// source for that, so bandcamp is deliberately not read out of socials here.
-function asSocials(v: unknown): TwinSceneBand['socials'] {
+// Its `bandcamp` entry is sometimes a raw <iframe> embed snippet rather than
+// a page URL, and `bandcampLink` (when present) is the cleaner one — kept as
+// separate fields here rather than collapsed, so callers can choose. See
+// cleanBandcampUrl() below for the "give me one usable URL" helper.
+function asSocials(v: unknown): TwinSceneSocials {
   if (!v || typeof v !== 'object') return {};
   const r = v as Record<string, unknown>;
   const instagram = asString(r.instagram);
   const website = asString(r.website);
-  return { ...(instagram && { instagram }), ...(website && { website }) };
+  const bandcamp = asString(r.bandcamp);
+  const bandcampLink = asString(r.bandcampLink);
+  return {
+    ...(instagram && { instagram }),
+    ...(website && { website }),
+    ...(bandcamp && { bandcamp }),
+    ...(bandcampLink && { bandcampLink }),
+  };
 }
 
 function parseBand(raw: unknown): TwinSceneBand | null {
@@ -75,17 +100,21 @@ function parseBand(raw: unknown): TwinSceneBand | null {
   };
 }
 
-// No caching — this is called from an explicit admin-triggered sync (an API
-// route and a one-off script), never from page rendering, so a TTL cache
-// (like Twin Scene's own getCachedBirdhausBands) isn't needed here.
-export async function fetchTwinSceneBands(): Promise<TwinSceneBand[]> {
-  const apiUrl = process.env.TWINSCENE_API_URL;
-  const apiKey = process.env.TWINSCENE_API_KEY;
-  if (!apiUrl || !apiKey) {
-    throw new Error('TWINSCENE_API_URL / TWINSCENE_API_KEY are not set. See .env.example.');
+// Full-list fetch — there's no per-id endpoint on Twin Scene's side, same as
+// Birdhaus's own public API. No caching: called from explicit admin actions
+// (the typeahead's once-per-form-load fetch, the enrichment button/script),
+// never from page rendering, so a TTL cache isn't needed here.
+export async function getTwinSceneBands(): Promise<TwinSceneBand[]> {
+  const baseUrl = process.env.TWIN_SCENE_API_URL;
+  const apiKey = process.env.TWIN_SCENE_API_KEY;
+  if (!baseUrl || !apiKey) {
+    throw new Error('TWIN_SCENE_API_URL/TWIN_SCENE_API_KEY not configured. See .env.example.');
   }
 
-  const res = await fetch(apiUrl, { headers: { 'x-api-key': apiKey }, cache: 'no-store' });
+  const res = await fetch(`${baseUrl}/api/public/bands`, {
+    headers: { 'x-api-key': apiKey },
+    cache: 'no-store',
+  });
   if (!res.ok) {
     throw new Error(`Twin Scene request failed (${res.status})`);
   }
@@ -97,4 +126,20 @@ export async function fetchTwinSceneBands(): Promise<TwinSceneBand[]> {
   }
 
   return list.map(parseBand).filter((b): b is TwinSceneBand => b !== null);
+}
+
+export function splitGenres(genre: string): string[] {
+  return genre
+    .split(',')
+    .map((g) => g.trim())
+    .filter(Boolean);
+}
+
+// Only trust a socials value as a bandcamp link if it actually looks like a
+// URL — `socials.bandcamp` sometimes holds raw embed <iframe> markup instead.
+export function cleanBandcampUrl(socials: TwinSceneSocials): string | null {
+  for (const candidate of [socials.bandcampLink, socials.bandcamp]) {
+    if (candidate && /^https?:\/\//i.test(candidate.trim())) return candidate.trim();
+  }
+  return null;
 }

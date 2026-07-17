@@ -16,7 +16,7 @@ export async function GET(request: Request) {
     // Typeahead path — hit on every keystroke from ShowForm, so keep this cheap
     // (no show-count subquery).
     const rows = await sql`
-      select id, slug, name, instagram, bio, photo
+      select id, slug, name, instagram, bio, photo, twin_scene_band_id
       from bands
       where name ilike ${'%' + q.trim() + '%'}
       order by name asc

@@ -33,10 +33,10 @@ if (!connectionString) {
   console.error('DATABASE_URL is not set. Copy .env.example to .env.local and fill it in.');
   process.exit(1);
 }
-const apiUrl = process.env.TWINSCENE_API_URL;
-const apiKey = process.env.TWINSCENE_API_KEY;
-if (!apiUrl || !apiKey) {
-  console.error('TWINSCENE_API_URL / TWINSCENE_API_KEY are not set. See .env.example.');
+const baseUrl = process.env.TWIN_SCENE_API_URL;
+const apiKey = process.env.TWIN_SCENE_API_KEY;
+if (!baseUrl || !apiKey) {
+  console.error('TWIN_SCENE_API_URL / TWIN_SCENE_API_KEY are not set. See .env.example.');
   process.exit(1);
 }
 
@@ -50,7 +50,7 @@ function isEmptyValue(value) {
 }
 
 async function fetchTwinSceneBands() {
-  const res = await fetch(apiUrl, { headers: { 'x-api-key': apiKey }, cache: 'no-store' });
+  const res = await fetch(`${baseUrl}/api/public/bands`, { headers: { 'x-api-key': apiKey }, cache: 'no-store' });
   if (!res.ok) throw new Error(`Twin Scene request failed (${res.status})`);
   const body = await res.json();
   const list = Array.isArray(body) ? body : Array.isArray(body?.bands) ? body.bands : null;

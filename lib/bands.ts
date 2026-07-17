@@ -1,7 +1,7 @@
 import postgres from 'postgres';
 import { sql } from './db';
 import type { Show } from './shows';
-import { fetchTwinSceneBands, type TwinSceneBand } from './twinscene';
+import { getTwinSceneBands, cleanBandcampUrl, splitGenres, type TwinSceneBand } from './twinscene';
 
 export interface FeaturedLink {
   url: string;
@@ -367,6 +367,70 @@ export async function findOrCreateBandByName(
   });
 }
 
+// Just-in-time sync for the Edit Show form's band typeahead: the operator
+// picked a result that only exists in Twin Scene's directory, so create (or,
+// on a race with some other sync path, update) the local overlay row and
+// hand back a real bands.id to link into the show. `slug` is only set on the
+// true-insert path — an existing row keeps its own Birdhaus slug (it's the
+// band's public page URL) rather than being renamed by a later re-sync.
+// `visible` is untouched here by design (defaults false; see migration 017 —
+// flipping it is owned by the show_bands insert path, not this sync).
+export async function syncBandFromTwinScene(band: TwinSceneBand): Promise<Band> {
+  return sql.begin(async (tx) => {
+    const genres = splitGenres(band.genre);
+    const { neighborhoods, members, featuredLinks } = band;
+    const instagram = band.socials.instagram ?? null;
+    const website = band.socials.website ?? null;
+    const bandcamp = cleanBandcampUrl(band.socials);
+    const bio = band.bio || null;
+    const photo = band.photo || null;
+    const city = band.city || null;
+    const bandcampEmbedUrl = band.bandcampEmbedUrl || null;
+
+    const slug = await uniqueSlug(tx, slugify(band.name) || 'band');
+
+    const genresJson = tx.json(genres);
+    const neighborhoodsJson = tx.json(neighborhoods);
+    const membersJson = tx.json(members);
+    // postgres.js's JSONValue type can't express a readonly-property interface array.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const featuredLinksJson = tx.json(featuredLinks as any);
+
+    const [row] = await tx<BandRow[]>`
+      insert into bands (
+        slug, name, instagram, bio, photo, genres, city, neighborhoods, members,
+        website, bandcamp, bandcamp_embed_url, bandcamp_embed_height, featured_links,
+        twinscene_slug, twin_scene_band_id, unreviewed, synced_at
+      ) values (
+        ${slug}, ${band.name}, ${instagram}, ${bio}, ${photo},
+        ${genresJson}, ${city}, ${neighborhoodsJson}, ${membersJson},
+        ${website}, ${bandcamp}, ${bandcampEmbedUrl}, ${band.bandcampEmbedHeight}, ${featuredLinksJson},
+        ${band.slug}, ${band.id}, false, now()
+      )
+      on conflict (twin_scene_band_id) do update set
+        name = excluded.name,
+        instagram = excluded.instagram,
+        bio = excluded.bio,
+        photo = excluded.photo,
+        genres = excluded.genres,
+        city = excluded.city,
+        neighborhoods = excluded.neighborhoods,
+        members = excluded.members,
+        website = excluded.website,
+        bandcamp = excluded.bandcamp,
+        bandcamp_embed_url = excluded.bandcamp_embed_url,
+        bandcamp_embed_height = excluded.bandcamp_embed_height,
+        featured_links = excluded.featured_links,
+        twinscene_slug = excluded.twinscene_slug,
+        synced_at = now(),
+        updated_at = now()
+      returning *
+    `;
+
+    return rowToBand(row);
+  });
+}
+
 export interface ShowBandPair {
   bandId: number;
   sortOrder: number;
@@ -470,7 +534,7 @@ function deriveIncomingFields(tsBand: TwinSceneBand): Record<string, unknown> {
 // so enrichment now has to be Birdhaus pulling, not Twin Scene pushing.
 export async function enrichBandsFromTwinScene(): Promise<TwinSceneSyncResult> {
   const [twinSceneBands, linkedBands] = await Promise.all([
-    fetchTwinSceneBands(),
+    getTwinSceneBands(),
     sql<Array<Record<string, unknown> & { id: number; slug: string }>>`
       select * from bands where twin_scene_band_id is not null
     `,

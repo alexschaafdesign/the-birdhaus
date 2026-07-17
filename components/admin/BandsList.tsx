@@ -85,7 +85,7 @@ export default function BandsList({ initialBands }: { initialBands: BandListItem
       );
       if (result.updated > 0) router.refresh();
     } catch {
-      setSyncStatus('Sync failed — check TWINSCENE_API_KEY / TWINSCENE_API_URL and try again.');
+      setSyncStatus('Sync failed — check TWIN_SCENE_API_KEY / TWIN_SCENE_API_URL and try again.');
     } finally {
       setSyncing(false);
     }

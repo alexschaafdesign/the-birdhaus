@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import BandNameInput, { type BandMatch } from './BandNameInput';
+import BandNameInput, { type BandMatch, type TwinSceneBandOption } from './BandNameInput';
 import SoundEngineerNameInput, { type SoundEngineerMatch } from './SoundEngineerNameInput';
 import ImageUploadField from './ImageUploadField';
 import ShowDateAvailability from './ShowDateAvailability';
@@ -244,6 +244,26 @@ export default function ShowForm({
   const [error, setError] = useState<string | null>(null);
   const [photosUploading, setPhotosUploading] = useState(false);
   const photosFileInputRef = useRef<HTMLInputElement>(null);
+  const [twinSceneBands, setTwinSceneBands] = useState<TwinSceneBandOption[]>([]);
+
+  // One fetch per form load, cached for the session — every band typeahead
+  // row below filters this same list client-side rather than each fetching
+  // its own copy. Best-effort: if Twin Scene is unreachable, the local-only
+  // typeahead in BandNameInput still works on its own.
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/admin/bands/twinscene')
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data) => {
+        if (!cancelled && Array.isArray(data)) setTwinSceneBands(data);
+      })
+      .catch(() => {
+        // degrade to local-only typeahead
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Keep the slug derived from date+title until the operator edits it directly.
   useEffect(() => {
@@ -666,6 +686,7 @@ export default function ShowForm({
                     value={band.name}
                     onChange={(value) => updateBand(index, 'name', value)}
                     onSelect={(match) => selectBand(index, match)}
+                    twinSceneBands={twinSceneBands}
                     className={`${inputClass} w-full`}
                   />
                   {band.bandId && (
