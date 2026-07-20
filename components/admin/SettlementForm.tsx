@@ -21,6 +21,10 @@ import {
 const inputClass =
   'bg-[#E8E0D0]/[0.04] border border-[#E8E0D0]/30 rounded px-3 py-1.5 text-sm focus:outline-none focus:border-[#E8E0D0] placeholder:text-[#E8E0D0]/30 disabled:opacity-40';
 
+// Hides the native up/down spinner on number inputs (Firefox + WebKit) — nudging
+// a dollar amount by $1 at a time isn't useful here.
+const numberInputClass = `${inputClass} [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none`;
+
 const ACCENT = {
   neutral: 'bg-[#E8E0D0]/50',
   income: 'bg-emerald-400',
@@ -231,7 +235,7 @@ export default function SettlementForm({ showId, bandCount, initialValues }: Set
               step="0.01"
               value={form.artistSplitPct}
               onChange={(e) => set('artistSplitPct', e.target.value)}
-              className={`${inputClass} w-full`}
+              className={`${numberInputClass} w-full`}
             />
           </Field>
           <Field label="Venue guarantee amount">
@@ -241,7 +245,7 @@ export default function SettlementForm({ showId, bandCount, initialValues }: Set
               disabled={form.dealType !== 'venue_guarantee_then_split'}
               value={form.dealThreshold}
               onChange={(e) => set('dealThreshold', e.target.value)}
-              className={`${inputClass} w-full`}
+              className={`${numberInputClass} w-full`}
             />
           </Field>
         </div>
@@ -256,7 +260,7 @@ export default function SettlementForm({ showId, bandCount, initialValues }: Set
                 step="0.01"
                 value={form[key]}
                 onChange={(e) => setIncome(key, e.target.value)}
-                className={`${inputClass} w-full`}
+                className={`${numberInputClass} w-full`}
               />
             </Field>
           ))}
@@ -285,7 +289,7 @@ export default function SettlementForm({ showId, bandCount, initialValues }: Set
                   step="0.01"
                   value={form[key]}
                   onChange={(e) => set(key, e.target.value)}
-                  className={`${inputClass} w-full`}
+                  className={`${numberInputClass} w-full`}
                 />
                 {payee && (
                   <PayeeNameInput
@@ -311,7 +315,7 @@ export default function SettlementForm({ showId, bandCount, initialValues }: Set
                 step="0.01"
                 value={form[key]}
                 onChange={(e) => set(key, e.target.value)}
-                className={`${inputClass} w-full`}
+                className={`${numberInputClass} w-full`}
               />
             </Field>
           ))}
@@ -355,7 +359,7 @@ export default function SettlementForm({ showId, bandCount, initialValues }: Set
                 step="0.01"
                 value={item.amount}
                 onChange={(e) => updateExtraItem(index, { amount: e.target.value })}
-                className={`${inputClass} w-28`}
+                className={`${numberInputClass} w-28`}
               />
               <button
                 type="button"
