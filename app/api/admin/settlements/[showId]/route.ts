@@ -6,6 +6,7 @@ const DEAL_TYPES = ['straight_split', 'venue_guarantee_then_split'];
 const NUMERIC_FIELDS = [
   'deal_threshold',
   'artist_split_pct',
+  'venue_redirect_pct',
   'income_square',
   'income_venmo',
   'income_cash',
@@ -87,14 +88,14 @@ export async function PUT(request: Request, { params }: { params: Promise<{ show
   try {
     const [row] = await sql`
       insert into settlements (
-        show_id, deal_type, deal_threshold, artist_split_pct,
+        show_id, deal_type, deal_threshold, artist_split_pct, venue_redirect_pct,
         income_square, income_venmo, income_cash,
         exp_square_fees, exp_venmo_fees, exp_sound_engineer, exp_photos, exp_door_person,
         exp_ad_print, exp_ad_online, exp_snacks, exp_beer,
         beverage_income_venmo, beverage_income_cash,
         extra_line_items, notes, photographer_name, sound_engineer_name, updated_at
       ) values (
-        ${showId}, ${dealType}, ${values.deal_threshold}, ${values.artist_split_pct},
+        ${showId}, ${dealType}, ${values.deal_threshold}, ${values.artist_split_pct}, ${values.venue_redirect_pct},
         ${values.income_square}, ${values.income_venmo}, ${values.income_cash},
         ${values.exp_square_fees}, ${values.exp_venmo_fees}, ${values.exp_sound_engineer}, ${values.exp_photos}, ${values.exp_door_person},
         ${values.exp_ad_print}, ${values.exp_ad_online}, ${values.exp_snacks}, ${values.exp_beer},
@@ -105,6 +106,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ show
         deal_type = excluded.deal_type,
         deal_threshold = excluded.deal_threshold,
         artist_split_pct = excluded.artist_split_pct,
+        venue_redirect_pct = excluded.venue_redirect_pct,
         income_square = excluded.income_square,
         income_venmo = excluded.income_venmo,
         income_cash = excluded.income_cash,

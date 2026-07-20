@@ -6,6 +6,7 @@ import PayeeNameInput from './PayeeNameInput';
 import {
   computeSettlementSummary,
   formatCurrency,
+  formatPct,
   DEFAULT_SETTLEMENT_VALUES,
   FEE_INCOME_FIELDS,
   NUMERIC_FIELDS,
@@ -253,6 +254,18 @@ export default function SettlementForm({ showId, bandCount, initialValues }: Set
               className={`${numberInputClass} w-full`}
             />
           </Field>
+          <Field label="Venue redirect % of split">
+            <input
+              type="number"
+              step="0.01"
+              value={form.venueRedirectPct}
+              onChange={(e) => set('venueRedirectPct', e.target.value)}
+              className={`${numberInputClass} w-full`}
+            />
+            <p className="mt-1 text-[10px] normal-case tracking-normal text-[#E8E0D0]/40">
+              Share of the venue split sent to an outside party (e.g. charity), deducted after expenses.
+            </p>
+          </Field>
         </div>
       </SectionCard>
 
@@ -417,6 +430,12 @@ export default function SettlementForm({ showId, bandCount, initialValues }: Set
             <dt className="text-emerald-300/70">Venue additional income</dt>
             <dd className="text-emerald-300/90">{formatCurrency(summary.venueAdditionalIncome)}</dd>
           </div>
+          {summary.venueRedirect !== 0 && (
+            <div className="flex justify-between">
+              <dt className="text-amber-300/70">Venue redirect ({formatPct(Number(form.venueRedirectPct) || 0)}%)</dt>
+              <dd className="text-amber-300/90">−{formatCurrency(summary.venueRedirect)}</dd>
+            </div>
+          )}
         </dl>
         <div
           className={`mt-3 flex justify-between items-center rounded-md px-3 py-2 font-semibold ${

@@ -9,6 +9,7 @@ export interface ExtraLineItem {
 export const NUMERIC_FIELDS = [
   'dealThreshold',
   'artistSplitPct',
+  'venueRedirectPct',
   'incomeSquare',
   'incomeVenmo',
   'incomeCash',
@@ -41,6 +42,7 @@ export const DEFAULT_SETTLEMENT_VALUES: SettlementValues = {
   dealType: 'straight_split',
   dealThreshold: 0,
   artistSplitPct: 75,
+  venueRedirectPct: 0,
   incomeSquare: 0,
   incomeVenmo: 0,
   incomeCash: 0,
@@ -109,6 +111,9 @@ export interface SettlementSummary {
   perBand: number;
   venueAdditionalIncome: number;
   venueTotalIncome: number;
+  // Portion of the venue split redirected to an outside party (e.g. charity),
+  // taken out after expenses. Zero when venueRedirectPct is 0.
+  venueRedirect: number;
   venueNet: number;
 }
 
@@ -148,7 +153,10 @@ export function computeSettlementSummary(values: SettlementValues, bandCount: nu
 
   const perBand = bandCount > 0 ? artistPool / bandCount : 0;
   const venueTotalIncome = venueSplit + venueAdditionalIncome;
-  const venueNet = venueTotalIncome - totalExpenses;
+  // Redirect is a share of the venue split sent to an outside party, deducted
+  // after expenses — the venue covers costs first, then donates from what's left.
+  const venueRedirect = venueSplit * (values.venueRedirectPct / 100);
+  const venueNet = venueTotalIncome - totalExpenses - venueRedirect;
 
   return {
     totalIncome,
@@ -158,6 +166,7 @@ export function computeSettlementSummary(values: SettlementValues, bandCount: nu
     perBand,
     venueAdditionalIncome,
     venueTotalIncome,
+    venueRedirect,
     venueNet,
   };
 }
@@ -166,7 +175,7 @@ export function formatCurrency(value: number): string {
   return value.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
 }
 
-function formatPct(value: number): string {
+export function formatPct(value: number): string {
   return Number(value.toFixed(2)).toString();
 }
 
@@ -184,6 +193,7 @@ export interface SettlementDbRow {
   deal_type: string;
   deal_threshold: string;
   artist_split_pct: string;
+  venue_redirect_pct: string;
   income_square: string;
   income_venmo: string;
   income_cash: string;
@@ -209,6 +219,7 @@ export function settlementValuesFromRow(row: SettlementDbRow): SettlementValues 
     dealType: row.deal_type as DealType,
     dealThreshold: Number(row.deal_threshold),
     artistSplitPct: Number(row.artist_split_pct),
+    venueRedirectPct: Number(row.venue_redirect_pct),
     incomeSquare: Number(row.income_square),
     incomeVenmo: Number(row.income_venmo),
     incomeCash: Number(row.income_cash),

@@ -1,6 +1,7 @@
 import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer';
 import {
   formatCurrency,
+  formatPct,
   dealTermsLabel,
   PAYEE_EXPENSE_FIELDS,
   SHOW_INCOME_FIELDS,
@@ -180,6 +181,12 @@ export default function SettlementPdfDocument({
             <Text>Venue total income</Text>
             <Text>{formatCurrency(summary.venueTotalIncome)}</Text>
           </View>
+          {summary.venueRedirect !== 0 && (
+            <View style={styles.summaryRow}>
+              <Text>Venue redirect ({formatPct(values.venueRedirectPct)}%)</Text>
+              <Text>−{formatCurrency(summary.venueRedirect)}</Text>
+            </View>
+          )}
           <View style={styles.netRow}>
             <Text>Venue Net</Text>
             <Text>{formatCurrency(summary.venueNet)}</Text>

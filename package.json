@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "db:migrate": "node scripts/migrate.mjs",
+    "db:migrate:prod": "node scripts/migrate-prod.mjs",
     "db:import": "node scripts/import-submissions.mjs",
     "db:import-shows": "node scripts/import-shows.mjs",
     "db:backfill-bands": "node scripts/backfill-bands.mjs",

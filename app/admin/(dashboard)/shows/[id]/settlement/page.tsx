@@ -5,6 +5,7 @@ import {
   computeSettlementSummary,
   dealTermsLabel,
   formatCurrency,
+  formatPct,
   settlementValuesFromRow,
   PAYEE_EXPENSE_FIELDS,
   SHOW_INCOME_FIELDS,
@@ -195,6 +196,12 @@ export default async function SettlementPage({ params }: { params: Promise<{ id:
           <Row label="Artist split" value={formatCurrency(summary.artistPool)} bold />
           <Row label="Venue split" value={formatCurrency(summary.venueSplit)} bold />
           <Row label="Venue total income" value={formatCurrency(summary.venueTotalIncome)} bold />
+          {summary.venueRedirect !== 0 && (
+            <Row
+              label={`Venue redirect (${formatPct(values.venueRedirectPct)}%)`}
+              value={`−${formatCurrency(summary.venueRedirect)}`}
+            />
+          )}
         </div>
         <div
           className={`mt-3 flex justify-between items-center rounded-md px-3 py-2 font-semibold ${
