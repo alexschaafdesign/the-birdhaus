@@ -71,7 +71,7 @@ export default async function SettlementPage({ params }: { params: Promise<{ id:
         <div className="space-y-2">
           <Link
             href={`/admin/shows/${showId}`}
-            className="inline-flex items-center gap-1 text-xs text-[#E8E0D0]/45 hover:text-[#E8E0D0]/80 transition-colors"
+            className="inline-flex items-center gap-1 text-sm text-[#E8E0D0]/55 hover:text-[#E8E0D0] transition-colors"
           >
             ← Back to show
           </Link>
@@ -102,7 +102,7 @@ export default async function SettlementPage({ params }: { params: Promise<{ id:
       <div className="space-y-2">
         <Link
           href={`/admin/shows/${showId}`}
-          className="inline-flex items-center gap-1 text-xs text-[#E8E0D0]/45 hover:text-[#E8E0D0]/80 transition-colors"
+          className="inline-flex items-center gap-1 text-sm text-[#E8E0D0]/55 hover:text-[#E8E0D0] transition-colors"
         >
           ← Back to show
         </Link>
