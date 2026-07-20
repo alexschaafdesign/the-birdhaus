@@ -68,11 +68,14 @@ export default async function SettlementPage({ params }: { params: Promise<{ id:
   if (!settlementRow) {
     return (
       <main className="max-w-4xl mx-auto px-6 pb-16 pt-6 space-y-6">
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold">Settlement — {show.title}</h1>
-          <Link href={`/admin/shows/${showId}`} className="text-sm text-[#E8E0D0]/60 hover:text-[#E8E0D0]">
+        <div className="space-y-2">
+          <Link
+            href={`/admin/shows/${showId}`}
+            className="inline-flex items-center gap-1 text-xs text-[#E8E0D0]/45 hover:text-[#E8E0D0]/80 transition-colors"
+          >
             ← Back to show
           </Link>
+          <h1 className="text-2xl font-bold">Settlement — {show.title}</h1>
         </div>
         <div className="border border-[#E8E0D0]/15 rounded-lg p-8 text-center space-y-4">
           <p className="text-[#E8E0D0]/60">No settlement recorded yet.</p>
@@ -96,25 +99,38 @@ export default async function SettlementPage({ params }: { params: Promise<{ id:
 
   return (
     <main className="max-w-4xl mx-auto px-6 pb-16 pt-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Settlement — {show.title}</h1>
-        <div className="flex items-center gap-4">
-          <a
-            href={pdfHref}
-            className="flex items-center gap-1.5 text-sm border border-[#E8E0D0]/30 rounded px-3 py-1.5 hover:bg-[#E8E0D0]/10 transition-colors"
-          >
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M12 3v13m0 0-4-4m4 4 4-4" strokeLinecap="round" strokeLinejoin="round" />
-              <path d="M4 18v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-            Download PDF
-          </a>
-          <Link href={editHref} className="text-sm text-[#E8E0D0]/60 hover:text-[#E8E0D0]">
-            Edit →
-          </Link>
-          <Link href={`/admin/shows/${showId}`} className="text-sm text-[#E8E0D0]/60 hover:text-[#E8E0D0]">
-            ← Back to show
-          </Link>
+      <div className="space-y-2">
+        <Link
+          href={`/admin/shows/${showId}`}
+          className="inline-flex items-center gap-1 text-xs text-[#E8E0D0]/45 hover:text-[#E8E0D0]/80 transition-colors"
+        >
+          ← Back to show
+        </Link>
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-bold">Settlement — {show.title}</h1>
+          <div className="flex items-center gap-2">
+            <a
+              href={pdfHref}
+              title="Download PDF"
+              className="flex items-center gap-1.5 text-sm border border-[#E8E0D0]/30 rounded px-3 py-1.5 hover:bg-[#E8E0D0]/10 transition-colors"
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M12 3v13m0 0-4-4m4 4 4-4" strokeLinecap="round" strokeLinejoin="round" />
+                <path d="M4 18v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              PDF
+            </a>
+            <Link
+              href={editHref}
+              title="Edit settlement"
+              aria-label="Edit settlement"
+              className="flex items-center justify-center border border-[#E8E0D0]/30 rounded p-[9px] hover:bg-[#E8E0D0]/10 transition-colors"
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </Link>
+          </div>
         </div>
       </div>
 
