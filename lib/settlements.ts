@@ -75,11 +75,13 @@ export const SHOW_INCOME_FIELDS: Array<{ key: NumericField; label: string }> = [
 ];
 
 // Standard processor rates used to auto-fill the fee fields from their matching
-// income field. Flat percentage only (no per-transaction fixed fee) since this
-// sheet tracks a single income total per method, not a transaction count.
-export const FEE_INCOME_FIELDS: Array<{ incomeKey: NumericField; feeKey: NumericField; rate: number }> = [
-  { incomeKey: 'incomeSquare', feeKey: 'expSquareFees', rate: 0.026 },
-  { incomeKey: 'incomeVenmo', feeKey: 'expVenmoFees', rate: 0.019 },
+// income field(s). Flat percentage only (no per-transaction fixed fee) since this
+// sheet tracks a single income total per method, not a transaction count. A fee can
+// draw from more than one income field — the Venmo fee is charged on both the show's
+// Venmo income and the beverage Venmo income, since both settle through the same account.
+export const FEE_INCOME_FIELDS: Array<{ incomeKeys: NumericField[]; feeKey: NumericField; rate: number }> = [
+  { incomeKeys: ['incomeSquare'], feeKey: 'expSquareFees', rate: 0.026 },
+  { incomeKeys: ['incomeVenmo', 'beverageIncomeVenmo'], feeKey: 'expVenmoFees', rate: 0.019 },
 ];
 
 export const VENUE_EXPENSE_FIELDS: Array<{ key: NumericField; label: string }> = [

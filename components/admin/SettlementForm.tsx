@@ -122,15 +122,20 @@ export default function SettlementForm({ showId, bandCount, initialValues }: Set
   }
 
   // Auto-fills the linked processor fee (e.g. expSquareFees) from the standard
-  // rate whenever its income field changes. The fee field itself stays a plain
-  // `set` input, so a manual edit afterward isn't clobbered until income changes again.
+  // rate whenever a contributing income field changes. A fee can draw from more
+  // than one income field (Venmo fee = show Venmo + beverage Venmo), so we sum all
+  // contributors off the updated state. The fee field itself stays a plain `set`
+  // input, so a manual edit afterward isn't clobbered until income changes again.
   function setIncome(key: NumericField, value: string) {
-    const feeLink = FEE_INCOME_FIELDS.find((f) => f.incomeKey === key);
-    setForm((prev) => ({
-      ...prev,
-      [key]: value,
-      ...(feeLink ? { [feeLink.feeKey]: ((Number(value) || 0) * feeLink.rate).toFixed(2) } : {}),
-    }));
+    const feeLink = FEE_INCOME_FIELDS.find((f) => f.incomeKeys.includes(key));
+    setForm((prev) => {
+      const next = { ...prev, [key]: value };
+      if (feeLink) {
+        const base = feeLink.incomeKeys.reduce((sum, k) => sum + (Number(next[k]) || 0), 0);
+        next[feeLink.feeKey] = (base * feeLink.rate).toFixed(2);
+      }
+      return next;
+    });
   }
 
   function addExtraItem() {
@@ -314,7 +319,7 @@ export default function SettlementForm({ showId, bandCount, initialValues }: Set
                 type="number"
                 step="0.01"
                 value={form[key]}
-                onChange={(e) => set(key, e.target.value)}
+                onChange={(e) => setIncome(key, e.target.value)}
                 className={`${numberInputClass} w-full`}
               />
             </Field>
