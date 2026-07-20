@@ -187,6 +187,38 @@ export function dealTermsLabel(values: Pick<SettlementValues, 'dealType' | 'arti
   return splitLabel;
 }
 
+// Plain-text settlement summary for pasting into a band-facing email, alongside
+// the PDF attachment. Deliberately short — the headline money figures only.
+export function settlementEmailSummary(
+  showTitle: string,
+  showDate: string | null,
+  values: SettlementValues,
+  summary: SettlementSummary,
+  bandCount: number
+): string {
+  // showDate is a plain 'YYYY-MM-DD' string; the local-midnight suffix avoids the
+  // UTC off-by-one-day shift toLocaleDateString would otherwise introduce.
+  const dateLabel = showDate
+    ? new Date(`${showDate}T00:00:00`).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+    : null;
+
+  const lines = [
+    `The Birdhaus — ${showTitle}${dateLabel ? ` · ${dateLabel}` : ''}`,
+    dealTermsLabel(values),
+    '',
+    `Total income: ${formatCurrency(summary.totalIncome)}`,
+    `Band split: ${formatCurrency(summary.artistPool)}`,
+    `Per band (${bandCount || 0}): ${formatCurrency(summary.perBand)}`,
+    `Total venue expenses: ${formatCurrency(summary.totalExpenses)}`,
+  ];
+  if (summary.venueRedirect !== 0) {
+    lines.push(`Venue redirect (${formatPct(values.venueRedirectPct)}%): −${formatCurrency(summary.venueRedirect)}`);
+  }
+  lines.push(`Venue net: ${formatCurrency(summary.venueNet)}`);
+
+  return lines.join('\n');
+}
+
 // Shape of a `select * from settlements` row — numeric columns come back as
 // strings from postgres.js since they're arbitrary-precision `numeric`.
 export interface SettlementDbRow {

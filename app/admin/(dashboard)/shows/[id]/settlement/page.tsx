@@ -1,11 +1,13 @@
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { sql } from '@/lib/db';
+import CopySummaryButton from '@/components/admin/CopySummaryButton';
 import {
   computeSettlementSummary,
   dealTermsLabel,
   formatCurrency,
   formatPct,
+  settlementEmailSummary,
   settlementValuesFromRow,
   PAYEE_EXPENSE_FIELDS,
   SHOW_INCOME_FIELDS,
@@ -56,7 +58,9 @@ export default async function SettlementPage({ params }: { params: Promise<{ id:
   const showId = Number(id);
   if (!Number.isInteger(showId)) notFound();
 
-  const [show] = await sql<{ id: number; title: string }[]>`select id, title from shows where id = ${showId}`;
+  const [show] = await sql<
+    { id: number; title: string; date: string }[]
+  >`select id, title, date::text as date from shows where id = ${showId}`;
   if (!show) notFound();
 
   const [settlementRow] = await sql<SettlementDbRow[]>`select * from settlements where show_id = ${showId}`;
@@ -97,6 +101,7 @@ export default async function SettlementPage({ params }: { params: Promise<{ id:
   const expenseItems = values.extraLineItems.filter((item) => item.type === 'expense');
   const hasAdditionalIncome = VENUE_ADDITIONAL_INCOME_FIELDS.some((f) => values[f.key] !== 0);
   const pdfHref = `/api/admin/settlements/${showId}/pdf`;
+  const emailSummary = settlementEmailSummary(show.title, show.date, values, summary, bandCount);
 
   return (
     <main className="max-w-4xl mx-auto px-6 pb-16 pt-6 space-y-6">
@@ -110,6 +115,7 @@ export default async function SettlementPage({ params }: { params: Promise<{ id:
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold">Settlement — {show.title}</h1>
           <div className="flex items-center gap-2">
+            <CopySummaryButton text={emailSummary} />
             <a
               href={pdfHref}
               title="Download PDF"
