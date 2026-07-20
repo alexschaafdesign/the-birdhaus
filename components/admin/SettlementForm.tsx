@@ -7,6 +7,7 @@ import {
   computeSettlementSummary,
   formatCurrency,
   DEFAULT_SETTLEMENT_VALUES,
+  FEE_INCOME_FIELDS,
   NUMERIC_FIELDS,
   PAYEE_EXPENSE_FIELDS,
   SHOW_INCOME_FIELDS,
@@ -63,6 +64,18 @@ export default function SettlementForm({ showId, bandCount, initialValues }: Set
 
   function set<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
+  }
+
+  // Auto-fills the linked processor fee (e.g. expSquareFees) from the standard
+  // rate whenever its income field changes. The fee field itself stays a plain
+  // `set` input, so a manual edit afterward isn't clobbered until income changes again.
+  function setIncome(key: NumericField, value: string) {
+    const feeLink = FEE_INCOME_FIELDS.find((f) => f.incomeKey === key);
+    setForm((prev) => ({
+      ...prev,
+      [key]: value,
+      ...(feeLink ? { [feeLink.feeKey]: ((Number(value) || 0) * feeLink.rate).toFixed(2) } : {}),
+    }));
   }
 
   function addExtraItem() {
@@ -201,7 +214,7 @@ export default function SettlementForm({ showId, bandCount, initialValues }: Set
                 type="number"
                 step="0.01"
                 value={form[key]}
-                onChange={(e) => set(key, e.target.value)}
+                onChange={(e) => setIncome(key, e.target.value)}
                 className={`${inputClass} w-full`}
               />
             </div>
@@ -214,9 +227,18 @@ export default function SettlementForm({ showId, bandCount, initialValues }: Set
         <div className="grid gap-3 sm:grid-cols-3">
           {VENUE_EXPENSE_FIELDS.map(({ key, label }) => {
             const payee = PAYEE_EXPENSE_FIELDS.find((p) => p.amountKey === key);
+            const feeLink = FEE_INCOME_FIELDS.find((f) => f.feeKey === key);
             return (
               <div key={key}>
-                <label className="block text-xs uppercase tracking-wide text-[#E8E0D0]/40 mb-1">{label}</label>
+                <label className="block text-xs uppercase tracking-wide text-[#E8E0D0]/40 mb-1">
+                  {label}
+                  {feeLink && (
+                    <span className="normal-case tracking-normal text-[#E8E0D0]/30">
+                      {' '}
+                      (auto {(feeLink.rate * 100).toFixed(1)}%)
+                    </span>
+                  )}
+                </label>
                 <input
                   type="number"
                   step="0.01"
