@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, type FormEvent } from 'react';
+import { useMemo, useState, type FormEvent, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import PayeeNameInput from './PayeeNameInput';
 import {
@@ -19,7 +19,58 @@ import {
 } from '@/lib/settlements';
 
 const inputClass =
-  'bg-transparent border border-[#E8E0D0]/30 rounded px-3 py-1.5 text-sm focus:outline-none focus:border-[#E8E0D0] placeholder:text-[#E8E0D0]/30 disabled:opacity-40';
+  'bg-[#E8E0D0]/[0.04] border border-[#E8E0D0]/30 rounded px-3 py-1.5 text-sm focus:outline-none focus:border-[#E8E0D0] placeholder:text-[#E8E0D0]/30 disabled:opacity-40';
+
+const ACCENT = {
+  neutral: 'bg-[#E8E0D0]/50',
+  income: 'bg-emerald-400',
+  expense: 'bg-amber-400',
+} as const;
+
+function SectionCard({
+  title,
+  accent = 'neutral',
+  action,
+  children,
+}: {
+  title: string;
+  accent?: keyof typeof ACCENT;
+  action?: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <div className="rounded-lg border border-[#E8E0D0]/15 bg-[#E8E0D0]/[0.03] p-4">
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="flex items-center gap-2 text-sm font-semibold text-[#E8E0D0]/80">
+          <span className={`h-1.5 w-1.5 rounded-full ${ACCENT[accent]}`} />
+          {title}
+        </h2>
+        {action}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function Field({
+  label,
+  suffix,
+  children,
+}: {
+  label: string;
+  suffix?: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <div className="rounded-md bg-black/10 p-2.5">
+      <label className="block text-xs uppercase tracking-wide text-[#E8E0D0]/40 mb-1">
+        {label}
+        {suffix}
+      </label>
+      {children}
+    </div>
+  );
+}
 
 interface FormExtraLineItem {
   type: 'income' | 'expense';
@@ -162,11 +213,9 @@ export default function SettlementForm({ showId, bandCount, initialValues }: Set
         </div>
       )}
 
-      <div className="border border-[#E8E0D0]/15 rounded-lg p-4">
-        <h2 className="text-sm font-semibold text-[#E8E0D0]/80 mb-3">Deal terms</h2>
+      <SectionCard title="Deal terms">
         <div className="grid gap-3 sm:grid-cols-3">
-          <div>
-            <label className="block text-xs uppercase tracking-wide text-[#E8E0D0]/40 mb-1">Deal type</label>
+          <Field label="Deal type">
             <select
               value={form.dealType}
               onChange={(e) => set('dealType', e.target.value as DealType)}
@@ -175,11 +224,8 @@ export default function SettlementForm({ showId, bandCount, initialValues }: Set
               <option value="straight_split">Straight split</option>
               <option value="venue_guarantee_then_split">Venue guarantee, then split</option>
             </select>
-          </div>
-          <div>
-            <label className="block text-xs uppercase tracking-wide text-[#E8E0D0]/40 mb-1">
-              Artist % of split
-            </label>
+          </Field>
+          <Field label="Artist % of split">
             <input
               type="number"
               step="0.01"
@@ -187,11 +233,8 @@ export default function SettlementForm({ showId, bandCount, initialValues }: Set
               onChange={(e) => set('artistSplitPct', e.target.value)}
               className={`${inputClass} w-full`}
             />
-          </div>
-          <div>
-            <label className="block text-xs uppercase tracking-wide text-[#E8E0D0]/40 mb-1">
-              Venue guarantee amount
-            </label>
+          </Field>
+          <Field label="Venue guarantee amount">
             <input
               type="number"
               step="0.01"
@@ -200,16 +243,14 @@ export default function SettlementForm({ showId, bandCount, initialValues }: Set
               onChange={(e) => set('dealThreshold', e.target.value)}
               className={`${inputClass} w-full`}
             />
-          </div>
+          </Field>
         </div>
-      </div>
+      </SectionCard>
 
-      <div className="border border-[#E8E0D0]/15 rounded-lg p-4">
-        <h2 className="text-sm font-semibold text-[#E8E0D0]/80 mb-3">Show Income</h2>
+      <SectionCard title="Show Income" accent="income">
         <div className="grid gap-3 sm:grid-cols-3">
           {SHOW_INCOME_FIELDS.map(({ key, label }) => (
-            <div key={key}>
-              <label className="block text-xs uppercase tracking-wide text-[#E8E0D0]/40 mb-1">{label}</label>
+            <Field key={key} label={label}>
               <input
                 type="number"
                 step="0.01"
@@ -217,28 +258,28 @@ export default function SettlementForm({ showId, bandCount, initialValues }: Set
                 onChange={(e) => setIncome(key, e.target.value)}
                 className={`${inputClass} w-full`}
               />
-            </div>
+            </Field>
           ))}
         </div>
-      </div>
+      </SectionCard>
 
-      <div className="border border-[#E8E0D0]/15 rounded-lg p-4">
-        <h2 className="text-sm font-semibold text-[#E8E0D0]/80 mb-3">Venue Expenses</h2>
+      <SectionCard title="Venue Expenses" accent="expense">
         <div className="grid gap-3 sm:grid-cols-3">
           {VENUE_EXPENSE_FIELDS.map(({ key, label }) => {
             const payee = PAYEE_EXPENSE_FIELDS.find((p) => p.amountKey === key);
             const feeLink = FEE_INCOME_FIELDS.find((f) => f.feeKey === key);
             return (
-              <div key={key}>
-                <label className="block text-xs uppercase tracking-wide text-[#E8E0D0]/40 mb-1">
-                  {label}
-                  {feeLink && (
-                    <span className="normal-case tracking-normal text-[#E8E0D0]/30">
-                      {' '}
-                      (auto {(feeLink.rate * 100).toFixed(1)}%)
+              <Field
+                key={key}
+                label={label}
+                suffix={
+                  feeLink && (
+                    <span className="ml-1.5 inline-block rounded-full bg-emerald-400/10 px-1.5 py-0.5 text-[10px] normal-case tracking-normal text-emerald-300/70">
+                      auto {(feeLink.rate * 100).toFixed(1)}%
                     </span>
-                  )}
-                </label>
+                  )
+                }
+              >
                 <input
                   type="number"
                   step="0.01"
@@ -252,21 +293,19 @@ export default function SettlementForm({ showId, bandCount, initialValues }: Set
                     placeholder="Paid to"
                     value={form[payee.nameKey]}
                     onChange={(value) => set(payee.nameKey, value)}
-                    className={`${inputClass} w-full mt-1`}
+                    className={`${inputClass} w-full mt-1.5 border-l-2 border-l-[#E8E0D0]/20`}
                   />
                 )}
-              </div>
+              </Field>
             );
           })}
         </div>
-      </div>
+      </SectionCard>
 
-      <div className="border border-[#E8E0D0]/15 rounded-lg p-4">
-        <h2 className="text-sm font-semibold text-[#E8E0D0]/80 mb-3">Venue Additional Income</h2>
+      <SectionCard title="Venue Additional Income" accent="income">
         <div className="grid gap-3 sm:grid-cols-3">
           {VENUE_ADDITIONAL_INCOME_FIELDS.map(({ key, label }) => (
-            <div key={key}>
-              <label className="block text-xs uppercase tracking-wide text-[#E8E0D0]/40 mb-1">{label}</label>
+            <Field key={key} label={label}>
               <input
                 type="number"
                 step="0.01"
@@ -274,14 +313,14 @@ export default function SettlementForm({ showId, bandCount, initialValues }: Set
                 onChange={(e) => set(key, e.target.value)}
                 className={`${inputClass} w-full`}
               />
-            </div>
+            </Field>
           ))}
         </div>
-      </div>
+      </SectionCard>
 
-      <div className="border border-[#E8E0D0]/15 rounded-lg p-4">
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-sm font-semibold text-[#E8E0D0]/80">Extra line items</h2>
+      <SectionCard
+        title="Extra line items"
+        action={
           <button
             type="button"
             onClick={addExtraItem}
@@ -289,10 +328,14 @@ export default function SettlementForm({ showId, bandCount, initialValues }: Set
           >
             + add extra item
           </button>
-        </div>
+        }
+      >
         <div className="space-y-2">
           {form.extraLineItems.map((item, index) => (
-            <div key={index} className="grid gap-2 sm:grid-cols-[auto_1fr_auto_auto] items-center">
+            <div
+              key={index}
+              className="grid gap-2 sm:grid-cols-[auto_1fr_auto_auto] items-center rounded-md bg-black/10 p-2"
+            >
               <select
                 value={item.type}
                 onChange={(e) => updateExtraItem(index, { type: e.target.value as 'income' | 'expense' })}
@@ -327,24 +370,23 @@ export default function SettlementForm({ showId, bandCount, initialValues }: Set
             <p className="text-xs text-[#E8E0D0]/30">No extra items added yet.</p>
           )}
         </div>
-      </div>
+      </SectionCard>
 
-      <div>
-        <label className="block text-xs uppercase tracking-wide text-[#E8E0D0]/40 mb-1">Notes</label>
+      <SectionCard title="Notes">
         <textarea
           rows={4}
           value={form.notes}
           onChange={(e) => set('notes', e.target.value)}
           className={`${inputClass} w-full resize-y`}
         />
-      </div>
+      </SectionCard>
 
-      <div className="border border-[#E8E0D0]/15 rounded-lg p-4">
-        <h2 className="text-sm font-semibold text-[#E8E0D0]/80 mb-3">Summary</h2>
-        <dl className="grid gap-2 sm:grid-cols-2 text-sm">
+      <div className="rounded-lg border border-[#E8E0D0]/25 bg-[#E8E0D0]/[0.06] p-4 shadow-[0_0_0_1px_rgba(232,224,208,0.03)]">
+        <h2 className="text-sm font-semibold text-[#E8E0D0]/90 mb-3">Summary</h2>
+        <dl className="grid gap-x-6 gap-y-1.5 sm:grid-cols-2 text-sm">
           <div className="flex justify-between">
-            <dt className="text-[#E8E0D0]/60">Total income</dt>
-            <dd>{formatCurrency(summary.totalIncome)}</dd>
+            <dt className="text-emerald-300/70">Total income</dt>
+            <dd className="text-emerald-300/90">{formatCurrency(summary.totalIncome)}</dd>
           </div>
           <div className="flex justify-between">
             <dt className="text-[#E8E0D0]/60">Artist pool</dt>
@@ -355,22 +397,26 @@ export default function SettlementForm({ showId, bandCount, initialValues }: Set
             <dd>{formatCurrency(summary.perBand)}</dd>
           </div>
           <div className="flex justify-between">
-            <dt className="text-[#E8E0D0]/60">Total expenses</dt>
-            <dd>{formatCurrency(summary.totalExpenses)}</dd>
+            <dt className="text-amber-300/70">Total expenses</dt>
+            <dd className="text-amber-300/90">{formatCurrency(summary.totalExpenses)}</dd>
           </div>
           <div className="flex justify-between">
             <dt className="text-[#E8E0D0]/60">Venue split</dt>
             <dd>{formatCurrency(summary.venueSplit)}</dd>
           </div>
           <div className="flex justify-between">
-            <dt className="text-[#E8E0D0]/60">Venue additional income</dt>
-            <dd>{formatCurrency(summary.venueAdditionalIncome)}</dd>
-          </div>
-          <div className="flex justify-between sm:col-span-2 pt-2 border-t border-[#E8E0D0]/10 font-semibold">
-            <dt>Venue net</dt>
-            <dd>{formatCurrency(summary.venueNet)}</dd>
+            <dt className="text-emerald-300/70">Venue additional income</dt>
+            <dd className="text-emerald-300/90">{formatCurrency(summary.venueAdditionalIncome)}</dd>
           </div>
         </dl>
+        <div
+          className={`mt-3 flex justify-between items-center rounded-md px-3 py-2 font-semibold ${
+            summary.venueNet >= 0 ? 'bg-emerald-400/10 text-emerald-300' : 'bg-rose-400/10 text-rose-300'
+          }`}
+        >
+          <span>Venue net</span>
+          <span className="text-base">{formatCurrency(summary.venueNet)}</span>
+        </div>
       </div>
 
       <div className="flex items-center justify-end pt-2 border-t border-[#E8E0D0]/10">
