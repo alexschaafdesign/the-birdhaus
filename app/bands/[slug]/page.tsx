@@ -3,10 +3,41 @@ import { notFound } from 'next/navigation';
 import { getAllBands, getBandBySlug, getShowsForBand, getVideosForBand } from '@/lib/bands';
 import AdminEditFAB from '@/components/admin/AdminEditFAB';
 import { isAdminSession } from '@/lib/admin-session';
+import type { Metadata } from 'next';
 
 export async function generateStaticParams() {
   const bands = await getAllBands();
   return bands.map(({ slug }) => ({ slug }));
+}
+
+export async function generateMetadata(
+  { params }: { params: Promise<{ slug: string }> }
+): Promise<Metadata> {
+  const { slug } = await params;
+  const band = await getBandBySlug(slug);
+  if (!band) return {};
+
+  const origin = band.isTouring ? (band.hometown ? `Touring · ${band.hometown}` : 'Touring') : 'Local';
+  const description = band.bio?.trim() || `${band.name} — ${origin}. Has played the BIRDHAUS.`;
+  const images = band.photo ? [{ url: band.photo, alt: band.name }] : undefined;
+
+  return {
+    title: band.name,
+    description,
+    openGraph: {
+      type: 'profile',
+      title: band.name,
+      description,
+      url: `/bands/${band.slug}`,
+      images,
+    },
+    twitter: {
+      card: images ? 'summary_large_image' : 'summary',
+      title: band.name,
+      description,
+      images: band.photo ? [band.photo] : undefined,
+    },
+  };
 }
 
 export default async function BandPage({ params }: { params: Promise<{ slug: string }> }) {

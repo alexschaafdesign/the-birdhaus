@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { sql } from '@/lib/db';
 import { parseAvailability, formatAvailabilityEntries } from '@/lib/submissions';
+import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
 
 function nullableTrim(value: unknown): string | null {
   if (typeof value !== 'string') return null;
@@ -15,6 +16,19 @@ export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
   if (!body) {
     return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
+  }
+
+  // Honeypot: hidden field only bots fill. Fake success, skip the insert.
+  if (typeof body.website === 'string' && body.website.trim() !== '') {
+    return NextResponse.json({ ok: true });
+  }
+
+  const allowed = await checkRateLimit(`show-request:${getClientIp(request)}`, 10, 60 * 60);
+  if (!allowed) {
+    return NextResponse.json(
+      { error: 'Too many requests from this connection. Please try again later.' },
+      { status: 429 }
+    );
   }
 
   const bandName = nullableTrim(body.bandName);

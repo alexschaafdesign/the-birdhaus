@@ -8,10 +8,54 @@ import PhotoGallery from '@/components/PhotoGallery';
 import CloudinaryGallery from '@/components/CloudinaryGallery';
 import AdminEditFAB from '@/components/admin/AdminEditFAB';
 import { isAdminSession } from '@/lib/admin-session';
+import type { Metadata } from 'next';
 
 export async function generateStaticParams() {
   const shows = await getAllShows();
   return shows.map(({ slug }) => ({ slug }));
+}
+
+export async function generateMetadata(
+  { params }: { params: Promise<{ slug: string }> }
+): Promise<Metadata> {
+  const { slug } = await params;
+  const show = await getShowBySlug(slug);
+  if (!show) return {};
+
+  const prettyDate = new Date(show.date + 'T00:00:00').toLocaleDateString('en-US', {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+  });
+  const lineup = show.bands
+    .map((b) => (typeof b === 'string' ? b : b.name))
+    .filter(Boolean)
+    .join(', ');
+  const description =
+    show.description?.trim() ||
+    [prettyDate, lineup && `Lineup: ${lineup}`].filter(Boolean).join(' — ') ||
+    `A show at the BIRDHAUS on ${prettyDate}.`;
+
+  const images = show.flyer ? [{ url: show.flyer, alt: `${show.title} flyer` }] : undefined;
+
+  return {
+    title: show.title,
+    description,
+    openGraph: {
+      type: 'article',
+      title: show.title,
+      description,
+      url: `/shows/${show.slug}`,
+      images,
+    },
+    twitter: {
+      card: images ? 'summary_large_image' : 'summary',
+      title: show.title,
+      description,
+      images: show.flyer ? [show.flyer] : undefined,
+    },
+  };
 }
 
 export default async function ShowPage({ params }: { params: Promise<{ slug: string }> }) {

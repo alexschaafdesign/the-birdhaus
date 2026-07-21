@@ -4,14 +4,32 @@ import "./globals.css";
 import Header from "@/components/Header";
 import AdminBanner from "@/components/AdminBanner";
 import { isAdminSession } from "@/lib/admin-session";
+import { SITE_URL, SITE_NAME, SITE_DESCRIPTION } from "@/lib/site";
 
 const instrumentSans = Instrument_Sans({
   subsets: ["latin"],
 });
 
 export const metadata: Metadata = {
-  title: "the BIRDHAUS",
-  description: "An intimate house venue in Minneapolis",
+  metadataBase: new URL(SITE_URL),
+  title: {
+    default: SITE_NAME,
+    // Per-page titles render as "Show name · the BIRDHAUS".
+    template: `%s · ${SITE_NAME}`,
+  },
+  description: SITE_DESCRIPTION,
+  openGraph: {
+    type: "website",
+    siteName: SITE_NAME,
+    title: SITE_NAME,
+    description: SITE_DESCRIPTION,
+    url: SITE_URL,
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: SITE_NAME,
+    description: SITE_DESCRIPTION,
+  },
 };
 
 export default async function RootLayout({

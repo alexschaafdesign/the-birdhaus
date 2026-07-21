@@ -3,6 +3,7 @@ import { sql } from '@/lib/db';
 import { getShowById } from '@/lib/shows';
 import { sendRsvpConfirmationEmail } from '@/lib/rsvp-email';
 import { upsertMailchimpSubscriber } from '@/lib/mailchimp';
+import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -17,6 +18,23 @@ export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
   if (!body) {
     return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
+  }
+
+  // Honeypot: a hidden field real users never see. Bots that fill every input
+  // trip it. Pretend success so the bot doesn't learn it was filtered — but
+  // skip the DB write, the confirmation email, and the Mailchimp call.
+  if (typeof body.website === 'string' && body.website.trim() !== '') {
+    return NextResponse.json({ ok: true });
+  }
+
+  // Each RSVP triggers a Resend email + a Mailchimp write, so cap per IP:
+  // 15 per hour is well above any real person's usage.
+  const allowed = await checkRateLimit(`rsvp:${getClientIp(request)}`, 15, 60 * 60);
+  if (!allowed) {
+    return NextResponse.json(
+      { error: 'Too many RSVPs from this connection. Please try again later.' },
+      { status: 429 }
+    );
   }
 
   const showId = Number(body.showId);

@@ -36,6 +36,8 @@ export default function ContactPage() {
   const [activeTab, setActiveTab] = useState<Tab>('play');
 
   const [sr, setSr] = useState({ contactName: '', bandName: '', email: '', social: '', vibe: '', comments: '' });
+  // Honeypot — hidden from real users; the API silently drops filled submissions.
+  const [srWebsite, setSrWebsite] = useState('');
   const [srAvailability, setSrAvailability] = useState<AvailabilityEntry[]>([]);
   const [srStatus, setSrStatus] = useState<'idle' | 'sending' | 'success' | 'error'>('idle');
   const [srEmailError, setSrEmailError] = useState<string | null>(null);
@@ -78,7 +80,7 @@ export default function ContactPage() {
       const res = await fetch('/api/show-request', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...sr, availability }),
+        body: JSON.stringify({ ...sr, availability, website: srWebsite }),
       });
       if (!res.ok) throw new Error('Request failed');
       setSrStatus('success');
@@ -144,6 +146,19 @@ export default function ContactPage() {
               <p className="text-lg">Thanks for reaching out! We'll get back to you as soon as we can.</p>
             ) : (
               <form onSubmit={handleShowRequest} className="space-y-5">
+                {/* Honeypot: off-screen, not focusable, hidden from assistive tech. */}
+                <div aria-hidden="true" style={{ position: 'absolute', left: '-9999px' }}>
+                  <label htmlFor="sr-website">Website</label>
+                  <input
+                    type="text"
+                    id="sr-website"
+                    name="website"
+                    tabIndex={-1}
+                    autoComplete="off"
+                    value={srWebsite}
+                    onChange={e => setSrWebsite(e.target.value)}
+                  />
+                </div>
                 <div>
                   <label className="block text-sm font-medium mb-1">Your name</label>
                   <input

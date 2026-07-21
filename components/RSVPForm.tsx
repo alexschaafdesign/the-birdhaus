@@ -52,6 +52,9 @@ export default function RSVPForm({
     guests: '1',
     emailList: false,
   });
+  // Honeypot — hidden from real users, only bots fill it. Sent to the server,
+  // which silently drops any submission that has it set.
+  const [website, setWebsite] = useState('');
   const [status, setStatus] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle');
   const [emailError, setEmailError] = useState<string | null>(null);
 
@@ -79,6 +82,7 @@ export default function RSVPForm({
           email: formData.email,
           guests: formData.guests,
           emailList: formData.emailList,
+          website,
         }),
       });
 
@@ -125,6 +129,20 @@ export default function RSVPForm({
         </div>
       ) : (
         <form onSubmit={handleSubmit} className="space-y-3">
+          {/* Honeypot: off-screen, not focusable, hidden from assistive tech. */}
+          <div aria-hidden="true" style={{ position: 'absolute', left: '-9999px' }}>
+            <label htmlFor="website">Website</label>
+            <input
+              type="text"
+              id="website"
+              name="website"
+              tabIndex={-1}
+              autoComplete="off"
+              value={website}
+              onChange={(e) => setWebsite(e.target.value)}
+            />
+          </div>
+
           <div>
             <label htmlFor="name" className="block text-sm font-medium mb-1 text-[#E8E0D0]/80">
               Name
