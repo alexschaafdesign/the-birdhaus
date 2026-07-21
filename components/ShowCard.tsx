@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import type { Show } from '@/lib/shows';
 
 function formatCardDate(dateStr: string) {
@@ -29,10 +30,12 @@ export default function ShowCard({ show, draft }: { show: Show; draft?: boolean 
     >
       <div className="relative aspect-[4/5] w-full overflow-hidden bg-[#E8E0D0]/10">
         {show.flyer ? (
-          <img
+          <Image
             src={show.flyer}
             alt={`${show.title} flyer`}
-            className={`h-full w-full object-cover transition-transform duration-300 group-hover:scale-105 ${draft ? 'opacity-60' : ''}`}
+            fill
+            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 300px"
+            className={`object-cover transition-transform duration-300 group-hover:scale-105 ${draft ? 'opacity-60' : ''}`}
           />
         ) : (
           <div className="flex h-full w-full items-center justify-center px-4 text-center text-sm text-[#E8E0D0]/40">

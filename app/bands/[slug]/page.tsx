@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import { notFound } from 'next/navigation';
 import { getAllBands, getBandBySlug, getShowsForBand, getVideosForBand } from '@/lib/bands';
 import AdminEditFAB from '@/components/admin/AdminEditFAB';
@@ -61,12 +62,16 @@ export default async function BandPage({ params }: { params: Promise<{ slug: str
         </Link>
 
         {band.photo && (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={band.photo}
-            alt={band.name}
-            className="w-full max-w-md aspect-square object-cover rounded-lg shadow-lg mb-6"
-          />
+          <div className="relative w-full max-w-md aspect-square rounded-lg shadow-lg mb-6 overflow-hidden">
+            <Image
+              src={band.photo}
+              alt={band.name}
+              fill
+              sizes="(max-width: 768px) 100vw, 448px"
+              priority
+              className="object-cover"
+            />
+          </div>
         )}
 
         <div className="mb-6">

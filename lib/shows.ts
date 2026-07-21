@@ -63,7 +63,11 @@ async function renderMarkdown(markdown: string): Promise<string> {
   return processed.toString();
 }
 
-async function rowToShow(row: ShowRow): Promise<Show> {
+// Rendering the markdown body is the expensive part of mapping a row, and only
+// the single-show detail page ever reads `content`. List callers (home, archive,
+// videos, sitemap, generateStaticParams, ...) don't, so they skip it — otherwise
+// getAllShows would run remark once per show on every request for nothing.
+async function rowToShow(row: ShowRow, renderContent = false): Promise<Show> {
   return {
     id: row.id,
     slug: row.slug,
@@ -84,7 +88,7 @@ async function rowToShow(row: ShowRow): Promise<Show> {
     photos: (row.photos as string[]) ?? [],
     photoFolder: row.photo_folder ?? undefined,
     photoCredit: row.photo_credit ?? undefined,
-    content: await renderMarkdown(row.content_markdown),
+    content: renderContent ? await renderMarkdown(row.content_markdown) : '',
     announced: row.announced,
     soundEngineerName: row.sound_engineer_name ?? undefined,
     targetBandCount: row.target_band_count,
@@ -144,7 +148,7 @@ export async function getAllShows(): Promise<Show[]> {
     from shows
     order by shows.date asc
   `;
-  return Promise.all(rows.map(rowToShow));
+  return Promise.all(rows.map((row) => rowToShow(row)));
 }
 
 export async function getShowBySlug(slug: string): Promise<Show | null> {
@@ -155,7 +159,7 @@ export async function getShowBySlug(slug: string): Promise<Show | null> {
     limit 1
   `;
   if (!row) return null;
-  return rowToShow(row);
+  return rowToShow(row, true); // detail page reads `content`
 }
 
 export async function getShowById(id: number): Promise<Show | null> {

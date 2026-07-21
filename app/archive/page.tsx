@@ -1,6 +1,7 @@
 import { getAllShows, getTodayCentral } from '@/lib/shows';
 import { getAllBandSlugs } from '@/lib/bands';
 import Link from 'next/link';
+import Image from 'next/image';
 
 // Evaluate the upcoming/past split per request so it reflects the current date,
 // not the date the site was last built/deployed.
@@ -102,12 +103,14 @@ export default async function ArchivePage() {
                 href={`/shows/${show.slug}`}
                 className="flex gap-6 border border-[#E8E0D0]/20 rounded-lg p-4 hover:border-[#E8E0D0]/50 hover:bg-[#E8E0D0]/5 transition-colors"
               >
-                <div className="w-24 h-24 flex-shrink-0 rounded overflow-hidden bg-[#E8E0D0]/10">
+                <div className="relative w-24 h-24 flex-shrink-0 rounded overflow-hidden bg-[#E8E0D0]/10">
                   {show.flyer ? (
-                    <img
+                    <Image
                       src={show.flyer}
                       alt={`${show.title} flyer`}
-                      className="w-full h-full object-cover"
+                      fill
+                      sizes="96px"
+                      className="object-cover"
                     />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center text-[#E8E0D0]/40 text-xs text-center px-2">

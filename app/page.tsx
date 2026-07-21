@@ -1,6 +1,7 @@
 import { getAllShows, getTodayCentral } from '@/lib/shows';
 import { getAllBandSlugs } from '@/lib/bands';
 import Link from 'next/link';
+import Image from 'next/image';
 import ShowsBrowser from '@/components/ShowsBrowser';
 
 // Evaluate the upcoming/past split per request so it reflects the current date,
@@ -90,9 +91,13 @@ export default async function Home() {
 
       {/* Hero Image */}
       <div className="w-full max-w-6xl mx-auto px-8 mb-12">
-        <img
+        <Image
           src="https://images.thebirdhaus.org/misc/2016-01-16%20by%20Jeremy%20Nelson%205.jpg"
           alt="The Birdhaus venue"
+          width={0}
+          height={0}
+          sizes="(max-width: 1152px) 100vw, 1088px"
+          priority
           className="w-full h-auto rounded-lg mb-2"
         />
         <p className="text-sm text-[#E8E0D0]/70 text-center">Photo by Jeremy Nelson</p>

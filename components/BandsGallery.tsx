@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 
 interface GalleryBand {
   id: number;
@@ -41,13 +42,14 @@ export default function BandsGallery({ bands }: { bands: GalleryBand[] }) {
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
           {visible.map((band) => (
             <Link key={band.id} href={`/bands/${band.slug}`} className="group block">
-              <div className="aspect-square rounded-lg overflow-hidden bg-[#E8E0D0]/5 border border-[#E8E0D0]/15 group-hover:border-[#E8E0D0]/50 transition-colors">
+              <div className="relative aspect-square rounded-lg overflow-hidden bg-[#E8E0D0]/5 border border-[#E8E0D0]/15 group-hover:border-[#E8E0D0]/50 transition-colors">
                 {band.photo ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
+                  <Image
                     src={band.photo}
                     alt={band.name}
-                    className="w-full h-full object-cover group-hover:opacity-90 transition-opacity"
+                    fill
+                    sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, (max-width: 1024px) 25vw, 20vw"
+                    className="object-cover group-hover:opacity-90 transition-opacity"
                   />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center">

@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 
@@ -50,9 +51,13 @@ export default function Header() {
     <header className="pt-12 pb-8 px-8">
       <div className="flex flex-col items-center justify-center gap-4 mb-4">
         <Link href="/">
-          <img
+          <Image
             src="https://res.cloudinary.com/defdv9zw7/image/upload/v1780325979/Horiz_mkva70.png"
             alt="The Birdhaus"
+            width={0}
+            height={0}
+            sizes="384px"
+            priority
             className="w-full max-w-sm h-auto"
           />
         </Link>

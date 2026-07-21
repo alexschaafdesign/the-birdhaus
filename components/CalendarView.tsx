@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 
 // Deliberately narrower than lib/shows.ts's full Show — this is all any caller
 // (public upcoming-shows page, admin shows page) has needed to render a cell.
@@ -146,10 +147,12 @@ export default function CalendarView({
                   className="group relative flex aspect-square items-center justify-center overflow-hidden rounded border border-dashed border-yellow-500/50 transition-all hover:border-yellow-400"
                 >
                   {draftShow.flyer ? (
-                    <img
+                    <Image
                       src={draftShow.flyer}
                       alt={`${draftShow.title} flyer`}
-                      className="h-full w-full object-cover opacity-60"
+                      fill
+                      sizes="(max-width: 768px) 14vw, 90px"
+                      className="object-cover opacity-60"
                     />
                   ) : (
                     <div className="h-full w-full bg-yellow-500/10" />
@@ -208,10 +211,12 @@ export default function CalendarView({
               }`}
             >
               {show.flyer ? (
-                <img
+                <Image
                   src={show.flyer}
                   alt={`${show.title} flyer`}
-                  className="h-full w-full object-cover"
+                  fill
+                  sizes="(max-width: 768px) 14vw, 90px"
+                  className="object-cover"
                 />
               ) : (
                 <div className="h-full w-full bg-[#E8E0D0]/10" />
