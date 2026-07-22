@@ -20,10 +20,51 @@ export interface ShowListItem {
   guest_count?: number;
 }
 
+interface Issue {
+  key: string;
+  label: string;
+}
+
+// "Close to the date" threshold for the zero-RSVPs check.
+const RSVP_WARNING_WINDOW_DAYS = 7;
+
+function daysUntil(today: string, date: string): number {
+  const a = new Date(`${today}T00:00:00Z`).getTime();
+  const b = new Date(`${date}T00:00:00Z`).getTime();
+  return Math.round((b - a) / 86_400_000);
+}
+
+// Computes every issue that currently applies to a show, regardless of
+// whether it's been dismissed — dismissal is filtered out by the caller.
+function computeIssues(show: ShowListItem, today: string): Issue[] {
+  const issues: Issue[] = [];
+  if (!show.sound_engineer_name?.trim()) issues.push({ key: 'sound', label: 'No sound engineer' });
+  if (!show.flyer?.trim()) issues.push({ key: 'flyer', label: 'No flyer' });
+  if (show.rsvp_form === false) issues.push({ key: 'rsvp-off', label: 'RSVP form disabled' });
+  if (!show.advance_sent) issues.push({ key: 'advance', label: 'Not advanced yet' });
+
+  const bandsNeeded = (show.target_band_count ?? 3) - (show.band_count ?? 0);
+  if (bandsNeeded > 0) {
+    issues.push({ key: 'bands', label: `Need ${bandsNeeded} band${bandsNeeded === 1 ? '' : 's'}` });
+  }
+
+  const days = daysUntil(today, show.date);
+  if (
+    show.announced &&
+    show.rsvp_form !== false &&
+    days >= 0 &&
+    days <= RSVP_WARNING_WINDOW_DAYS &&
+    !show.rsvp_count
+  ) {
+    issues.push({ key: 'no-rsvps', label: `No RSVPs yet (${days}d out)` });
+  }
+  return issues;
+}
+
 const inputClass =
   'bg-transparent border border-[#E8E0D0]/30 rounded px-3 py-1.5 text-sm focus:outline-none focus:border-[#E8E0D0] placeholder:text-[#E8E0D0]/30';
 
-export default function ShowsList({ initialShows }: { initialShows: ShowListItem[] }) {
+export default function ShowsList({ initialShows, today }: { initialShows: ShowListItem[]; today: string }) {
   const [shows, setShows] = useState<ShowListItem[]>(initialShows);
   const [search, setSearch] = useState('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -37,11 +78,6 @@ export default function ShowsList({ initialShows }: { initialShows: ShowListItem
   }, [shows, search]);
 
   const { upcoming, past } = useMemo(() => {
-    // Local YYYY-MM-DD; dates are date-only strings so string comparison is safe.
-    const now = new Date();
-    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(
-      now.getDate()
-    ).padStart(2, '0')}`;
     const upcoming = filtered
       .filter((s) => s.date >= today)
       .sort((a, b) => a.date.localeCompare(b.date)); // next show first
@@ -49,7 +85,7 @@ export default function ShowsList({ initialShows }: { initialShows: ShowListItem
       .filter((s) => s.date < today)
       .sort((a, b) => b.date.localeCompare(a.date)); // most recent first
     return { upcoming, past };
-  }, [filtered]);
+  }, [filtered, today]);
 
   async function handleDelete(id: number, title: string) {
     if (!confirm(`Delete "${title}"? This can't be undone.`)) return;
@@ -60,6 +96,28 @@ export default function ShowsList({ initialShows }: { initialShows: ShowListItem
     } catch {
       setErrorMessage('Failed to delete — refresh and try again.');
     }
+  }
+
+  async function setIgnored(showId: number, nextIgnored: string[]) {
+    const previous = shows;
+    setShows((cur) => cur.map((s) => (s.id === showId ? { ...s, ignored_health_checks: nextIgnored } : s)));
+    try {
+      const res = await fetch(`/api/admin/shows/${showId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ignoredHealthChecks: nextIgnored }),
+      });
+      if (!res.ok) throw new Error();
+    } catch {
+      setShows(previous);
+      setErrorMessage('Failed to update — try again.');
+    }
+  }
+
+  function dismissIssue(show: ShowListItem, key: string) {
+    const current = show.ignored_health_checks ?? [];
+    if (current.includes(key)) return;
+    setIgnored(show.id, [...current, key]);
   }
 
   return (
@@ -97,8 +155,15 @@ export default function ShowsList({ initialShows }: { initialShows: ShowListItem
         <p className="text-[#E8E0D0]/40 text-sm py-8 text-center">No shows match this search.</p>
       ) : (
         <div className="space-y-8">
-          <ShowGroup title="Upcoming Shows" shows={upcoming} onDelete={handleDelete} showIssueBadges />
-          <ShowGroup title="Past Shows" shows={past} onDelete={handleDelete} />
+          <ShowGroup
+            title="Upcoming Shows"
+            shows={upcoming}
+            today={today}
+            onDelete={handleDelete}
+            onDismissIssue={dismissIssue}
+            showIssueBadges
+          />
+          <ShowGroup title="Past Shows" shows={past} today={today} onDelete={handleDelete} onDismissIssue={dismissIssue} />
         </div>
       )}
     </div>
@@ -108,12 +173,16 @@ export default function ShowsList({ initialShows }: { initialShows: ShowListItem
 function ShowGroup({
   title,
   shows,
+  today,
   onDelete,
+  onDismissIssue,
   showIssueBadges,
 }: {
   title: string;
   shows: ShowListItem[];
+  today: string;
   onDelete: (id: number, title: string) => void;
+  onDismissIssue: (show: ShowListItem, key: string) => void;
   showIssueBadges?: boolean;
 }) {
   if (shows.length === 0) return null;
@@ -125,62 +194,70 @@ function ShowGroup({
       <div className="space-y-2">
         {shows.map((show) => {
           const ignored = new Set(show.ignored_health_checks ?? []);
+          const issues = showIssueBadges
+            ? computeIssues(show, today).filter((issue) => !ignored.has(issue.key))
+            : [];
           return (
-          <div
-            key={show.id}
-            className="flex items-center justify-between gap-4 border border-[#E8E0D0]/15 rounded-lg px-4 py-3"
-          >
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-3">
-                <span className="text-sm text-[#E8E0D0]/50 font-mono">{show.date}</span>
-                <span className="font-semibold truncate">{show.title}</span>
-                {show.announced ? (
-                  <span className="text-xs px-2 py-0.5 rounded-full border border-green-400/40 text-green-300">
-                    Announced
-                  </span>
-                ) : (
-                  <span className="text-xs px-2 py-0.5 rounded-full border border-[#E8E0D0]/30 text-[#E8E0D0]/50">
-                    Draft
-                  </span>
-                )}
-                {!!show.rsvp_count && (
-                  <span className="text-xs px-2 py-0.5 rounded-full border border-[#E8E0D0]/30 text-[#E8E0D0]/60 whitespace-nowrap">
-                    {show.rsvp_count} RSVP{show.rsvp_count === 1 ? '' : 's'} · {show.guest_count} guest
-                    {show.guest_count === 1 ? '' : 's'}
-                  </span>
-                )}
-                {showIssueBadges && !ignored.has('sound') && !show.sound_engineer_name?.trim() && (
-                  <span className="text-xs px-2 py-0.5 rounded-full border border-amber-400/40 text-amber-300 whitespace-nowrap">
-                    No sound engineer
-                  </span>
-                )}
-                {showIssueBadges && !ignored.has('bands') && (show.band_count ?? 0) < (show.target_band_count ?? 3) && (
-                  <span className="text-xs px-2 py-0.5 rounded-full border border-amber-400/40 text-amber-300 whitespace-nowrap">
-                    Need {(show.target_band_count ?? 3) - (show.band_count ?? 0)} band
-                    {(show.target_band_count ?? 3) - (show.band_count ?? 0) === 1 ? '' : 's'}
-                  </span>
-                )}
+            <div
+              key={show.id}
+              className="flex items-center justify-between gap-4 border border-[#E8E0D0]/15 rounded-lg px-4 py-3"
+            >
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-3 flex-wrap">
+                  <span className="text-sm text-[#E8E0D0]/50 font-mono">{show.date}</span>
+                  <span className="font-semibold truncate">{show.title}</span>
+                  {show.announced ? (
+                    <span className="text-xs px-2 py-0.5 rounded-full border border-green-400/40 text-green-300">
+                      Announced
+                    </span>
+                  ) : (
+                    <span className="text-xs px-2 py-0.5 rounded-full border border-[#E8E0D0]/30 text-[#E8E0D0]/50">
+                      Draft
+                    </span>
+                  )}
+                  {!!show.rsvp_count && (
+                    <span className="text-xs px-2 py-0.5 rounded-full border border-[#E8E0D0]/30 text-[#E8E0D0]/60 whitespace-nowrap">
+                      {show.rsvp_count} RSVP{show.rsvp_count === 1 ? '' : 's'} · {show.guest_count} guest
+                      {show.guest_count === 1 ? '' : 's'}
+                    </span>
+                  )}
+                  {issues.map((issue) => (
+                    <span
+                      key={issue.key}
+                      className="flex items-center gap-1.5 text-xs pl-2 pr-1 py-0.5 rounded-full border border-amber-400/40 text-amber-300 whitespace-nowrap"
+                    >
+                      {issue.label}
+                      <button
+                        type="button"
+                        onClick={() => onDismissIssue(show, issue.key)}
+                        title="Not an issue for this show"
+                        className="text-amber-300/50 hover:text-amber-300 leading-none"
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              </div>
+              <div className="flex items-center gap-3 flex-shrink-0 text-sm">
+                <Link
+                  href={`/shows/${show.slug}`}
+                  target="_blank"
+                  className="text-[#E8E0D0]/50 hover:text-[#E8E0D0]"
+                >
+                  View
+                </Link>
+                <Link href={`/admin/shows/${show.id}`} className="text-[#E8E0D0]/80 hover:text-[#E8E0D0] underline">
+                  Edit
+                </Link>
+                <button
+                  onClick={() => onDelete(show.id, show.title)}
+                  className="text-red-400/70 hover:text-red-400"
+                >
+                  Delete
+                </button>
               </div>
             </div>
-            <div className="flex items-center gap-3 flex-shrink-0 text-sm">
-              <Link
-                href={`/shows/${show.slug}`}
-                target="_blank"
-                className="text-[#E8E0D0]/50 hover:text-[#E8E0D0]"
-              >
-                View
-              </Link>
-              <Link href={`/admin/shows/${show.id}`} className="text-[#E8E0D0]/80 hover:text-[#E8E0D0] underline">
-                Edit
-              </Link>
-              <button
-                onClick={() => onDelete(show.id, show.title)}
-                className="text-red-400/70 hover:text-red-400"
-              >
-                Delete
-              </button>
-            </div>
-          </div>
           );
         })}
       </div>

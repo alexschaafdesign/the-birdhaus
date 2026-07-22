@@ -90,7 +90,7 @@ export default function ShowDateAvailability({ date }: { date: string }) {
     <div className="border border-[#E8E0D0]/15 rounded-lg p-4">
       <div className="flex items-center justify-between mb-3">
         <h2 className="text-sm font-semibold text-[#E8E0D0]/80">Bands available this date</h2>
-        <a href="/admin" className="text-xs text-[#E8E0D0]/50 hover:text-[#E8E0D0] underline">
+        <a href="/admin/submissions" className="text-xs text-[#E8E0D0]/50 hover:text-[#E8E0D0] underline">
           Open Submissions board →
         </a>
       </div>

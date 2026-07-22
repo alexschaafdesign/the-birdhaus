@@ -4,10 +4,10 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
 const LINKS = [
-  { href: '/admin', label: 'Submissions' },
   { href: '/admin/shows', label: 'Shows' },
   { href: '/admin/bands', label: 'Bands' },
   { href: '/admin/settlements', label: 'Settlements' },
+  { href: '/admin/submissions', label: 'Submissions' },
 ];
 
 export default function AdminNav() {
@@ -16,10 +16,7 @@ export default function AdminNav() {
   return (
     <nav className="flex gap-4 text-sm uppercase tracking-wide mt-2">
       {LINKS.map(({ href, label }) => {
-        // '/admin' itself must match exactly — otherwise its prefix check would
-        // also match every nested admin route (e.g. '/admin/shows').
-        const active =
-          href === '/admin' ? pathname === '/admin' : pathname === href || pathname.startsWith(`${href}/`);
+        const active = pathname === href || pathname.startsWith(`${href}/`);
         return (
           <Link
             key={href}

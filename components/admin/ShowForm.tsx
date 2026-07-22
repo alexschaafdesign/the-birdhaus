@@ -1041,7 +1041,7 @@ export default function ShowForm({
         <button
           type="submit"
           disabled={submitting}
-          className="border border-[#E8E0D0] rounded px-6 py-2 text-sm hover:bg-[#E8E0D0] hover:text-[#2A2420] transition-colors disabled:opacity-50"
+          className="bg-[#E8E0D0] text-[#2A2420] border border-[#E8E0D0] rounded px-6 py-2 text-sm font-medium hover:bg-[#E8E0D0]/90 transition-colors disabled:opacity-50"
         >
           {submitting ? 'Saving...' : mode === 'create' ? 'Create show' : 'Save changes'}
         </button>
