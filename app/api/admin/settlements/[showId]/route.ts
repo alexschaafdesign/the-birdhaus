@@ -84,6 +84,8 @@ export async function PUT(request: Request, { params }: { params: Promise<{ show
   const photographerName = typeof body.photographerName === 'string' ? body.photographerName.trim() || null : null;
   const soundEngineerName =
     typeof body.soundEngineerName === 'string' ? body.soundEngineerName.trim() || null : null;
+  const soundPaid = Boolean(body.soundPaid);
+  const photographerPaid = Boolean(body.photographerPaid);
 
   try {
     const [row] = await sql`
@@ -93,14 +95,16 @@ export async function PUT(request: Request, { params }: { params: Promise<{ show
         exp_square_fees, exp_venmo_fees, exp_sound_engineer, exp_photos, exp_door_person,
         exp_ad_print, exp_ad_online, exp_snacks, exp_beer,
         beverage_income_venmo, beverage_income_cash,
-        extra_line_items, notes, photographer_name, sound_engineer_name, updated_at
+        extra_line_items, notes, photographer_name, sound_engineer_name,
+        sound_paid, photographer_paid, updated_at
       ) values (
         ${showId}, ${dealType}, ${values.deal_threshold}, ${values.artist_split_pct}, ${values.venue_redirect_pct},
         ${values.income_square}, ${values.income_venmo}, ${values.income_cash},
         ${values.exp_square_fees}, ${values.exp_venmo_fees}, ${values.exp_sound_engineer}, ${values.exp_photos}, ${values.exp_door_person},
         ${values.exp_ad_print}, ${values.exp_ad_online}, ${values.exp_snacks}, ${values.exp_beer},
         ${values.beverage_income_venmo}, ${values.beverage_income_cash},
-        ${sql.json(extraLineItems)}, ${notes}, ${photographerName}, ${soundEngineerName}, now()
+        ${sql.json(extraLineItems)}, ${notes}, ${photographerName}, ${soundEngineerName},
+        ${soundPaid}, ${photographerPaid}, now()
       )
       on conflict (show_id) do update set
         deal_type = excluded.deal_type,
@@ -125,6 +129,8 @@ export async function PUT(request: Request, { params }: { params: Promise<{ show
         notes = excluded.notes,
         photographer_name = excluded.photographer_name,
         sound_engineer_name = excluded.sound_engineer_name,
+        sound_paid = excluded.sound_paid,
+        photographer_paid = excluded.photographer_paid,
         updated_at = now()
       returning *
     `;

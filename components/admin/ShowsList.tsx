@@ -18,11 +18,24 @@ export interface ShowListItem {
   advance_sent?: boolean;
   rsvp_count?: number;
   guest_count?: number;
+  sound_paid?: boolean;
+  photographer_paid?: boolean;
+  photographer_name?: string | null;
+  bands_paid_count?: number;
+  bands_with_video_count?: number;
 }
 
 interface Issue {
   key: string;
   label: string;
+}
+
+type IssueCategory = 'statusRsvp' | 'preShow' | 'postShow';
+
+interface CategorizedIssues {
+  statusRsvp: Issue[];
+  preShow: Issue[];
+  postShow: Issue[];
 }
 
 // "Close to the date" threshold for the zero-RSVPs check.
@@ -34,20 +47,14 @@ function daysUntil(today: string, date: string): number {
   return Math.round((b - a) / 86_400_000);
 }
 
-// Computes every issue that currently applies to a show, regardless of
-// whether it's been dismissed — dismissal is filtered out by the caller.
-function computeIssues(show: ShowListItem, today: string): Issue[] {
-  const issues: Issue[] = [];
-  if (!show.sound_engineer_name?.trim()) issues.push({ key: 'sound', label: 'No sound engineer' });
-  if (!show.flyer?.trim()) issues.push({ key: 'flyer', label: 'No flyer' });
-  if (show.rsvp_form === false) issues.push({ key: 'rsvp-off', label: 'RSVP form disabled' });
-  if (!show.advance_sent) issues.push({ key: 'advance', label: 'Not advanced yet' });
-
-  const bandsNeeded = (show.target_band_count ?? 3) - (show.band_count ?? 0);
-  if (bandsNeeded > 0) {
-    issues.push({ key: 'bands', label: `Need ${bandsNeeded} band${bandsNeeded === 1 ? '' : 's'}` });
-  }
-
+// Computes every issue that currently applies to a show, grouped into three
+// categories, regardless of whether it's been dismissed — dismissal is
+// filtered out by the caller. postShow checks only make sense once the show
+// has actually happened (payouts, videos), so callers only surface that
+// category for past shows.
+function computeIssues(show: ShowListItem, today: string): CategorizedIssues {
+  const statusRsvp: Issue[] = [];
+  if (show.rsvp_form === false) statusRsvp.push({ key: 'rsvp-off', label: 'RSVP form disabled' });
   const days = daysUntil(today, show.date);
   if (
     show.announced &&
@@ -56,9 +63,39 @@ function computeIssues(show: ShowListItem, today: string): Issue[] {
     days <= RSVP_WARNING_WINDOW_DAYS &&
     !show.rsvp_count
   ) {
-    issues.push({ key: 'no-rsvps', label: `No RSVPs yet (${days}d out)` });
+    statusRsvp.push({ key: 'no-rsvps', label: `No RSVPs yet (${days}d out)` });
   }
-  return issues;
+
+  const preShow: Issue[] = [];
+  if (!show.sound_engineer_name?.trim()) preShow.push({ key: 'sound', label: 'No sound engineer' });
+  if (!show.flyer?.trim()) preShow.push({ key: 'flyer', label: 'No flyer' });
+  if (!show.advance_sent) preShow.push({ key: 'advance', label: 'Not advanced yet' });
+  const bandsNeeded = (show.target_band_count ?? 3) - (show.band_count ?? 0);
+  if (bandsNeeded > 0) {
+    preShow.push({ key: 'bands', label: `Need ${bandsNeeded} band${bandsNeeded === 1 ? '' : 's'}` });
+  }
+
+  const postShow: Issue[] = [];
+  const bandCount = show.band_count ?? 0;
+  const bandsUnpaid = bandCount - (show.bands_paid_count ?? 0);
+  if (bandCount > 0 && bandsUnpaid > 0) {
+    postShow.push({ key: 'bands-unpaid', label: `${bandsUnpaid} band${bandsUnpaid === 1 ? '' : 's'} unpaid` });
+  }
+  if (show.sound_engineer_name?.trim() && !show.sound_paid) {
+    postShow.push({ key: 'sound-unpaid', label: 'Sound engineer unpaid' });
+  }
+  if (show.photographer_name?.trim() && !show.photographer_paid) {
+    postShow.push({ key: 'photographer-unpaid', label: 'Photographer unpaid' });
+  }
+  const bandsMissingVideo = bandCount - (show.bands_with_video_count ?? 0);
+  if (bandCount > 0 && bandsMissingVideo > 0) {
+    postShow.push({
+      key: 'videos-missing',
+      label: `Videos missing for ${bandsMissingVideo} band${bandsMissingVideo === 1 ? '' : 's'}`,
+    });
+  }
+
+  return { statusRsvp, preShow, postShow };
 }
 
 const inputClass =
@@ -161,9 +198,16 @@ export default function ShowsList({ initialShows, today }: { initialShows: ShowL
             today={today}
             onDelete={handleDelete}
             onDismissIssue={dismissIssue}
-            showIssueBadges
+            issueCategories={['statusRsvp', 'preShow']}
           />
-          <ShowGroup title="Past Shows" shows={past} today={today} onDelete={handleDelete} onDismissIssue={dismissIssue} />
+          <ShowGroup
+            title="Past Shows"
+            shows={past}
+            today={today}
+            onDelete={handleDelete}
+            onDismissIssue={dismissIssue}
+            issueCategories={['postShow']}
+          />
         </div>
       )}
     </div>
@@ -176,14 +220,14 @@ function ShowGroup({
   today,
   onDelete,
   onDismissIssue,
-  showIssueBadges,
+  issueCategories,
 }: {
   title: string;
   shows: ShowListItem[];
   today: string;
   onDelete: (id: number, title: string) => void;
   onDismissIssue: (show: ShowListItem, key: string) => void;
-  showIssueBadges?: boolean;
+  issueCategories: IssueCategory[];
 }) {
   if (shows.length === 0) return null;
   return (
@@ -194,9 +238,10 @@ function ShowGroup({
       <div className="space-y-2">
         {shows.map((show) => {
           const ignored = new Set(show.ignored_health_checks ?? []);
-          const issues = showIssueBadges
-            ? computeIssues(show, today).filter((issue) => !ignored.has(issue.key))
-            : [];
+          const categorized = computeIssues(show, today);
+          const clusters = issueCategories
+            .map((category) => categorized[category].filter((issue) => !ignored.has(issue.key)))
+            .filter((cluster) => cluster.length > 0);
           return (
             <div
               key={show.id}
@@ -221,20 +266,25 @@ function ShowGroup({
                       {show.guest_count === 1 ? '' : 's'}
                     </span>
                   )}
-                  {issues.map((issue) => (
-                    <span
-                      key={issue.key}
-                      className="flex items-center gap-1.5 text-xs pl-2 pr-1 py-0.5 rounded-full border border-amber-400/40 text-amber-300 whitespace-nowrap"
-                    >
-                      {issue.label}
-                      <button
-                        type="button"
-                        onClick={() => onDismissIssue(show, issue.key)}
-                        title="Not an issue for this show"
-                        className="text-amber-300/50 hover:text-amber-300 leading-none"
-                      >
-                        ×
-                      </button>
+                  {clusters.map((cluster, clusterIndex) => (
+                    <span key={clusterIndex} className="flex items-center gap-1.5 flex-wrap">
+                      {clusterIndex > 0 && <span className="w-px h-4 bg-[#E8E0D0]/15" />}
+                      {cluster.map((issue) => (
+                        <span
+                          key={issue.key}
+                          className="flex items-center gap-1.5 text-xs pl-2 pr-1 py-0.5 rounded-full border border-amber-400/40 text-amber-300 whitespace-nowrap"
+                        >
+                          {issue.label}
+                          <button
+                            type="button"
+                            onClick={() => onDismissIssue(show, issue.key)}
+                            title="Not an issue for this show"
+                            className="text-amber-300/50 hover:text-amber-300 leading-none"
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ))}
                     </span>
                   ))}
                 </div>

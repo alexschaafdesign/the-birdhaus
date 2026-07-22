@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { sql } from '@/lib/db';
 import { DEFAULT_SETTLEMENT_VALUES, settlementValuesFromRow, type SettlementDbRow } from '@/lib/settlements';
+import { getShowBandsPaidStatus } from '@/lib/bands';
 import SettlementForm from '@/components/admin/SettlementForm';
 
 export const dynamic = 'force-dynamic';
@@ -17,9 +18,7 @@ export default async function EditSettlementPage({ params }: { params: Promise<{
   if (!show) notFound();
 
   const [settlementRow] = await sql<SettlementDbRow[]>`select * from settlements where show_id = ${showId}`;
-  const [{ count: bandCount }] = await sql<
-    { count: number }[]
-  >`select count(*)::int as count from show_bands where show_id = ${showId}`;
+  const bands = await getShowBandsPaidStatus(showId);
 
   // Pre-fill the sound-engineer payee from the show's confirmed engineer (cached
   // on shows.sound_engineer_name, kept in sync by setShowSoundEngineers) when no
@@ -39,7 +38,7 @@ export default async function EditSettlementPage({ params }: { params: Promise<{
           ← Back to settlement
         </Link>
       </div>
-      <SettlementForm showId={showId} bandCount={bandCount} initialValues={initialValues} />
+      <SettlementForm showId={showId} bandCount={bands.length} bands={bands} initialValues={initialValues} />
     </main>
   );
 }

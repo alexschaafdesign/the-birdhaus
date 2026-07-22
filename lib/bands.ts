@@ -144,6 +144,38 @@ export async function getShowsForBand(bandId: number): Promise<BandShow[]> {
   `;
 }
 
+export interface ShowBandPaidStatus {
+  bandId: number;
+  name: string;
+  paid: boolean;
+}
+
+// Payout checklist for the settlement form — who played this show and
+// whether they've been paid, per band (show_bands.paid).
+export async function getShowBandsPaidStatus(showId: number): Promise<ShowBandPaidStatus[]> {
+  const rows = await sql<Array<{ band_id: number; name: string; paid: boolean }>>`
+    select b.id as band_id, b.name, sb.paid
+    from show_bands sb
+    join bands b on b.id = sb.band_id
+    where sb.show_id = ${showId}
+    order by sb.sort_order
+  `;
+  return rows.map((r) => ({ bandId: r.band_id, name: r.name, paid: r.paid }));
+}
+
+// Toggles a single band's paid status for a show — a standalone write
+// separate from the settlement record, since show_bands has no dependency
+// on a settlements row existing. Returns null if the show/band pairing
+// doesn't exist.
+export async function setShowBandPaid(showId: number, bandId: number, paid: boolean): Promise<boolean | null> {
+  const [row] = await sql<Array<{ paid: boolean }>>`
+    update show_bands set paid = ${paid}
+    where show_id = ${showId} and band_id = ${bandId}
+    returning paid
+  `;
+  return row ? row.paid : null;
+}
+
 export interface BandVideo {
   showSlug: string;
   showTitle: string;
@@ -445,15 +477,24 @@ export function toShowBandPairs(resolved: Show['bands']): ShowBandPair[] {
   }));
 }
 
-// Replaces a show's show_bands rows wholesale — simplest correct way to apply
-// reordering/additions/removals from a full-array save without diffing. Runs
-// in the same transaction as the show save, alongside (not replacing) the
-// existing bands JSONB write.
+// Applies reordering/additions/removals from a full-array save. Upserts on
+// (show_id, band_id) rather than delete-then-insert so an existing row's
+// `paid` status survives an unrelated show edit (e.g. changing the flyer) —
+// ShowForm always resends the full bands array on every save. Runs in the
+// same transaction as the show save, alongside (not replacing) the existing
+// bands JSONB write.
 export async function setShowBands(showId: number, bands: ShowBandPair[], tx: Tx): Promise<void> {
-  await tx`delete from show_bands where show_id = ${showId}`;
-  if (bands.length === 0) return;
+  const keepBandIds = bands.map((b) => b.bandId);
+  if (keepBandIds.length === 0) {
+    await tx`delete from show_bands where show_id = ${showId}`;
+    return;
+  }
+  await tx`delete from show_bands where show_id = ${showId} and not (band_id = any(${keepBandIds}))`;
   const rows = bands.map((b) => ({ show_id: showId, band_id: b.bandId, sort_order: b.sortOrder }));
-  await tx`insert into show_bands ${tx(rows, 'show_id', 'band_id', 'sort_order')}`;
+  await tx`
+    insert into show_bands ${tx(rows, 'show_id', 'band_id', 'sort_order')}
+    on conflict (show_id, band_id) do update set sort_order = excluded.sort_order
+  `;
 }
 
 // Maps each video's transient `bandIndex` (the video row's position within
