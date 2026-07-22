@@ -1,7 +1,7 @@
 import { getAllShows, getTodayCentral } from '@/lib/shows';
 import { getAllBandSlugs } from '@/lib/bands';
 import Link from 'next/link';
-import Image from 'next/image';
+import VideoArchive, { type ArchiveShowGroup } from '@/components/VideoArchive';
 
 // Evaluate the upcoming/past split per request so it reflects the current date,
 // not the date the site was last built/deployed.
@@ -17,6 +17,24 @@ export default async function ArchivePage() {
 
   const showCount = pastShows.length;
 
+  const bandNames = (show: (typeof pastShows)[number]) =>
+    (Array.isArray(show.bands) ? show.bands : [])
+      .map((band) => (typeof band === 'string' ? band : band.name))
+      .filter(Boolean);
+
+  // Every past show stays in the timeline in date order (newest first); shows
+  // with videos lead with their sets, shows without render as a lighter row.
+  const timeline: ArchiveShowGroup[] = pastShows.map((show) => ({
+    slug: show.slug,
+    title: show.title,
+    date: show.date,
+    bands: bandNames(show),
+    flyer: show.flyer,
+    videos: (show.videos ?? []).map((v) => ({ youtube: v.youtube, title: v.title })),
+  }));
+
+  const videoCount = timeline.reduce((sum, g) => sum + g.videos.length, 0);
+
   // Build band frequency map
   const bandCounts = new Map<string, { count: number; bandId: number | null }>();
   for (const show of pastShows) {
@@ -31,7 +49,6 @@ export default async function ArchivePage() {
     }
   }
   const bandCount = bandCounts.size;
-  const setCount = Array.from(bandCounts.values()).reduce((sum, b) => sum + b.count, 0);
 
   // Sort: most appearances first, then alphabetical
   const sortedBands = Array.from(bandCounts.entries()).sort((a, b) =>
@@ -54,8 +71,8 @@ export default async function ArchivePage() {
                 <span className="text-yellow-400 text-2xl">{String(bandCount).padStart(3, '0')}</span>
               </div>
               <div className="border-l border-yellow-500/20 pl-4 sm:pl-8">
-                <span className="text-yellow-500/60 uppercase tracking-widest text-xs block mb-1">Sets</span>
-                <span className="text-yellow-400 text-2xl">{String(setCount).padStart(3, '0')}</span>
+                <span className="text-yellow-500/60 uppercase tracking-widest text-xs block mb-1">Videos</span>
+                <span className="text-yellow-400 text-2xl">{String(videoCount).padStart(3, '0')}</span>
               </div>
             </div>
           </div>
@@ -66,7 +83,7 @@ export default async function ArchivePage() {
         </p>
 
         {/* Band roster */}
-        <details className="mb-10 border border-[#E8E0D0]/20 rounded-lg group">
+        <details className="mb-12 border border-[#E8E0D0]/20 rounded-lg group">
           <summary className="px-4 py-3 cursor-pointer text-sm text-[#E8E0D0]/60 hover:text-[#E8E0D0] uppercase tracking-widest select-none list-none flex justify-between items-center">
             <span>Birdhaus alums - click to expand</span>
             <span className="text-xs text-[#E8E0D0]/40 group-open:hidden">▸ expand</span>
@@ -96,40 +113,7 @@ export default async function ArchivePage() {
         {pastShows.length === 0 ? (
           <p className="text-[#E8E0D0]/60">No past shows yet.</p>
         ) : (
-          <div className="space-y-4">
-            {pastShows.map((show) => (
-              <Link
-                key={show.slug}
-                href={`/shows/${show.slug}`}
-                className="flex gap-6 border border-[#E8E0D0]/20 rounded-lg p-4 hover:border-[#E8E0D0]/50 hover:bg-[#E8E0D0]/5 transition-colors"
-              >
-                <div className="relative w-24 h-24 flex-shrink-0 rounded overflow-hidden bg-[#E8E0D0]/10">
-                  {show.flyer ? (
-                    <Image
-                      src={show.flyer}
-                      alt={`${show.title} flyer`}
-                      fill
-                      sizes="96px"
-                      className="object-cover"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-[#E8E0D0]/40 text-xs text-center px-2">
-                      No flyer
-                    </div>
-                  )}
-                </div>
-                <div className="flex flex-col justify-center min-w-0">
-                  <p className="text-[#E8E0D0]/50 text-sm mb-1">{show.date}</p>
-                  <h2 className="text-xl font-bold mb-1 truncate">{show.title}</h2>
-                  <p className="text-[#E8E0D0]/60 text-sm truncate">
-                    {Array.isArray(show.bands) && show.bands.map((band) =>
-                      typeof band === 'string' ? band : band.name
-                    ).join(', ')}
-                  </p>
-                </div>
-              </Link>
-            ))}
-          </div>
+          <VideoArchive groups={timeline} />
         )}
       </div>
     </main>
