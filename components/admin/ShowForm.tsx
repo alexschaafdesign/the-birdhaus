@@ -1,12 +1,13 @@
 'use client';
 
-import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import BandNameInput, { type BandMatch, type TwinSceneBandOption } from './BandNameInput';
 import SoundEngineerNameInput, { type SoundEngineerMatch } from './SoundEngineerNameInput';
 import ImageUploadField from './ImageUploadField';
 import ShowDateAvailability from './ShowDateAvailability';
+import Section from './Section';
 
 const inputClass =
   'bg-transparent border border-[#E8E0D0]/30 rounded px-3 py-1.5 text-sm focus:outline-none focus:border-[#E8E0D0] placeholder:text-[#E8E0D0]/30';
@@ -239,28 +240,6 @@ function initFormState(initial?: ShowFormInitialValues): FormState {
         declined: e.status === 'declined',
       })),
   };
-}
-
-// Consistent titled card used to group the form's fields, matching the
-// settlement form's section styling so the admin reads as one system.
-function Section({
-  title,
-  action,
-  children,
-}: {
-  title: string;
-  action?: ReactNode;
-  children: ReactNode;
-}) {
-  return (
-    <section className="rounded-lg border border-[#E8E0D0]/15 bg-[#E8E0D0]/[0.03] p-4 sm:p-5">
-      <div className="flex items-center justify-between gap-3 mb-4">
-        <h2 className="text-sm font-semibold text-[#E8E0D0]/90">{title}</h2>
-        {action}
-      </div>
-      {children}
-    </section>
-  );
 }
 
 export default function ShowForm({

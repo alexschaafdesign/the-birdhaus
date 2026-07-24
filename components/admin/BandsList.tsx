@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import Section from './Section';
 
 export interface BandListItem {
   id: number;
@@ -102,51 +103,53 @@ export default function BandsList({ initialBands }: { initialBands: BandListItem
         </div>
       )}
 
-      <div className="mb-4 flex gap-2">
-        {(['all', 'unreviewed'] as const).map((option) => (
+      <Section className="mb-3">
+        <div className="flex gap-2">
+          {(['all', 'unreviewed'] as const).map((option) => (
+            <button
+              key={option}
+              onClick={() => setFilter(option)}
+              className={`rounded px-3 py-1.5 font-mono text-sm uppercase tracking-widest transition-colors ${
+                filter === option
+                  ? 'bg-[#E8E0D0] text-[#171412]'
+                  : 'border border-[#E8E0D0]/30 text-[#E8E0D0]/60 hover:text-[#E8E0D0]'
+              }`}
+            >
+              {option === 'all' ? 'All' : `Unreviewed (${unreviewedCount})`}
+            </button>
+          ))}
+        </div>
+
+        <div className="mt-3 flex flex-wrap gap-3 items-center">
+          <input
+            type="text"
+            placeholder="Search name, slug..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className={`${inputClass} w-full max-w-sm`}
+          />
           <button
-            key={option}
-            onClick={() => setFilter(option)}
-            className={`rounded px-3 py-1.5 font-mono text-sm uppercase tracking-widest transition-colors ${
-              filter === option
-                ? 'bg-[#E8E0D0] text-[#171412]'
-                : 'border border-[#E8E0D0]/30 text-[#E8E0D0]/60 hover:text-[#E8E0D0]'
-            }`}
+            onClick={handleSyncTwinScene}
+            disabled={syncing}
+            className="ml-auto border border-[#E8E0D0]/40 rounded px-4 py-1.5 text-sm hover:bg-[#E8E0D0]/10 transition-colors disabled:opacity-50"
           >
-            {option === 'all' ? 'All' : `Unreviewed (${unreviewedCount})`}
+            {syncing ? 'Syncing…' : 'Sync from Twin Scene'}
           </button>
-        ))}
-      </div>
+          <Link
+            href="/admin/bands/new"
+            className="border border-[#E8E0D0]/40 rounded px-4 py-1.5 text-sm hover:bg-[#E8E0D0]/10 transition-colors"
+          >
+            + New band
+          </Link>
+        </div>
 
-      <div className="flex flex-wrap gap-3 items-center mb-4">
-        <input
-          type="text"
-          placeholder="Search name, slug..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className={`${inputClass} w-full max-w-sm`}
-        />
-        <button
-          onClick={handleSyncTwinScene}
-          disabled={syncing}
-          className="ml-auto border border-[#E8E0D0]/40 rounded px-4 py-1.5 text-sm hover:bg-[#E8E0D0]/10 transition-colors disabled:opacity-50"
-        >
-          {syncing ? 'Syncing…' : 'Sync from Twin Scene'}
-        </button>
-        <Link
-          href="/admin/bands/new"
-          className="border border-[#E8E0D0]/40 rounded px-4 py-1.5 text-sm hover:bg-[#E8E0D0]/10 transition-colors"
-        >
-          + New band
-        </Link>
-      </div>
+        <label className="mt-3 flex items-center gap-2 text-sm text-[#E8E0D0]/60 select-none w-fit">
+          <input type="checkbox" checked={showAll} onChange={(e) => setShowAll(e.target.checked)} />
+          Show all Twin Cities bands (in-progress)
+        </label>
 
-      {syncStatus && <p className="text-xs text-[#E8E0D0]/50 mb-3">{syncStatus}</p>}
-
-      <label className="flex items-center gap-2 text-sm text-[#E8E0D0]/60 select-none mb-3 w-fit">
-        <input type="checkbox" checked={showAll} onChange={(e) => setShowAll(e.target.checked)} />
-        Show all Twin Cities bands (in-progress)
-      </label>
+        {syncStatus && <p className="mt-2 text-xs text-[#E8E0D0]/50">{syncStatus}</p>}
+      </Section>
 
       <p className="text-xs text-[#E8E0D0]/40 mb-3">
         {filtered.length} of {scoped.length} bands shown
@@ -156,7 +159,7 @@ export default function BandsList({ initialBands }: { initialBands: BandListItem
         {filtered.map((band) => (
           <div
             key={band.id}
-            className="flex items-center justify-between gap-4 border border-[#E8E0D0]/15 rounded-lg px-4 py-3"
+            className="flex items-center justify-between gap-4 border border-[#E8E0D0]/15 bg-[#E8E0D0]/[0.03] rounded-lg px-4 py-3"
           >
             <div className="min-w-0 flex-1 flex items-center gap-3">
               {band.photo ? (

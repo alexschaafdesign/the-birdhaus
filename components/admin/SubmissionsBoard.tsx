@@ -21,6 +21,7 @@ import {
   type DateOffer,
   type DateOfferStatus,
 } from '@/lib/date-offers';
+import Section from './Section';
 
 const inputClass =
   'bg-transparent border border-[#E8E0D0]/30 rounded px-3 py-1.5 text-sm focus:outline-none focus:border-[#E8E0D0] placeholder:text-[#E8E0D0]/30';
@@ -403,13 +404,15 @@ export default function SubmissionsBoard({
         </p>
       </div>
 
-      <div className="border border-[#E8E0D0]/15 rounded-lg p-4 mb-4">
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-semibold text-[#E8E0D0]/80">Venue open dates</h3>
-          {availableDates.length > 0 && (
+      <Section
+        title="Venue open dates"
+        action={
+          availableDates.length > 0 ? (
             <span className="text-xs text-[#E8E0D0]/40">click a date to see who&rsquo;s free</span>
-          )}
-        </div>
+          ) : undefined
+        }
+        className="mb-4"
+      >
         <div className="flex flex-wrap gap-2 items-center">
           {availableDates.map((d) => {
             const active = dateMode === 'single' && dateFrom === d.date && dateTo === d.date;
@@ -461,7 +464,7 @@ export default function SubmissionsBoard({
             </button>
           </form>
         </div>
-      </div>
+      </Section>
 
       {showAddForm && <AddSubmissionForm onAdd={handleAdd} onCancel={() => setShowAddForm(false)} />}
 
@@ -544,7 +547,7 @@ function SubmissionCard({
 
   return (
     <div
-      className="border rounded-lg p-4"
+      className="border rounded-lg p-4 bg-[#E8E0D0]/[0.03]"
       style={{ borderColor: `${STATUS_COLORS[submission.status]}55` }}
     >
       <div className="flex flex-wrap items-start gap-3 justify-between">
@@ -758,7 +761,7 @@ function AddSubmissionForm({
         if (!form.band_name.trim()) return;
         onAdd(form);
       }}
-      className="border border-[#E8E0D0]/20 rounded-lg p-4 mb-4 grid gap-3 sm:grid-cols-2"
+      className="border border-[#E8E0D0]/20 bg-[#E8E0D0]/[0.03] rounded-lg p-4 mb-4 grid gap-3 sm:grid-cols-2"
     >
       <input
         required
