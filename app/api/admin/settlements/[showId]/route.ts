@@ -56,6 +56,50 @@ export async function GET(request: Request, { params }: { params: Promise<{ show
   return NextResponse.json(row ?? null);
 }
 
+// Partial update for the post-show paid flags (sound engineer / photographer),
+// so the Shows-list tags can be toggled without loading the whole settlement.
+// Upserts a bare settlement row if none exists yet — every other column has a
+// default, so show_id + the flag is enough.
+export async function PATCH(request: Request, { params }: { params: Promise<{ showId: string }> }) {
+  const { showId: showIdParam } = await params;
+  const showId = parseId(showIdParam);
+  if (showId === null) {
+    return NextResponse.json({ error: 'Invalid show id' }, { status: 400 });
+  }
+
+  const body = await request.json().catch(() => null);
+  if (!body || typeof body !== 'object') {
+    return NextResponse.json({ error: 'Invalid body' }, { status: 400 });
+  }
+
+  const hasSound = typeof body.soundPaid === 'boolean';
+  const hasPhotographer = typeof body.photographerPaid === 'boolean';
+  if (!hasSound && !hasPhotographer) {
+    return NextResponse.json({ error: 'Nothing to update' }, { status: 400 });
+  }
+
+  try {
+    if (hasSound) {
+      await sql`
+        insert into settlements (show_id, sound_paid) values (${showId}, ${body.soundPaid})
+        on conflict (show_id) do update set sound_paid = ${body.soundPaid}, updated_at = now()
+      `;
+    }
+    if (hasPhotographer) {
+      await sql`
+        insert into settlements (show_id, photographer_paid) values (${showId}, ${body.photographerPaid})
+        on conflict (show_id) do update set photographer_paid = ${body.photographerPaid}, updated_at = now()
+      `;
+    }
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    if (error instanceof Error && 'code' in error && error.code === '23503') {
+      return NextResponse.json({ error: 'Show not found' }, { status: 404 });
+    }
+    throw error;
+  }
+}
+
 export async function PUT(request: Request, { params }: { params: Promise<{ showId: string }> }) {
   const { showId: showIdParam } = await params;
   const showId = parseId(showIdParam);

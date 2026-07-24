@@ -182,6 +182,25 @@ export default function ShowsList({ initialShows, today }: { initialShows: ShowL
     }
   }
 
+  // Marks the sound engineer or photographer paid for a show, flipping the
+  // cached flag so the corresponding tag clears immediately.
+  async function markCrewPaid(showId: number, role: 'sound' | 'photographer', paid: boolean) {
+    const previous = shows;
+    const column = role === 'sound' ? 'sound_paid' : 'photographer_paid';
+    setShows((cur) => cur.map((s) => (s.id === showId ? { ...s, [column]: paid } : s)));
+    try {
+      const res = await fetch(`/api/admin/settlements/${showId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(role === 'sound' ? { soundPaid: paid } : { photographerPaid: paid }),
+      });
+      if (!res.ok) throw new Error();
+    } catch {
+      setShows(previous);
+      setErrorMessage('Failed to update payout — try again.');
+    }
+  }
+
   return (
     <div>
       {errorMessage && (
@@ -224,6 +243,7 @@ export default function ShowsList({ initialShows, today }: { initialShows: ShowL
             onDelete={handleDelete}
             onDismissIssue={dismissIssue}
             onMarkBandPaid={markBandPaid}
+            onMarkCrewPaid={markCrewPaid}
             issueCategories={['statusRsvp', 'preShow']}
           />
           <ShowGroup
@@ -233,6 +253,7 @@ export default function ShowsList({ initialShows, today }: { initialShows: ShowL
             onDelete={handleDelete}
             onDismissIssue={dismissIssue}
             onMarkBandPaid={markBandPaid}
+            onMarkCrewPaid={markCrewPaid}
             issueCategories={['postShow']}
           />
         </div>
@@ -248,6 +269,7 @@ function ShowGroup({
   onDelete,
   onDismissIssue,
   onMarkBandPaid,
+  onMarkCrewPaid,
   issueCategories,
 }: {
   title: string;
@@ -256,6 +278,7 @@ function ShowGroup({
   onDelete: (id: number, title: string) => void;
   onDismissIssue: (show: ShowListItem, key: string) => void;
   onMarkBandPaid: (showId: number, bandId: number, paid: boolean) => void;
+  onMarkCrewPaid: (showId: number, role: 'sound' | 'photographer', paid: boolean) => void;
   issueCategories: IssueCategory[];
 }) {
   if (shows.length === 0) return null;
@@ -302,13 +325,17 @@ function ShowGroup({
                     <span key={clusterIndex} className="flex items-center gap-1.5 flex-wrap">
                       {clusterIndex > 0 && <span className="w-px h-4 bg-[#E8E0D0]/15" />}
                       {cluster.map((issue) =>
-                        issue.key === 'bands-unpaid' ? (
-                          <BandsUnpaidTag
+                        issue.key === 'bands-unpaid' ||
+                        issue.key === 'sound-unpaid' ||
+                        issue.key === 'photographer-unpaid' ? (
+                          <PaidTag
                             key={issue.key}
                             show={show}
+                            issueKey={issue.key}
                             label={issue.label}
                             onDismiss={() => onDismissIssue(show, issue.key)}
                             onMarkBandPaid={onMarkBandPaid}
+                            onMarkCrewPaid={onMarkCrewPaid}
                           />
                         ) : (
                           <span
@@ -357,20 +384,27 @@ function ShowGroup({
   );
 }
 
-// The "N bands unpaid" tag, made interactive: clicking it opens a popover
-// that lazy-loads this show's bands and lets you check each one off as paid.
-// Toggling calls back up so the tag's count updates live.
-function BandsUnpaidTag({
+// A post-show "unpaid" tag with an explicit "Mark paid" button that opens a
+// small popover of checkboxes — one per band, or a single row for the sound
+// engineer / photographer. Toggling calls back up so the tag clears (or its
+// count drops) live. The label text is plain; only the button opens the popover
+// so the affordance is obvious.
+function PaidTag({
   show,
+  issueKey,
   label,
   onDismiss,
   onMarkBandPaid,
+  onMarkCrewPaid,
 }: {
   show: ShowListItem;
+  issueKey: 'bands-unpaid' | 'sound-unpaid' | 'photographer-unpaid';
   label: string;
   onDismiss: () => void;
   onMarkBandPaid: (showId: number, bandId: number, paid: boolean) => void;
+  onMarkCrewPaid: (showId: number, role: 'sound' | 'photographer', paid: boolean) => void;
 }) {
+  const isBands = issueKey === 'bands-unpaid';
   const [open, setOpen] = useState(false);
   const [bands, setBands] = useState<ShowBandPaidStatus[] | null>(null);
   const [loading, setLoading] = useState(false);
@@ -405,19 +439,31 @@ function BandsUnpaidTag({
   function toggleOpen() {
     const next = !open;
     setOpen(next);
-    if (next && bands === null && !loading) loadBands();
+    if (next && isBands && bands === null && !loading) loadBands();
   }
 
-  function handleToggle(bandId: number, paid: boolean) {
+  function handleBandToggle(bandId: number, paid: boolean) {
     setBands((cur) => (cur ? cur.map((b) => (b.bandId === bandId ? { ...b, paid } : b)) : cur));
     onMarkBandPaid(show.id, bandId, paid);
   }
 
+  const crewRole = issueKey === 'sound-unpaid' ? 'sound' : 'photographer';
+  const crewName =
+    (issueKey === 'sound-unpaid' ? show.sound_engineer_name : show.photographer_name)?.trim() ||
+    (issueKey === 'sound-unpaid' ? 'Sound engineer' : 'Photographer');
+
   return (
     <span ref={containerRef} className="relative">
       <span className="flex items-center gap-1.5 text-xs pl-2 pr-1 py-0.5 rounded-full border border-amber-400/40 text-amber-300 whitespace-nowrap">
-        <button type="button" onClick={toggleOpen} className="hover:underline" title="Mark bands paid">
-          {label}
+        {label}
+        <button
+          type="button"
+          onClick={toggleOpen}
+          className="flex items-center gap-0.5 rounded-full bg-amber-400/15 px-1.5 py-0.5 hover:bg-amber-400/25"
+          title="Mark paid"
+        >
+          Mark paid
+          <span className="text-[0.6rem] leading-none">▾</span>
         </button>
         <button
           type="button"
@@ -430,35 +476,50 @@ function BandsUnpaidTag({
       </span>
       {open && (
         <div className="absolute z-20 mt-1 left-0 w-60 rounded-lg border border-[#E8E0D0]/20 bg-[#2A2420] p-3 shadow-xl text-[#E8E0D0]">
-          <p className="text-xs uppercase tracking-wide text-[#E8E0D0]/40 mb-2">Band payouts</p>
-          {loading && <p className="text-xs text-[#E8E0D0]/40">Loading…</p>}
-          {loadError && (
-            <p className="text-xs text-red-300">
-              Failed to load.{' '}
-              <button type="button" onClick={loadBands} className="underline">
-                Retry
-              </button>
-            </p>
-          )}
-          {bands && bands.length === 0 && (
-            <p className="text-xs text-[#E8E0D0]/40">No bands linked to this show.</p>
-          )}
-          {bands && bands.length > 0 && (
-            <div className="space-y-1.5">
-              {bands.map((band) => (
-                <label
-                  key={band.bandId}
-                  className="flex items-center gap-2 text-sm cursor-pointer rounded px-1 py-0.5 hover:bg-[#E8E0D0]/5"
-                >
-                  <input
-                    type="checkbox"
-                    checked={band.paid}
-                    onChange={(e) => handleToggle(band.bandId, e.target.checked)}
-                  />
-                  <span className={band.paid ? 'text-[#E8E0D0]/50 line-through' : ''}>{band.name}</span>
-                </label>
-              ))}
-            </div>
+          <p className="text-xs uppercase tracking-wide text-[#E8E0D0]/40 mb-2">
+            {isBands ? 'Band payouts' : 'Payout'}
+          </p>
+          {isBands ? (
+            <>
+              {loading && <p className="text-xs text-[#E8E0D0]/40">Loading…</p>}
+              {loadError && (
+                <p className="text-xs text-red-300">
+                  Failed to load.{' '}
+                  <button type="button" onClick={loadBands} className="underline">
+                    Retry
+                  </button>
+                </p>
+              )}
+              {bands && bands.length === 0 && (
+                <p className="text-xs text-[#E8E0D0]/40">No bands linked to this show.</p>
+              )}
+              {bands && bands.length > 0 && (
+                <div className="space-y-1.5">
+                  {bands.map((band) => (
+                    <label
+                      key={band.bandId}
+                      className="flex items-center gap-2 text-sm cursor-pointer rounded px-1 py-0.5 hover:bg-[#E8E0D0]/5"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={band.paid}
+                        onChange={(e) => handleBandToggle(band.bandId, e.target.checked)}
+                      />
+                      <span className={band.paid ? 'text-[#E8E0D0]/50 line-through' : ''}>{band.name}</span>
+                    </label>
+                  ))}
+                </div>
+              )}
+            </>
+          ) : (
+            <label className="flex items-center gap-2 text-sm cursor-pointer rounded px-1 py-0.5 hover:bg-[#E8E0D0]/5">
+              <input
+                type="checkbox"
+                checked={false}
+                onChange={(e) => onMarkCrewPaid(show.id, crewRole, e.target.checked)}
+              />
+              <span>{crewName}</span>
+            </label>
           )}
         </div>
       )}
