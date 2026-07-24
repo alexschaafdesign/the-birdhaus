@@ -122,7 +122,7 @@ export async function POST(request: Request) {
       await setShowBands(Number(row.id), toShowBandPairs(resolvedBands), tx);
       await setShowVideos(Number(row.id), resolvedVideoRows, tx);
       for (const v of resolvedVideoRows) {
-        await setVideoBands(v.videoId, v.bandId ? [v.bandId] : [], tx);
+        await setVideoBands(v.videoId, v.bandIds, tx);
       }
       await setShowSoundEngineers(Number(row.id), soundEngineers as ShowSoundEngineer[], tx);
       return row;

@@ -188,7 +188,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         const resolvedVideoRows = await resolveShowVideos(resolvedVideos, tx);
         await setShowVideos(showId, resolvedVideoRows, tx);
         for (const v of resolvedVideoRows) {
-          await setVideoBands(v.videoId, v.bandId ? [v.bandId] : [], tx);
+          await setVideoBands(v.videoId, v.bandIds, tx);
         }
       }
 

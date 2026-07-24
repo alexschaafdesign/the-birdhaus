@@ -497,23 +497,32 @@ export async function setShowBands(showId: number, bands: ShowBandPair[], tx: Tx
   `;
 }
 
-// Maps each video's transient `bandIndex` (the video row's position within
-// the *same request's* bands array, as sent by ShowForm.tsx) to the real
-// bandId that resolveShowBandEntries just resolved that position to — bridges
-// "which band row is this a video of" to a real id even when that band was
-// just created in this same save. `bandIndex` is never itself persisted; a
-// video that already carries a `bandId` (from a prior save) keeps it as-is.
+// Maps each video's transient `bandIndexes` (positions within the *same
+// request's* bands array, as sent by ShowForm.tsx) to the real bandIds that
+// resolveShowBandEntries just resolved those positions to — bridges "which
+// bands is this a video of" to real ids even when a band was just created in
+// this same save. A video can be tagged to several bands (collaborative sets).
+// The indexes are never persisted; the legacy single `bandIndex` is still
+// accepted so older callers keep working.
 export function resolveVideoBandIds(
   videos: unknown[],
   resolvedBands: Show['bands'] | undefined
 ): Show['videos'] {
   return videos.map((raw) => {
-    const { bandIndex, ...rest } = raw as Record<string, unknown>;
-    if (typeof bandIndex === 'number' && resolvedBands?.[bandIndex]) {
-      const bandId = (resolvedBands[bandIndex] as { bandId?: number }).bandId;
-      if (bandId) return { ...rest, bandId } as Show['videos'][number];
-    }
-    return rest as Show['videos'][number];
+    const { bandIndex, bandIndexes, ...rest } = raw as Record<string, unknown>;
+    const indexes = Array.isArray(bandIndexes)
+      ? (bandIndexes as unknown[]).filter((i): i is number => typeof i === 'number')
+      : typeof bandIndex === 'number'
+        ? [bandIndex]
+        : [];
+    const bandIds = indexes
+      .map((i) => (resolvedBands?.[i] as { bandId?: number } | undefined)?.bandId)
+      .filter((id): id is number => typeof id === 'number' && id > 0);
+    // Dedupe in case the same band is picked twice.
+    const uniqueBandIds = [...new Set(bandIds)];
+    return (uniqueBandIds.length > 0
+      ? { ...rest, bandIds: uniqueBandIds }
+      : rest) as Show['videos'][number];
   });
 }
 

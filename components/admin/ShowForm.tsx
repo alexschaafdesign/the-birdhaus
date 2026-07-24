@@ -104,7 +104,9 @@ interface Band {
 interface Video {
   youtube: string;
   title: string;
-  bandIndex: number | null;
+  // Positions within `form.bands` that this video features — a set can involve
+  // more than one band (e.g. a collaborative performance).
+  bandIndexes: number[];
 }
 
 interface Audio {
@@ -137,7 +139,7 @@ export interface ShowFormInitialValues {
   ticketUrl?: string | null;
   externalTicketUrl?: string | null;
   rsvpForm?: boolean;
-  videos?: Array<{ youtube: string; title: string; bandId?: number }>;
+  videos?: Array<{ youtube: string; title: string; bandIds?: number[] }>;
   audio?: Array<{ bandcamp: string; title: string }>;
   photos?: string[];
   photoFolder?: string | null;
@@ -210,15 +212,14 @@ function initFormState(initial?: ShowFormInitialValues): FormState {
     videos: (initial?.videos ?? []).map((v) => ({
       youtube: v.youtube,
       title: v.title,
-      // Reverse-map the stored bandId back to a position in the bands list
-      // above, so the dropdown pre-selects correctly. Falls back to "none"
-      // if that band is no longer in this show's lineup.
-      bandIndex:
-        v.bandId != null
-          ? (initial?.bands ?? []).findIndex(
-              (b) => typeof b !== 'string' && b.bandId === v.bandId
-            )
-          : -1,
+      // Reverse-map each stored bandId back to a position in the bands list
+      // above so the pickers pre-select correctly. Bands no longer in this
+      // show's lineup are dropped.
+      bandIndexes: (v.bandIds ?? [])
+        .map((id) =>
+          (initial?.bands ?? []).findIndex((b) => typeof b !== 'string' && b.bandId === Number(id))
+        )
+        .filter((idx) => idx >= 0),
     })),
     audio: initial?.audio ?? [],
     photosText: (initial?.photos ?? []).join('\n'),
@@ -335,17 +336,21 @@ export default function ShowForm({
       return { ...prev, videos };
     });
   }
-  function updateVideoBandIndex(index: number, bandIndex: number) {
+  function toggleVideoBand(index: number, bandIndex: number) {
     setForm((prev) => {
       const videos = [...prev.videos];
-      videos[index] = { ...videos[index], bandIndex };
+      const current = videos[index].bandIndexes;
+      const bandIndexes = current.includes(bandIndex)
+        ? current.filter((i) => i !== bandIndex)
+        : [...current, bandIndex];
+      videos[index] = { ...videos[index], bandIndexes };
       return { ...prev, videos };
     });
   }
   function addVideo() {
     setForm((prev) => ({
       ...prev,
-      videos: [...prev.videos, { youtube: '', title: '', bandIndex: -1 }],
+      videos: [...prev.videos, { youtube: '', title: '', bandIndexes: [] }],
     }));
   }
   function removeVideo(index: number) {
@@ -455,8 +460,8 @@ export default function ShowForm({
     }
 
     // Bands with an empty name get dropped from the submitted array, which
-    // shifts positions — so a video's bandIndex (recorded against form.bands'
-    // original positions) needs remapping to where its band actually lands
+    // shifts positions — so a video's bandIndexes (recorded against form.bands'
+    // original positions) need remapping to where those bands actually land
     // in the filtered array the server will resolve against.
     const nonEmptyBands = form.bands
       .map((b, originalIndex) => ({ b, originalIndex }))
@@ -523,14 +528,15 @@ export default function ShowForm({
       videos: form.videos
         .filter((v) => v.youtube.trim() && v.title.trim())
         .map((v) => {
-          const filteredIndex =
-            v.bandIndex != null && v.bandIndex >= 0
-              ? filteredIndexByOriginal.get(v.bandIndex)
-              : undefined;
+          // Remap each selected band from its original lineup position to where
+          // it lands in the filtered (non-empty) bands array the server resolves.
+          const bandIndexes = v.bandIndexes
+            .map((i) => filteredIndexByOriginal.get(i))
+            .filter((i): i is number => i !== undefined);
           return {
             youtube: v.youtube.trim(),
             title: v.title.trim(),
-            ...(filteredIndex !== undefined ? { bandIndex: filteredIndex } : {}),
+            ...(bandIndexes.length > 0 ? { bandIndexes } : {}),
           };
         }),
       audio: form.audio.filter((a) => a.bandcamp.trim() && a.title.trim()),
@@ -924,18 +930,30 @@ export default function ShowForm({
                 </button>
               </div>
               {form.bands.length > 0 && (
-                <select
-                  value={video.bandIndex ?? -1}
-                  onChange={(e) => updateVideoBandIndex(index, Number(e.target.value))}
-                  className={`${inputClass} w-full`}
-                >
-                  <option value={-1}>Which band is this a video of? (optional)</option>
-                  {form.bands.map((band, bandIdx) => (
-                    <option key={bandIdx} value={bandIdx}>
-                      {band.name || `Band ${bandIdx + 1}`}
-                    </option>
-                  ))}
-                </select>
+                <div>
+                  <p className="text-xs text-[#E8E0D0]/40 mb-1.5">
+                    Which band(s) is this a video of? (optional)
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {form.bands.map((band, bandIdx) => {
+                      const selected = video.bandIndexes.includes(bandIdx);
+                      return (
+                        <button
+                          key={bandIdx}
+                          type="button"
+                          onClick={() => toggleVideoBand(index, bandIdx)}
+                          className={
+                            selected
+                              ? 'text-xs rounded-full px-2.5 py-1 border border-[#E8E0D0] bg-[#E8E0D0] text-[#2A2420]'
+                              : 'text-xs rounded-full px-2.5 py-1 border border-[#E8E0D0]/30 text-[#E8E0D0]/70 hover:border-[#E8E0D0]/60'
+                          }
+                        >
+                          {band.name || `Band ${bandIdx + 1}`}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
               )}
             </div>
           ))}

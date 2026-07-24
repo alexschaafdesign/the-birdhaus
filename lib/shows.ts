@@ -17,7 +17,7 @@ export interface Show {
   ticketUrl?: string;
   externalTicketUrl?: string;
   rsvpForm?: boolean;
-  videos: Array<{ youtube: string; title: string; bandId?: number }>;
+  videos: Array<{ youtube: string; title: string; bandIds?: number[] }>;
   audio?: Array<{ bandcamp: string; title: string }>;
   photos?: string[];
   photoFolder?: string;
@@ -117,22 +117,20 @@ export function bandsJoinFragment() {
 }
 
 // Same drop-in-replacement approach as bandsJoinFragment, for show_videos ->
-// videos. The old JSONB shape only ever carried a single optional bandId per
-// video, so the correlated subquery picks just the first-tagged band (by
-// sort_order) rather than fanning out — band_videos can hold more than one
-// tag per video (new capability), but that only shows up here once something
-// besides the show form starts using it.
+// videos. A video can be tagged to more than one band (e.g. a collaborative
+// set), so each entry carries the full ordered list of band_videos ids. The
+// json_agg returns null when a video has no band tags, which json_strip_nulls
+// then drops, leaving `bandIds` absent rather than an empty array.
 export function videosJoinFragment() {
   return sql`
     coalesce((
       select json_strip_nulls(json_agg(json_build_object(
         'youtube', v.youtube,
         'title', v.title,
-        'bandId', (
-          select bv.band_id from band_videos bv
+        'bandIds', (
+          select json_agg(bv.band_id order by bv.sort_order)
+          from band_videos bv
           where bv.video_id = v.id
-          order by bv.sort_order
-          limit 1
         )
       ) order by sv.sort_order))
       from show_videos sv
@@ -213,8 +211,14 @@ function coerceBandId(value: unknown): unknown {
 export function normalizeBandIds(input: unknown): unknown {
   if (!Array.isArray(input)) return input;
   return input.map((entry) => {
-    if (!entry || typeof entry !== 'object' || !('bandId' in entry)) return entry;
-    return { ...entry, bandId: coerceBandId((entry as { bandId?: unknown }).bandId) };
+    if (!entry || typeof entry !== 'object') return entry;
+    const e = entry as Record<string, unknown>;
+    let next = entry;
+    // Bands carry a single bandId; videos carry a bandIds array — coerce both
+    // so numeric-string ids from older JSONB self-heal on re-save.
+    if ('bandId' in e) next = { ...next, bandId: coerceBandId(e.bandId) };
+    if (Array.isArray(e.bandIds)) next = { ...next, bandIds: e.bandIds.map(coerceBandId) };
+    return next;
   });
 }
 
@@ -236,6 +240,10 @@ export function isValidBandsInput(input: unknown): input is Show['bands'] {
   );
 }
 
+function isOptionalIntArray(value: unknown): boolean {
+  return value === undefined || (Array.isArray(value) && value.every((n) => typeof n === 'number' && Number.isInteger(n)));
+}
+
 export function isValidVideosInput(input: unknown): input is Show['videos'] {
   return (
     Array.isArray(input) &&
@@ -245,7 +253,10 @@ export function isValidVideosInput(input: unknown): input is Show['videos'] {
       return (
         typeof v.youtube === 'string' &&
         typeof v.title === 'string' &&
-        (v.bandId === undefined || (typeof v.bandId === 'number' && Number.isInteger(v.bandId)))
+        // bandIndexes is the transient form input (positions in the lineup);
+        // bandIds is the resolved shape. Accept either, both optional.
+        isOptionalIntArray(v.bandIndexes) &&
+        isOptionalIntArray(v.bandIds)
       );
     })
   );

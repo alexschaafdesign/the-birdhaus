@@ -5,7 +5,7 @@ type Tx = postgres.TransactionSql;
 
 export interface ResolvedVideo {
   videoId: number;
-  bandId?: number;
+  bandIds: number[];
   sortOrder: number;
 }
 
@@ -35,7 +35,7 @@ export async function resolveShowVideos(videos: Show['videos'], tx: Tx): Promise
           )[0].id
         );
 
-    resolved.push({ videoId, bandId: raw.bandId, sortOrder: index });
+    resolved.push({ videoId, bandIds: raw.bandIds ?? [], sortOrder: index });
   }
 
   return resolved;
