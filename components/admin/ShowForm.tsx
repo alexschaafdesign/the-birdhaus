@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import BandNameInput, { type BandMatch, type TwinSceneBandOption } from './BandNameInput';
@@ -239,6 +239,28 @@ function initFormState(initial?: ShowFormInitialValues): FormState {
         declined: e.status === 'declined',
       })),
   };
+}
+
+// Consistent titled card used to group the form's fields, matching the
+// settlement form's section styling so the admin reads as one system.
+function Section({
+  title,
+  action,
+  children,
+}: {
+  title: string;
+  action?: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <section className="rounded-lg border border-[#E8E0D0]/15 bg-[#E8E0D0]/[0.03] p-4 sm:p-5">
+      <div className="flex items-center justify-between gap-3 mb-4">
+        <h2 className="text-sm font-semibold text-[#E8E0D0]/90">{title}</h2>
+        {action}
+      </div>
+      {children}
+    </section>
+  );
 }
 
 export default function ShowForm({
@@ -620,6 +642,7 @@ export default function ShowForm({
         </div>
       )}
 
+      <Section title="Show details">
       <div className="grid gap-3 sm:grid-cols-2">
         <div>
           <label className="block text-xs uppercase tracking-wide text-[#E8E0D0]/40 mb-1">Title*</label>
@@ -679,13 +702,23 @@ export default function ShowForm({
             previewClassName="mt-2 max-w-xs rounded"
           />
         </div>
+        <div className="sm:col-span-2">
+          <label className="block text-xs uppercase tracking-wide text-[#E8E0D0]/40 mb-1">Description</label>
+          <textarea
+            rows={3}
+            value={form.description}
+            onChange={(e) => set('description', e.target.value)}
+            className={`${inputClass} w-full resize-none`}
+          />
+        </div>
       </div>
+      </Section>
 
       {!isPastShow && <ShowDateAvailability date={form.date} />}
 
-      <div className="border border-[#E8E0D0]/15 rounded-lg p-4">
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-sm font-semibold text-[#E8E0D0]/80">Bands</h2>
+      <Section
+        title="Bands"
+        action={
           <div className="flex items-center gap-3">
             <label className="flex items-center gap-2 text-xs text-[#E8E0D0]/60">
               Bill size
@@ -701,7 +734,8 @@ export default function ShowForm({
               + add band
             </button>
           </div>
-        </div>
+        }
+      >
         <div className="space-y-3">
           {form.bands.map((band, index) => (
             <div key={index} className="border border-[#E8E0D0]/10 rounded p-3 space-y-2">
@@ -751,19 +785,10 @@ export default function ShowForm({
           ))}
           {form.bands.length === 0 && <p className="text-xs text-[#E8E0D0]/30">No bands added yet.</p>}
         </div>
-      </div>
+      </Section>
 
-      <div>
-        <label className="block text-xs uppercase tracking-wide text-[#E8E0D0]/40 mb-1">Description</label>
-        <textarea
-          rows={3}
-          value={form.description}
-          onChange={(e) => set('description', e.target.value)}
-          className={`${inputClass} w-full resize-none`}
-        />
-      </div>
-
-      <div className="grid gap-3 sm:grid-cols-2">
+      <Section title="Photographer">
+        <div className="grid gap-3 sm:grid-cols-2">
         <div>
           <label className="block text-xs uppercase tracking-wide text-[#E8E0D0]/40 mb-1">Photographer name</label>
           <input
@@ -780,10 +805,11 @@ export default function ShowForm({
             className={`${inputClass} w-full`}
           />
         </div>
-      </div>
+        </div>
+      </Section>
 
-      <div className="border border-[#E8E0D0]/15 rounded-lg p-4 space-y-4">
-        <h2 className="text-sm font-semibold text-[#E8E0D0]/80">Sound engineer</h2>
+      <Section title="Sound engineer">
+        <div className="space-y-4">
         <div>
           <label className="block text-xs uppercase tracking-wide text-[#E8E0D0]/40 mb-1">
             Confirmed engineer
@@ -849,9 +875,11 @@ export default function ShowForm({
             )}
           </div>
         </div>
-      </div>
+        </div>
+      </Section>
 
-      <div className="grid gap-3 sm:grid-cols-2">
+      <Section title="Tickets & visibility">
+        <div className="grid gap-3 sm:grid-cols-2">
         <div>
           <label className="block text-xs uppercase tracking-wide text-[#E8E0D0]/40 mb-1">Ticket URL</label>
           <input
@@ -870,7 +898,7 @@ export default function ShowForm({
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-6">
+      <div className="mt-4 pt-4 border-t border-[#E8E0D0]/10 flex flex-wrap gap-6">
         <label className="flex items-center gap-2 text-sm">
           <input
             type="checkbox"
@@ -896,14 +924,16 @@ export default function ShowForm({
           Advanced via email
         </label>
       </div>
+      </Section>
 
-      <div className="border border-[#E8E0D0]/15 rounded-lg p-4">
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-sm font-semibold text-[#E8E0D0]/80">Videos</h2>
+      <Section
+        title="Videos"
+        action={
           <button type="button" onClick={addVideo} className="text-xs border border-[#E8E0D0]/30 rounded px-2 py-1 hover:bg-[#E8E0D0]/10">
             + add video
           </button>
-        </div>
+        }
+      >
         <div className="space-y-2">
           {form.videos.map((video, index) => (
             <div key={index} className="border border-[#E8E0D0]/10 rounded p-3 space-y-2">
@@ -959,15 +989,16 @@ export default function ShowForm({
           ))}
           {form.videos.length === 0 && <p className="text-xs text-[#E8E0D0]/30">No videos added yet.</p>}
         </div>
-      </div>
+      </Section>
 
-      <div className="border border-[#E8E0D0]/15 rounded-lg p-4">
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-sm font-semibold text-[#E8E0D0]/80">Audio</h2>
+      <Section
+        title="Audio"
+        action={
           <button type="button" onClick={addAudio} className="text-xs border border-[#E8E0D0]/30 rounded px-2 py-1 hover:bg-[#E8E0D0]/10">
             + add audio
           </button>
-        </div>
+        }
+      >
         <div className="space-y-2">
           {form.audio.map((audio, index) => (
             <div key={index} className="grid gap-2 sm:grid-cols-[1fr_1fr_auto] items-start">
@@ -994,10 +1025,10 @@ export default function ShowForm({
           ))}
           {form.audio.length === 0 && <p className="text-xs text-[#E8E0D0]/30">No audio added yet.</p>}
         </div>
-      </div>
+      </Section>
 
-      <details className="border border-[#E8E0D0]/15 rounded-lg p-4">
-        <summary className="text-sm font-semibold text-[#E8E0D0]/80 cursor-pointer select-none">
+      <details className="rounded-lg border border-[#E8E0D0]/15 bg-[#E8E0D0]/[0.03] p-4 sm:p-5">
+        <summary className="text-sm font-semibold text-[#E8E0D0]/90 cursor-pointer select-none">
           Advanced (Cloudinary gallery · page content)
         </summary>
         <div className="mt-3 space-y-3">
