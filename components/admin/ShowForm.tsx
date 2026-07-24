@@ -11,6 +11,15 @@ import ShowDateAvailability from './ShowDateAvailability';
 const inputClass =
   'bg-transparent border border-[#E8E0D0]/30 rounded px-3 py-1.5 text-sm focus:outline-none focus:border-[#E8E0D0] placeholder:text-[#E8E0D0]/30';
 
+// Local (not UTC) YYYY-MM-DD for "is this show in the past?" comparisons.
+function todayISODate(): string {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, '0');
+  const d = String(now.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
 function slugify(text: string): string {
   return text
     .toLowerCase()
@@ -270,6 +279,10 @@ export default function ShowForm({
     if (form.slugTouched) return;
     setForm((prev) => ({ ...prev, slug: slugify(`${prev.date}-${prev.title}`) }));
   }, [form.date, form.title, form.slugTouched]);
+
+  // A show is "past" once its date is before today (local). Post-show edits
+  // hide the pre-show "bands available this date" helper.
+  const isPastShow = /^\d{4}-\d{2}-\d{2}$/.test(form.date) && form.date < todayISODate();
 
   function set<K extends keyof FormState>(field: K, value: FormState[K]) {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -655,7 +668,7 @@ export default function ShowForm({
         </div>
       </div>
 
-      <ShowDateAvailability date={form.date} />
+      {!isPastShow && <ShowDateAvailability date={form.date} />}
 
       <div className="border border-[#E8E0D0]/15 rounded-lg p-4">
         <div className="flex items-center justify-between mb-3">

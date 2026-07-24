@@ -1,7 +1,8 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
+import type { ShowBandPaidStatus } from '@/lib/bands';
 
 export interface ShowListItem {
   id: number;
@@ -157,6 +158,30 @@ export default function ShowsList({ initialShows, today }: { initialShows: ShowL
     setIgnored(show.id, [...current, key]);
   }
 
+  // Marks one band paid/unpaid for a show and adjusts the show's cached
+  // paid count so the "N bands unpaid" tag updates without a reload.
+  async function markBandPaid(showId: number, bandId: number, paid: boolean) {
+    const previous = shows;
+    setShows((cur) =>
+      cur.map((s) =>
+        s.id === showId
+          ? { ...s, bands_paid_count: Math.max(0, (s.bands_paid_count ?? 0) + (paid ? 1 : -1)) }
+          : s
+      )
+    );
+    try {
+      const res = await fetch(`/api/admin/settlements/${showId}/bands/${bandId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ paid }),
+      });
+      if (!res.ok) throw new Error();
+    } catch {
+      setShows(previous);
+      setErrorMessage('Failed to update payout — try again.');
+    }
+  }
+
   return (
     <div>
       {errorMessage && (
@@ -198,6 +223,7 @@ export default function ShowsList({ initialShows, today }: { initialShows: ShowL
             today={today}
             onDelete={handleDelete}
             onDismissIssue={dismissIssue}
+            onMarkBandPaid={markBandPaid}
             issueCategories={['statusRsvp', 'preShow']}
           />
           <ShowGroup
@@ -206,6 +232,7 @@ export default function ShowsList({ initialShows, today }: { initialShows: ShowL
             today={today}
             onDelete={handleDelete}
             onDismissIssue={dismissIssue}
+            onMarkBandPaid={markBandPaid}
             issueCategories={['postShow']}
           />
         </div>
@@ -220,6 +247,7 @@ function ShowGroup({
   today,
   onDelete,
   onDismissIssue,
+  onMarkBandPaid,
   issueCategories,
 }: {
   title: string;
@@ -227,6 +255,7 @@ function ShowGroup({
   today: string;
   onDelete: (id: number, title: string) => void;
   onDismissIssue: (show: ShowListItem, key: string) => void;
+  onMarkBandPaid: (showId: number, bandId: number, paid: boolean) => void;
   issueCategories: IssueCategory[];
 }) {
   if (shows.length === 0) return null;
@@ -252,9 +281,12 @@ function ShowGroup({
                   <span className="text-sm text-[#E8E0D0]/50 font-mono">{show.date}</span>
                   <span className="font-semibold truncate">{show.title}</span>
                   {show.announced ? (
-                    <span className="text-xs px-2 py-0.5 rounded-full border border-green-400/40 text-green-300">
-                      Announced
-                    </span>
+                    // "Announced" is a pre-show publish state; drop it for past shows.
+                    show.date >= today && (
+                      <span className="text-xs px-2 py-0.5 rounded-full border border-green-400/40 text-green-300">
+                        Announced
+                      </span>
+                    )
                   ) : (
                     <span className="text-xs px-2 py-0.5 rounded-full border border-[#E8E0D0]/30 text-[#E8E0D0]/50">
                       Draft
@@ -269,22 +301,32 @@ function ShowGroup({
                   {clusters.map((cluster, clusterIndex) => (
                     <span key={clusterIndex} className="flex items-center gap-1.5 flex-wrap">
                       {clusterIndex > 0 && <span className="w-px h-4 bg-[#E8E0D0]/15" />}
-                      {cluster.map((issue) => (
-                        <span
-                          key={issue.key}
-                          className="flex items-center gap-1.5 text-xs pl-2 pr-1 py-0.5 rounded-full border border-amber-400/40 text-amber-300 whitespace-nowrap"
-                        >
-                          {issue.label}
-                          <button
-                            type="button"
-                            onClick={() => onDismissIssue(show, issue.key)}
-                            title="Not an issue for this show"
-                            className="text-amber-300/50 hover:text-amber-300 leading-none"
+                      {cluster.map((issue) =>
+                        issue.key === 'bands-unpaid' ? (
+                          <BandsUnpaidTag
+                            key={issue.key}
+                            show={show}
+                            label={issue.label}
+                            onDismiss={() => onDismissIssue(show, issue.key)}
+                            onMarkBandPaid={onMarkBandPaid}
+                          />
+                        ) : (
+                          <span
+                            key={issue.key}
+                            className="flex items-center gap-1.5 text-xs pl-2 pr-1 py-0.5 rounded-full border border-amber-400/40 text-amber-300 whitespace-nowrap"
                           >
-                            ×
-                          </button>
-                        </span>
-                      ))}
+                            {issue.label}
+                            <button
+                              type="button"
+                              onClick={() => onDismissIssue(show, issue.key)}
+                              title="Not an issue for this show"
+                              className="text-amber-300/50 hover:text-amber-300 leading-none"
+                            >
+                              ×
+                            </button>
+                          </span>
+                        )
+                      )}
                     </span>
                   ))}
                 </div>
@@ -312,5 +354,114 @@ function ShowGroup({
         })}
       </div>
     </section>
+  );
+}
+
+// The "N bands unpaid" tag, made interactive: clicking it opens a popover
+// that lazy-loads this show's bands and lets you check each one off as paid.
+// Toggling calls back up so the tag's count updates live.
+function BandsUnpaidTag({
+  show,
+  label,
+  onDismiss,
+  onMarkBandPaid,
+}: {
+  show: ShowListItem;
+  label: string;
+  onDismiss: () => void;
+  onMarkBandPaid: (showId: number, bandId: number, paid: boolean) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [bands, setBands] = useState<ShowBandPaidStatus[] | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState(false);
+  const containerRef = useRef<HTMLSpanElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function onDocMouseDown(e: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', onDocMouseDown);
+    return () => document.removeEventListener('mousedown', onDocMouseDown);
+  }, [open]);
+
+  async function loadBands() {
+    setLoading(true);
+    setLoadError(false);
+    try {
+      const res = await fetch(`/api/admin/settlements/${show.id}/bands`);
+      if (!res.ok) throw new Error();
+      setBands((await res.json()) as ShowBandPaidStatus[]);
+    } catch {
+      setLoadError(true);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function toggleOpen() {
+    const next = !open;
+    setOpen(next);
+    if (next && bands === null && !loading) loadBands();
+  }
+
+  function handleToggle(bandId: number, paid: boolean) {
+    setBands((cur) => (cur ? cur.map((b) => (b.bandId === bandId ? { ...b, paid } : b)) : cur));
+    onMarkBandPaid(show.id, bandId, paid);
+  }
+
+  return (
+    <span ref={containerRef} className="relative">
+      <span className="flex items-center gap-1.5 text-xs pl-2 pr-1 py-0.5 rounded-full border border-amber-400/40 text-amber-300 whitespace-nowrap">
+        <button type="button" onClick={toggleOpen} className="hover:underline" title="Mark bands paid">
+          {label}
+        </button>
+        <button
+          type="button"
+          onClick={onDismiss}
+          title="Not an issue for this show"
+          className="text-amber-300/50 hover:text-amber-300 leading-none"
+        >
+          ×
+        </button>
+      </span>
+      {open && (
+        <div className="absolute z-20 mt-1 left-0 w-60 rounded-lg border border-[#E8E0D0]/20 bg-[#2A2420] p-3 shadow-xl text-[#E8E0D0]">
+          <p className="text-xs uppercase tracking-wide text-[#E8E0D0]/40 mb-2">Band payouts</p>
+          {loading && <p className="text-xs text-[#E8E0D0]/40">Loading…</p>}
+          {loadError && (
+            <p className="text-xs text-red-300">
+              Failed to load.{' '}
+              <button type="button" onClick={loadBands} className="underline">
+                Retry
+              </button>
+            </p>
+          )}
+          {bands && bands.length === 0 && (
+            <p className="text-xs text-[#E8E0D0]/40">No bands linked to this show.</p>
+          )}
+          {bands && bands.length > 0 && (
+            <div className="space-y-1.5">
+              {bands.map((band) => (
+                <label
+                  key={band.bandId}
+                  className="flex items-center gap-2 text-sm cursor-pointer rounded px-1 py-0.5 hover:bg-[#E8E0D0]/5"
+                >
+                  <input
+                    type="checkbox"
+                    checked={band.paid}
+                    onChange={(e) => handleToggle(band.bandId, e.target.checked)}
+                  />
+                  <span className={band.paid ? 'text-[#E8E0D0]/50 line-through' : ''}>{band.name}</span>
+                </label>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </span>
   );
 }
