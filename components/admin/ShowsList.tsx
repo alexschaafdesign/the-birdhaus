@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import type { ShowBandPaidStatus } from '@/lib/bands';
 
 export interface ShowListItem {
@@ -125,17 +126,6 @@ export default function ShowsList({ initialShows, today }: { initialShows: ShowL
     return { upcoming, past };
   }, [filtered, today]);
 
-  async function handleDelete(id: number, title: string) {
-    if (!confirm(`Delete "${title}"? This can't be undone.`)) return;
-    setShows((prev) => prev.filter((s) => s.id !== id));
-    try {
-      const res = await fetch(`/api/admin/shows/${id}`, { method: 'DELETE' });
-      if (!res.ok) throw new Error();
-    } catch {
-      setErrorMessage('Failed to delete — refresh and try again.');
-    }
-  }
-
   async function setIgnored(showId: number, nextIgnored: string[]) {
     const previous = shows;
     setShows((cur) => cur.map((s) => (s.id === showId ? { ...s, ignored_health_checks: nextIgnored } : s)));
@@ -240,7 +230,6 @@ export default function ShowsList({ initialShows, today }: { initialShows: ShowL
             title="Upcoming Shows"
             shows={upcoming}
             today={today}
-            onDelete={handleDelete}
             onDismissIssue={dismissIssue}
             onMarkBandPaid={markBandPaid}
             onMarkCrewPaid={markCrewPaid}
@@ -250,7 +239,6 @@ export default function ShowsList({ initialShows, today }: { initialShows: ShowL
             title="Past Shows"
             shows={past}
             today={today}
-            onDelete={handleDelete}
             onDismissIssue={dismissIssue}
             onMarkBandPaid={markBandPaid}
             onMarkCrewPaid={markCrewPaid}
@@ -266,7 +254,6 @@ function ShowGroup({
   title,
   shows,
   today,
-  onDelete,
   onDismissIssue,
   onMarkBandPaid,
   onMarkCrewPaid,
@@ -275,12 +262,12 @@ function ShowGroup({
   title: string;
   shows: ShowListItem[];
   today: string;
-  onDelete: (id: number, title: string) => void;
   onDismissIssue: (show: ShowListItem, key: string) => void;
   onMarkBandPaid: (showId: number, bandId: number, paid: boolean) => void;
   onMarkCrewPaid: (showId: number, role: 'sound' | 'photographer', paid: boolean) => void;
   issueCategories: IssueCategory[];
 }) {
+  const router = useRouter();
   if (shows.length === 0) return null;
   return (
     <section>
@@ -297,7 +284,8 @@ function ShowGroup({
           return (
             <div
               key={show.id}
-              className="flex items-center justify-between gap-4 border border-[#E8E0D0]/15 rounded-lg px-4 py-3"
+              onClick={() => router.push(`/admin/shows/${show.id}`)}
+              className="flex items-center justify-between gap-4 border border-[#E8E0D0]/15 rounded-lg px-4 py-3 cursor-pointer hover:bg-[#E8E0D0]/[0.04] transition-colors"
             >
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-3 flex-wrap">
@@ -345,7 +333,10 @@ function ShowGroup({
                             {issue.label}
                             <button
                               type="button"
-                              onClick={() => onDismissIssue(show, issue.key)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onDismissIssue(show, issue.key);
+                              }}
                               title="Not an issue for this show"
                               className="text-amber-300/50 hover:text-amber-300 leading-none"
                             >
@@ -357,24 +348,6 @@ function ShowGroup({
                     </span>
                   ))}
                 </div>
-              </div>
-              <div className="flex items-center gap-3 flex-shrink-0 text-sm">
-                <Link
-                  href={`/shows/${show.slug}`}
-                  target="_blank"
-                  className="text-[#E8E0D0]/50 hover:text-[#E8E0D0]"
-                >
-                  View
-                </Link>
-                <Link href={`/admin/shows/${show.id}`} className="text-[#E8E0D0]/80 hover:text-[#E8E0D0] underline">
-                  Edit
-                </Link>
-                <button
-                  onClick={() => onDelete(show.id, show.title)}
-                  className="text-red-400/70 hover:text-red-400"
-                >
-                  Delete
-                </button>
               </div>
             </div>
           );
@@ -453,7 +426,8 @@ function PaidTag({
     (issueKey === 'sound-unpaid' ? 'Sound engineer' : 'Photographer');
 
   return (
-    <span ref={containerRef} className="relative">
+    // Stop clicks bubbling to the row (which navigates to the show's edit page).
+    <span ref={containerRef} className="relative" onClick={(e) => e.stopPropagation()}>
       <span className="flex items-center gap-1.5 text-xs pl-2 pr-1 py-0.5 rounded-full border border-amber-400/40 text-amber-300 whitespace-nowrap">
         {label}
         <button
