@@ -23,7 +23,12 @@ interface EditForm {
   emailListOptIn: boolean;
 }
 
-export default function RsvpSummary({ showId, rsvps: initialRsvps }: { showId: number } & RsvpSummaryData) {
+export default function RsvpSummary({
+  showId,
+  showTitle,
+  showDate,
+  rsvps: initialRsvps,
+}: { showId: number; showTitle: string; showDate: string } & RsvpSummaryData) {
   const [rsvps, setRsvps] = useState<Rsvp[]>(initialRsvps);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -38,6 +43,81 @@ export default function RsvpSummary({ showId, rsvps: initialRsvps }: { showId: n
 
   const totalCount = rsvps.length;
   const totalGuests = rsvps.reduce((sum, r) => sum + r.guests, 0);
+
+  function handlePrint() {
+    const sorted = [...rsvps].sort((a, b) =>
+      a.name.localeCompare(b.name, 'en-US', { sensitivity: 'base' })
+    );
+    const prettyDate = showDate
+      ? new Date(`${showDate}T00:00:00`).toLocaleDateString('en-US', {
+          weekday: 'long',
+          month: 'long',
+          day: 'numeric',
+          year: 'numeric',
+        })
+      : '';
+
+    const esc = (s: string) =>
+      s.replace(/[&<>"']/g, (c) =>
+        ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c] as string
+      );
+
+    const rows = sorted
+      .map(
+        (r) => `<tr>
+          <td class="check"></td>
+          <td class="name">${esc(r.name)}</td>
+          <td class="guests">${r.guests}</td>
+          <td class="email">${esc(r.email)}</td>
+        </tr>`
+      )
+      .join('');
+
+    const html = `<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>Door list — ${esc(showTitle)}</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; color: #111; margin: 32px; }
+  h1 { font-size: 20px; margin: 0 0 2px; }
+  .sub { font-size: 13px; color: #555; margin: 0 0 16px; }
+  .totals { font-size: 12px; color: #555; margin: 0 0 16px; }
+  table { width: 100%; border-collapse: collapse; }
+  th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: #666; border-bottom: 2px solid #111; padding: 4px 6px; }
+  td { padding: 8px 6px; border-bottom: 1px solid #ccc; font-size: 14px; vertical-align: middle; }
+  td.check { width: 24px; }
+  td.check::before { content: ""; display: inline-block; width: 16px; height: 16px; border: 1.5px solid #111; border-radius: 3px; }
+  td.name { font-weight: 600; white-space: nowrap; }
+  td.guests { width: 60px; text-align: center; }
+  td.email { color: #555; font-size: 12px; }
+  th.guests { text-align: center; }
+  @media print { body { margin: 0; } }
+</style>
+</head>
+<body>
+  <h1>${esc(showTitle)}</h1>
+  ${prettyDate ? `<p class="sub">${esc(prettyDate)}</p>` : ''}
+  <p class="totals">${totalCount} RSVP${totalCount === 1 ? '' : 's'} · ${totalGuests} guest${totalGuests === 1 ? '' : 's'}</p>
+  <table>
+    <thead>
+      <tr><th></th><th>Name</th><th class="guests">Guests</th><th>Email</th></tr>
+    </thead>
+    <tbody>${rows || '<tr><td></td><td colspan="3">No RSVPs yet.</td></tr>'}</tbody>
+  </table>
+  <script>window.onload = function () { window.print(); };</script>
+</body>
+</html>`;
+
+    const win = window.open('', '_blank');
+    if (!win) {
+      setError('Could not open the print window — allow pop-ups and try again.');
+      return;
+    }
+    win.document.write(html);
+    win.document.close();
+  }
 
   async function handleAdd(e: FormEvent) {
     e.preventDefault();
@@ -138,9 +218,19 @@ export default function RsvpSummary({ showId, rsvps: initialRsvps }: { showId: n
     <div className="border border-[#E8E0D0]/15 rounded-lg p-4">
       <div className="flex items-center justify-between mb-3">
         <h2 className="text-sm font-semibold text-[#E8E0D0]/80">RSVPs</h2>
-        <span className="text-xs text-[#E8E0D0]/50">
-          {totalCount} RSVP{totalCount === 1 ? '' : 's'} · {totalGuests} guest{totalGuests === 1 ? '' : 's'}
-        </span>
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-[#E8E0D0]/50">
+            {totalCount} RSVP{totalCount === 1 ? '' : 's'} · {totalGuests} guest{totalGuests === 1 ? '' : 's'}
+          </span>
+          <button
+            type="button"
+            onClick={handlePrint}
+            disabled={rsvps.length === 0}
+            className="border border-[#E8E0D0]/40 rounded px-3 py-1 text-xs hover:bg-[#E8E0D0]/10 transition-colors disabled:opacity-40"
+          >
+            Print door list
+          </button>
+        </div>
       </div>
 
       {error && (
