@@ -998,7 +998,7 @@ export default function ShowForm({
 
       <details className="border border-[#E8E0D0]/15 rounded-lg p-4">
         <summary className="text-sm font-semibold text-[#E8E0D0]/80 cursor-pointer select-none">
-          Advanced / Cloudinary gallery
+          Advanced (Cloudinary gallery · page content)
         </summary>
         <div className="mt-3 space-y-3">
           <div>
@@ -1053,20 +1053,19 @@ export default function ShowForm({
               />
             </div>
           </div>
+          <div>
+            <label className="block text-xs uppercase tracking-wide text-[#E8E0D0]/40 mb-1">
+              Content (markdown)
+            </label>
+            <textarea
+              rows={8}
+              value={form.content}
+              onChange={(e) => set('content', e.target.value)}
+              className={`${inputClass} w-full resize-y font-mono`}
+            />
+          </div>
         </div>
       </details>
-
-      <div>
-        <label className="block text-xs uppercase tracking-wide text-[#E8E0D0]/40 mb-1">
-          Content (markdown)
-        </label>
-        <textarea
-          rows={8}
-          value={form.content}
-          onChange={(e) => set('content', e.target.value)}
-          className={`${inputClass} w-full resize-y font-mono`}
-        />
-      </div>
 
       <div className="flex items-center justify-between pt-2 border-t border-[#E8E0D0]/10">
         {mode === 'edit' ? (
