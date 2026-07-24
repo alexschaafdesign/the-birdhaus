@@ -124,6 +124,7 @@ export default function SettlementForm({ showId, bandCount, bands: initialBands,
   const [bands, setBands] = useState<ShowBandPaidStatus[]>(initialBands);
   const [bandPayError, setBandPayError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function toggleBandPaid(bandId: number, paid: boolean) {
@@ -231,8 +232,11 @@ export default function SettlementForm({ showId, bandCount, bands: initialBands,
       });
       const body = await res.json().catch(() => null);
       if (!res.ok) throw new Error(body?.error || 'Failed to save settlement');
-      router.push(`/admin/shows/${showId}/settlement`);
+      // Stay on the page (edit-in-place); refresh so the server re-renders the
+      // header's Copy/PDF actions now that a record exists.
       router.refresh();
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2500);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save settlement');
     } finally {
@@ -522,7 +526,8 @@ export default function SettlementForm({ showId, bandCount, bands: initialBands,
         </div>
       </div>
 
-      <div className="flex items-center justify-end pt-2 border-t border-[#E8E0D0]/10">
+      <div className="flex items-center justify-end gap-3 pt-2 border-t border-[#E8E0D0]/10">
+        {saved && <span className="text-sm text-emerald-300">Saved ✓</span>}
         <button
           type="submit"
           disabled={submitting}
