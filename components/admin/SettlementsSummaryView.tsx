@@ -111,10 +111,12 @@ function buildCsv(data: SummaryResponse): string {
   lines.push('');
 
   lines.push('Per show');
-  lines.push(['Date', 'Show', 'Gross income', 'Venue net', 'Deal type'].join(','));
+  lines.push(['Date', 'Show', 'Gross income', 'Venue net', 'Running total', 'Deal type'].join(','));
+  let runningTotal = 0;
   for (const row of data.perShow) {
+    runningTotal += row.venueNet;
     lines.push(
-      [row.showDate, row.showName, row.grossIncome, row.venueNet, DEAL_TYPE_LABELS[row.dealType]]
+      [row.showDate, row.showName, row.grossIncome, row.venueNet, runningTotal, DEAL_TYPE_LABELS[row.dealType]]
         .map(csvEscape)
         .join(',')
     );
@@ -322,25 +324,35 @@ export default function SettlementsSummaryView() {
                     <tr className="text-left text-xs uppercase tracking-wide text-[#E8E0D0]/40 border-b border-[#E8E0D0]/10">
                       <th className="py-2 pr-4">Date</th>
                       <th className="py-2 pr-4">Show</th>
-                      <th className="py-2 pr-4">Gross income</th>
-                      <th className="py-2 pr-4">Venue net</th>
+                      <th className="py-2 pr-4 text-right">Gross income</th>
+                      <th className="py-2 pr-4 text-right">Venue net</th>
+                      <th className="py-2 pr-4 text-right">Running total</th>
                       <th className="py-2 pr-4">Deal type</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {data.perShow.map((row) => (
-                      <tr
-                        key={row.showId}
-                        onClick={() => router.push(`/admin/shows/${row.showId}/settlement`)}
-                        className="border-b border-[#E8E0D0]/5 hover:bg-[#E8E0D0]/5 cursor-pointer"
-                      >
-                        <td className="py-2 pr-4">{row.showDate}</td>
-                        <td className="py-2 pr-4 underline">{row.showName}</td>
-                        <td className="py-2 pr-4">{formatCurrency(row.grossIncome)}</td>
-                        <td className="py-2 pr-4">{formatCurrency(row.venueNet)}</td>
-                        <td className="py-2 pr-4">{DEAL_TYPE_LABELS[row.dealType]}</td>
-                      </tr>
-                    ))}
+                    {(() => {
+                      let runningTotal = 0;
+                      return data.perShow.map((row) => {
+                        runningTotal += row.venueNet;
+                        return (
+                          <tr
+                            key={row.showId}
+                            onClick={() => router.push(`/admin/shows/${row.showId}/settlement`)}
+                            className="border-b border-[#E8E0D0]/5 hover:bg-[#E8E0D0]/5 cursor-pointer"
+                          >
+                            <td className="py-2 pr-4 whitespace-nowrap">{row.showDate}</td>
+                            <td className="py-2 pr-4 underline">{row.showName}</td>
+                            <td className="py-2 pr-4 text-right tabular-nums">{formatCurrency(row.grossIncome)}</td>
+                            <td className="py-2 pr-4 text-right tabular-nums">{formatCurrency(row.venueNet)}</td>
+                            <td className="py-2 pr-4 text-right tabular-nums font-semibold">
+                              {formatCurrency(runningTotal)}
+                            </td>
+                            <td className="py-2 pr-4">{DEAL_TYPE_LABELS[row.dealType]}</td>
+                          </tr>
+                        );
+                      });
+                    })()}
                   </tbody>
                 </table>
               </div>
