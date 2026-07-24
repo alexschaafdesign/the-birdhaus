@@ -243,9 +243,14 @@ function initFormState(initial?: ShowFormInitialValues): FormState {
 export default function ShowForm({
   mode,
   initialValues,
+  embedded = false,
 }: {
   mode: 'create' | 'edit';
   initialValues?: ShowFormInitialValues;
+  // When rendered inside the per-show tabbed workspace the surrounding layout
+  // already supplies the title / back link / tab nav, so the form's own header
+  // is suppressed to avoid duplicating them.
+  embedded?: boolean;
 }) {
   const router = useRouter();
   const [form, setForm] = useState<FormState>(() => initFormState(initialValues));
@@ -577,26 +582,28 @@ export default function ShowForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">{mode === 'create' ? 'New show' : 'Edit show'}</h1>
-        <div className="flex items-center gap-4">
-          {mode === 'edit' && initialValues?.id && (
-            <Link
-              href={`/admin/shows/${initialValues.id}/settlement`}
+      {!embedded && (
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-bold">{mode === 'create' ? 'New show' : 'Edit show'}</h1>
+          <div className="flex items-center gap-4">
+            {mode === 'edit' && initialValues?.id && (
+              <Link
+                href={`/admin/shows/${initialValues.id}/settlement`}
+                className="text-sm text-[#E8E0D0]/60 hover:text-[#E8E0D0]"
+              >
+                Settlement →
+              </Link>
+            )}
+            <button
+              type="button"
+              onClick={() => router.push('/admin/shows')}
               className="text-sm text-[#E8E0D0]/60 hover:text-[#E8E0D0]"
             >
-              Settlement →
-            </Link>
-          )}
-          <button
-            type="button"
-            onClick={() => router.push('/admin/shows')}
-            className="text-sm text-[#E8E0D0]/60 hover:text-[#E8E0D0]"
-          >
-            ← Back to shows
-          </button>
+              ← Back to shows
+            </button>
+          </div>
         </div>
-      </div>
+      )}
 
       {error && (
         <div className="border border-red-400/40 bg-red-400/10 text-red-300 text-sm rounded px-4 py-2 flex justify-between items-center">
