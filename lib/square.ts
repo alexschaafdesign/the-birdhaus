@@ -1,0 +1,317 @@
+// lib/square.ts — best-effort sync of a Birdhaus show to a Square Catalog EVENT
+// item plus one Payment Link per donation tier. Gated behind SQUARE_SYNC_ENABLED
+// and defaults OFF: there is no Square Sandbox support for the Catalog API, so
+// local dev must never hit the live API by accident.
+//
+// Env (loaded from .env.local for local dev / one-off scripts; in Next/Vercel
+// the file is absent and these come from the platform):
+//   SQUARE_ACCESS_TOKEN     - Bearer token
+//   SQUARE_LOCATION_ID      - location for the payment-link orders
+//   SQUARE_VENUE_ADDRESS_ID - existing catalog ADDRESS id, reused as-is (never recreated)
+//   SQUARE_SYNC_ENABLED     - "true" to actually call Square; anything else = skip
+
+try {
+  // Populate process.env from .env.local when running locally. In production the
+  // file is absent and env is already injected, so swallow the ENOENT.
+  process.loadEnvFile('.env.local');
+} catch {
+  // no .env.local here — rely on the already-present process.env
+}
+
+const SQUARE_VERSION = '2026-07-15';
+const SQUARE_BASE = 'https://connect.squareup.com';
+const EVENT_TIME_ZONE = 'America/Chicago';
+const EVENT_DURATION_HOURS = 4; // matches the confirmed real item (7pm doors -> 11pm end)
+
+// Donation tiers are hardcoded constants for this slice — Postgres has no
+// per-show price/cover concept yet.
+const TIERS = [
+  { key: 'reduced', label: 'Reduced donation ($10)', amountCents: 1000 },
+  { key: 'standard', label: 'Standard donation ($20)', amountCents: 2000 },
+  { key: 'topTier', label: 'Top-tier donation ($30)', amountCents: 3000 },
+] as const;
+
+export type ShowInput = {
+  id: number | string;
+  title: string;
+  date: string; // YYYY-MM-DD, the local venue date
+  doors_time?: string | null;
+  show_time?: string | null;
+  flyer?: string | null; // public image URL; uploaded to Square as the item photo
+};
+
+export type ShowTierResult = {
+  tierLabel: string;
+  amountCents: number;
+  variationId: string;
+  paymentLinkId: string;
+  orderId: string | null;
+  url: string | null;
+};
+
+export type SyncShowResult = {
+  itemId: string;
+  imageId: string | null;
+  tiers: ShowTierResult[];
+};
+
+type CatalogImageResponse = {
+  image?: { id: string };
+};
+
+function requireEnv(name: string): string {
+  const value = process.env[name];
+  if (!value) throw new Error(`[square] missing required env ${name}`);
+  return value;
+}
+
+type CatalogUpsertResponse = {
+  id_mappings?: { client_object_id: string; object_id: string }[];
+};
+
+type PaymentLinkResponse = {
+  payment_link?: { id: string; order_id?: string; url?: string };
+};
+
+async function squareFetch<T>(path: string, init: RequestInit, token: string): Promise<T> {
+  const res = await fetch(`${SQUARE_BASE}${path}`, {
+    ...init,
+    headers: {
+      'Square-Version': SQUARE_VERSION,
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+      ...(init.headers ?? {}),
+    },
+  });
+  if (!res.ok) {
+    throw new Error(`[square] ${init.method ?? 'GET'} ${path} failed: ${res.status} ${await res.text()}`);
+  }
+  return res.json() as Promise<T>;
+}
+
+// Fetch a show flyer by URL and upload the raw bytes to Square as a catalog
+// IMAGE, attached to `itemId` as its primary photo. Square requires the actual
+// bytes (not a URL); shows.flyer is a public CDN URL, so we just stream it.
+async function uploadFlyer(itemId: string, flyerUrl: string, showId: number | string, token: string): Promise<string> {
+  const img = await fetch(flyerUrl);
+  if (!img.ok) throw new Error(`[square] could not fetch flyer ${flyerUrl}: ${img.status}`);
+  const bytes = new Uint8Array(await img.arrayBuffer());
+  const contentType = img.headers.get('content-type') ?? 'image/png';
+
+  const form = new FormData();
+  form.append(
+    'request',
+    new Blob(
+      [
+        JSON.stringify({
+          idempotency_key: `show-image-${showId}`,
+          object_id: itemId,
+          is_primary: true,
+          image: { type: 'IMAGE', id: '#flyer', image_data: { caption: 'Show flyer' } },
+        }),
+      ],
+      { type: 'application/json' },
+    ),
+  );
+  form.append('file', new Blob([bytes], { type: contentType }), 'flyer');
+
+  // Not squareFetch: multipart must NOT carry a JSON Content-Type — fetch sets
+  // the multipart boundary itself when given a FormData body.
+  const res = await fetch(`${SQUARE_BASE}/v2/catalog/images`, {
+    method: 'POST',
+    headers: { 'Square-Version': SQUARE_VERSION, Authorization: `Bearer ${token}` },
+    body: form,
+  });
+  if (!res.ok) {
+    throw new Error(`[square] image upload failed: ${res.status} ${await res.text()}`);
+  }
+  const data = (await res.json()) as CatalogImageResponse;
+  if (!data.image?.id) throw new Error('[square] image upload returned no image id');
+  return data.image.id;
+}
+
+// --- local wall time -> UTC, DST-correct (no hardcoded offset) ----------------
+function parseLocalTime(raw: string | null | undefined): { hour: number; minute: number } | null {
+  if (!raw) return null;
+  const text = raw.trim();
+  const m = text.match(/^(\d{1,2})(?::(\d{2}))?\s*([ap])\.?m\.?$/i) ?? text.match(/^(\d{1,2}):(\d{2})$/);
+  if (!m) return null;
+  let hour = Number(m[1]);
+  const minute = m[2] ? Number(m[2]) : 0;
+  const ampm = m[3]?.toLowerCase();
+  if (ampm) {
+    if (hour === 12) hour = 0;
+    if (ampm === 'p') hour += 12;
+  }
+  if (hour > 23 || minute > 59) return null;
+  return { hour, minute };
+}
+
+// How far ahead of UTC the zone is, in ms, at the given instant.
+function tzOffsetMs(timeZone: string, date: Date): number {
+  const dtf = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    hourCycle: 'h23',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  });
+  const p: Record<string, number> = {};
+  for (const part of dtf.formatToParts(date)) {
+    if (part.type !== 'literal') p[part.type] = Number(part.value);
+  }
+  const asUTC = Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute, p.second);
+  return asUTC - date.getTime();
+}
+
+// Interpret (dateStr, hour, minute) as a wall-clock time in timeZone and return
+// the corresponding UTC instant. Two passes so DST transitions resolve cleanly.
+function wallTimeToUtc(dateStr: string, hour: number, minute: number, timeZone: string): Date {
+  const [y, mo, d] = dateStr.split('-').map(Number);
+  const guess = Date.UTC(y, mo - 1, d, hour, minute);
+  let offset = tzOffsetMs(timeZone, new Date(guess));
+  offset = tzOffsetMs(timeZone, new Date(guess - offset));
+  return new Date(guess - offset);
+}
+
+function computeEventWindow(show: ShowInput): { startAt: string; endAt: string } {
+  // The confirmed real item used the 7pm doors time as the event start, so
+  // prefer doors_time and fall back to show_time.
+  const local = parseLocalTime(show.doors_time) ?? parseLocalTime(show.show_time);
+  if (!local) {
+    throw new Error(`[square] show ${show.id} has no parseable doors_time/show_time for the event start`);
+  }
+  const start = wallTimeToUtc(show.date, local.hour, local.minute, EVENT_TIME_ZONE);
+  const end = new Date(start.getTime() + EVENT_DURATION_HOURS * 3_600_000);
+  return { startAt: start.toISOString(), endAt: end.toISOString() };
+}
+
+export async function syncShowToSquare(show: ShowInput): Promise<SyncShowResult | undefined> {
+  if (process.env.SQUARE_SYNC_ENABLED !== 'true') {
+    console.log('[square] sync disabled, skipping');
+    return;
+  }
+
+  try {
+    const token = requireEnv('SQUARE_ACCESS_TOKEN');
+    const locationId = requireEnv('SQUARE_LOCATION_ID');
+    const addressId = requireEnv('SQUARE_VENUE_ADDRESS_ID');
+
+    const { startAt, endAt } = computeEventWindow(show);
+
+    // 1) One batch-upsert: an EVENT item carrying the three donation-tier variations.
+    const ITEM_TMP = '#show-item';
+    const catalogBody = {
+      idempotency_key: `show-catalog-${show.id}`,
+      batches: [
+        {
+          objects: [
+            {
+              type: 'ITEM',
+              id: ITEM_TMP,
+              item_data: {
+                name: show.title,
+                product_type: 'EVENT',
+                event: {
+                  start_at: startAt,
+                  end_at: endAt,
+                  event_location_time_zone: EVENT_TIME_ZONE,
+                  event_location_types: ['IN_PERSON'],
+                  address_id: addressId,
+                  all_day_event: false,
+                },
+                variations: TIERS.map((t) => ({
+                  type: 'ITEM_VARIATION',
+                  id: `#tier-${t.key}`,
+                  item_variation_data: {
+                    item_id: ITEM_TMP,
+                    name: t.label,
+                    pricing_type: 'FIXED_PRICING',
+                    price_money: { amount: t.amountCents, currency: 'USD' },
+                  },
+                })),
+              },
+            },
+          ],
+        },
+      ],
+    };
+
+    const catalogRes = await squareFetch<CatalogUpsertResponse>(
+      '/v2/catalog/batch-upsert',
+      { method: 'POST', body: JSON.stringify(catalogBody) },
+      token,
+    );
+
+    const mappings: Record<string, string> = {};
+    for (const m of catalogRes.id_mappings ?? []) {
+      mappings[m.client_object_id] = m.object_id;
+    }
+    const itemId = mappings[ITEM_TMP];
+    if (!itemId) throw new Error('[square] batch-upsert returned no item id mapping');
+
+    // 2) One Payment Link per tier (Order Checkout mode).
+    const tiers: ShowTierResult[] = [];
+    for (const t of TIERS) {
+      const variationId = mappings[`#tier-${t.key}`];
+      if (!variationId) throw new Error(`[square] no variation id mapping for tier ${t.key}`);
+      const linkRes = await squareFetch<PaymentLinkResponse>(
+        '/v2/online-checkout/payment-links',
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            idempotency_key: `show-link-${show.id}-${t.key}`,
+            order: {
+              location_id: locationId,
+              line_items: [{ catalog_object_id: variationId, quantity: '1' }],
+            },
+          }),
+        },
+        token,
+      );
+      const link = linkRes.payment_link;
+      if (!link?.id) throw new Error(`[square] payment-link create returned no link id for tier ${t.key}`);
+      tiers.push({
+        tierLabel: t.label,
+        amountCents: t.amountCents,
+        variationId,
+        paymentLinkId: link.id,
+        orderId: link.order_id ?? null,
+        url: link.url ?? null,
+      });
+    }
+
+    // 3) Attach the flyer as the item photo if the show has one. Absent flyers
+    // are fine — the caller can attach one later via attachShowFlyerToSquare.
+    const imageId = show.flyer ? await uploadFlyer(itemId, show.flyer, show.id, token) : null;
+
+    return { itemId, imageId, tiers };
+  } catch (err) {
+    // Add context, then let it propagate — the caller decides whether a Square
+    // failure should block anything (the show handler treats it as best-effort).
+    console.error(`[square] sync failed for show ${show.id}`, err);
+    throw err;
+  }
+}
+
+// Whether Square writes are turned on in this environment. Off by default so
+// local dev never hits the live Catalog API (no Sandbox support for it).
+export function isSquareSyncEnabled(): boolean {
+  return process.env.SQUARE_SYNC_ENABLED === 'true';
+}
+
+// Attach a show's flyer to an already-created Square item, for the "created the
+// links before a flyer existed" case. Idempotent per show (stable image key).
+export async function attachShowFlyerToSquare(show: ShowInput, itemId: string): Promise<string> {
+  if (!show.flyer) throw new Error(`[square] show ${show.id} has no flyer to attach`);
+  const token = requireEnv('SQUARE_ACCESS_TOKEN');
+  try {
+    return await uploadFlyer(itemId, show.flyer, show.id, token);
+  } catch (err) {
+    console.error(`[square] flyer attach failed for show ${show.id}`, err);
+    throw err;
+  }
+}

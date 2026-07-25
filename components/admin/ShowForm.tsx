@@ -150,6 +150,9 @@ export interface ShowFormInitialValues {
   targetBandCount?: number;
   advanceSent?: boolean;
   soundEngineers?: Array<{ soundEngineerId?: number | null; name: string; status: SoundEngineerStatus }>;
+  squareItemId?: string | null;
+  squareImageId?: string | null;
+  squareLinks?: Array<{ tierLabel: string; amountCents: number; url: string | null }>;
 }
 
 interface FormState {
@@ -261,6 +264,16 @@ export default function ShowForm({
   const [photosUploading, setPhotosUploading] = useState(false);
   const photosFileInputRef = useRef<HTMLInputElement>(null);
   const [twinSceneBands, setTwinSceneBands] = useState<TwinSceneBandOption[]>([]);
+
+  // Square donation-link state — created on demand via the button below, never
+  // automatically on save. Seeded from whatever's already synced for this show.
+  const [square, setSquare] = useState({
+    itemId: initialValues?.squareItemId ?? null,
+    imageId: initialValues?.squareImageId ?? null,
+    links: initialValues?.squareLinks ?? [],
+  });
+  const [squareBusy, setSquareBusy] = useState(false);
+  const [squareMsg, setSquareMsg] = useState<string | null>(null);
 
   // One fetch per form load, cached for the session — every band typeahead
   // row below filters this same list client-side rather than each fetching
@@ -587,6 +600,34 @@ export default function ShowForm({
     }
   }
 
+  async function handleSquareSync() {
+    if (!initialValues?.id) return;
+    setSquareBusy(true);
+    setSquareMsg(null);
+    try {
+      const res = await fetch(`/api/admin/shows/${initialValues.id}/square`, { method: 'POST' });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error || 'Square sync failed');
+      setSquare({
+        itemId: data.itemId ?? square.itemId,
+        imageId: data.imageId ?? square.imageId,
+        links: Array.isArray(data.links) ? data.links : square.links,
+      });
+      const byStatus: Record<string, string> = {
+        disabled: 'Square sync is disabled in this environment (SQUARE_SYNC_ENABLED is off).',
+        created: 'Created Square item and donation links.',
+        flyer_attached: 'Attached the flyer to the existing Square item.',
+        no_flyer: 'Links exist, but this show has no flyer yet — add one and save, then click again to attach a photo.',
+        exists: 'Square links already exist for this show.',
+      };
+      setSquareMsg(byStatus[data.status] ?? null);
+    } catch (err) {
+      setSquareMsg(err instanceof Error ? err.message : 'Square sync failed');
+    } finally {
+      setSquareBusy(false);
+    }
+  }
+
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       {!embedded && (
@@ -904,6 +945,64 @@ export default function ShowForm({
         </label>
       </div>
       </Section>
+
+      {mode === 'edit' && (
+        <Section
+          title="Square donation links"
+          action={
+            !square.itemId ? (
+              <button
+                type="button"
+                onClick={handleSquareSync}
+                disabled={squareBusy}
+                className="text-xs border border-[#E8E0D0]/30 rounded px-3 py-1.5 hover:bg-[#E8E0D0]/10 disabled:opacity-50"
+              >
+                {squareBusy ? 'Creating…' : 'Create Square links'}
+              </button>
+            ) : !square.imageId ? (
+              <button
+                type="button"
+                onClick={handleSquareSync}
+                disabled={squareBusy}
+                className="text-xs border border-[#E8E0D0]/30 rounded px-3 py-1.5 hover:bg-[#E8E0D0]/10 disabled:opacity-50"
+              >
+                {squareBusy ? 'Attaching…' : 'Attach flyer'}
+              </button>
+            ) : null
+          }
+        >
+          {!square.itemId ? (
+            <p className="text-sm text-[#E8E0D0]/50">
+              Creates a Square event item with $10 / $20 / $30 donation links. Do this once the show is
+              ready to sell — drafts don&apos;t need it.
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {square.links.map((link) => (
+                <div key={link.tierLabel} className="flex items-center gap-3 text-sm">
+                  <span className="text-[#E8E0D0]/60 w-40 shrink-0">{link.tierLabel}</span>
+                  {link.url ? (
+                    <a
+                      href={link.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-[#E8E0D0] underline decoration-[#E8E0D0]/30 hover:decoration-[#E8E0D0] break-all"
+                    >
+                      {link.url}
+                    </a>
+                  ) : (
+                    <span className="text-[#E8E0D0]/30">no link</span>
+                  )}
+                </div>
+              ))}
+              {!square.imageId && (
+                <p className="text-xs text-[#E8E0D0]/40 pt-1">No flyer photo attached yet.</p>
+              )}
+            </div>
+          )}
+          {squareMsg && <p className="text-xs text-[#E8E0D0]/60 mt-3">{squareMsg}</p>}
+        </Section>
+      )}
 
       <Section
         title="Videos"

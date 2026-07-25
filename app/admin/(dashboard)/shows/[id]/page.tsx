@@ -31,6 +31,8 @@ interface ShowRow {
   target_band_count: number;
   advance_sent: boolean;
   sound_engineers: unknown;
+  square_item_id: string | null;
+  square_image_id: string | null;
 }
 
 export default async function EditShowPage({ params }: { params: Promise<{ id: string }> }) {
@@ -44,6 +46,13 @@ export default async function EditShowPage({ params }: { params: Promise<{ id: s
     where id = ${showId}
   `;
   if (!row) notFound();
+
+  const squareLinks = await sql<{ tierLabel: string; amountCents: number; url: string | null }[]>`
+    select tier_label as "tierLabel", amount_cents as "amountCents", url
+    from show_square_links
+    where show_id = ${showId}
+    order by amount_cents
+  `;
 
   const initialValues: ShowFormInitialValues = {
     id: row.id,
@@ -69,6 +78,9 @@ export default async function EditShowPage({ params }: { params: Promise<{ id: s
     targetBandCount: row.target_band_count,
     advanceSent: row.advance_sent,
     soundEngineers: (row.sound_engineers as ShowSoundEngineer[]) ?? [],
+    squareItemId: row.square_item_id,
+    squareImageId: row.square_image_id,
+    squareLinks,
   };
 
   return <ShowForm mode="edit" embedded initialValues={initialValues} />;
