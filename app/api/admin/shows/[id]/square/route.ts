@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { sql } from '@/lib/db';
 import { syncShowToSquare, attachShowFlyerToSquare, isSquareSyncEnabled } from '@/lib/square';
+import { SITE_URL } from '@/lib/site';
 
 // Manual, admin-triggered Square sync for a single show (the "Create Square
 // links" button on the Edit form). Create-once for the item + payment links; a
@@ -30,7 +31,7 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
   }
 
   const [show] = await sql`
-    select id, title, date::text as date, doors_time, show_time, flyer,
+    select id, slug, title, date::text as date, doors_time, show_time, flyer,
            square_item_id, square_image_id
     from shows
     where id = ${showId}
@@ -42,6 +43,10 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
   if (!isSquareSyncEnabled()) {
     return NextResponse.json({ status: 'disabled', links: await loadLinks(showId) });
   }
+
+  // Ticket URL points at our own donation-tier page (which links out to each
+  // Square checkout) — one link that works everywhere ticket_url is used.
+  const ticketUrl = `${SITE_URL}/shows/${show.slug}/tickets`;
 
   try {
     // First time: create the item + variations + payment links (+ flyer if present).
@@ -59,7 +64,9 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
       }
       await sql`
         update shows
-        set square_item_id = ${result.itemId}, square_image_id = ${result.imageId}
+        set square_item_id = ${result.itemId},
+            square_image_id = ${result.imageId},
+            ticket_url = ${ticketUrl}
         where id = ${showId}
       `;
       for (const tier of result.tiers) {
@@ -78,17 +85,23 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
         status: 'created',
         itemId: result.itemId,
         imageId: result.imageId,
+        ticketUrl,
         links: await loadLinks(showId),
       });
     }
 
-    // Already created (create-once). Backfill the flyer if it wasn't attached yet.
+    // Already created (create-once). Keep ticket_url pointed at the tiers page
+    // (e.g. if the slug changed since the last sync).
+    await sql`update shows set ticket_url = ${ticketUrl} where id = ${showId}`;
+
+    // Backfill the flyer if it wasn't attached yet.
     if (!show.square_image_id) {
       if (!show.flyer) {
         return NextResponse.json({
           status: 'no_flyer',
           itemId: show.square_item_id,
           imageId: null,
+          ticketUrl,
           links: await loadLinks(showId),
         });
       }
@@ -101,6 +114,7 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
         status: 'flyer_attached',
         itemId: show.square_item_id,
         imageId,
+        ticketUrl,
         links: await loadLinks(showId),
       });
     }
@@ -109,6 +123,7 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
       status: 'exists',
       itemId: show.square_item_id,
       imageId: show.square_image_id,
+      ticketUrl,
       links: await loadLinks(showId),
     });
   } catch (err) {

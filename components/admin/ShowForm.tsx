@@ -613,6 +613,9 @@ export default function ShowForm({
         imageId: data.imageId ?? square.imageId,
         links: Array.isArray(data.links) ? data.links : square.links,
       });
+      // The sync points Ticket URL at the donation-tier page; mirror it into the
+      // form so the field updates live and a later Save doesn't overwrite it.
+      if (typeof data.ticketUrl === 'string') set('ticketUrl', data.ticketUrl);
       const byStatus: Record<string, string> = {
         disabled: 'Square sync is disabled in this environment (SQUARE_SYNC_ENABLED is off).',
         created: 'Created Square item and donation links.',
