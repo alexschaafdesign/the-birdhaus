@@ -303,6 +303,97 @@ export function isSquareSyncEnabled(): boolean {
   return process.env.SQUARE_SYNC_ENABLED === 'true';
 }
 
+export type ShowPurchase = {
+  email: string | null;
+  amountCents: number;
+  variationId: string | null;
+  orderId: string;
+  purchasedAt: string;
+};
+
+// Read-only: who bought a donation for this show. Keyed off COMPLETED *payments*
+// (order state stays OPEN for payment-link checkouts, so it can't be filtered
+// on), then matched to the show via each order's line-item variation IDs. Never
+// throws — returns [] on any failure so the RSVP page degrades gracefully.
+export async function getShowPurchases(
+  variationIds: string[],
+  opts: { since?: Date; until?: Date } = {},
+): Promise<ShowPurchase[]> {
+  const token = process.env.SQUARE_ACCESS_TOKEN;
+  const locationId = process.env.SQUARE_LOCATION_ID;
+  if (!token || !locationId || variationIds.length === 0) return [];
+  const wanted = new Set(variationIds);
+  const authHeaders = { 'Square-Version': SQUARE_VERSION, Authorization: `Bearer ${token}` };
+
+  try {
+    // 1) COMPLETED payments in the window → { orderId, email, amountCents, createdAt }.
+    const beginTime = (opts.since ?? new Date(Date.now() - 180 * 86_400_000)).toISOString();
+    const payments: { orderId: string; email: string | null; amountCents: number; createdAt: string }[] = [];
+    let cursor: string | undefined;
+    do {
+      const url = new URL(`${SQUARE_BASE}/v2/payments`);
+      url.searchParams.set('location_id', locationId);
+      url.searchParams.set('begin_time', beginTime);
+      if (opts.until) url.searchParams.set('end_time', opts.until.toISOString());
+      url.searchParams.set('limit', '100');
+      if (cursor) url.searchParams.set('cursor', cursor);
+      const res = await fetch(url, { headers: authHeaders });
+      if (!res.ok) throw new Error(`list payments failed: ${res.status} ${await res.text()}`);
+      const data = (await res.json()) as {
+        payments?: { order_id?: string; status?: string; buyer_email_address?: string; amount_money?: { amount?: number }; created_at?: string }[];
+        cursor?: string;
+      };
+      for (const p of data.payments ?? []) {
+        if (p.status === 'COMPLETED' && p.order_id) {
+          payments.push({
+            orderId: p.order_id,
+            email: p.buyer_email_address ?? null,
+            amountCents: p.amount_money?.amount ?? 0,
+            createdAt: p.created_at ?? '',
+          });
+        }
+      }
+      cursor = data.cursor;
+    } while (cursor);
+    if (payments.length === 0) return [];
+
+    // 2) Retrieve those orders; note which ones contain one of this show's variations.
+    const orderIds = [...new Set(payments.map((p) => p.orderId))];
+    const matchedVariationByOrder = new Map<string, string>();
+    for (let i = 0; i < orderIds.length; i += 100) {
+      const res = await fetch(`${SQUARE_BASE}/v2/orders/batch-retrieve`, {
+        method: 'POST',
+        headers: { ...authHeaders, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ location_id: locationId, order_ids: orderIds.slice(i, i + 100) }),
+      });
+      if (!res.ok) throw new Error(`batch-retrieve orders failed: ${res.status} ${await res.text()}`);
+      const data = (await res.json()) as { orders?: { id: string; line_items?: { catalog_object_id?: string }[] }[] };
+      for (const o of data.orders ?? []) {
+        for (const li of o.line_items ?? []) {
+          if (li.catalog_object_id && wanted.has(li.catalog_object_id)) {
+            matchedVariationByOrder.set(o.id, li.catalog_object_id);
+            break;
+          }
+        }
+      }
+    }
+
+    // 3) Emit the payments whose order matched this show.
+    return payments
+      .filter((p) => matchedVariationByOrder.has(p.orderId))
+      .map((p) => ({
+        email: p.email,
+        amountCents: p.amountCents,
+        variationId: matchedVariationByOrder.get(p.orderId) ?? null,
+        orderId: p.orderId,
+        purchasedAt: p.createdAt,
+      }));
+  } catch (err) {
+    console.error('[square] getShowPurchases failed', err);
+    return [];
+  }
+}
+
 // Attach a show's flyer to an already-created Square item, for the "created the
 // links before a flyer existed" case. Idempotent per show (stable image key).
 export async function attachShowFlyerToSquare(show: ShowInput, itemId: string): Promise<string> {

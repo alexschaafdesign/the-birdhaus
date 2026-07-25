@@ -16,6 +16,14 @@ function formatSubmittedAt(createdAt: string): string {
   });
 }
 
+function dollars(cents: number): string {
+  return (cents / 100).toLocaleString('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 0,
+  });
+}
+
 interface EditForm {
   name: string;
   email: string;
@@ -28,7 +36,15 @@ export default function RsvpSummary({
   showTitle,
   showDate,
   rsvps: initialRsvps,
-}: { showId: number; showTitle: string; showDate: string } & RsvpSummaryData) {
+  purchasesByEmail = {},
+  unmatchedBuyers = [],
+}: {
+  showId: number;
+  showTitle: string;
+  showDate: string;
+  purchasesByEmail?: Record<string, { totalCents: number; count: number }>;
+  unmatchedBuyers?: { email: string; amountCents: number; purchasedAt: string }[];
+} & RsvpSummaryData) {
   const [rsvps, setRsvps] = useState<Rsvp[]>(initialRsvps);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -43,6 +59,11 @@ export default function RsvpSummary({
 
   const totalCount = rsvps.length;
   const totalGuests = rsvps.reduce((sum, r) => sum + r.guests, 0);
+  const boughtCount = Object.keys(purchasesByEmail).length;
+  const revenueCents =
+    Object.values(purchasesByEmail).reduce((sum, p) => sum + p.totalCents, 0) +
+    unmatchedBuyers.reduce((sum, b) => sum + b.amountCents, 0);
+  const hasPurchases = boughtCount > 0 || unmatchedBuyers.length > 0;
 
   function handlePrint() {
     const sorted = [...rsvps].sort((a, b) =>
@@ -221,6 +242,14 @@ export default function RsvpSummary({
         <div className="flex items-center gap-3">
           <span className="text-xs text-[#E8E0D0]/50">
             {totalCount} RSVP{totalCount === 1 ? '' : 's'} · {totalGuests} guest{totalGuests === 1 ? '' : 's'}
+            {hasPurchases && (
+              <>
+                {' '}·{' '}
+                <span className="text-amber-300/80">
+                  {boughtCount} bought · {dollars(revenueCents)}
+                </span>
+              </>
+            )}
           </span>
           <button
             type="button"
@@ -338,6 +367,15 @@ export default function RsvpSummary({
                 <div className="flex items-center gap-3 flex-wrap">
                   <span className="font-semibold truncate">{rsvp.name}</span>
                   <span className="text-sm text-[#E8E0D0]/50 truncate">{rsvp.email}</span>
+                  {(() => {
+                    const purchase = purchasesByEmail[rsvp.email.toLowerCase()];
+                    return purchase ? (
+                      <span className="text-xs px-2 py-0.5 rounded-full border border-amber-400/40 text-amber-300 whitespace-nowrap">
+                        ✓ Bought · {dollars(purchase.totalCents)}
+                        {purchase.count > 1 ? ` (${purchase.count})` : ''}
+                      </span>
+                    ) : null;
+                  })()}
                   {rsvp.email_list_opt_in && (
                     <span className="text-xs px-2 py-0.5 rounded-full border border-green-400/40 text-green-300">
                       Email list
@@ -364,6 +402,31 @@ export default function RsvpSummary({
           <p className="text-[#E8E0D0]/40 text-sm py-8 text-center">No RSVPs yet.</p>
         )}
       </div>
+
+      {unmatchedBuyers.length > 0 && (
+        <div className="mt-4 pt-4 border-t border-[#E8E0D0]/10">
+          <h3 className="text-xs uppercase tracking-wide text-[#E8E0D0]/40 mb-2">
+            Bought, no matching RSVP ({unmatchedBuyers.length})
+          </h3>
+          <p className="text-xs text-[#E8E0D0]/40 mb-3">
+            Paid with an email that doesn&apos;t match any RSVP — likely a typo or a different address.
+          </p>
+          <div className="space-y-1.5">
+            {unmatchedBuyers.map((b, i) => (
+              <div
+                key={`${b.email}-${i}`}
+                className="flex items-center justify-between gap-4 text-sm text-[#E8E0D0]/60"
+              >
+                <span className="truncate">{b.email}</span>
+                <span className="flex items-center gap-3 flex-shrink-0">
+                  <span className="text-amber-300/80">{dollars(b.amountCents)}</span>
+                  <span className="font-mono text-xs">{formatSubmittedAt(b.purchasedAt)}</span>
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
