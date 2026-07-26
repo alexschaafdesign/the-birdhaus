@@ -523,11 +523,16 @@ export default function ShowForm({
       title: form.title.trim(),
       slug: slugify(form.slug) || undefined,
       date: form.date,
-      doorsTime: form.doorsTime.trim() || undefined,
-      showTime: form.showTime.trim() || undefined,
-      flyer: form.flyer.trim() || undefined,
+      // Send these nullable text fields even when blank (empty string, not
+      // undefined) so clearing one on edit actually persists — JSON.stringify
+      // drops undefined keys, and the update route skips absent keys, so an
+      // omitted field silently keeps its old value. Both routes normalize
+      // ''/blank to null.
+      doorsTime: form.doorsTime.trim(),
+      showTime: form.showTime.trim(),
+      flyer: form.flyer.trim(),
       bands: bandsPayload,
-      description: form.description.trim() || undefined,
+      description: form.description.trim(),
       photographer: form.photographerName.trim()
         ? {
             name: form.photographerName.trim(),
@@ -536,8 +541,8 @@ export default function ShowForm({
               : {}),
           }
         : null,
-      ticketUrl: form.ticketUrl.trim() || undefined,
-      externalTicketUrl: form.externalTicketUrl.trim() || undefined,
+      ticketUrl: form.ticketUrl.trim(),
+      externalTicketUrl: form.externalTicketUrl.trim(),
       rsvpForm: form.rsvpForm,
       videos: form.videos
         .filter((v) => v.youtube.trim() && v.title.trim())
@@ -558,8 +563,8 @@ export default function ShowForm({
         .split('\n')
         .map((line) => line.trim())
         .filter(Boolean),
-      photoFolder: form.photoFolder.trim() || undefined,
-      photoCredit: form.photoCredit.trim() || undefined,
+      photoFolder: form.photoFolder.trim(),
+      photoCredit: form.photoCredit.trim(),
       content: form.content,
       announced: form.announced,
       targetBandCount: form.targetBandCount,
