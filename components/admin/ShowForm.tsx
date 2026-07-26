@@ -763,6 +763,7 @@ export default function ShowForm({
 
       <Section
         title="Bands"
+        collapsible
         action={
           <div className="flex items-center gap-3">
             <label className="flex items-center gap-2 text-xs text-[#E8E0D0]/60">
@@ -833,7 +834,7 @@ export default function ShowForm({
         </div>
       </Section>
 
-      <Section title="Photographer">
+      <Section title="Photographer" collapsible>
         <div className="grid gap-3 sm:grid-cols-2">
         <div>
           <label className="block text-xs uppercase tracking-wide text-[#E8E0D0]/40 mb-1">Photographer name</label>
@@ -854,7 +855,7 @@ export default function ShowForm({
         </div>
       </Section>
 
-      <Section title="Sound engineer">
+      <Section title="Sound engineer" collapsible>
         <div className="space-y-4">
         <div>
           <label className="block text-xs uppercase tracking-wide text-[#E8E0D0]/40 mb-1">
@@ -924,7 +925,7 @@ export default function ShowForm({
         </div>
       </Section>
 
-      <Section title="Tickets & visibility">
+      <Section title="Tickets & visibility" collapsible>
         <div className="grid gap-3 sm:grid-cols-2">
         <div>
           <label className="block text-xs uppercase tracking-wide text-[#E8E0D0]/40 mb-1">Ticket URL</label>
@@ -975,6 +976,7 @@ export default function ShowForm({
       {mode === 'edit' && (
         <Section
           title="Square donation links"
+          collapsible
           action={
             !square.itemId ? (
               <button
@@ -1032,6 +1034,7 @@ export default function ShowForm({
 
       <Section
         title="Videos"
+        collapsible
         action={
           <button type="button" onClick={addVideo} className="text-xs border border-[#E8E0D0]/30 rounded px-2 py-1 hover:bg-[#E8E0D0]/10">
             + add video
@@ -1097,6 +1100,7 @@ export default function ShowForm({
 
       <Section
         title="Audio"
+        collapsible
         action={
           <button type="button" onClick={addAudio} className="text-xs border border-[#E8E0D0]/30 rounded px-2 py-1 hover:bg-[#E8E0D0]/10">
             + add audio
