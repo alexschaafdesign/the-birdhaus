@@ -653,9 +653,11 @@ function deriveIncomingFields(tsBand: TwinSceneBand): Record<string, unknown> {
   };
 }
 
-// Pulls Twin Scene's canonical band directory and fills any currently-empty
-// field (fill-only-if-empty — never clobbers a value someone already edited
-// in Birdhaus admin) on every Birdhaus band linked via twin_scene_band_id.
+// Pulls Twin Scene's canonical band directory and, on every Birdhaus band
+// linked via twin_scene_band_id, fills any currently-empty profile field
+// (fill-only-if-empty — never clobbers a value someone already edited in
+// Birdhaus admin) AND overwrites the band's name to match Twin Scene's (name
+// is treated as authoritative there, so a rename upstream propagates here).
 // This is the live counterpart to Twin Scene's own backfill-band-photos.mjs /
 // backfill-band-profile-fields.mjs, run in the opposite direction: Twin Scene
 // stopped pushing band data to Birdhaus after its lineup-matcher flooded
@@ -680,6 +682,15 @@ export async function enrichBandsFromTwinScene(): Promise<TwinSceneSyncResult> {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const assignments: any[] = [];
     const filled: string[] = [];
+
+    // Name is authoritative from Twin Scene — overwritten (not fill-only) so a
+    // rename in Twin Scene propagates to Birdhaus on the next sync. Slug is left
+    // untouched by design (it's this band's stable public URL). tsBand.name can
+    // be '' defensively, in which case we keep the existing local name.
+    if (tsBand.name && tsBand.name !== band.name) {
+      assignments.push(sql`name = ${tsBand.name}`);
+      filled.push('name');
+    }
 
     for (const [column, isJson] of TWINSCENE_PULL_FIELDS) {
       if (!isEmptyValue(band[column])) continue;
