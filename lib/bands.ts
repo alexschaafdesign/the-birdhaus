@@ -1,7 +1,13 @@
 import postgres from 'postgres';
 import { sql } from './db';
 import type { Show } from './shows';
-import { getTwinSceneBands, cleanBandcampUrl, splitGenres, type TwinSceneBand } from './twinscene';
+import {
+  getTwinSceneBands,
+  createTwinSceneBand,
+  cleanBandcampUrl,
+  splitGenres,
+  type TwinSceneBand,
+} from './twinscene';
 
 export interface FeaturedLink {
   url: string;
@@ -227,6 +233,47 @@ async function uniqueSlug(tx: Tx, base: string): Promise<string> {
   }
 }
 
+// Pre-pass for the Edit Show save flow, run BEFORE the DB transaction (external
+// HTTP must not happen inside sql.begin). For any entry that's a genuinely new
+// band — no bandId yet and no existing local row by name — it creates the band
+// in Twin Scene's canonical directory and annotates the entry with the returned
+// twinSceneBandId/twinsceneSlug, so resolveShowBandEntries can insert the local
+// overlay row already linked. This is the deliberate, human-triggered write
+// path the architecture allows (analogous to Crawlspace's picker "add new"),
+// NOT the scraper auto-import that was removed after the stub flood — see
+// ../twinscene/ARCHITECTURE.md. Best-effort: if Twin Scene is unreachable or
+// the write is refused, the entry is left untouched and falls back to a
+// Birdhaus-only local band, exactly as before this write-back existed.
+export async function attachTwinSceneLinks(bands: Show['bands']): Promise<Show['bands']> {
+  const result: NonNullable<unknown>[] = [];
+  for (const raw of bands) {
+    const band = typeof raw === 'string' ? { name: raw } : raw;
+    const hasBandId = (band as { bandId?: number }).bandId;
+    const name = typeof band.name === 'string' ? band.name.trim() : '';
+    if (hasBandId || !name) {
+      result.push(band);
+      continue;
+    }
+    // Skip existing local bands — they're already linked, or deliberately
+    // Birdhaus-only. Only names with no local row at all get pushed up.
+    const [existing] = await sql<Array<{ id: number }>>`
+      select id from bands where lower(name) = lower(${name}) limit 1
+    `;
+    if (existing) {
+      result.push(band);
+      continue;
+    }
+    try {
+      const ts = await createTwinSceneBand(name);
+      result.push({ ...band, twinSceneBandId: ts.id, twinsceneSlug: ts.slug });
+    } catch (error) {
+      console.error('[bands] Twin Scene create failed; creating Birdhaus-only band', name, error);
+      result.push(band);
+    }
+  }
+  return result as Show['bands'];
+}
+
 // Resolves each show band entry to a real bands.id, creating a new band
 // profile for any name that doesn't already match one. Runs inside the
 // caller's transaction so a failed show save can't leave orphan bands, and
@@ -279,9 +326,22 @@ export async function resolveShowBandEntries(bands: Show['bands'], tx: Tx): Prom
     const instagram = (band as { instagram?: string }).instagram ?? null;
     const bio = (band as { bio?: string }).bio ?? null;
     const photo = (band as { photo?: string }).photo ?? null;
+    // attachTwinSceneLinks() ran before this transaction and, for a genuinely
+    // new band, pushed it up to Twin Scene's canonical directory — so link the
+    // local overlay row to it here. on conflict (twin_scene_band_id) covers the
+    // case where Twin Scene *matched* an existing band already synced locally
+    // under a different name: reuse that row rather than hitting the unique
+    // constraint. When there's no link (Twin Scene unreachable/unconfigured),
+    // twin_scene_band_id is null — nulls never conflict, so it's a plain insert.
+    const twinSceneBandId = (band as { twinSceneBandId?: number }).twinSceneBandId ?? null;
+    const twinsceneSlug = (band as { twinsceneSlug?: string }).twinsceneSlug ?? null;
     const [created] = await tx<Array<{ id: number }>>`
-      insert into bands (slug, name, instagram, bio, photo)
-      values (${slug}, ${name}, ${instagram}, ${bio}, ${photo})
+      insert into bands (slug, name, instagram, bio, photo, twin_scene_band_id, twinscene_slug, synced_at)
+      values (
+        ${slug}, ${name}, ${instagram}, ${bio}, ${photo},
+        ${twinSceneBandId}, ${twinsceneSlug}, ${twinSceneBandId != null ? new Date() : null}
+      )
+      on conflict (twin_scene_band_id) do update set updated_at = now()
       returning id
     `;
     resolved.push({ ...band, bandId: Number(created.id) });

@@ -14,7 +14,13 @@ import {
   slugify,
   type Show,
 } from '@/lib/shows';
-import { resolveShowBandEntries, resolveVideoBandIds, setShowBands, toShowBandPairs } from '@/lib/bands';
+import {
+  attachTwinSceneLinks,
+  resolveShowBandEntries,
+  resolveVideoBandIds,
+  setShowBands,
+  toShowBandPairs,
+} from '@/lib/bands';
 import { resolveShowVideos, setShowVideos, setVideoBands } from '@/lib/videos';
 import {
   isValidSoundEngineersInput,
@@ -169,11 +175,16 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 });
   }
 
+  // Push any brand-new band up to Twin Scene's canonical directory before the
+  // transaction (external HTTP must not run inside sql.begin), so the local
+  // overlay row gets created already linked. Best-effort — see attachTwinSceneLinks.
+  const linkedBands = bandsInput !== undefined ? await attachTwinSceneLinks(bandsInput) : undefined;
+
   try {
     const row = await sql.begin(async (tx) => {
       let resolvedBands: Show['bands'] | undefined;
-      if (bandsInput !== undefined) {
-        resolvedBands = await resolveShowBandEntries(bandsInput, tx);
+      if (linkedBands !== undefined) {
+        resolvedBands = await resolveShowBandEntries(linkedBands, tx);
         // TEMPORARY: dual-write for migration safety. Remove once Part C in TODO.md is executed.
         // This JSONB write is superseded by show_bands — see resolveShowBandEntries/setShowBands.
         updates.push({ column: 'bands', value: resolvedBands, json: true });

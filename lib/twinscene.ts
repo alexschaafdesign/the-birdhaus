@@ -128,6 +128,53 @@ export async function getTwinSceneBands(): Promise<TwinSceneBand[]> {
   return list.map(parseBand).filter((b): b is TwinSceneBand => b !== null);
 }
 
+export interface CreatedTwinSceneBand {
+  id: number;
+  slug: string;
+  name: string;
+  // false when a new unreviewed band was created, true when an existing
+  // Twin Scene band matched the name case-insensitively.
+  matched: boolean;
+}
+
+// Write path: create (or find, case-insensitively) a band in Twin Scene's
+// canonical directory. Birdhaus's API key is provisioned can_write=true, so
+// this is allowed; POST /api/public/bands is a find-or-create that returns the
+// canonical record plus a `matched` flag (see twinscene's app/api/public/bands
+// route + toPublicBand). Used by the Edit Show form's save path so a brand-new
+// band an operator types gets pushed up to Twin Scene and linked, instead of
+// staying a Birdhaus-only orphan. Mirrors crawlspace's createTwinSceneBand().
+export async function createTwinSceneBand(name: string): Promise<CreatedTwinSceneBand> {
+  const baseUrl = process.env.TWIN_SCENE_API_URL;
+  const apiKey = process.env.TWIN_SCENE_API_KEY;
+  if (!baseUrl || !apiKey) {
+    throw new Error('TWIN_SCENE_API_URL/TWIN_SCENE_API_KEY not configured. See .env.example.');
+  }
+
+  const res = await fetch(`${baseUrl}/api/public/bands`, {
+    method: 'POST',
+    headers: { 'x-api-key': apiKey, 'content-type': 'application/json' },
+    cache: 'no-store',
+    body: JSON.stringify({ name }),
+  });
+  if (!res.ok) {
+    throw new Error(`Twin Scene band create failed (${res.status})`);
+  }
+
+  const body = (await res.json()) as Record<string, unknown>;
+  const id = typeof body.id === 'number' ? body.id : Number(body.id);
+  const slug = asString(body.slug);
+  if (!Number.isFinite(id) || !slug) {
+    throw new Error('Twin Scene band create returned no id/slug');
+  }
+  return {
+    id,
+    slug,
+    name: asString(body.name) || name,
+    matched: body.matched === true,
+  };
+}
+
 export function splitGenres(genre: string): string[] {
   return genre
     .split(',')

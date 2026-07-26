@@ -14,7 +14,13 @@ import {
   bandsJoinFragment,
   videosJoinFragment,
 } from '@/lib/shows';
-import { resolveShowBandEntries, resolveVideoBandIds, setShowBands, toShowBandPairs } from '@/lib/bands';
+import {
+  attachTwinSceneLinks,
+  resolveShowBandEntries,
+  resolveVideoBandIds,
+  setShowBands,
+  toShowBandPairs,
+} from '@/lib/bands';
 import { resolveShowVideos, setShowVideos, setVideoBands } from '@/lib/videos';
 import {
   isValidSoundEngineersInput,
@@ -87,9 +93,14 @@ export async function POST(request: Request) {
   const targetBandCount = normalizeTargetBandCount(body?.targetBandCount);
   const advanceSent = Boolean(body?.advanceSent);
 
+  // Push any brand-new band up to Twin Scene's canonical directory before the
+  // transaction (external HTTP must not run inside sql.begin), so the local
+  // overlay row gets created already linked. Best-effort — see attachTwinSceneLinks.
+  const linkedBands = await attachTwinSceneLinks(bands);
+
   try {
     const row = await sql.begin(async (tx) => {
-      const resolvedBands = await resolveShowBandEntries(bands, tx);
+      const resolvedBands = await resolveShowBandEntries(linkedBands, tx);
       const resolvedVideos = resolveVideoBandIds(videos, resolvedBands);
       const resolvedVideoRows = await resolveShowVideos(resolvedVideos, tx);
 
