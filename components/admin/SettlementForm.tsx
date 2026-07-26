@@ -167,6 +167,9 @@ export default function SettlementForm({ showId, bands: initialBands, initialVal
           body: JSON.stringify({ paid: false }),
         }).catch(() => {});
       }
+      // Re-render the server component so the page's copy-summary/PDF actions,
+      // which divide by the included band count, reflect the new exclusion.
+      router.refresh();
     } catch {
       setBands(previous);
       setBandPayError('Failed to update — try again.');
