@@ -321,14 +321,16 @@ export default function ShowForm({
   function selectBand(index: number, match: BandMatch) {
     setForm((prev) => {
       const bands = [...prev.bands];
-      const current = bands[index];
+      // Picking a band from the dropdown links to that profile, so pull its
+      // instagram/bio/photo in wholesale — replacing whatever was there (a
+      // previously-linked band's data or leftover typing), which is the point
+      // of reselecting. Editing a field afterward still overrides it locally.
       bands[index] = {
         bandId: match.id,
         name: match.name,
-        // Only fill fields the operator hasn't already typed something into for this show.
-        instagram: current.instagram || match.instagram || '',
-        bio: current.bio || match.bio || '',
-        photo: current.photo || match.photo || '',
+        instagram: match.instagram ?? '',
+        bio: match.bio ?? '',
+        photo: match.photo ?? '',
       };
       return { ...prev, bands };
     });
