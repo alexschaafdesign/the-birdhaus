@@ -15,6 +15,9 @@ export interface BandListItem {
   hometown: string | null;
   show_count: number;
   unreviewed: boolean;
+  // int8 → serialized as a string over JSON; null when the band isn't linked
+  // to a Twin Scene canonical record yet.
+  twin_scene_band_id: string | number | null;
 }
 
 const inputClass =
@@ -29,8 +32,15 @@ export default function BandsList({ initialBands }: { initialBands: BandListItem
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [syncStatus, setSyncStatus] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
+  const [pushingId, setPushingId] = useState<number | 'all' | null>(null);
 
   const unreviewedCount = useMemo(() => bands.filter((b) => b.unreviewed).length, [bands]);
+  // Bands that played a show but aren't linked to a Twin Scene record — the
+  // ones "Push to Twin Scene" acts on (bare orphans with no shows are excluded).
+  const unlinkedWithShows = useMemo(
+    () => bands.filter((b) => b.twin_scene_band_id == null && b.show_count > 0),
+    [bands]
+  );
 
   const scoped = useMemo(() => {
     // Unreviewed bands are almost always freshly auto-created with 0 shows,
@@ -92,6 +102,32 @@ export default function BandsList({ initialBands }: { initialBands: BandListItem
     }
   }
 
+  // Create-and-link unlinked band(s) in Twin Scene. `id` pushes one; omit it to
+  // push every unlinked band that has a show. Server-side, so the API key works.
+  async function handlePush(id?: number) {
+    setPushingId(id ?? 'all');
+    setSyncStatus(null);
+    try {
+      const res = await fetch('/api/admin/bands/push-to-twinscene', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(id != null ? { id } : {}),
+      });
+      if (!res.ok) throw new Error();
+      const result: { total: number; linked: number; failed: number } = await res.json();
+      setSyncStatus(
+        result.failed > 0
+          ? `Linked ${result.linked} of ${result.total} — ${result.failed} failed (check server logs).`
+          : `Linked ${result.linked} band(s) to Twin Scene.`
+      );
+      router.refresh();
+    } catch {
+      setSyncStatus('Push failed — check TWIN_SCENE_API_KEY / TWIN_SCENE_API_URL and try again.');
+    } finally {
+      setPushingId(null);
+    }
+  }
+
   return (
     <div>
       {errorMessage && (
@@ -128,10 +164,20 @@ export default function BandsList({ initialBands }: { initialBands: BandListItem
             onChange={(e) => setSearch(e.target.value)}
             className={`${inputClass} w-full max-w-sm`}
           />
+          {unlinkedWithShows.length > 0 && (
+            <button
+              onClick={() => handlePush()}
+              disabled={pushingId !== null}
+              className="ml-auto border border-[#E8E0D0]/40 rounded px-4 py-1.5 text-sm hover:bg-[#E8E0D0]/10 transition-colors disabled:opacity-50"
+              title="Create these bands in Twin Scene and link them"
+            >
+              {pushingId === 'all' ? 'Pushing…' : `Push ${unlinkedWithShows.length} unlinked to Twin Scene`}
+            </button>
+          )}
           <button
             onClick={handleSyncTwinScene}
             disabled={syncing}
-            className="ml-auto border border-[#E8E0D0]/40 rounded px-4 py-1.5 text-sm hover:bg-[#E8E0D0]/10 transition-colors disabled:opacity-50"
+            className={`${unlinkedWithShows.length > 0 ? '' : 'ml-auto '}border border-[#E8E0D0]/40 rounded px-4 py-1.5 text-sm hover:bg-[#E8E0D0]/10 transition-colors disabled:opacity-50`}
           >
             {syncing ? 'Syncing…' : 'Sync from Twin Scene'}
           </button>
@@ -190,6 +236,16 @@ export default function BandsList({ initialBands }: { initialBands: BandListItem
                   className="text-[#E8E0D0]/80 hover:text-[#E8E0D0] underline"
                 >
                   Mark reviewed
+                </button>
+              )}
+              {band.twin_scene_band_id == null && band.show_count > 0 && (
+                <button
+                  onClick={() => handlePush(band.id)}
+                  disabled={pushingId !== null}
+                  className="text-[#E8E0D0]/80 hover:text-[#E8E0D0] underline disabled:opacity-50"
+                  title="Create in Twin Scene and link"
+                >
+                  {pushingId === band.id ? 'Pushing…' : 'Push to Twin Scene'}
                 </button>
               )}
               <Link href={`/bands/${band.slug}`} target="_blank" className="text-[#E8E0D0]/50 hover:text-[#E8E0D0]">
