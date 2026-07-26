@@ -101,12 +101,47 @@ function computeIssues(show: ShowListItem, today: string): CategorizedIssues {
   return { statusRsvp, preShow, postShow };
 }
 
+// Returns the set of issue keys that currently apply to a show for the given
+// categories, excluding any the user has dismissed. Shared by the "what's
+// needed" filter bar and its per-filter counts so both track computeIssues.
+function activeIssueKeys(show: ShowListItem, today: string, categories: IssueCategory[]): Set<string> {
+  const ignored = new Set(show.ignored_health_checks ?? []);
+  const categorized = computeIssues(show, today);
+  const keys = new Set<string>();
+  for (const category of categories) {
+    for (const issue of categorized[category]) {
+      if (!ignored.has(issue.key)) keys.add(issue.key);
+    }
+  }
+  return keys;
+}
+
+// The filterable "what's needed" chips. Each maps to an issue key from
+// computeIssues; `category` decides which show group (upcoming vs past) it
+// applies to, matching where that issue is surfaced as a tag.
+const FILTER_DEFS: { key: string; label: string; category: IssueCategory }[] = [
+  { key: 'sound', label: 'Needs sound engineer', category: 'preShow' },
+  { key: 'bands', label: 'Needs bands', category: 'preShow' },
+  { key: 'flyer', label: 'Needs flyer', category: 'preShow' },
+  { key: 'advance', label: 'Not advanced', category: 'preShow' },
+  { key: 'rsvp-off', label: 'RSVP form off', category: 'statusRsvp' },
+  { key: 'no-rsvps', label: 'No RSVPs yet', category: 'statusRsvp' },
+  { key: 'bands-unpaid', label: 'Bands unpaid', category: 'postShow' },
+  { key: 'sound-unpaid', label: 'Sound unpaid', category: 'postShow' },
+  { key: 'photographer-unpaid', label: 'Photographer unpaid', category: 'postShow' },
+  { key: 'videos-missing', label: 'Videos missing', category: 'postShow' },
+];
+
+const UPCOMING_CATEGORIES: IssueCategory[] = ['statusRsvp', 'preShow'];
+const PAST_CATEGORIES: IssueCategory[] = ['postShow'];
+
 const inputClass =
   'bg-transparent border border-[#E8E0D0]/30 rounded px-3 py-1.5 text-sm focus:outline-none focus:border-[#E8E0D0] placeholder:text-[#E8E0D0]/30';
 
 export default function ShowsList({ initialShows, today }: { initialShows: ShowListItem[]; today: string }) {
   const [shows, setShows] = useState<ShowListItem[]>(initialShows);
   const [search, setSearch] = useState('');
+  const [activeFilters, setActiveFilters] = useState<Set<string>>(new Set());
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   // "Ask an engineer about a batch of dates" flow: a select mode that adds a
@@ -168,15 +203,51 @@ export default function ShowsList({ initialShows, today }: { initialShows: ShowL
     );
   }, [shows, search]);
 
-  const { upcoming, past } = useMemo(() => {
-    const upcoming = filtered
+  function toggleFilter(key: string) {
+    setActiveFilters((cur) => {
+      const next = new Set(cur);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
+
+  const { upcoming, past, filterCounts } = useMemo(() => {
+    const upcomingAll = filtered
       .filter((s) => s.date >= today)
       .sort((a, b) => a.date.localeCompare(b.date)); // next show first
-    const past = filtered
+    const pastAll = filtered
       .filter((s) => s.date < today)
       .sort((a, b) => b.date.localeCompare(a.date)); // most recent first
-    return { upcoming, past };
-  }, [filtered, today]);
+
+    // Per-filter counts over the search-filtered set (before applying the
+    // "what's needed" filter), so a chip shows how many shows it would surface.
+    const filterCounts: Record<string, number> = {};
+    for (const def of FILTER_DEFS) {
+      const group = def.category === 'postShow' ? pastAll : upcomingAll;
+      filterCounts[def.key] = group.reduce(
+        (n, s) => n + (activeIssueKeys(s, today, [def.category]).has(def.key) ? 1 : 0),
+        0
+      );
+    }
+
+    if (activeFilters.size === 0) {
+      return { upcoming: upcomingAll, past: pastAll, filterCounts };
+    }
+
+    // A show matches when it has any of the active filters' issues (OR), scoped
+    // to the categories that group actually surfaces.
+    const matches = (s: ShowListItem, categories: IssueCategory[]) => {
+      const keys = activeIssueKeys(s, today, categories);
+      for (const key of activeFilters) if (keys.has(key)) return true;
+      return false;
+    };
+    return {
+      upcoming: upcomingAll.filter((s) => matches(s, UPCOMING_CATEGORIES)),
+      past: pastAll.filter((s) => matches(s, PAST_CATEGORIES)),
+      filterCounts,
+    };
+  }, [filtered, today, activeFilters]);
 
   async function setIgnored(showId: number, nextIgnored: string[]) {
     const previous = shows;
@@ -321,12 +392,57 @@ export default function ShowsList({ initialShows, today }: { initialShows: ShowL
         </div>
       )}
 
+      {(() => {
+        const visibleDefs = FILTER_DEFS.filter(
+          (d) => filterCounts[d.key] > 0 || activeFilters.has(d.key)
+        );
+        if (visibleDefs.length === 0) return null;
+        return (
+          <div className="flex flex-wrap items-center gap-2 mb-4">
+            <span className="text-xs uppercase tracking-wide text-[#E8E0D0]/40 mr-1">Needs</span>
+            {visibleDefs.map((def) => {
+              const active = activeFilters.has(def.key);
+              return (
+                <button
+                  key={def.key}
+                  type="button"
+                  onClick={() => toggleFilter(def.key)}
+                  className={`flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border transition-colors ${
+                    active
+                      ? 'border-amber-400/60 bg-amber-400/20 text-amber-200'
+                      : 'border-[#E8E0D0]/25 text-[#E8E0D0]/60 hover:bg-[#E8E0D0]/[0.06]'
+                  }`}
+                >
+                  {def.label}
+                  <span className={active ? 'text-amber-200/70' : 'text-[#E8E0D0]/35'}>
+                    {filterCounts[def.key]}
+                  </span>
+                </button>
+              );
+            })}
+            {activeFilters.size > 0 && (
+              <button
+                type="button"
+                onClick={() => setActiveFilters(new Set())}
+                className="text-xs text-[#E8E0D0]/50 hover:text-[#E8E0D0] underline underline-offset-2"
+              >
+                Clear
+              </button>
+            )}
+          </div>
+        );
+      })()}
+
       <p className="text-xs text-[#E8E0D0]/40 mb-3">
-        {filtered.length} of {shows.length} shows shown
+        {activeFilters.size > 0
+          ? `${upcoming.length + past.length} of ${shows.length} shows shown`
+          : `${filtered.length} of ${shows.length} shows shown`}
       </p>
 
-      {filtered.length === 0 ? (
-        <p className="text-[#E8E0D0]/40 text-sm py-8 text-center">No shows match this search.</p>
+      {upcoming.length + past.length === 0 ? (
+        <p className="text-[#E8E0D0]/40 text-sm py-8 text-center">
+          No shows match {activeFilters.size > 0 ? 'these filters' : 'this search'}.
+        </p>
       ) : (
         <div className="space-y-8">
           <ShowGroup
