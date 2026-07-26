@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import BandNameInput, { type BandMatch, type TwinSceneBandOption } from './BandNameInput';
+import AddBandModal from './AddBandModal';
 import SoundEngineerNameInput, { type SoundEngineerMatch } from './SoundEngineerNameInput';
 import ImageUploadField from './ImageUploadField';
 import ShowDateAvailability from './ShowDateAvailability';
@@ -264,6 +265,9 @@ export default function ShowForm({
   const [photosUploading, setPhotosUploading] = useState(false);
   const photosFileInputRef = useRef<HTMLInputElement>(null);
   const [twinSceneBands, setTwinSceneBands] = useState<TwinSceneBandOption[]>([]);
+  // Which band row (index) opened the full "Add band" modal, and the name to
+  // prefill it with. null when the modal is closed.
+  const [addBandModal, setAddBandModal] = useState<{ index: number; name: string } | null>(null);
 
   // Square donation-link state — created on demand via the button below, never
   // automatically on save. Seeded from whatever's already synced for this show.
@@ -639,6 +643,17 @@ export default function ShowForm({
   }
 
   return (
+    <>
+    {addBandModal && (
+      <AddBandModal
+        initialName={addBandModal.name}
+        onCreated={(match) => {
+          selectBand(addBandModal.index, match);
+          setAddBandModal(null);
+        }}
+        onClose={() => setAddBandModal(null)}
+      />
+    )}
     <form onSubmit={handleSubmit} className="space-y-6">
       {!embedded && (
         <div className="flex items-center justify-between">
@@ -776,6 +791,7 @@ export default function ShowForm({
                     value={band.name}
                     onChange={(value) => updateBand(index, 'name', value)}
                     onSelect={(match) => selectBand(index, match)}
+                    onAddNew={(name) => setAddBandModal({ index, name })}
                     twinSceneBands={twinSceneBands}
                     className={`${inputClass} w-full`}
                   />
@@ -1203,5 +1219,6 @@ export default function ShowForm({
         </button>
       </div>
     </form>
+    </>
   );
 }

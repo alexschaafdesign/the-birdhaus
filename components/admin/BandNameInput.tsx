@@ -36,6 +36,7 @@ export default function BandNameInput({
   value,
   onChange,
   onSelect,
+  onAddNew,
   twinSceneBands,
   className,
   placeholder,
@@ -43,6 +44,10 @@ export default function BandNameInput({
   value: string;
   onChange: (value: string) => void;
   onSelect: (match: BandMatch) => void;
+  // When provided, an "Add <name> as a new band" row appears at the bottom of
+  // the dropdown whenever the typed name has no exact match — opens the full
+  // Add Band modal (see ShowForm/AddBandModal).
+  onAddNew?: (name: string) => void;
   twinSceneBands?: TwinSceneBandOption[];
   className?: string;
   placeholder?: string;
@@ -100,6 +105,11 @@ export default function BandNameInput({
           }))
       : [];
   const displayMatches: DisplayMatch[] = [...matches, ...twinSceneOnlyMatches];
+  // Offer "add new" only when nothing in the dropdown is an exact name match —
+  // an exact match means the band already exists and should just be picked.
+  const trimmed = value.trim();
+  const hasExactMatch = displayMatches.some((m) => m.name.trim().toLowerCase() === query);
+  const showAddNew = !!onAddNew && trimmed.length >= 2 && !hasExactMatch;
 
   // Local match: select immediately, as before. Twin-Scene-only match: sync
   // it into Birdhaus's local bands table first so it gets a real bandId,
@@ -144,7 +154,7 @@ export default function BandNameInput({
         className={className}
         autoComplete="off"
       />
-      {open && value.trim().length >= 2 && displayMatches.length > 0 && (
+      {open && trimmed.length >= 2 && (displayMatches.length > 0 || showAddNew) && (
         <div className="absolute z-10 mt-1 w-full max-h-48 overflow-auto rounded border border-[#E8E0D0]/30 bg-[#171412] shadow-lg">
           {displayMatches.map((match) => (
             <button
@@ -167,6 +177,19 @@ export default function BandNameInput({
               )}
             </button>
           ))}
+          {showAddNew && (
+            <button
+              type="button"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                onAddNew!(trimmed);
+                setOpen(false);
+              }}
+              className="block w-full text-left px-3 py-1.5 text-sm text-[#E8E0D0]/70 border-t border-[#E8E0D0]/10 hover:bg-[#E8E0D0]/10"
+            >
+              ＋ Add “{trimmed}” as a new band
+            </button>
+          )}
         </div>
       )}
     </div>

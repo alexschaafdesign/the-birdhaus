@@ -137,14 +137,31 @@ export interface CreatedTwinSceneBand {
   matched: boolean;
 }
 
-// Write path: create (or find, case-insensitively) a band in Twin Scene's
-// canonical directory. Birdhaus's API key is provisioned can_write=true, so
-// this is allowed; POST /api/public/bands is a find-or-create that returns the
-// canonical record plus a `matched` flag (see twinscene's app/api/public/bands
-// route + toPublicBand). Used by the Edit Show form's save path so a brand-new
-// band an operator types gets pushed up to Twin Scene and linked, instead of
-// staying a Birdhaus-only orphan. Mirrors crawlspace's createTwinSceneBand().
-export async function createTwinSceneBand(name: string): Promise<CreatedTwinSceneBand> {
+// The full profile Twin Scene's POST /api/public/bands accepts alongside the
+// name (mirrors twinscene's BandSubmissionInput, minus the raw photo File —
+// `photoUrl` is a plain hosted URL instead, since Birdhaus uploads its own
+// band images to R2 and Twin Scene accepts a URL directly). Every field is
+// optional; a name-only call is the legacy find-or-create.
+export interface TwinSceneBandInput {
+  genres?: string[];
+  similarTo?: string[];
+  city?: string;
+  locality?: string; // 'local' | 'touring'
+  neighborhoods?: string[];
+  members?: string[];
+  contactEmail?: string;
+  contactMethod?: string;
+  website?: string;
+  instagram?: string;
+  bandcamp?: string;
+  bandcampLink?: string;
+  youtubeChannel?: string;
+  bio?: string;
+  featuredLinks?: TwinSceneFeaturedLink[];
+  photoUrl?: string;
+}
+
+async function postTwinSceneBand(body: Record<string, unknown>): Promise<CreatedTwinSceneBand> {
   const baseUrl = process.env.TWIN_SCENE_API_URL;
   const apiKey = process.env.TWIN_SCENE_API_KEY;
   if (!baseUrl || !apiKey) {
@@ -155,24 +172,46 @@ export async function createTwinSceneBand(name: string): Promise<CreatedTwinScen
     method: 'POST',
     headers: { 'x-api-key': apiKey, 'content-type': 'application/json' },
     cache: 'no-store',
-    body: JSON.stringify({ name }),
+    body: JSON.stringify(body),
   });
   if (!res.ok) {
     throw new Error(`Twin Scene band create failed (${res.status})`);
   }
 
-  const body = (await res.json()) as Record<string, unknown>;
-  const id = typeof body.id === 'number' ? body.id : Number(body.id);
-  const slug = asString(body.slug);
+  const parsed = (await res.json()) as Record<string, unknown>;
+  const id = typeof parsed.id === 'number' ? parsed.id : Number(parsed.id);
+  const slug = asString(parsed.slug);
   if (!Number.isFinite(id) || !slug) {
     throw new Error('Twin Scene band create returned no id/slug');
   }
   return {
     id,
     slug,
-    name: asString(body.name) || name,
-    matched: body.matched === true,
+    name: asString(parsed.name) || asString(body.name),
+    matched: parsed.matched === true,
   };
+}
+
+// Write path: create (or find, case-insensitively) a band in Twin Scene's
+// canonical directory. Birdhaus's API key is provisioned can_write=true, so
+// this is allowed; POST /api/public/bands is a find-or-create that returns the
+// canonical record plus a `matched` flag (see twinscene's app/api/public/bands
+// route + toPublicBand). Used by the Edit Show form's save path so a brand-new
+// band an operator types gets pushed up to Twin Scene and linked, instead of
+// staying a Birdhaus-only orphan. Mirrors crawlspace's createTwinSceneBand().
+export async function createTwinSceneBand(name: string): Promise<CreatedTwinSceneBand> {
+  return postTwinSceneBand({ name });
+}
+
+// Rich variant: create a band in Twin Scene with a full profile (the "Add
+// band" modal in the Edit Show form). Twin Scene runs it through upsertBand,
+// applying the same enrichment its native submit form does. An existing name
+// is returned untouched (matched: true).
+export async function createTwinSceneBandFull(
+  name: string,
+  profile: TwinSceneBandInput
+): Promise<CreatedTwinSceneBand> {
+  return postTwinSceneBand({ name, ...profile });
 }
 
 export function splitGenres(genre: string): string[] {
