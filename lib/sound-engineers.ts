@@ -120,6 +120,41 @@ export async function resolveSoundEngineerByName(name: string, tx: Tx): Promise<
   return Number(created.id);
 }
 
+// Records that one engineer was asked about a batch of shows at once — the
+// "I texted Jordan about these 8 dates" bulk action on the shows list. Resolves
+// (or creates) the engineer by name, then inserts an 'asked' row per show.
+// ON CONFLICT DO NOTHING means a show where this engineer is already confirmed/
+// asked/declined is left untouched, so this never clobbers an existing status.
+// Returns the resolved engineer and how many shows actually got a new row.
+export async function addAskedEngineerToShows(
+  name: string,
+  showIds: number[],
+  tx: Tx
+): Promise<{ engineer: SoundEngineer; added: number }> {
+  const engineerId = await resolveSoundEngineerByName(name, tx);
+  const [engineer] = await tx<SoundEngineerRow[]>`
+    select id, name from sound_engineers where id = ${engineerId}
+  `;
+
+  const rows = showIds.map((showId) => ({
+    show_id: showId,
+    sound_engineer_id: engineerId,
+    status: 'asked' as const,
+  }));
+
+  let added = 0;
+  if (rows.length > 0) {
+    const inserted = await tx`
+      insert into show_sound_engineers ${tx(rows, 'show_id', 'sound_engineer_id', 'status')}
+      on conflict (show_id, sound_engineer_id) do nothing
+      returning show_id
+    `;
+    added = inserted.length;
+  }
+
+  return { engineer: rowToSoundEngineer(engineer), added };
+}
+
 // Replaces a show's engineer relationships wholesale — simplest correct way to
 // apply additions/removals/status changes from a full-array save without
 // diffing (mirrors setShowBands). Resolves each name to a real id first,

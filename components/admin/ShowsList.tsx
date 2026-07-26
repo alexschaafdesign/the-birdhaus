@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { ShowBandPaidStatus } from '@/lib/bands';
+import SoundEngineerNameInput from './SoundEngineerNameInput';
 
 export interface ShowListItem {
   id: number;
@@ -108,6 +109,57 @@ export default function ShowsList({ initialShows, today }: { initialShows: ShowL
   const [search, setSearch] = useState('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  // "Ask an engineer about a batch of dates" flow: a select mode that adds a
+  // checkbox to each upcoming show, plus a toolbar to log one engineer as
+  // 'asked' across everything selected in a single request.
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [engineerName, setEngineerName] = useState('');
+  const [applying, setApplying] = useState(false);
+  const [flash, setFlash] = useState<string | null>(null);
+
+  function toggleSelect(id: number) {
+    setSelectedIds((cur) => {
+      const next = new Set(cur);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function exitSelectMode() {
+    setSelectMode(false);
+    setSelectedIds(new Set());
+    setEngineerName('');
+  }
+
+  async function applyAskedEngineer() {
+    const name = engineerName.trim();
+    if (!name || selectedIds.size === 0) return;
+    setApplying(true);
+    setErrorMessage(null);
+    setFlash(null);
+    try {
+      const res = await fetch('/api/admin/sound-engineers/bulk-asked', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, showIds: [...selectedIds] }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(data?.error || 'Failed to update — try again.');
+      const added = data.added as number;
+      const skipped = data.skipped as number;
+      const parts = [`Asked ${data.engineer.name} about ${added} show${added === 1 ? '' : 's'}`];
+      if (skipped > 0) parts.push(`${skipped} already had them`);
+      setFlash(parts.join(' · '));
+      exitSelectMode();
+    } catch (err) {
+      setErrorMessage(err instanceof Error ? err.message : 'Failed to update — try again.');
+    } finally {
+      setApplying(false);
+    }
+  }
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return shows;
@@ -202,6 +254,15 @@ export default function ShowsList({ initialShows, today }: { initialShows: ShowL
         </div>
       )}
 
+      {flash && (
+        <div className="mb-4 border border-green-400/40 bg-green-400/10 text-green-300 text-sm rounded px-4 py-2 flex justify-between items-center">
+          <span>{flash}</span>
+          <button onClick={() => setFlash(null)} className="text-green-300/70 hover:text-green-300">
+            dismiss
+          </button>
+        </div>
+      )}
+
       <div className="flex flex-wrap gap-3 items-center mb-4">
         <input
           type="text"
@@ -210,13 +271,55 @@ export default function ShowsList({ initialShows, today }: { initialShows: ShowL
           onChange={(e) => setSearch(e.target.value)}
           className={`${inputClass} w-full max-w-sm`}
         />
-        <Link
-          href="/admin/shows/new"
-          className="ml-auto border border-[#E8E0D0]/40 rounded px-4 py-1.5 text-sm hover:bg-[#E8E0D0]/10 transition-colors"
-        >
-          + New show
-        </Link>
+        <div className="ml-auto flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => (selectMode ? exitSelectMode() : setSelectMode(true))}
+            className={`border rounded px-4 py-1.5 text-sm transition-colors ${
+              selectMode
+                ? 'border-[#E8E0D0] bg-[#E8E0D0]/10'
+                : 'border-[#E8E0D0]/40 hover:bg-[#E8E0D0]/10'
+            }`}
+          >
+            {selectMode ? 'Cancel selection' : 'Ask an engineer…'}
+          </button>
+          <Link
+            href="/admin/shows/new"
+            className="border border-[#E8E0D0]/40 rounded px-4 py-1.5 text-sm hover:bg-[#E8E0D0]/10 transition-colors"
+          >
+            + New show
+          </Link>
+        </div>
       </div>
+
+      {selectMode && (
+        <div className="mb-4 flex flex-wrap items-center gap-3 rounded-lg border border-[#E8E0D0]/25 bg-[#E8E0D0]/[0.04] px-4 py-3">
+          <span className="text-sm text-[#E8E0D0]/70">
+            {selectedIds.size === 0
+              ? 'Check the upcoming shows you asked about, then pick the engineer.'
+              : `${selectedIds.size} show${selectedIds.size === 1 ? '' : 's'} selected`}
+          </span>
+          <div className="ml-auto flex items-center gap-2">
+            <div className="w-56">
+              <SoundEngineerNameInput
+                placeholder="Engineer name…"
+                value={engineerName}
+                onChange={setEngineerName}
+                onSelect={(match) => setEngineerName(match.name)}
+                className={`${inputClass} w-full`}
+              />
+            </div>
+            <button
+              type="button"
+              onClick={applyAskedEngineer}
+              disabled={applying || selectedIds.size === 0 || !engineerName.trim()}
+              className="bg-[#E8E0D0] text-[#2A2420] border border-[#E8E0D0] rounded px-4 py-1.5 text-sm font-medium hover:bg-[#E8E0D0]/90 transition-colors disabled:opacity-40"
+            >
+              {applying ? 'Saving…' : 'Mark asked'}
+            </button>
+          </div>
+        </div>
+      )}
 
       <p className="text-xs text-[#E8E0D0]/40 mb-3">
         {filtered.length} of {shows.length} shows shown
@@ -234,6 +337,9 @@ export default function ShowsList({ initialShows, today }: { initialShows: ShowL
             onMarkBandPaid={markBandPaid}
             onMarkCrewPaid={markCrewPaid}
             issueCategories={['statusRsvp', 'preShow']}
+            selectMode={selectMode}
+            selectedIds={selectedIds}
+            onToggleSelect={toggleSelect}
           />
           <ShowGroup
             title="Past Shows"
@@ -258,6 +364,9 @@ function ShowGroup({
   onMarkBandPaid,
   onMarkCrewPaid,
   issueCategories,
+  selectMode = false,
+  selectedIds,
+  onToggleSelect,
 }: {
   title: string;
   shows: ShowListItem[];
@@ -266,8 +375,13 @@ function ShowGroup({
   onMarkBandPaid: (showId: number, bandId: number, paid: boolean) => void;
   onMarkCrewPaid: (showId: number, role: 'sound' | 'photographer', paid: boolean) => void;
   issueCategories: IssueCategory[];
+  // Present only for the selectable (Upcoming) group's bulk "ask engineer" flow.
+  selectMode?: boolean;
+  selectedIds?: Set<number>;
+  onToggleSelect?: (id: number) => void;
 }) {
   const router = useRouter();
+  const selectable = selectMode && Boolean(onToggleSelect);
   if (shows.length === 0) return null;
   return (
     <section>
@@ -281,12 +395,29 @@ function ShowGroup({
           const clusters = issueCategories
             .map((category) => categorized[category].filter((issue) => !ignored.has(issue.key)))
             .filter((cluster) => cluster.length > 0);
+          const checked = selectedIds?.has(show.id) ?? false;
           return (
             <div
               key={show.id}
-              onClick={() => router.push(`/admin/shows/${show.id}`)}
-              className="flex items-center justify-between gap-4 border border-[#E8E0D0]/15 rounded-lg px-4 py-3 cursor-pointer hover:bg-[#E8E0D0]/[0.04] transition-colors"
+              onClick={() =>
+                selectable ? onToggleSelect?.(show.id) : router.push(`/admin/shows/${show.id}`)
+              }
+              className={`flex items-center justify-between gap-4 border rounded-lg px-4 py-3 cursor-pointer transition-colors ${
+                selectable && checked
+                  ? 'border-[#E8E0D0]/60 bg-[#E8E0D0]/[0.06]'
+                  : 'border-[#E8E0D0]/15 hover:bg-[#E8E0D0]/[0.04]'
+              }`}
             >
+              {selectable && (
+                <input
+                  type="checkbox"
+                  checked={checked}
+                  onChange={() => onToggleSelect?.(show.id)}
+                  onClick={(e) => e.stopPropagation()}
+                  className="shrink-0 h-4 w-4 accent-[#E8E0D0]"
+                  aria-label={`Select ${show.title}`}
+                />
+              )}
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-3 flex-wrap">
                   <span className="text-sm text-[#E8E0D0]/50 font-mono">{show.date}</span>
