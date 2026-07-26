@@ -119,12 +119,19 @@ interface Audio {
 // Sound-engineer statuses from the API, kept in sync with lib/sound-engineers.ts.
 type SoundEngineerStatus = 'confirmed' | 'asked' | 'declined';
 
-// An engineer the operator asked but who isn't the confirmed one — `declined`
-// distinguishes "still waiting" from "said no" (the checkbox in the UI).
-interface AskedEngineer {
+const ENGINEER_STATUS_OPTIONS: { value: SoundEngineerStatus; label: string }[] = [
+  { value: 'asked', label: 'Asked' },
+  { value: 'confirmed', label: 'Confirmed' },
+  { value: 'declined', label: 'Declined' },
+];
+
+// One row in the unified sound-engineer list: an engineer (picked from the
+// registry or freshly typed) plus where they stand — asked / confirmed /
+// declined. At most one row may be 'confirmed' per show (enforced on save).
+interface EngineerEntry {
   soundEngineerId: number | null;
   name: string;
-  declined: boolean;
+  status: SoundEngineerStatus;
 }
 
 export interface ShowFormInitialValues {
@@ -180,15 +187,12 @@ interface FormState {
   announced: boolean;
   targetBandCount: number;
   advanceSent: boolean;
-  // The one assigned engineer. id is null until it resolves to a registry row on save.
-  confirmedEngineerName: string;
-  confirmedEngineerId: number | null;
-  // Everyone else who was asked, whether pending or declined.
-  askedEngineers: AskedEngineer[];
+  // Every engineer touched for this show, each with a status. ids are null until
+  // a freshly-typed name resolves to a registry row on save.
+  engineers: EngineerEntry[];
 }
 
 function initFormState(initial?: ShowFormInitialValues): FormState {
-  const confirmed = (initial?.soundEngineers ?? []).find((e) => e.status === 'confirmed');
   return {
     slug: initial?.slug ?? '',
     slugTouched: Boolean(initial?.slug),
@@ -234,15 +238,11 @@ function initFormState(initial?: ShowFormInitialValues): FormState {
     announced: initial?.announced ?? false,
     targetBandCount: initial?.targetBandCount ?? 3,
     advanceSent: initial?.advanceSent ?? false,
-    confirmedEngineerName: confirmed?.name ?? '',
-    confirmedEngineerId: confirmed?.soundEngineerId ?? null,
-    askedEngineers: (initial?.soundEngineers ?? [])
-      .filter((e) => e.status !== 'confirmed')
-      .map((e) => ({
-        soundEngineerId: e.soundEngineerId ?? null,
-        name: e.name,
-        declined: e.status === 'declined',
-      })),
+    engineers: (initial?.soundEngineers ?? []).map((e) => ({
+      soundEngineerId: e.soundEngineerId ?? null,
+      name: e.name,
+      status: e.status,
+    })),
   };
 }
 
@@ -391,46 +391,44 @@ export default function ShowForm({
     setForm((prev) => ({ ...prev, audio: prev.audio.filter((_, i) => i !== index) }));
   }
 
-  // Retyping the confirmed engineer's name severs the link to a registry row —
-  // it either re-matches on save or becomes a new engineer.
-  function updateConfirmedEngineerName(value: string) {
-    setForm((prev) => ({ ...prev, confirmedEngineerName: value, confirmedEngineerId: null }));
-  }
-  function selectConfirmedEngineer(match: SoundEngineerMatch) {
-    setForm((prev) => ({ ...prev, confirmedEngineerName: match.name, confirmedEngineerId: match.id }));
-  }
-
-  function updateAskedEngineerName(index: number, value: string) {
+  // Retyping an engineer's name severs the link to a registry row — it either
+  // re-matches on save or becomes a new engineer.
+  function updateEngineerName(index: number, value: string) {
     setForm((prev) => {
-      const askedEngineers = [...prev.askedEngineers];
-      askedEngineers[index] = { ...askedEngineers[index], name: value, soundEngineerId: null };
-      return { ...prev, askedEngineers };
+      const engineers = [...prev.engineers];
+      engineers[index] = { ...engineers[index], name: value, soundEngineerId: null };
+      return { ...prev, engineers };
     });
   }
-  function selectAskedEngineer(index: number, match: SoundEngineerMatch) {
+  function selectEngineer(index: number, match: SoundEngineerMatch) {
     setForm((prev) => {
-      const askedEngineers = [...prev.askedEngineers];
-      askedEngineers[index] = { ...askedEngineers[index], name: match.name, soundEngineerId: match.id };
-      return { ...prev, askedEngineers };
+      const engineers = [...prev.engineers];
+      engineers[index] = { ...engineers[index], name: match.name, soundEngineerId: match.id };
+      return { ...prev, engineers };
     });
   }
-  function toggleAskedEngineerDeclined(index: number, declined: boolean) {
+  function setEngineerStatus(index: number, status: SoundEngineerStatus) {
     setForm((prev) => {
-      const askedEngineers = [...prev.askedEngineers];
-      askedEngineers[index] = { ...askedEngineers[index], declined };
-      return { ...prev, askedEngineers };
+      // Only one engineer can be confirmed per show, so promoting one demotes
+      // any previously-confirmed row back to 'asked'.
+      const engineers = prev.engineers.map((e, i) => {
+        if (i === index) return { ...e, status };
+        if (status === 'confirmed' && e.status === 'confirmed') return { ...e, status: 'asked' as const };
+        return e;
+      });
+      return { ...prev, engineers };
     });
   }
-  function addAskedEngineer() {
+  function addEngineer() {
     setForm((prev) => ({
       ...prev,
-      askedEngineers: [...prev.askedEngineers, { soundEngineerId: null, name: '', declined: false }],
+      engineers: [...prev.engineers, { soundEngineerId: null, name: '', status: 'asked' }],
     }));
   }
-  function removeAskedEngineer(index: number) {
+  function removeEngineer(index: number) {
     setForm((prev) => ({
       ...prev,
-      askedEngineers: prev.askedEngineers.filter((_, i) => i !== index),
+      engineers: prev.engineers.filter((_, i) => i !== index),
     }));
   }
 
@@ -497,32 +495,27 @@ export default function ShowForm({
       ...(b.bandId ? { bandId: b.bandId } : {}),
     }));
 
-    // Confirmed engineer (if named) + everyone asked, deduped by name against
-    // the confirmed one and each other so the server's uniqueness check passes.
+    // Flatten the unified engineer list, dropping blank rows and deduping by
+    // name (case-insensitively) so the server's uniqueness check passes. Guard
+    // against more than one confirmed row slipping through — the UI enforces a
+    // single confirmed, but demote any extras to 'asked' just in case.
     const soundEngineers: Array<{
       soundEngineerId: number | null;
       name: string;
       status: SoundEngineerStatus;
     }> = [];
     const seenEngineerNames = new Set<string>();
-    const confirmedName = form.confirmedEngineerName.trim();
-    if (confirmedName) {
-      soundEngineers.push({
-        soundEngineerId: form.confirmedEngineerId,
-        name: confirmedName,
-        status: 'confirmed',
-      });
-      seenEngineerNames.add(confirmedName.toLowerCase());
-    }
-    for (const asked of form.askedEngineers) {
-      const name = asked.name.trim();
+    let hasConfirmed = false;
+    for (const engineer of form.engineers) {
+      const name = engineer.name.trim();
       if (!name || seenEngineerNames.has(name.toLowerCase())) continue;
       seenEngineerNames.add(name.toLowerCase());
-      soundEngineers.push({
-        soundEngineerId: asked.soundEngineerId,
-        name,
-        status: asked.declined ? 'declined' : 'asked',
-      });
+      let status = engineer.status;
+      if (status === 'confirmed') {
+        if (hasConfirmed) status = 'asked';
+        else hasConfirmed = true;
+      }
+      soundEngineers.push({ soundEngineerId: engineer.soundEngineerId, name, status });
     }
 
     const payload = {
@@ -855,73 +848,60 @@ export default function ShowForm({
         </div>
       </Section>
 
-      <Section title="Sound engineer" collapsible>
-        <div className="space-y-4">
-        <div>
-          <label className="block text-xs uppercase tracking-wide text-[#E8E0D0]/40 mb-1">
-            Confirmed engineer
-          </label>
-          <div className="sm:max-w-sm">
-            <SoundEngineerNameInput
-              placeholder="Start typing a name…"
-              value={form.confirmedEngineerName}
-              onChange={updateConfirmedEngineerName}
-              onSelect={selectConfirmedEngineer}
-              className={`${inputClass} w-full`}
-            />
-          </div>
-          {form.confirmedEngineerId && (
-            <p className="text-xs text-green-400/70 mt-1">🔗 Linked to existing engineer</p>
-          )}
-        </div>
-
-        <div>
-          <div className="flex items-center justify-between mb-2">
-            <label className="block text-xs uppercase tracking-wide text-[#E8E0D0]/40">
-              Also asked
-            </label>
-            <button
-              type="button"
-              onClick={addAskedEngineer}
-              className="text-xs border border-[#E8E0D0]/30 rounded px-2 py-1 hover:bg-[#E8E0D0]/10"
-            >
-              + ask another
-            </button>
-          </div>
-          <div className="space-y-2">
-            {form.askedEngineers.map((engineer, index) => (
-              <div key={index} className="grid gap-2 sm:grid-cols-[1fr_auto_auto] items-center">
+      <Section
+        title="Sound engineers"
+        collapsible
+        action={
+          <button
+            type="button"
+            onClick={addEngineer}
+            className="text-xs border border-[#E8E0D0]/30 rounded px-2 py-1 hover:bg-[#E8E0D0]/10"
+          >
+            + add engineer
+          </button>
+        }
+      >
+        <div className="space-y-2">
+          {form.engineers.map((engineer, index) => (
+            <div key={index} className="grid gap-2 sm:grid-cols-[1fr_auto_auto] items-start">
+              <div>
                 <SoundEngineerNameInput
-                  placeholder="Engineer name"
+                  placeholder="Choose or type an engineer…"
                   value={engineer.name}
-                  onChange={(value) => updateAskedEngineerName(index, value)}
-                  onSelect={(match) => selectAskedEngineer(index, match)}
+                  onChange={(value) => updateEngineerName(index, value)}
+                  onSelect={(match) => selectEngineer(index, match)}
                   className={`${inputClass} w-full`}
                 />
-                <label className="flex items-center gap-2 text-sm text-[#E8E0D0]/70 px-1 whitespace-nowrap">
-                  <input
-                    type="checkbox"
-                    checked={engineer.declined}
-                    onChange={(e) => toggleAskedEngineerDeclined(index, e.target.checked)}
-                  />
-                  said no
-                </label>
-                <button
-                  type="button"
-                  onClick={() => removeAskedEngineer(index)}
-                  className="text-red-400/70 hover:text-red-400 text-sm px-2"
-                >
-                  Remove
-                </button>
+                {engineer.soundEngineerId && (
+                  <p className="text-xs text-green-400/70 mt-1">🔗 Linked to existing engineer</p>
+                )}
               </div>
-            ))}
-            {form.askedEngineers.length === 0 && (
-              <p className="text-xs text-[#E8E0D0]/30">
-                Track engineers you&apos;ve reached out to — check &ldquo;said no&rdquo; when they decline.
-              </p>
-            )}
-          </div>
-        </div>
+              <select
+                value={engineer.status}
+                onChange={(e) => setEngineerStatus(index, e.target.value as SoundEngineerStatus)}
+                className={`${inputClass} sm:w-32`}
+              >
+                {ENGINEER_STATUS_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value} className="text-[#2A2420]">
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                onClick={() => removeEngineer(index)}
+                className="text-red-400/70 hover:text-red-400 text-sm px-2 py-1.5"
+              >
+                Remove
+              </button>
+            </div>
+          ))}
+          {form.engineers.length === 0 && (
+            <p className="text-xs text-[#E8E0D0]/30">
+              Add each engineer you&apos;ve reached out to and set their status — mark one
+              &ldquo;Confirmed&rdquo; once they&apos;re locked in.
+            </p>
+          )}
         </div>
       </Section>
 
