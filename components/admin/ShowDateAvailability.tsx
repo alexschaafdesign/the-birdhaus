@@ -22,6 +22,7 @@ export default function ShowDateAvailability({ date }: { date: string }) {
   const [submissions, setSubmissions] = useState<Submission[] | null>(null);
   const [dateOffers, setDateOffers] = useState<DateOffer[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState(false);
 
   useEffect(() => {
     Promise.all([
@@ -88,24 +89,41 @@ export default function ShowDateAvailability({ date }: { date: string }) {
 
   return (
     <div className="border border-[#E8E0D0]/15 rounded-lg p-4">
-      <div className="flex items-center justify-between mb-3">
-        <h2 className="text-sm font-semibold text-[#E8E0D0]/80">Bands available this date</h2>
+      <div className="flex items-center justify-between">
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          className="flex items-center gap-2 text-sm font-semibold text-[#E8E0D0]/80 hover:text-[#E8E0D0]"
+        >
+          <span
+            className={`inline-block transition-transform ${expanded ? 'rotate-90' : ''}`}
+            aria-hidden
+          >
+            ▸
+          </span>
+          Bands available this date
+          {submissions !== null && matches.length > 0 && (
+            <span className="text-xs font-normal text-[#E8E0D0]/40">({matches.length})</span>
+          )}
+        </button>
         <a href="/admin/submissions" className="text-xs text-[#E8E0D0]/50 hover:text-[#E8E0D0] underline">
           Open Submissions board →
         </a>
       </div>
 
-      {error && <p className="text-xs text-red-300 mb-2">{error}</p>}
+      {expanded && (
+        <div className="mt-3">
+          {error && <p className="text-xs text-red-300 mb-2">{error}</p>}
 
-      {submissions === null ? (
-        <p className="text-xs text-[#E8E0D0]/30">Loading…</p>
-      ) : matches.length === 0 ? (
-        <p className="text-xs text-[#E8E0D0]/30">
-          No submissions have marked {date} as available.
-        </p>
-      ) : (
-        <div className="space-y-2">
-          {matches.map((s) => {
+          {submissions === null ? (
+            <p className="text-xs text-[#E8E0D0]/30">Loading…</p>
+          ) : matches.length === 0 ? (
+            <p className="text-xs text-[#E8E0D0]/30">
+              No submissions have marked {date} as available.
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {matches.map((s) => {
             const offer = dateOffers.find((o) => o.submission_id === s.id && o.date === date);
             const status: DateOfferStatus | 'new' = offer?.status ?? 'new';
             const color = status === 'new' ? NEW_COLOR : DATE_OFFER_COLORS[status];
@@ -140,6 +158,8 @@ export default function ShowDateAvailability({ date }: { date: string }) {
               </div>
             );
           })}
+        </div>
+          )}
         </div>
       )}
     </div>
