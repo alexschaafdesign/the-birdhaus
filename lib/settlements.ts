@@ -219,6 +219,8 @@ export function settlementEmailSummary(
     '',
     `Total income: ${formatCurrency(summary.totalIncome)}`,
     `Band split: ${formatCurrency(summary.artistPool)}`,
+    `Venue split: ${formatCurrency(summary.venueSplit)}`,
+    '',
     `Per band (${bandCount || 0}): ${formatCurrency(summary.perBand)}`,
     `Total venue expenses: ${formatCurrency(summary.totalExpenses)}`,
   ];

@@ -31,7 +31,9 @@ async function getShows(): Promise<ShowListItem[]> {
     ) r on r.show_id = s.id
     left join settlements st on st.show_id = s.id
     left join (
-      select show_id, count(*) filter (where paid) as bands_paid_count
+      -- Excluded bands aren't part of the payout, so count them as "paid" here
+      -- to keep the shows-list post-show check from flagging them as unpaid.
+      select show_id, count(*) filter (where paid or excluded) as bands_paid_count
       from show_bands
       group by show_id
     ) bp on bp.show_id = s.id

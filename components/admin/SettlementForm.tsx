@@ -86,7 +86,6 @@ interface FormExtraLineItem {
 
 interface SettlementFormProps {
   showId: number;
-  bandCount: number;
   bands: ShowBandPaidStatus[];
   initialValues: SettlementValues | null;
 }
@@ -118,7 +117,7 @@ function toFormState(values: SettlementValues): FormState {
   };
 }
 
-export default function SettlementForm({ showId, bandCount, bands: initialBands, initialValues }: SettlementFormProps) {
+export default function SettlementForm({ showId, bands: initialBands, initialValues }: SettlementFormProps) {
   const router = useRouter();
   const [form, setForm] = useState<FormState>(() => toFormState(initialValues ?? DEFAULT_SETTLEMENT_VALUES));
   const [bands, setBands] = useState<ShowBandPaidStatus[]>(initialBands);
@@ -126,6 +125,9 @@ export default function SettlementForm({ showId, bandCount, bands: initialBands,
   const [submitting, setSubmitting] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Only bands that aren't excluded share the payout split.
+  const payoutBandCount = bands.filter((b) => !b.excluded).length;
 
   async function toggleBandPaid(bandId: number, paid: boolean) {
     const previous = bands;
@@ -137,6 +139,34 @@ export default function SettlementForm({ showId, bandCount, bands: initialBands,
         body: JSON.stringify({ paid }),
       });
       if (!res.ok) throw new Error();
+    } catch {
+      setBands(previous);
+      setBandPayError('Failed to update — try again.');
+    }
+  }
+
+  async function toggleBandExcluded(bandId: number, excluded: boolean) {
+    const previous = bands;
+    // Excluding a band also drops it out of the paid checklist — it isn't part
+    // of the payout, so its paid status is no longer meaningful.
+    setBands((cur) =>
+      cur.map((b) => (b.bandId === bandId ? { ...b, excluded, paid: excluded ? false : b.paid } : b))
+    );
+    try {
+      const res = await fetch(`/api/admin/settlements/${showId}/bands/${bandId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ excluded }),
+      });
+      if (!res.ok) throw new Error();
+      if (excluded) {
+        // Clear the now-stale paid flag on the server too.
+        await fetch(`/api/admin/settlements/${showId}/bands/${bandId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ paid: false }),
+        }).catch(() => {});
+      }
     } catch {
       setBands(previous);
       setBandPayError('Failed to update — try again.');
@@ -201,8 +231,8 @@ export default function SettlementForm({ showId, bandCount, bands: initialBands,
         amount: Number(item.amount) || 0,
       })),
     };
-    return computeSettlementSummary(values, bandCount);
-  }, [form, bandCount]);
+    return computeSettlementSummary(values, payoutBandCount);
+  }, [form, payoutBandCount]);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -384,20 +414,34 @@ export default function SettlementForm({ showId, bandCount, bands: initialBands,
         ) : (
           <div className="space-y-2">
             {bands.map((band) => (
-              <label
+              <div
                 key={band.bandId}
-                className="flex items-center justify-between gap-3 rounded-md bg-black/10 p-2.5 text-sm"
+                className={`flex items-center justify-between gap-3 rounded-md bg-black/10 p-2.5 text-sm ${
+                  band.excluded ? 'opacity-50' : ''
+                }`}
               >
-                <span className="flex items-center gap-2">
+                <label className="flex items-center gap-2">
                   <input
                     type="checkbox"
                     checked={band.paid}
+                    disabled={band.excluded}
                     onChange={(e) => toggleBandPaid(band.bandId, e.target.checked)}
                   />
-                  {band.name}
+                  <span className={band.excluded ? 'line-through' : ''}>{band.name}</span>
+                </label>
+                <span className="flex items-center gap-3">
+                  <span className="text-xs text-[#E8E0D0]/40">
+                    {band.excluded ? 'excluded' : formatCurrency(summary.perBand)}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => toggleBandExcluded(band.bandId, !band.excluded)}
+                    className="text-xs border border-[#E8E0D0]/25 rounded px-2 py-0.5 hover:bg-[#E8E0D0]/10"
+                  >
+                    {band.excluded ? 'Include' : 'Exclude'}
+                  </button>
                 </span>
-                <span className="text-xs text-[#E8E0D0]/40">{formatCurrency(summary.perBand)}</span>
-              </label>
+              </div>
             ))}
           </div>
         )}
@@ -494,7 +538,7 @@ export default function SettlementForm({ showId, bandCount, bands: initialBands,
             <dd>{formatCurrency(summary.artistPool)}</dd>
           </div>
           <div className="flex justify-between">
-            <dt className="text-[#E8E0D0]/60">Per band ({bandCount || 0})</dt>
+            <dt className="text-[#E8E0D0]/60">Per band ({payoutBandCount})</dt>
             <dd>{formatCurrency(summary.perBand)}</dd>
           </div>
           <div className="flex justify-between">

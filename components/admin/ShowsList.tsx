@@ -469,19 +469,29 @@ function PaidTag({
               )}
               {bands && bands.length > 0 && (
                 <div className="space-y-1.5">
-                  {bands.map((band) => (
-                    <label
-                      key={band.bandId}
-                      className="flex items-center gap-2 text-sm cursor-pointer rounded px-1 py-0.5 hover:bg-[#E8E0D0]/5"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={band.paid}
-                        onChange={(e) => handleBandToggle(band.bandId, e.target.checked)}
-                      />
-                      <span className={band.paid ? 'text-[#E8E0D0]/50 line-through' : ''}>{band.name}</span>
-                    </label>
-                  ))}
+                  {bands.map((band) =>
+                    band.excluded ? (
+                      <div
+                        key={band.bandId}
+                        className="flex items-center justify-between gap-2 text-sm rounded px-1 py-0.5 opacity-50"
+                      >
+                        <span className="line-through">{band.name}</span>
+                        <span className="text-xs text-[#E8E0D0]/40">excluded</span>
+                      </div>
+                    ) : (
+                      <label
+                        key={band.bandId}
+                        className="flex items-center gap-2 text-sm cursor-pointer rounded px-1 py-0.5 hover:bg-[#E8E0D0]/5"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={band.paid}
+                          onChange={(e) => handleBandToggle(band.bandId, e.target.checked)}
+                        />
+                        <span className={band.paid ? 'text-[#E8E0D0]/50 line-through' : ''}>{band.name}</span>
+                      </label>
+                    )
+                  )}
                 </div>
               )}
             </>

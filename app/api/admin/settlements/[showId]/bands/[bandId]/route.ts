@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { setShowBandPaid } from '@/lib/bands';
+import { setShowBandExcluded, setShowBandPaid } from '@/lib/bands';
 
 function parseId(id: string): number | null {
   const parsed = Number(id);
@@ -18,14 +18,25 @@ export async function PATCH(
   }
 
   const body = await request.json().catch(() => null);
-  if (!body || typeof body !== 'object' || typeof body.paid !== 'boolean') {
+  if (!body || typeof body !== 'object') {
     return NextResponse.json({ error: 'Invalid body' }, { status: 400 });
   }
 
-  const paid = await setShowBandPaid(showId, bandId, body.paid);
-  if (paid === null) {
-    return NextResponse.json({ error: 'Show/band not found' }, { status: 404 });
+  if (typeof body.paid === 'boolean') {
+    const paid = await setShowBandPaid(showId, bandId, body.paid);
+    if (paid === null) {
+      return NextResponse.json({ error: 'Show/band not found' }, { status: 404 });
+    }
+    return NextResponse.json({ paid });
   }
 
-  return NextResponse.json({ paid });
+  if (typeof body.excluded === 'boolean') {
+    const excluded = await setShowBandExcluded(showId, bandId, body.excluded);
+    if (excluded === null) {
+      return NextResponse.json({ error: 'Show/band not found' }, { status: 404 });
+    }
+    return NextResponse.json({ excluded });
+  }
+
+  return NextResponse.json({ error: 'Invalid body' }, { status: 400 });
 }

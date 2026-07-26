@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { renderToBuffer } from '@react-pdf/renderer';
 import { sql } from '@/lib/db';
 import { computeSettlementSummary, settlementValuesFromRow, type SettlementDbRow } from '@/lib/settlements';
+import { getShowBandsPaidStatus } from '@/lib/bands';
 import SettlementPdfDocument from '@/components/admin/SettlementPdfDocument';
 
 export const runtime = 'nodejs';
@@ -30,15 +31,17 @@ export async function GET(request: Request, { params }: { params: Promise<{ show
     return NextResponse.json({ error: 'No settlement recorded' }, { status: 404 });
   }
 
-  const [{ count: bandCount }] = await sql<
-    { count: number }[]
-  >`select count(*)::int as count from show_bands where show_id = ${showId}`;
+  // Only bands that aren't excluded share the payout, so the PDF's per-band
+  // figure divides the artist pool by the included count. The full list (with
+  // exclusion flags) is passed through so the PDF can show excluded bands too.
+  const bands = await getShowBandsPaidStatus(showId);
+  const payoutBandCount = bands.filter((b) => !b.excluded).length;
 
   const values = settlementValuesFromRow(settlementRow);
-  const summary = computeSettlementSummary(values, bandCount);
+  const summary = computeSettlementSummary(values, payoutBandCount);
 
   const buffer = await renderToBuffer(
-    <SettlementPdfDocument showTitle={show.title} showDate={show.date} values={values} summary={summary} bandCount={bandCount} />
+    <SettlementPdfDocument showTitle={show.title} showDate={show.date} values={values} summary={summary} bands={bands} />
   );
 
   const filename = `settlement-${show.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')}.pdf`;

@@ -148,19 +148,22 @@ export interface ShowBandPaidStatus {
   bandId: number;
   name: string;
   paid: boolean;
+  // Excluded from the payout split — the artist pool is divided only among
+  // the bands that aren't excluded (show_bands.excluded).
+  excluded: boolean;
 }
 
 // Payout checklist for the settlement form — who played this show and
 // whether they've been paid, per band (show_bands.paid).
 export async function getShowBandsPaidStatus(showId: number): Promise<ShowBandPaidStatus[]> {
-  const rows = await sql<Array<{ band_id: number; name: string; paid: boolean }>>`
-    select b.id as band_id, b.name, sb.paid
+  const rows = await sql<Array<{ band_id: number; name: string; paid: boolean; excluded: boolean }>>`
+    select b.id as band_id, b.name, sb.paid, sb.excluded
     from show_bands sb
     join bands b on b.id = sb.band_id
     where sb.show_id = ${showId}
     order by sb.sort_order
   `;
-  return rows.map((r) => ({ bandId: r.band_id, name: r.name, paid: r.paid }));
+  return rows.map((r) => ({ bandId: r.band_id, name: r.name, paid: r.paid, excluded: r.excluded }));
 }
 
 // Toggles a single band's paid status for a show — a standalone write
@@ -174,6 +177,22 @@ export async function setShowBandPaid(showId: number, bandId: number, paid: bool
     returning paid
   `;
   return row ? row.paid : null;
+}
+
+// Toggles whether a band is excluded from the payout split for a show —
+// like setShowBandPaid, a standalone write on show_bands. Returns null if
+// the show/band pairing doesn't exist.
+export async function setShowBandExcluded(
+  showId: number,
+  bandId: number,
+  excluded: boolean
+): Promise<boolean | null> {
+  const [row] = await sql<Array<{ excluded: boolean }>>`
+    update show_bands set excluded = ${excluded}
+    where show_id = ${showId} and band_id = ${bandId}
+    returning excluded
+  `;
+  return row ? row.excluded : null;
 }
 
 export interface BandVideo {

@@ -10,6 +10,7 @@ import {
   type SettlementValues,
   type SettlementSummary,
 } from '@/lib/settlements';
+import type { ShowBandPaidStatus } from '@/lib/bands';
 
 const INK = '#2A2420';
 const MUTED = '#6b6459';
@@ -86,7 +87,7 @@ interface SettlementPdfDocumentProps {
   showDate: string | null;
   values: SettlementValues;
   summary: SettlementSummary;
-  bandCount: number;
+  bands: ShowBandPaidStatus[];
 }
 
 export default function SettlementPdfDocument({
@@ -94,8 +95,9 @@ export default function SettlementPdfDocument({
   showDate,
   values,
   summary,
-  bandCount,
+  bands,
 }: SettlementPdfDocumentProps) {
+  const payoutBandCount = bands.filter((b) => !b.excluded).length;
   const incomeItems = values.extraLineItems.filter((item) => item.type === 'income');
   const expenseItems = values.extraLineItems.filter((item) => item.type === 'expense');
   const hasAdditionalIncome = VENUE_ADDITIONAL_INCOME_FIELDS.some((f) => values[f.key] !== 0);
@@ -159,7 +161,23 @@ export default function SettlementPdfDocument({
         <View style={styles.dealSection}>
           <Text style={styles.sectionTitle}>Deal Terms — {dealTermsLabel(values)}</Text>
           <Row label="Artist split" value={formatCurrency(summary.artistPool)} bold />
-          <Row label={`Per band (${bandCount || 0})`} value={formatCurrency(summary.perBand)} />
+          <Row label={`Per band (${payoutBandCount})`} value={formatCurrency(summary.perBand)} />
+          {bands.map((band) => (
+            <View key={band.bandId} style={styles.row}>
+              <Text
+                style={
+                  band.excluded
+                    ? { ...styles.rowLabel, color: MUTED, textDecoration: 'line-through' }
+                    : { ...styles.rowLabel, paddingLeft: 10 }
+                }
+              >
+                {band.excluded ? band.name : `• ${band.name}`}
+              </Text>
+              <Text style={band.excluded ? { color: MUTED } : undefined}>
+                {band.excluded ? 'Excluded' : formatCurrency(summary.perBand)}
+              </Text>
+            </View>
+          ))}
           <Row label="Venue split" value={formatCurrency(summary.venueSplit)} bold />
         </View>
 
