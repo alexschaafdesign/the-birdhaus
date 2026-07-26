@@ -100,7 +100,7 @@ export default async function Home() {
           priority
           className="w-full h-auto rounded-lg mb-2"
         />
-        <p className="text-sm text-[#E8E0D0]/70 text-center">Photo by Jeremy Nelson</p>
+        <p className="text-xs text-[#E8E0D0]/40 text-right">Photo by Jeremy Nelson</p>
       </div>
 
       {/* Upcoming Shows */}
