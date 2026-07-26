@@ -16,13 +16,12 @@ type NavItem = NavLink | NavDropdown;
 const navItems: NavItem[] = [
   { type: 'link', href: '/upcoming', label: 'Upcoming Shows' },
   { type: 'link', href: '/archive', label: 'Archive' },
-  { type: 'link', href: '/bands', label: 'Bands' },
   {
     type: 'dropdown',
     label: 'Projects',
     children: [
       { href: 'https://birdhausrecords.bandcamp.com', label: 'Birdhaus Records', external: true },
-      { href: '#', label: 'Fresh Cuts' },
+      { href: '/fresh-cuts', label: 'Fresh Cuts' },
     ],
   },
   { type: 'link', href: '/contact', label: 'Contact' },
