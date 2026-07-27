@@ -680,7 +680,29 @@ export default function ShowForm({
         </div>
       )}
 
-      <Section title="Show details">
+      <Section
+        title="Show details"
+        action={
+          <div className="flex items-center gap-4">
+            <label className="flex items-center gap-1.5 text-xs text-[#E8E0D0]/70 whitespace-nowrap">
+              <input
+                type="checkbox"
+                checked={form.announced}
+                onChange={(e) => set('announced', e.target.checked)}
+              />
+              Announced
+            </label>
+            <label className="flex items-center gap-1.5 text-xs text-[#E8E0D0]/70 whitespace-nowrap">
+              <input
+                type="checkbox"
+                checked={form.advanceSent}
+                onChange={(e) => set('advanceSent', e.target.checked)}
+              />
+              Advanced via email
+            </label>
+          </div>
+        }
+      >
       <div className="grid gap-3 sm:grid-cols-2">
         <div>
           <label className="block text-xs uppercase tracking-wide text-[#E8E0D0]/40 mb-1">Title*</label>
@@ -933,22 +955,6 @@ export default function ShowForm({
             onChange={(e) => set('rsvpForm', e.target.checked)}
           />
           Show RSVP form
-        </label>
-        <label className="flex items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            checked={form.announced}
-            onChange={(e) => set('announced', e.target.checked)}
-          />
-          Announced (visible on /upcoming)
-        </label>
-        <label className="flex items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            checked={form.advanceSent}
-            onChange={(e) => set('advanceSent', e.target.checked)}
-          />
-          Advanced via email
         </label>
       </div>
       </Section>
