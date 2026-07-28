@@ -54,32 +54,37 @@ export default async function Home() {
         </p>
       </div>
 
-      {/* Band Roster */}
+      {/* Birdhaus Leaderboard */}
       {sortedBands.length > 0 && (
         <div className="max-w-4xl mx-auto px-8 mb-12">
-          <details className="rounded-lg group bg-[#E8E0D0]/5">
+          <details className="rounded-xl group bg-gradient-to-b from-yellow-500/10 to-[#E8E0D0]/5 border border-yellow-500/30 shadow-lg shadow-yellow-500/5">
             <summary className="px-5 py-4 cursor-pointer select-none list-none flex items-center justify-between">
               <div className="flex items-baseline gap-3">
-                <span className="font-bold">BIRDHAUS alums</span>
-                <span className="text-[#E8E0D0]/50 text-sm">{sortedBands.length} bands ({setCount} total sets) and counting...</span>
+                <span className="font-bold text-base tracking-wide text-yellow-100">BIRDHAUS ALUMS</span>
+                <span className="text-[#E8E0D0]/50 text-sm">{sortedBands.length} bands · {setCount} sets and counting...</span>
               </div>
-              <span className="text-xs uppercase tracking-widest text-[#E8E0D0]/50 group-open:hidden">Show ▸</span>
-              <span className="text-xs uppercase tracking-widest text-[#E8E0D0]/50 hidden group-open:inline">Hide ▾</span>
+              <span className="text-xs uppercase tracking-widest text-yellow-500/70 group-open:hidden">Show ▸</span>
+              <span className="text-xs uppercase tracking-widest text-yellow-500/70 hidden group-open:inline">Hide ▾</span>
             </summary>
-            <div className="px-5 pb-5 pt-3 border-t border-[#E8E0D0]/15 columns-2 sm:columns-3 gap-x-6">
-              {sortedBands.map(([name, { count, bandId }]) => {
+            <div className="px-5 pb-5 pt-3 border-t border-yellow-500/20 columns-2 sm:columns-3 gap-x-6">
+              {sortedBands.map(([name, { count, bandId }], i) => {
                 const slug = bandId ? bandSlugs.get(bandId) : undefined;
                 return (
-                  <div key={name} className="flex justify-between items-baseline gap-2 py-1 border-b border-[#E8E0D0]/15 break-inside-avoid">
-                    {slug ? (
-                      <Link href={`/bands/${slug}`} className="text-sm text-[#E8E0D0]/90 hover:text-[#E8E0D0] hover:underline">
-                        {name}
-                      </Link>
-                    ) : (
-                      <span className="text-sm text-[#E8E0D0]/90">{name}</span>
-                    )}
+                  <div key={name} className="flex justify-between items-baseline gap-2 py-1 border-b border-[#E8E0D0]/10 break-inside-avoid">
+                    <span className="flex items-baseline gap-2 min-w-0">
+                      <span className={`font-mono text-xs flex-shrink-0 w-6 text-right ${i < 3 ? 'text-yellow-500/80' : 'text-[#E8E0D0]/40'}`}>
+                        {i + 1}
+                      </span>
+                      {slug ? (
+                        <Link href={`/bands/${slug}`} className={`text-sm truncate hover:text-[#E8E0D0] hover:underline ${i < 3 ? 'text-yellow-100 font-semibold' : 'text-[#E8E0D0]/90'}`}>
+                          {name}
+                        </Link>
+                      ) : (
+                        <span className={`text-sm truncate ${i < 3 ? 'text-yellow-100 font-semibold' : 'text-[#E8E0D0]/90'}`}>{name}</span>
+                      )}
+                    </span>
                     {count > 1 && (
-                      <span className="text-xs text-[#E8E0D0]/50 font-mono flex-shrink-0">×{count}</span>
+                      <span className="text-xs text-yellow-500/70 font-mono flex-shrink-0">×{count}</span>
                     )}
                   </div>
                 );
