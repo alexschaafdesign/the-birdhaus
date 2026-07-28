@@ -22,6 +22,7 @@ const navItems: NavItem[] = [
     label: 'Projects',
     children: [
       { href: 'https://birdhausrecords.bandcamp.com', label: 'Birdhaus Records', external: true },
+      { href: 'https://twinscene.org', label: 'Twin Scene', external: true },
       { href: '#', label: 'Fresh Cuts' },
     ],
   },
