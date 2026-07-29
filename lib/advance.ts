@@ -426,11 +426,28 @@ export async function recordInboundReply(input: {
   if (!advance) return { matched: false, deduped: false };
   const showId = Number(advance.show_id);
 
-  // Dedupe webhook retries.
-  const existing = await sql<Array<{ id: number }>>`
-    select id from advance_messages where resend_id = ${input.resendId} limit 1
+  // Dedupe webhook retries — but if we already stored this reply WITHOUT a body
+  // (e.g. the body wasn't retrievable on the first delivery) and this delivery
+  // carries one, backfill it rather than skipping. Resend retries the same event
+  // on non-2xx, so this lets a later attempt (or a manual replay) fill the gap.
+  const [existing] = await sql<
+    Array<{ id: number; body_html: string | null; body_text: string | null }>
+  >`
+    select id, body_html, body_text from advance_messages
+    where resend_id = ${input.resendId} limit 1
   `;
-  if (existing.length > 0) return { matched: true, deduped: true };
+  if (existing) {
+    const hadBody = existing.body_html || existing.body_text;
+    const haveBody = input.html || input.text;
+    if (!hadBody && haveBody) {
+      await sql`
+        update advance_messages
+        set body_html = ${input.html}, body_text = ${input.text}
+        where id = ${existing.id}
+      `;
+    }
+    return { matched: true, deduped: true };
+  }
 
   const sender = extractEmailAddress(input.fromEmail);
   const [recip] = await sql<Array<{ band_id: number }>>`

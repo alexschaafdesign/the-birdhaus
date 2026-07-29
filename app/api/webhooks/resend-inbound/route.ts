@@ -92,15 +92,31 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, unmatched: true });
   }
 
-  // The webhook carries metadata only — fetch the body.
+  // The webhook carries metadata only — fetch the body. The SDK returns API
+  // errors in `error` (it does NOT throw), so check both: a swallowed error here
+  // is exactly what leaves a reply stored with an empty body. Log the concrete
+  // cause — a permission error means RESEND_API_KEY lacks receiving/read access.
   let html: string | null = null;
   let text: string | null = null;
   try {
     const full = await resend.emails.receiving.get(event.data.email_id);
-    html = full.data?.html ?? null;
-    text = full.data?.text ?? null;
+    if (full.error) {
+      console.error(
+        '[resend-inbound] receiving.get returned an error',
+        JSON.stringify(full.error)
+      );
+    } else {
+      html = full.data?.html ?? null;
+      text = full.data?.text ?? null;
+      if (!html && !text) {
+        console.warn(
+          '[resend-inbound] received email fetched but had no html/text body',
+          event.data.email_id
+        );
+      }
+    }
   } catch (e) {
-    // Still record the reply from metadata even if the body fetch fails.
+    // Still record the reply from metadata even if the body fetch throws.
     console.error('[resend-inbound] failed to fetch received email body', e);
   }
 
