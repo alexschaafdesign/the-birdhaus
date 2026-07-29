@@ -14,6 +14,7 @@ interface BandRow {
   is_touring: boolean;
   hometown: string | null;
   contact_email: string | null;
+  payment_method: string | null;
 }
 
 export default async function EditBandPage({ params }: { params: Promise<{ id: string }> }) {
@@ -23,7 +24,7 @@ export default async function EditBandPage({ params }: { params: Promise<{ id: s
 
   const [row] = await sql<
     BandRow[]
-  >`select id, name, instagram, bio, photo, is_touring, hometown, contact_email from bands where id = ${bandId}`;
+  >`select id, name, instagram, bio, photo, is_touring, hometown, contact_email, payment_method from bands where id = ${bandId}`;
   if (!row) notFound();
 
   const linkedShows = await getShowsForBand(bandId);
@@ -37,6 +38,7 @@ export default async function EditBandPage({ params }: { params: Promise<{ id: s
     isTouring: row.is_touring,
     hometown: row.hometown,
     contactEmail: row.contact_email,
+    paymentMethod: row.payment_method,
   };
 
   return (

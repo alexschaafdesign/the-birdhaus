@@ -12,6 +12,9 @@ const TEXT_FIELD_MAP: Record<string, string> = {
   // in the Birdhaus admin: the Twin Scene sync is fill-only-if-empty and never
   // overwrites a value set here (../twinscene/ARCHITECTURE.md, bands overlay).
   contactEmail: 'contact_email',
+  // Private payment handle (Venmo, etc.) for paying the band out. Admin-only —
+  // never exposed publicly or pushed to Twin Scene.
+  paymentMethod: 'payment_method',
 };
 
 function parseId(id: string): number | null {

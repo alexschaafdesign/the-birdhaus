@@ -423,14 +423,22 @@ export default function SettlementForm({ showId, bands: initialBands, initialVal
                   band.excluded ? 'opacity-50' : ''
                 }`}
               >
-                <label className="flex items-center gap-2">
+                <label className="flex items-start gap-2">
                   <input
                     type="checkbox"
                     checked={band.paid}
                     disabled={band.excluded}
                     onChange={(e) => toggleBandPaid(band.bandId, e.target.checked)}
+                    className="mt-1"
                   />
-                  <span className={band.excluded ? 'line-through' : ''}>{band.name}</span>
+                  <span>
+                    <span className={band.excluded ? 'line-through' : ''}>{band.name}</span>
+                    {band.paymentMethod ? (
+                      <span className="block text-xs text-[#E8E0D0]/45">💸 {band.paymentMethod}</span>
+                    ) : (
+                      <span className="block text-xs text-[#E8E0D0]/25">no payment method saved</span>
+                    )}
+                  </span>
                 </label>
                 <span className="flex items-center gap-3">
                   <span className="text-xs text-[#E8E0D0]/40">

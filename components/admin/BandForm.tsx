@@ -29,6 +29,7 @@ export interface BandFormInitialValues {
   isTouring?: boolean;
   hometown?: string | null;
   contactEmail?: string | null;
+  paymentMethod?: string | null;
 }
 
 export default function BandForm({
@@ -50,6 +51,7 @@ export default function BandForm({
   const [isTouring, setIsTouring] = useState(initialValues?.isTouring ?? false);
   const [hometown, setHometown] = useState(initialValues?.hometown ?? '');
   const [contactEmail, setContactEmail] = useState(initialValues?.contactEmail ?? '');
+  const [paymentMethod, setPaymentMethod] = useState(initialValues?.paymentMethod ?? '');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -78,6 +80,7 @@ export default function BandForm({
       hometown: isTouring ? hometown.trim() || null : null,
       // Explicit null so clearing the field actually clears the stored email.
       contactEmail: contactEmail.trim() || null,
+      paymentMethod: paymentMethod.trim() || null,
     };
 
     setSubmitting(true);
@@ -168,6 +171,21 @@ export default function BandForm({
           />
           <p className="text-xs text-[#E8E0D0]/30 mt-1">
             Saved with the band and reused for show advance emails.
+          </p>
+        </div>
+
+        <div>
+          <label className="block text-xs uppercase tracking-wide text-[#E8E0D0]/40 mb-1">
+            Payment method
+          </label>
+          <input
+            value={paymentMethod}
+            onChange={(e) => setPaymentMethod(e.target.value)}
+            placeholder="@their-venmo (or other)"
+            className={`${inputClass} w-full`}
+          />
+          <p className="text-xs text-[#E8E0D0]/30 mt-1">
+            Private — Venmo username or other payout method. Admin-only, never shown publicly.
           </p>
         </div>
 

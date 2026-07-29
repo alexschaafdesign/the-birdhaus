@@ -157,19 +157,30 @@ export interface ShowBandPaidStatus {
   // Excluded from the payout split — the artist pool is divided only among
   // the bands that aren't excluded (show_bands.excluded).
   excluded: boolean;
+  // Private payout handle (Venmo, etc.), shown on the settlement tab so it's on
+  // hand when paying out. Admin-only — never leaves the Birdhaus admin.
+  paymentMethod: string | null;
 }
 
 // Payout checklist for the settlement form — who played this show and
 // whether they've been paid, per band (show_bands.paid).
 export async function getShowBandsPaidStatus(showId: number): Promise<ShowBandPaidStatus[]> {
-  const rows = await sql<Array<{ band_id: number; name: string; paid: boolean; excluded: boolean }>>`
-    select b.id as band_id, b.name, sb.paid, sb.excluded
+  const rows = await sql<
+    Array<{ band_id: number; name: string; paid: boolean; excluded: boolean; payment_method: string | null }>
+  >`
+    select b.id as band_id, b.name, sb.paid, sb.excluded, b.payment_method
     from show_bands sb
     join bands b on b.id = sb.band_id
     where sb.show_id = ${showId}
     order by sb.sort_order
   `;
-  return rows.map((r) => ({ bandId: r.band_id, name: r.name, paid: r.paid, excluded: r.excluded }));
+  return rows.map((r) => ({
+    bandId: r.band_id,
+    name: r.name,
+    paid: r.paid,
+    excluded: r.excluded,
+    paymentMethod: r.payment_method,
+  }));
 }
 
 // Toggles a single band's paid status for a show — a standalone write
