@@ -307,10 +307,14 @@ export function replyToAddress(token: string): string {
 }
 
 // Inverse of replyToAddress: pull the show's reply token out of an inbound
-// message's "to" address, or null if it isn't one of ours. Used by the webhook
-// (Phase 5) to attribute a reply to a show.
+// message's recipient address, or null if it isn't one of ours. Used by the
+// webhook to attribute a reply to a show. The address may arrive as a bare
+// "advance-{token}@domain" or wrapped as "Name <advance-{token}@domain>" (a
+// sender's mail client is free to add a display name to the reply recipient), so
+// extract the bare address first — otherwise the localpart check reads the
+// display name and never matches.
 export function parseReplyToken(toAddress: string): string | null {
-  const localpart = toAddress.trim().toLowerCase().split('@')[0] ?? '';
+  const localpart = extractEmailAddress(toAddress).split('@')[0] ?? '';
   if (!localpart.startsWith(REPLY_LOCALPART_PREFIX)) return null;
   const token = localpart.slice(REPLY_LOCALPART_PREFIX.length);
   return /^[0-9a-f]+$/.test(token) ? token : null;
