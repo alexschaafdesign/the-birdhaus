@@ -1,4 +1,5 @@
 import { sql } from './db';
+import { uploadFileToR2, ADVANCE_ATTACHMENTS_FOLDER } from './r2';
 import {
   DEFAULT_ADVANCE_SUBJECT,
   DEFAULT_ADVANCE_BODY,
@@ -120,6 +121,16 @@ export interface AdvanceRecipient {
   email: string | null;
 }
 
+// A file a band attached to a reply (stage plot / input list), re-hosted in R2.
+export interface AdvanceAttachment {
+  id: number;
+  messageId: number;
+  filename: string | null;
+  contentType: string | null;
+  sizeBytes: number | null;
+  url: string;
+}
+
 export interface AdvanceThreadMessage {
   id: number;
   bandId: number | null;
@@ -129,6 +140,7 @@ export interface AdvanceThreadMessage {
   subject: string | null;
   bodyHtml: string | null;
   bodyText: string | null;
+  attachments: AdvanceAttachment[];
   createdAt: string;
 }
 
@@ -222,7 +234,7 @@ export async function getShowAdvanceState(showId: number): Promise<ShowAdvanceSt
   const show = await loadShowForAdvance(showId);
   if (!show) return null;
 
-  const [recipients, template, [advanceRow], messageRows] = await Promise.all([
+  const [recipients, template, [advanceRow], messageRows, attachmentRows] = await Promise.all([
     loadRecipients(showId),
     getDefaultAdvanceTemplate(),
     sql<ShowAdvanceRow[]>`
@@ -247,7 +259,35 @@ export async function getShowAdvanceState(showId: number): Promise<ShowAdvanceSt
       where show_id = ${showId}
       order by created_at asc
     `,
+    sql<Array<{
+      id: number;
+      message_id: number;
+      filename: string | null;
+      content_type: string | null;
+      size_bytes: number | null;
+      url: string;
+    }>>`
+      select id, message_id, filename, content_type, size_bytes, url
+      from advance_attachments
+      where show_id = ${showId}
+      order by created_at asc
+    `,
   ]);
+
+  // Group attachments under their message so each thread item carries its own.
+  const attachmentsByMessage = new Map<number, AdvanceAttachment[]>();
+  for (const a of attachmentRows) {
+    const list = attachmentsByMessage.get(Number(a.message_id)) ?? [];
+    list.push({
+      id: Number(a.id),
+      messageId: Number(a.message_id),
+      filename: a.filename,
+      contentType: a.content_type,
+      sizeBytes: a.size_bytes === null ? null : Number(a.size_bytes),
+      url: a.url,
+    });
+    attachmentsByMessage.set(Number(a.message_id), list);
+  }
 
   const saved = advanceRow
     ? { ...EMPTY_VARS, ...normalizeAdvanceVars(advanceRow.vars) }
@@ -280,6 +320,7 @@ export async function getShowAdvanceState(showId: number): Promise<ShowAdvanceSt
       subject: m.subject,
       bodyHtml: m.body_html,
       bodyText: m.body_text,
+      attachments: attachmentsByMessage.get(Number(m.id)) ?? [],
       createdAt: m.created_at,
     })),
   };
@@ -407,6 +448,52 @@ export async function sendShowAdvance(
 // Inbound replies (Resend inbound webhook) + admin replies on the thread.
 // ---------------------------------------------------------------------------
 
+// One inbound attachment's bytes + metadata, already downloaded by the webhook
+// (Resend's signed URL is short-lived). recordInboundReply re-hosts these in R2.
+export interface InboundAttachmentInput {
+  resendAttachmentId: string;
+  filename: string | null;
+  contentType: string;
+  sizeBytes: number;
+  buffer: Buffer;
+}
+
+// Re-hosts each attachment in R2 and records a row linked to the message. Skips
+// any whose resend_attachment_id is already stored on this message so webhook
+// retries / backfills don't duplicate. A single upload failure is logged and
+// skipped rather than failing the whole reply.
+async function storeInboundAttachments(
+  showId: number,
+  messageId: number,
+  attachments: InboundAttachmentInput[]
+): Promise<void> {
+  if (attachments.length === 0) return;
+  const existing = await sql<Array<{ resend_attachment_id: string | null }>>`
+    select resend_attachment_id from advance_attachments where message_id = ${messageId}
+  `;
+  const seen = new Set(existing.map((r) => r.resend_attachment_id).filter(Boolean));
+
+  for (const a of attachments) {
+    if (seen.has(a.resendAttachmentId)) continue;
+    try {
+      const url = await uploadFileToR2(
+        ADVANCE_ATTACHMENTS_FOLDER,
+        a.buffer,
+        a.contentType,
+        a.filename
+      );
+      await sql`
+        insert into advance_attachments
+          (message_id, show_id, filename, content_type, size_bytes, url, resend_attachment_id)
+        values
+          (${messageId}, ${showId}, ${a.filename}, ${a.contentType}, ${a.sizeBytes}, ${url}, ${a.resendAttachmentId})
+      `;
+    } catch (e) {
+      console.error('[advance] failed to store inbound attachment', a.filename, e);
+    }
+  }
+}
+
 // Records a band's reply, delivered by the Resend inbound webhook. The show is
 // found by the reply token (from the advance-{token}@... address); the band is
 // attributed by matching the sender against the recipients we sent to. Idempotent
@@ -419,6 +506,7 @@ export async function recordInboundReply(input: {
   html: string | null;
   text: string | null;
   resendId: string;
+  attachments?: InboundAttachmentInput[];
 }): Promise<{ matched: boolean; deduped: boolean }> {
   const [advance] = await sql<Array<{ show_id: number }>>`
     select show_id from show_advances where reply_token = ${input.token}
@@ -446,6 +534,11 @@ export async function recordInboundReply(input: {
         where id = ${existing.id}
       `;
     }
+    // Backfill attachments a first delivery may have missed (storeInboundAttachments
+    // dedupes on resend_attachment_id, so re-runs are safe).
+    if (input.attachments?.length) {
+      await storeInboundAttachments(showId, existing.id, input.attachments);
+    }
     return { matched: true, deduped: true };
   }
 
@@ -457,13 +550,18 @@ export async function recordInboundReply(input: {
   `;
   const bandId = recip ? Number(recip.band_id) : null;
 
-  await sql`
+  const [inserted] = await sql<Array<{ id: number }>>`
     insert into advance_messages
       (show_id, band_id, direction, from_email, to_emails, subject, body_html, body_text, resend_id)
     values
       (${showId}, ${bandId}, 'inbound', ${input.fromEmail}, ${sql.json(input.toEmails)},
        ${input.subject}, ${input.html}, ${input.text}, ${input.resendId})
+    returning id
   `;
+
+  if (input.attachments?.length) {
+    await storeInboundAttachments(showId, Number(inserted.id), input.attachments);
+  }
 
   if (bandId !== null) {
     await sql`

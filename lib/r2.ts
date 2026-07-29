@@ -32,6 +32,11 @@ function getClient(): S3Client {
 export const ALLOWED_UPLOAD_FOLDERS = ['bands', 'flyers', 'photos'] as const;
 export type UploadFolder = (typeof ALLOWED_UPLOAD_FOLDERS)[number];
 
+// Folders for non-image uploads that don't go through the image-only route —
+// currently just band advance attachments (stage plots / input lists, usually
+// PDFs). Kept separate so the public upload route's image validation stays tight.
+export const ADVANCE_ATTACHMENTS_FOLDER = 'advance-attachments';
+
 const EXTENSION_FOR_TYPE: Record<string, string> = {
   'image/jpeg': 'jpg',
   'image/png': 'png',
@@ -63,6 +68,53 @@ export async function uploadToR2(
     throw new Error(`Unsupported content type: ${contentType}`);
   }
 
+  const key = `${folder}/${Date.now()}-${crypto.randomBytes(4).toString('hex')}.${extension}`;
+
+  const client = getClient();
+  await client.send(
+    new PutObjectCommand({ Bucket: bucket, Key: key, Body: body, ContentType: contentType })
+  );
+
+  return `${publicBase.replace(/\/$/, '')}/${key}`;
+}
+
+// Derive a safe file extension for the R2 key. Prefer the original filename's
+// extension (bands' attachments are arbitrary types — pdf, png, heic, txt…),
+// falling back to a small content-type map, then to "bin". Only [a-z0-9] is kept
+// so the extension can't smuggle path separators or other junk into the key.
+function extensionFor(filename: string | null | undefined, contentType: string): string {
+  const fromName = filename?.split('.').pop()?.toLowerCase().replace(/[^a-z0-9]/g, '');
+  if (fromName && fromName.length <= 8) return fromName;
+  const fromType: Record<string, string> = {
+    'application/pdf': 'pdf',
+    'image/jpeg': 'jpg',
+    'image/png': 'png',
+    'image/webp': 'webp',
+    'image/gif': 'gif',
+    'image/heic': 'heic',
+    'text/plain': 'txt',
+  };
+  return fromType[contentType] ?? 'bin';
+}
+
+// Uploads an arbitrary file (any content type) to R2 under a server-generated
+// key, returning its public URL. Unlike uploadToR2 this does NOT restrict the
+// content type — used for inbound band advance attachments, which can be any
+// format. The folder is a plain string (not the image UploadFolder whitelist),
+// so callers must pass a controlled constant, never user input.
+export async function uploadFileToR2(
+  folder: string,
+  body: Buffer,
+  contentType: string,
+  filename?: string | null
+): Promise<string> {
+  const bucket = process.env.R2_BUCKET_NAME;
+  const publicBase = process.env.R2_PUBLIC_URL_BASE;
+  if (!bucket || !publicBase) {
+    throw new Error('R2_BUCKET_NAME / R2_PUBLIC_URL_BASE are not set. See .env.example.');
+  }
+
+  const extension = extensionFor(filename, contentType);
   const key = `${folder}/${Date.now()}-${crypto.randomBytes(4).toString('hex')}.${extension}`;
 
   const client = getClient();

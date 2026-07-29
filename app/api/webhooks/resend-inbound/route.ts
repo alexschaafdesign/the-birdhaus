@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
+import type { Resend } from 'resend';
 import { getResendClient, parseReplyToken } from '@/lib/advance-email';
-import { recordInboundReply } from '@/lib/advance';
+import { recordInboundReply, type InboundAttachmentInput } from '@/lib/advance';
 
 // Resend inbound webhook (email.received). NOT under /api/admin, so proxy.ts
 // does not gate it — Resend reaches it unauthenticated, so we verify the Svix
@@ -23,7 +24,67 @@ interface InboundEvent {
     cc?: string[];
     bcc?: string[];
     subject?: string;
+    // Attachment metadata only — no bytes and no download URL. To get the file
+    // we fetch a signed URL per attachment via the receiving-attachments API.
+    attachments?: Array<{
+      id?: string;
+      filename?: string | null;
+      content_type?: string;
+      content_disposition?: string | null;
+    }>;
   };
+}
+
+// Downloads each real (non-inline) attachment on an inbound email and returns
+// its bytes for re-hosting. Inline-disposition parts are skipped: those are
+// embedded body images (email-signature logos, etc.), not files a band sent.
+// Per-attachment failures are logged and skipped so one bad file never drops the
+// whole reply. The signed download URL from Resend is short-lived — we fetch the
+// bytes now and hand them off to be stored durably in R2.
+async function fetchInboundAttachments(
+  resend: Resend,
+  emailId: string,
+  metas: NonNullable<InboundEvent['data']>['attachments']
+): Promise<InboundAttachmentInput[]> {
+  const out: InboundAttachmentInput[] = [];
+  for (const meta of metas ?? []) {
+    if (!meta.id) continue;
+    if (meta.content_disposition === 'inline') continue;
+    try {
+      const signed = await resend.emails.receiving.attachments.get({
+        emailId,
+        id: meta.id,
+      });
+      if (signed.error || !signed.data?.download_url) {
+        console.error(
+          '[resend-inbound] could not get attachment download url',
+          meta.id,
+          JSON.stringify(signed.error)
+        );
+        continue;
+      }
+      const res = await fetch(signed.data.download_url);
+      if (!res.ok) {
+        console.error(
+          '[resend-inbound] attachment download failed',
+          meta.id,
+          res.status
+        );
+        continue;
+      }
+      const buffer = Buffer.from(await res.arrayBuffer());
+      out.push({
+        resendAttachmentId: meta.id,
+        filename: meta.filename ?? signed.data.filename ?? null,
+        contentType: meta.content_type ?? signed.data.content_type ?? 'application/octet-stream',
+        sizeBytes: buffer.length,
+        buffer,
+      });
+    } catch (e) {
+      console.error('[resend-inbound] error fetching attachment', meta.id, e);
+    }
+  }
+  return out;
 }
 
 export async function POST(request: Request) {
@@ -120,6 +181,14 @@ export async function POST(request: Request) {
     console.error('[resend-inbound] failed to fetch received email body', e);
   }
 
+  // Pull down any real attachments (stage plots / input lists) so recordInboundReply
+  // can re-host them in R2. Failures here are swallowed inside the helper.
+  const attachments = await fetchInboundAttachments(
+    resend,
+    event.data.email_id,
+    event.data.attachments
+  );
+
   const result = await recordInboundReply({
     token,
     fromEmail: event.data.from ?? '',
@@ -128,6 +197,7 @@ export async function POST(request: Request) {
     html,
     text,
     resendId: event.data.email_id,
+    attachments,
   });
 
   if (!result.matched) {

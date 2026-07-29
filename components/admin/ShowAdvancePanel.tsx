@@ -2,8 +2,20 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import type { ShowAdvanceState, SavedAdvanceVars, AdvanceThreadMessage } from '@/lib/advance';
+import type {
+  ShowAdvanceState,
+  SavedAdvanceVars,
+  AdvanceThreadMessage,
+  AdvanceAttachment,
+} from '@/lib/advance';
 import { htmlToText, splitReplyQuote } from '@/lib/reply-text';
+
+function formatBytes(bytes: number | null): string {
+  if (bytes === null || bytes <= 0) return '';
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
 
 const inputClass =
   'bg-transparent border border-[#E8E0D0]/30 rounded px-3 py-1.5 text-sm focus:outline-none focus:border-[#E8E0D0] placeholder:text-[#E8E0D0]/30';
@@ -415,6 +427,13 @@ function ThreadMessageItem({
           {quoted ? '(no new text above the quoted message)' : '(no message content)'}
         </div>
       )}
+      {message.attachments.length > 0 && (
+        <div className="mt-3 space-y-2">
+          {message.attachments.map((a) => (
+            <AttachmentItem key={a.id} attachment={a} />
+          ))}
+        </div>
+      )}
       {quoted && (
         <div className="mt-2">
           <button
@@ -432,6 +451,67 @@ function ThreadMessageItem({
         </div>
       )}
     </li>
+  );
+}
+
+function AttachmentItem({ attachment }: { attachment: AdvanceAttachment }) {
+  const [open, setOpen] = useState(false);
+  const type = attachment.contentType ?? '';
+  const isPdf = type === 'application/pdf';
+  const isImage = type.startsWith('image/');
+  const previewable = isPdf || isImage;
+  const name = attachment.filename || (isPdf ? 'attachment.pdf' : 'attachment');
+  const meta = [isPdf ? 'PDF' : type || 'file', formatBytes(attachment.sizeBytes)]
+    .filter(Boolean)
+    .join(' · ');
+
+  return (
+    <div className="rounded-md border border-[#E8E0D0]/20 bg-[#E8E0D0]/[0.03]">
+      <div className="flex items-center gap-2 px-3 py-2">
+        <span aria-hidden className="text-[#E8E0D0]/60">
+          {isPdf ? '📄' : isImage ? '🖼️' : '📎'}
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-sm text-[#E8E0D0]/90">{name}</div>
+          {meta && <div className="text-xs text-[#E8E0D0]/40">{meta}</div>}
+        </div>
+        {previewable && (
+          <button
+            type="button"
+            onClick={() => setOpen((v) => !v)}
+            className="text-xs text-[#E8E0D0]/50 hover:text-[#E8E0D0] underline shrink-0"
+          >
+            {open ? 'Hide' : 'Preview'}
+          </button>
+        )}
+        <a
+          href={attachment.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-xs text-[#E8E0D0]/50 hover:text-[#E8E0D0] underline shrink-0"
+        >
+          Open ↗
+        </a>
+      </div>
+      {open && previewable && (
+        <div className="border-t border-[#E8E0D0]/10 bg-white/[0.02] p-2">
+          {isPdf ? (
+            <iframe
+              src={attachment.url}
+              title={name}
+              className="h-[70vh] w-full rounded bg-white"
+            />
+          ) : (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={attachment.url}
+              alt={name}
+              className="max-h-[70vh] w-auto max-w-full rounded"
+            />
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 
