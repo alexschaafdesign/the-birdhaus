@@ -380,8 +380,6 @@ export const DEFAULT_ADVANCE_BODY = `Hi all,
 
 {{intro}}
 
-> 📋 **[View the full show page →]({{hub_url}})** — schedule, gear/input needs, logistics, and the RSVP count, all in one place. (For the lineup + crew — please don't post it publicly.)
-
 Here's a "quick" rundown of everything (i love over-explaining things) — let me know if there are any questions or changes you'd like to make!
 
 this is a little DIY space in the basement of the house i own. i also play in bands and have toured all over for years, and the point is to make this very artist-friendly and comfortable. so far the feedback has been "this rules" and "this is the best sounding basement show i've ever played" lol no big deal don't freak out
@@ -391,6 +389,8 @@ this is a little DIY space in the basement of the house i own. i also play in ba
 - **each band's input list / stage plot**
 - **confirmation of the schedule for load / soundcheck / doors / show**
 - **payment info (your Venmo or other method)**
+
+> 📋 **[View the full show page →]({{hub_url}})** — schedule, gear/input needs, logistics, and the RSVP count, all in one place. (For the lineup + crew — please don't post it publicly.)
 
 {{soundcheck_notes}}
 

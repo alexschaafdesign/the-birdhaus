@@ -271,17 +271,25 @@ async function hubUrlFor(showId: number): Promise<string> {
   return token ? `${SITE_URL}/hub/${token}` : '';
 }
 
+// Matches the "tl;dr" marker through the bullet list that follows it — used to
+// drop the hub callout in right below the asks. Lazy middle so it stops at the
+// first bullet list; the greedy bullet run consumes consecutive "- "/"* " lines.
+const TLDR_BLOCK = /\*\*tl;dr[\s\S]*?(?:\n[ \t]*[-*] .*)+/i;
+
 // Ensures the hub link shows even in a saved template that predates the
-// {{hub_url}} placeholder: if the body doesn't already reference it, prepend a
-// callout. Once an author adds {{hub_url}} themselves (in Settings), their
-// placement wins and nothing is prepended.
+// {{hub_url}} placeholder: if the body doesn't already reference it, insert a
+// callout right below the tl;dr asks (or prepend at the top if there's no tl;dr
+// block to anchor to). Once an author adds {{hub_url}} themselves (in Settings),
+// their placement wins and nothing is inserted.
 function ensureHubPlaceholder(body: string): string {
   if (/\{\{\s*hub_url\s*\}\}/.test(body)) return body;
-  return (
+  const callout =
     `> 📋 **[View the full show page →]({{hub_url}})** — schedule, gear/input needs, ` +
-    `logistics, and the RSVP count, all in one place. (For the lineup + crew.)\n\n` +
-    body
-  );
+    `logistics, and the RSVP count, all in one place. (For the lineup + crew.)`;
+  if (TLDR_BLOCK.test(body)) {
+    return body.replace(TLDR_BLOCK, (m) => `${m}\n\n${callout}`);
+  }
+  return `${callout}\n\n${body}`;
 }
 
 interface ShowAdvanceRow {
