@@ -791,7 +791,10 @@ function ScheduleEditor({
     if (hasContent && !confirm('Replace the current schedule with a lineup template?')) return;
     onChange([
       { time: '', label: 'Sound engineer arrives — bands can start loading in' },
-      ...bandNames.map((n) => ({ time: '', label: `Soundcheck — ${n}` })),
+      // Soundcheck runs in reverse set order: the headliner (last to play)
+      // soundchecks first, so the first band to play soundchecks last and their
+      // setup is left ready on stage for doors.
+      ...[...bandNames].reverse().map((n) => ({ time: '', label: `Soundcheck — ${n}` })),
       { time: '', label: 'Doors' },
       ...bandNames.map((n) => ({ time: '', label: `${n} set` })),
     ]);
