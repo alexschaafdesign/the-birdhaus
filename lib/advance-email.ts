@@ -87,24 +87,31 @@ function escapeHtml(s: string): string {
     .replace(/>/g, '&gt;');
 }
 
-// Render the schedule as a highlighted box — one time slot per row, with the time
-// (the part before the first dash) bolded. The admin enters it one-per-line (see
-// the compose textarea); standard Markdown would collapse those newlines into one
-// run-on paragraph, so we emit our own HTML instead. Returns raw HTML (inline
-// styles for email-client robustness) that passes through the Markdown render
-// because renderMarkdown runs with sanitize:false. Empty input renders nothing.
-export function formatScheduleBlock(schedule: string): string {
+// One line of the schedule: a time (or time range, e.g. "8–8:30pm") and what's
+// happening then. Either may be blank — a bare time or a bare label (e.g.
+// "Doors") both render fine. Persisted structured in show_advances.vars.schedule.
+export interface ScheduleRow {
+  time: string;
+  label: string;
+}
+
+// Render the schedule as a highlighted box — one row per line, with the time
+// bolded to the left of an em-dash. Emits raw HTML (inline styles for email-
+// client robustness) rather than Markdown so the rows don't collapse into one
+// paragraph; it passes through the Markdown render because that runs with
+// sanitize:false. Rows blank on both fields are dropped; an empty list renders
+// nothing.
+export function formatScheduleBlock(schedule: ScheduleRow[]): string {
   const rows = schedule
-    .split('\n')
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .map((line) => {
-      // Split "5:30 pm — load in" into a bolded time + the rest. Matches an
-      // em/en dash or hyphen surrounded by spaces; falls back to the whole line.
-      const m = line.match(/^(.*?\S)\s+[—–-]\s+(.*)$/);
-      const cell = m
-        ? `<b>${escapeHtml(m[1])}</b> &mdash; ${escapeHtml(m[2])}`
-        : escapeHtml(line);
+    .map((r) => ({ time: r.time.trim(), label: r.label.trim() }))
+    .filter((r) => r.time || r.label)
+    .map((r) => {
+      const cell =
+        r.time && r.label
+          ? `<b>${escapeHtml(r.time)}</b> &mdash; ${escapeHtml(r.label)}`
+          : r.time
+            ? `<b>${escapeHtml(r.time)}</b>`
+            : escapeHtml(r.label);
       return `<div style="margin:3px 0;">${cell}</div>`;
     })
     .join('');

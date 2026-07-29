@@ -14,7 +14,10 @@ import {
   formatCallout,
   renderReplyHtml,
   extractEmailAddress,
+  type ScheduleRow,
 } from './advance-email';
+
+export type { ScheduleRow } from './advance-email';
 
 // Server-side data access for advance templates. For now there's a single
 // "default" template (the boilerplate Alex edits in Settings); the schema
@@ -94,24 +97,53 @@ const ADVANCE_INTRO = 'Looking forward to this show woohoo!';
 
 // The editable subset persisted in show_advances.vars (migration 034).
 export interface SavedAdvanceVars {
-  schedule: string;
+  schedule: ScheduleRow[];
   soundcheck_notes: string;
   sound_engineer: string;
 }
 
 const EMPTY_VARS: SavedAdvanceVars = {
-  schedule: '',
+  schedule: [],
   soundcheck_notes: '',
   sound_engineer: '',
 };
 
+// Coerces stored/request schedule into structured rows. Handles both the new
+// shape (array of {time,label}) and the legacy free-text string (one row per
+// line, "time — label"), so drafts saved before the structured editor still
+// load — no migration needed since vars is jsonb. Fully-blank rows are dropped.
+function normalizeSchedule(input: unknown): ScheduleRow[] {
+  if (Array.isArray(input)) {
+    return input
+      .map((r) => {
+        const o = (r ?? {}) as Record<string, unknown>;
+        return {
+          time: typeof o.time === 'string' ? o.time : '',
+          label: typeof o.label === 'string' ? o.label : '',
+        };
+      })
+      .filter((r) => r.time.trim() || r.label.trim());
+  }
+  if (typeof input === 'string') {
+    return input
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .map((line) => {
+        const m = line.match(/^(.*?\S)\s+[—–-]\s+(.*)$/);
+        return m ? { time: m[1], label: m[2] } : { time: '', label: line };
+      });
+  }
+  return [];
+}
+
 // Accepts arbitrary input (jsonb from the DB, or a request body) and returns a
-// clean SavedAdvanceVars with only known string fields, defaulting the rest.
+// clean SavedAdvanceVars with only known fields, defaulting the rest.
 export function normalizeAdvanceVars(input: unknown): SavedAdvanceVars {
   const v = (input ?? {}) as Record<string, unknown>;
   const str = (x: unknown) => (typeof x === 'string' ? x : '');
   return {
-    schedule: str(v.schedule),
+    schedule: normalizeSchedule(v.schedule),
     soundcheck_notes: str(v.soundcheck_notes),
     sound_engineer: str(v.sound_engineer),
   };
