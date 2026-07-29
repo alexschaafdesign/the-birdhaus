@@ -5,6 +5,7 @@ import Link from 'next/link';
 import type {
   ShowAdvanceState,
   SavedAdvanceVars,
+  AdvanceRecipient,
   AdvanceThreadMessage,
   AdvanceAttachment,
   ScheduleRow,
@@ -292,27 +293,28 @@ export default function ShowAdvancePanel({
       )}
 
       {/* Recipients */}
-      <div className="border border-[#E8E0D0]/15 rounded-lg p-4 space-y-2">
+      <div className="border border-[#E8E0D0]/15 rounded-lg p-4 space-y-3">
         <p className="text-xs uppercase tracking-wide text-[#E8E0D0]/60">
           Recipients ({withEmail.length} of {state.recipients.length} with an email)
         </p>
-        <ul className="space-y-1 text-sm">
+        <ul className="space-y-3 text-sm">
           {state.recipients.map((r) => (
-            <li key={r.bandId} className="flex items-center gap-2">
-              <span className="text-[#E8E0D0]">{r.name}</span>
-              {r.email ? (
-                <span className="text-[#E8E0D0]/50">{r.email}</span>
-              ) : (
-                <Link
-                  href={`/admin/bands/${r.bandId}?returnTo=${encodeURIComponent(
-                    `/admin/shows/${state.showId}/advance`
-                  )}`}
-                  className="text-amber-300/90 hover:text-amber-200 underline"
-                >
-                  no email — add one
-                </Link>
-              )}
-            </li>
+            // Key on the saved values so a successful inline save (which changes
+            // them via refresh) remounts the row with fresh, un-dirty state.
+            <RecipientRow
+              key={`${r.bandId}:${r.email ?? ''}:${r.paymentMethod ?? ''}`}
+              recipient={r}
+              showId={state.showId}
+              onSaved={async (msg) => {
+                await refresh();
+                setNotice(msg);
+                setError(null);
+              }}
+              onError={(msg) => {
+                setError(msg);
+                setNotice(null);
+              }}
+            />
           ))}
           {state.recipients.length === 0 && (
             <li className="text-[#E8E0D0]/40">No bands on this show yet.</li>
@@ -477,6 +479,84 @@ export default function ShowAdvancePanel({
         )}
       </div>
     </div>
+  );
+}
+
+// One band in the recipients list: shows the contact email (or a link to add
+// one on the band page) and an inline-editable payout handle (Venmo, etc.) so
+// it's captured while advancing and on hand at settlement. The handle saves to
+// the band via the same PATCH the band edit form uses; it's admin-only and
+// never leaves the Birdhaus admin.
+function RecipientRow({
+  recipient,
+  showId,
+  onSaved,
+  onError,
+}: {
+  recipient: AdvanceRecipient;
+  showId: number;
+  onSaved: (notice: string) => void | Promise<void>;
+  onError: (error: string) => void;
+}) {
+  const [venmo, setVenmo] = useState(recipient.paymentMethod ?? '');
+  const [saving, setSaving] = useState(false);
+  const dirty = venmo.trim() !== (recipient.paymentMethod ?? '');
+
+  async function save() {
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/admin/bands/${recipient.bandId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ paymentMethod: venmo }),
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => null);
+        throw new Error(d?.error ?? `Save failed (${res.status})`);
+      }
+      await onSaved(`Saved ${recipient.name}'s payout handle.`);
+    } catch (e) {
+      onError(e instanceof Error ? e.message : 'Save failed');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <li className="space-y-1.5">
+      <div className="flex items-center gap-2 flex-wrap">
+        <span className="text-[#E8E0D0]">{recipient.name}</span>
+        {recipient.email ? (
+          <span className="text-[#E8E0D0]/50">{recipient.email}</span>
+        ) : (
+          <Link
+            href={`/admin/bands/${recipient.bandId}?returnTo=${encodeURIComponent(
+              `/admin/shows/${showId}/advance`
+            )}`}
+            className="text-amber-300/90 hover:text-amber-200 underline"
+          >
+            no email — add one
+          </Link>
+        )}
+      </div>
+      <div className="flex items-center gap-2 flex-wrap">
+        <input
+          value={venmo}
+          onChange={(e) => setVenmo(e.target.value)}
+          placeholder="Venmo / payout handle (private)"
+          className={`${inputClass} flex-1 min-w-[14rem]`}
+          aria-label={`${recipient.name} payout handle`}
+        />
+        <button
+          type="button"
+          onClick={save}
+          disabled={saving || !dirty}
+          className="border border-[#E8E0D0]/40 rounded px-4 py-1.5 text-sm hover:bg-[#E8E0D0]/10 transition-colors disabled:opacity-40"
+        >
+          {saving ? 'Saving…' : 'Save'}
+        </button>
+      </div>
+    </li>
   );
 }
 

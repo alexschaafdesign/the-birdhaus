@@ -156,6 +156,9 @@ export interface AdvanceRecipient {
   bandId: number;
   name: string;
   email: string | null;
+  // Private payout handle (Venmo, etc.), editable inline on the Advance tab so
+  // it's on hand at settlement. Admin-only — never leaves the Birdhaus admin.
+  paymentMethod: string | null;
 }
 
 // A file a band attached to a reply (stage plot / input list), re-hosted in R2.
@@ -228,8 +231,10 @@ async function loadShowForAdvance(showId: number): Promise<ShowForAdvanceRow | n
 // The lineup that should receive the advance: bands on the show, excluding any
 // marked excluded (migration 029), in stage order.
 async function loadRecipients(showId: number): Promise<AdvanceRecipient[]> {
-  const rows = await sql<Array<{ band_id: number; name: string; contact_email: string | null }>>`
-    select b.id as band_id, b.name, b.contact_email
+  const rows = await sql<
+    Array<{ band_id: number; name: string; contact_email: string | null; payment_method: string | null }>
+  >`
+    select b.id as band_id, b.name, b.contact_email, b.payment_method
     from show_bands sb
     join bands b on b.id = sb.band_id
     where sb.show_id = ${showId} and not sb.excluded
@@ -239,6 +244,7 @@ async function loadRecipients(showId: number): Promise<AdvanceRecipient[]> {
     bandId: Number(r.band_id),
     name: r.name,
     email: r.contact_email?.trim() || null,
+    paymentMethod: r.payment_method?.trim() || null,
   }));
 }
 
