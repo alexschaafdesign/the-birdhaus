@@ -76,6 +76,61 @@ export function formatLineup(names: string[]): string {
   return `${clean.slice(0, -1).join(', ')} & ${clean[clean.length - 1]}`;
 }
 
+// Escape a raw string for safe interpolation into the HTML we inject for the
+// schedule / callout boxes. The template + vars are admin-authored (trusted), so
+// this is defense-in-depth against a stray "<" or "&" breaking the box layout,
+// not an untrusted-input boundary.
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+// Render the schedule as a highlighted box — one time slot per row, with the time
+// (the part before the first dash) bolded. The admin enters it one-per-line (see
+// the compose textarea); standard Markdown would collapse those newlines into one
+// run-on paragraph, so we emit our own HTML instead. Returns raw HTML (inline
+// styles for email-client robustness) that passes through the Markdown render
+// because renderMarkdown runs with sanitize:false. Empty input renders nothing.
+export function formatScheduleBlock(schedule: string): string {
+  const rows = schedule
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      // Split "5:30 pm — load in" into a bolded time + the rest. Matches an
+      // em/en dash or hyphen surrounded by spaces; falls back to the whole line.
+      const m = line.match(/^(.*?\S)\s+[—–-]\s+(.*)$/);
+      const cell = m
+        ? `<b>${escapeHtml(m[1])}</b> &mdash; ${escapeHtml(m[2])}`
+        : escapeHtml(line);
+      return `<div style="margin:3px 0;">${cell}</div>`;
+    })
+    .join('');
+  if (!rows) return '';
+  return (
+    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" ` +
+    `style="width:100%;margin:12px 0;background:#fbf3e4;border:1px solid #eaddbf;` +
+    `border-left:4px solid #d08a3e;border-radius:5px;"><tr><td ` +
+    `style="padding:14px 18px;font-size:14.5px;line-height:1.7;color:#2A2420;">` +
+    `${rows}</td></tr></table>`
+  );
+}
+
+// Wrap an optional per-show note in a Markdown blockquote so it renders as the
+// tinted "callout" box (see applyInlineStyles' blockquote styling) — restoring
+// the old "highlighted in blue" treatment for the soundcheck note. Each line is
+// prefixed so multi-line notes stay inside one blockquote. Empty input renders
+// nothing.
+export function formatCallout(text: string): string {
+  const lines = text.split('\n').map((l) => l.trim());
+  while (lines.length && !lines[0]) lines.shift();
+  while (lines.length && !lines[lines.length - 1]) lines.pop();
+  if (lines.length === 0) return '';
+  return lines.map((l) => `> ${l}`).join('\n');
+}
+
 // Substitute {{key}} placeholders in the (Markdown) template body/subject. Any
 // {{unknown}} placeholder is left as-is rather than silently blanked, so a typo
 // in the template is visible in the preview instead of vanishing.
@@ -88,15 +143,98 @@ export function substitutePlaceholders(
   });
 }
 
-async function renderMarkdown(markdown: string): Promise<string> {
-  const processed = await remark().use(html).process(markdown);
+// Low-level Markdown -> HTML. `allowHtml` (sanitize:false) lets our own trusted
+// callout/schedule HTML pass through; kept off for reply bodies, which don't need
+// it. remark still processes Markdown that sits inside a raw HTML block.
+async function mdToHtml(markdown: string, allowHtml = false): Promise<string> {
+  const processed = await remark()
+    .use(html, allowHtml ? { sanitize: false } : undefined)
+    .process(markdown);
   return processed.toString();
+}
+
+// Inline styles for the tags remark emits, keyed by tag name. Email clients strip
+// <style>/<head> unreliably (and the admin preview injects into a live page), so
+// every rule has to ride on the element itself. Applied by string substitution
+// because remark's output is small and predictable; text content is already
+// HTML-escaped, so a naked "<h2>" only ever appears as a real tag.
+const EMAIL_ELEMENT_STYLES: Record<string, string> = {
+  h2:
+    'margin:34px 0 4px;padding-bottom:8px;border-bottom:2px solid #d8cdb5;' +
+    'font-size:16px;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;color:#2A2420;',
+  h3:
+    'margin:22px 0 4px;font-size:12.5px;font-weight:700;letter-spacing:0.09em;' +
+    'text-transform:uppercase;color:#a05a26;',
+  p: 'margin:10px 0;',
+  ul: 'margin:10px 0;padding-left:22px;',
+  ol: 'margin:10px 0;padding-left:22px;',
+  li: 'margin:4px 0;',
+  strong: 'font-weight:700;',
+  hr: 'border:none;border-top:1px solid #e0d7c3;margin:24px 0;',
+  blockquote:
+    'margin:14px 0;padding:12px 16px;background:#eef4fb;border-left:4px solid #3b82f6;' +
+    'border-radius:4px;color:#1e3a5f;',
+};
+
+function applyInlineStyles(fragment: string): string {
+  let out = fragment;
+  for (const [tag, style] of Object.entries(EMAIL_ELEMENT_STYLES)) {
+    // Only bare tags (no attributes) — our injected schedule box uses <b> and
+    // pre-styled <table>/<td> so it's untouched here.
+    out = out.replaceAll(`<${tag}>`, `<${tag} style="${style}">`);
+  }
+  // Links carry an href, so match/insert around it.
+  out = out.replace(
+    /<a href=/g,
+    '<a style="color:#1d4ed8;text-decoration:underline;" href='
+  );
+  return out;
+}
+
+// Wrap the "tl;dr — asks" block (its intro paragraph + the bullet list that
+// follows) in a yellow "action required" highlight, so the specific things Alex
+// needs back don't get lost in the wall of text. Keyed off the literal "tl;dr"
+// that opens the block in the boilerplate — a lightweight convention rather than
+// a placeholder, since the asks live in the static template body. If a template
+// edit drops that word the block just renders un-boxed (styling is additive, so
+// nothing breaks). Runs after applyInlineStyles, so the inner <p>/<ul> keep their
+// element styles. Matches through the first list that follows the marker.
+function boxAsks(fragment: string): string {
+  return fragment.replace(
+    /<p[^>]*><strong[^>]*>tl;dr[\s\S]*?<\/ul>/i,
+    (block) =>
+      `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" ` +
+      `style="width:100%;margin:16px 0;background:#fff6d6;border:1px solid #f0d98a;` +
+      `border-left:4px solid #e0a800;border-radius:5px;"><tr><td ` +
+      `style="padding:6px 18px 10px;">${block}</td></tr></table>`
+  );
+}
+
+// Wrap the styled body in a centered "card" using the bulletproof nested-table
+// pattern (Outlook ignores max-width on a div). Adds the small BIRDHAUS kicker.
+function wrapEmailShell(styledBody: string): string {
+  const font =
+    "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif";
+  const kicker =
+    `<div style="font-size:11px;letter-spacing:0.14em;text-transform:uppercase;` +
+    `font-weight:700;color:#a05a26;">the birdhaus</div>` +
+    `<div style="font-size:11px;letter-spacing:0.12em;text-transform:uppercase;` +
+    `color:#9a917f;margin-bottom:18px;">show advance</div>`;
+  return (
+    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" ` +
+    `style="width:100%;background:transparent;"><tr><td align="center" style="padding:0;">` +
+    `<table role="presentation" width="600" cellpadding="0" cellspacing="0" ` +
+    `style="width:100%;max-width:600px;margin:0 auto;"><tr><td ` +
+    `style="background:#fffdf8;border:1px solid #e7dfce;border-radius:8px;padding:28px 30px;` +
+    `font-family:${font};color:#2A2420;font-size:15px;line-height:1.6;">` +
+    `${kicker}${styledBody}</td></tr></table></td></tr></table>`
+  );
 }
 
 // Renders a plain reply body (Markdown) to email HTML — used for admin replies
 // on an existing advance thread, which aren't template-based.
 export async function renderReplyHtml(markdown: string): Promise<string> {
-  return renderMarkdown(markdown);
+  return mdToHtml(markdown);
 }
 
 // Pulls a bare email address out of a From header value, which may be
@@ -110,14 +248,19 @@ export function extractEmailAddress(from: string): string {
 // authored/stored as Markdown so the admin can edit it as plain text and still
 // get lists, bold ("highlighted") asks, and links — reusing the same remark
 // pipeline lib/shows.ts uses for show content. Placeholders are substituted
-// BEFORE the Markdown pass so a {{show_url}} can sit inside a [link](…).
+// BEFORE the Markdown pass so a {{show_url}} can sit inside a [link](…), and the
+// schedule/callout vars can carry the trusted HTML that sanitize:false lets
+// through. The rendered body is then inline-styled and wrapped in the email shell
+// so the sent mail is styled the same as the admin preview (email clients drop
+// <style>/<head>, so styling must be inline).
 export async function renderAdvanceEmail(
   template: { subject: string; body: string },
   vars: AdvanceTemplateVars
 ): Promise<{ subject: string; html: string; markdown: string }> {
   const subject = substitutePlaceholders(template.subject, vars);
   const markdown = substitutePlaceholders(template.body, vars);
-  const html = await renderMarkdown(markdown);
+  const body = await mdToHtml(markdown, true);
+  const html = wrapEmailShell(boxAsks(applyInlineStyles(body)));
   return { subject, html, markdown };
 }
 

@@ -9,6 +9,8 @@ import {
   showAdvanceUrl,
   formatAdvanceDate,
   formatLineup,
+  formatScheduleBlock,
+  formatCallout,
   renderReplyHtml,
   extractEmailAddress,
 } from './advance-email';
@@ -196,8 +198,8 @@ function buildTemplateVars(
 ): AdvanceTemplateVars {
   return {
     intro: saved.intro,
-    schedule: saved.schedule,
-    soundcheck_notes: saved.soundcheck_notes,
+    schedule: formatScheduleBlock(saved.schedule),
+    soundcheck_notes: formatCallout(saved.soundcheck_notes),
     // Editable, but defaults to the show's confirmed engineer.
     sound_engineer: saved.sound_engineer || (show.sound_engineer_name ?? ''),
     lineup: formatLineup(recipients.map((r) => r.name)),
