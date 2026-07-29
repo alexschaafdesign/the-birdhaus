@@ -35,6 +35,9 @@ export default function ShowAdvancePanel({
   const [replyBody, setReplyBody] = useState('');
   const [replying, setReplying] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  // The rendered email is long, so once it's already been sent, collapse it by
+  // default — the thread up top is the point at that stage. Still expandable.
+  const [showPreview, setShowPreview] = useState(initial.status !== 'sent');
 
   const dirty = JSON.stringify(vars) !== JSON.stringify(savedVars);
   const withEmail = state.recipients.filter((r) => r.email);
@@ -145,6 +148,9 @@ export default function ShowAdvancePanel({
         `Sent to ${d.sentCount} band${d.sentCount === 1 ? '' : 's'}.` +
           (d.skipped?.length ? ` Skipped (no email): ${d.skipped.join(', ')}.` : '')
       );
+      // Now that it's out, the thread jumps to the top and the long email
+      // preview isn't the focus — collapse it.
+      setShowPreview(false);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Send failed');
     } finally {
@@ -191,6 +197,64 @@ export default function ShowAdvancePanel({
         </div>
       )}
 
+      {/* Thread — surfaced at the top once the advance is sent, since the
+          replies are the main thing you're here for after sending. */}
+      {state.status === 'sent' && (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <p className="text-xs uppercase tracking-wide text-[#E8E0D0]/60">
+              Thread ({state.messages.length})
+            </p>
+            <button
+              type="button"
+              onClick={refresh}
+              disabled={refreshing}
+              className="text-xs text-[#E8E0D0]/50 hover:text-[#E8E0D0] underline disabled:opacity-40"
+            >
+              {refreshing ? 'Refreshing…' : 'Refresh for new replies'}
+            </button>
+          </div>
+
+          <ul className="space-y-3">
+            {state.messages.map((m) => {
+              const recipient = state.recipients.find((r) => r.bandId === m.bandId);
+              const who =
+                m.direction === 'outbound'
+                  ? 'You → lineup'
+                  : recipient
+                    ? `${recipient.name} replied`
+                    : m.fromEmail ?? 'Reply';
+              return <ThreadMessageItem key={m.id} message={m} who={who} />;
+            })}
+            {state.messages.length === 0 && (
+              <li className="text-sm text-[#E8E0D0]/40">No messages yet.</li>
+            )}
+          </ul>
+
+          {/* Reply on the thread */}
+          <div className="space-y-2 border-t border-[#E8E0D0]/10 pt-3">
+            <label className="block text-xs uppercase tracking-wide text-[#E8E0D0]/60">
+              Reply to the lineup
+            </label>
+            <textarea
+              value={replyBody}
+              onChange={(e) => setReplyBody(e.target.value)}
+              rows={4}
+              placeholder="Sounds good — see you Saturday!"
+              className={`${inputClass} w-full resize-y`}
+            />
+            <button
+              type="button"
+              onClick={sendReply}
+              disabled={replying || !replyBody.trim()}
+              className="border border-[#E8E0D0]/40 rounded px-4 py-2 text-sm hover:bg-[#E8E0D0]/10 transition-colors disabled:opacity-40"
+            >
+              {replying ? 'Sending…' : 'Send reply'}
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Recipients */}
       <div className="border border-[#E8E0D0]/15 rounded-lg p-4 space-y-2">
         <p className="text-xs uppercase tracking-wide text-[#E8E0D0]/60">
@@ -220,15 +284,6 @@ export default function ShowAdvancePanel({
 
       {/* Per-show fields */}
       <div className="space-y-4">
-        <Field label="Intro line">
-          <input
-            value={vars.intro}
-            onChange={(e) => setVar('intro', e.target.value)}
-            placeholder="Looking forward to this show woohoo!"
-            className={`${inputClass} w-full`}
-          />
-        </Field>
-
         <Field
           label="Sound engineer"
           hint={
@@ -316,78 +371,34 @@ export default function ShowAdvancePanel({
         )}
       </div>
 
-      {/* Preview */}
+      {/* Preview — collapsible; the rendered email is long, so it can be tucked
+          away (and starts collapsed once the advance has been sent). */}
       <div className="space-y-2">
-        <p className="text-xs uppercase tracking-wide text-[#E8E0D0]/60">
-          Preview{dirty ? ' (reflects last saved draft)' : ''}
-        </p>
-        <div className="rounded-lg border border-[#E8E0D0]/15 overflow-hidden">
-          <div className="border-b border-[#E8E0D0]/10 px-4 py-2 text-sm text-[#E8E0D0]/70">
-            <span className="text-[#E8E0D0]/40">Subject:</span> {state.preview.subject}
-          </div>
-          <div
-            className="bg-[#f6f2e9] text-[#2A2420] px-6 py-5 text-sm leading-relaxed advance-preview"
-            dangerouslySetInnerHTML={{ __html: state.preview.html }}
-          />
+        <div className="flex items-center justify-between">
+          <p className="text-xs uppercase tracking-wide text-[#E8E0D0]/60">
+            {state.status === 'sent' ? 'Sent email' : 'Preview'}
+            {dirty ? ' (reflects last saved draft)' : ''}
+          </p>
+          <button
+            type="button"
+            onClick={() => setShowPreview((v) => !v)}
+            className="text-xs text-[#E8E0D0]/50 hover:text-[#E8E0D0] underline"
+          >
+            {showPreview ? 'Hide' : 'Show'}
+          </button>
         </div>
-      </div>
-
-      {/* Thread */}
-      {state.status === 'sent' && (
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <p className="text-xs uppercase tracking-wide text-[#E8E0D0]/60">
-              Thread ({state.messages.length})
-            </p>
-            <button
-              type="button"
-              onClick={refresh}
-              disabled={refreshing}
-              className="text-xs text-[#E8E0D0]/50 hover:text-[#E8E0D0] underline disabled:opacity-40"
-            >
-              {refreshing ? 'Refreshing…' : 'Refresh for new replies'}
-            </button>
-          </div>
-
-          <ul className="space-y-3">
-            {state.messages.map((m) => {
-              const recipient = state.recipients.find((r) => r.bandId === m.bandId);
-              const who =
-                m.direction === 'outbound'
-                  ? 'You → lineup'
-                  : recipient
-                    ? `${recipient.name} replied`
-                    : m.fromEmail ?? 'Reply';
-              return <ThreadMessageItem key={m.id} message={m} who={who} />;
-            })}
-            {state.messages.length === 0 && (
-              <li className="text-sm text-[#E8E0D0]/40">No messages yet.</li>
-            )}
-          </ul>
-
-          {/* Reply on the thread */}
-          <div className="space-y-2 border-t border-[#E8E0D0]/10 pt-3">
-            <label className="block text-xs uppercase tracking-wide text-[#E8E0D0]/60">
-              Reply to the lineup
-            </label>
-            <textarea
-              value={replyBody}
-              onChange={(e) => setReplyBody(e.target.value)}
-              rows={4}
-              placeholder="Sounds good — see you Saturday!"
-              className={`${inputClass} w-full resize-y`}
+        {showPreview && (
+          <div className="rounded-lg border border-[#E8E0D0]/15 overflow-hidden">
+            <div className="border-b border-[#E8E0D0]/10 px-4 py-2 text-sm text-[#E8E0D0]/70">
+              <span className="text-[#E8E0D0]/40">Subject:</span> {state.preview.subject}
+            </div>
+            <div
+              className="bg-[#f6f2e9] text-[#2A2420] px-6 py-5 text-sm leading-relaxed advance-preview"
+              dangerouslySetInnerHTML={{ __html: state.preview.html }}
             />
-            <button
-              type="button"
-              onClick={sendReply}
-              disabled={replying || !replyBody.trim()}
-              className="border border-[#E8E0D0]/40 rounded px-4 py-2 text-sm hover:bg-[#E8E0D0]/10 transition-colors disabled:opacity-40"
-            >
-              {replying ? 'Sending…' : 'Send reply'}
-            </button>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }

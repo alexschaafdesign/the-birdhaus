@@ -87,16 +87,19 @@ export async function updateDefaultAdvanceTemplate(input: {
 // the show itself and never stored.
 // ---------------------------------------------------------------------------
 
+// The intro line ({{intro}}) is fixed rather than per-show — it's always this.
+// Substituted into the template like any other var so the boilerplate body
+// doesn't need to change; just no longer editable per show.
+const ADVANCE_INTRO = 'Looking forward to this show woohoo!';
+
 // The editable subset persisted in show_advances.vars (migration 034).
 export interface SavedAdvanceVars {
-  intro: string;
   schedule: string;
   soundcheck_notes: string;
   sound_engineer: string;
 }
 
 const EMPTY_VARS: SavedAdvanceVars = {
-  intro: '',
   schedule: '',
   soundcheck_notes: '',
   sound_engineer: '',
@@ -108,7 +111,6 @@ export function normalizeAdvanceVars(input: unknown): SavedAdvanceVars {
   const v = (input ?? {}) as Record<string, unknown>;
   const str = (x: unknown) => (typeof x === 'string' ? x : '');
   return {
-    intro: str(v.intro),
     schedule: str(v.schedule),
     soundcheck_notes: str(v.soundcheck_notes),
     sound_engineer: str(v.sound_engineer),
@@ -209,7 +211,7 @@ function buildTemplateVars(
   saved: SavedAdvanceVars
 ): AdvanceTemplateVars {
   return {
-    intro: saved.intro,
+    intro: ADVANCE_INTRO,
     schedule: formatScheduleBlock(saved.schedule),
     soundcheck_notes: formatCallout(saved.soundcheck_notes),
     // Editable, but defaults to the show's confirmed engineer.
