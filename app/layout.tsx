@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Instrument_Sans } from "next/font/google";
 import "./globals.css";
 import Header from "@/components/Header";
@@ -30,6 +30,17 @@ export const metadata: Metadata = {
     title: SITE_NAME,
     description: SITE_DESCRIPTION,
   },
+  // Installed-PWA behavior on iOS: launch full-screen (no Safari chrome) and
+  // give the home-screen entry its own title.
+  appleWebApp: {
+    capable: true,
+    title: SITE_NAME,
+    statusBarStyle: "black-translucent",
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#2A2420",
 };
 
 export default async function RootLayout({
