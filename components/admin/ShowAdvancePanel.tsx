@@ -757,10 +757,63 @@ function TimeField({ value, onChange }: { value: string; onChange: (t: string) =
   );
 }
 
+// Default schedule template, derived so it reproduces the standard Birdhaus
+// timing exactly for a 3-band show and scales for any lineup size:
+//   4:00pm  sound engineer arrives / load-in
+//   4:30pm  soundchecks, 1 hr apart, in REVERSE set order (headliner first)
+//   +30min  doors, after the last soundcheck
+//   +1hr    first set after doors; 35-min sets with 15-min changeovers
+//   +45min  house clear, after the last set
+// All PM. Uses formatTime so the strings round-trip through the time picker.
+function buildScheduleTemplate(bandNames: string[]): ScheduleRow[] {
+  const clean = bandNames.map((n) => n.trim()).filter(Boolean);
+  const n = clean.length;
+
+  // Minutes-from-midnight → the picker's PM parts (hour 1–12, minute).
+  const parts = (min: number) => {
+    const h24 = Math.floor(min / 60);
+    return { h: h24 > 12 ? h24 - 12 : h24, m: min % 60 };
+  };
+  const at = (min: number) => {
+    const { h, m } = parts(min);
+    return formatTime({ startH: h, startM: m, endH: null, endM: 0 });
+  };
+  const range = (start: number, end: number) => {
+    const a = parts(start);
+    const b = parts(end);
+    return formatTime({ startH: a.h, startM: a.m, endH: b.h, endM: b.m });
+  };
+
+  const rows: ScheduleRow[] = [];
+  rows.push({ time: at(16 * 60), label: 'Sound engineer arrives — bands can start loading in' });
+
+  // Soundchecks in reverse set order (headliner first), 1 hr apart from 4:30pm.
+  const scStart = 16 * 60 + 30;
+  [...clean].reverse().forEach((name, i) => {
+    rows.push({ time: at(scStart + i * 60), label: `${name} soundcheck` });
+  });
+
+  const doors = scStart + Math.max(n - 1, 0) * 60 + 30; // 30 min after last soundcheck
+  rows.push({ time: at(doors), label: 'Doors' });
+
+  // Sets in set order from doors + 1 hr: 35-min sets, 15-min changeovers.
+  const setStart = doors + 60;
+  const setStep = 50; // 35-min set + 15-min changeover
+  clean.forEach((name, i) => {
+    const s = setStart + i * setStep;
+    rows.push({ time: range(s, s + 35), label: name });
+  });
+
+  const lastSetEnd = setStart + Math.max(n - 1, 0) * setStep + 35;
+  rows.push({ time: at(lastSetEnd + 45), label: 'House clear' });
+
+  return rows;
+}
+
 // Structured schedule: an ordered list of {time, label} rows. Renders (via
 // formatScheduleBlock) as the highlighted schedule box in the email. "Prefill
-// from lineup" scaffolds the usual shape — load-in, a soundcheck per band,
-// doors, a set per band — with times left blank to fill in.
+// from lineup" scaffolds the standard show timing (see buildScheduleTemplate) —
+// load-in, soundchecks, doors, sets, and house clear, with times filled in.
 function ScheduleEditor({
   rows,
   bandNames,
@@ -789,15 +842,7 @@ function ScheduleEditor({
   function prefill() {
     const hasContent = rows.some((r) => r.time.trim() || r.label.trim());
     if (hasContent && !confirm('Replace the current schedule with a lineup template?')) return;
-    onChange([
-      { time: '', label: 'Sound engineer arrives — bands can start loading in' },
-      // Soundcheck runs in reverse set order: the headliner (last to play)
-      // soundchecks first, so the first band to play soundchecks last and their
-      // setup is left ready on stage for doors.
-      ...[...bandNames].reverse().map((n) => ({ time: '', label: `Soundcheck — ${n}` })),
-      { time: '', label: 'Doors' },
-      ...bandNames.map((n) => ({ time: '', label: `${n} set` })),
-    ]);
+    onChange(buildScheduleTemplate(bandNames));
   }
 
   return (
