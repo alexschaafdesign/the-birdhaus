@@ -181,6 +181,15 @@ export default function ShowInputsPanel({
         <h2 className="text-lg font-semibold">Input needs</h2>
         <div className="flex items-center gap-3">
           {dirty && <span className="text-xs text-[#E8E0D0]/40">Unsaved changes</span>}
+          <a
+            href={`/api/admin/shows/${initial.showId}/inputs/pdf`}
+            target="_blank"
+            rel="noopener noreferrer"
+            title={dirty ? 'PDF reflects the last saved version — save first' : 'Printable PDF'}
+            className="flex items-center gap-1.5 text-sm border border-[#E8E0D0]/30 rounded px-3 py-1.5 hover:bg-[#E8E0D0]/10 transition-colors"
+          >
+            Printable PDF
+          </a>
           <button
             type="button"
             onClick={save}
