@@ -30,6 +30,10 @@ export interface AdvanceTemplateVars {
   lineup: string;
   // The show's public RSVP/detail page (bands share this so people can RSVP).
   show_url: string;
+  // The band/engineer "show hub" page (/hub/<token>) — schedule, input needs,
+  // logistics, RSVP headcount, all in one place. For the lineup + crew, not the
+  // public.
+  hub_url: string;
   // Formatted show date, e.g. "Saturday, August 15".
   show_date: string;
   // The show engineer's name (from shows.sound_engineer_name).
@@ -51,6 +55,7 @@ export const ADVANCE_PLACEHOLDERS: ReadonlyArray<{
   { key: 'intro', label: 'Opening line, e.g. "Looking forward to this show woohoo!"' },
   { key: 'lineup', label: 'Band names joined naturally, e.g. "A, B & C"' },
   { key: 'show_url', label: 'Public show / RSVP page URL' },
+  { key: 'hub_url', label: 'Band/crew show hub page (schedule, gear, logistics, RSVP count)' },
   { key: 'show_date', label: 'Formatted date, e.g. "Saturday, August 15"' },
   { key: 'sound_engineer', label: "The show's sound engineer name" },
   { key: 'schedule', label: 'Load-in / soundcheck / doors / set-times block' },
@@ -374,6 +379,8 @@ export const DEFAULT_ADVANCE_SUBJECT = 'the BIRDHAUS advance — {{lineup}}, {{s
 export const DEFAULT_ADVANCE_BODY = `Hi all,
 
 {{intro}}
+
+> 📋 **[View the full show page →]({{hub_url}})** — schedule, gear/input needs, logistics, and the RSVP count, all in one place. (For the lineup + crew — please don't post it publicly.)
 
 Here's a "quick" rundown of everything (i love over-explaining things) — let me know if there are any questions or changes you'd like to make!
 

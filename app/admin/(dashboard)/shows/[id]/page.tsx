@@ -2,7 +2,7 @@ import { notFound } from 'next/navigation';
 import { sql } from '@/lib/db';
 import { bandsJoinFragment, videosJoinFragment } from '@/lib/shows';
 import { soundEngineersJoinFragment, type ShowSoundEngineer } from '@/lib/sound-engineers';
-import { getOrCreateShareToken } from '@/lib/show-hub';
+import { getOrCreateShareToken } from '@/lib/share-token';
 import { SITE_URL } from '@/lib/site';
 import ShowForm, { type ShowFormInitialValues } from '@/components/admin/ShowForm';
 import ShareLinkBox from '@/components/admin/ShareLinkBox';

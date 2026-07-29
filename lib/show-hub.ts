@@ -1,4 +1,3 @@
-import crypto from 'crypto';
 import { sql } from './db';
 import { getShowById } from './shows';
 import { getShowInputsState, type InputTotalLine, type InputItem } from './inputs';
@@ -10,36 +9,8 @@ import type { ScheduleRow } from './advance-email';
 // The shareable band/engineer "show hub" (/hub/<token>). Read-only, token-gated,
 // outside the admin auth gate — so it deliberately exposes only headcount for
 // RSVPs (no attendee names/emails), plus the schedule, input needs, and venue
-// logistics the lineup and sound engineer need day-of.
-
-// Unguessable share token (URL/address-safe hex). App-side rather than a DB
-// default so we don't need a pgcrypto extension on Neon (same as the advance
-// reply token).
-function generateShareToken(): string {
-  return crypto.randomBytes(16).toString('hex');
-}
-
-// Returns the show's share token, generating + persisting one on first use.
-export async function getOrCreateShareToken(showId: number): Promise<string | null> {
-  const [row] = await sql<Array<{ share_token: string | null }>>`
-    select share_token from shows where id = ${showId}
-  `;
-  if (!row) return null;
-  if (row.share_token) return row.share_token;
-
-  const token = generateShareToken();
-  await sql`update shows set share_token = ${token} where id = ${showId}`;
-  return token;
-}
-
-// Rotates the token, revoking any previously shared link.
-export async function regenerateShareToken(showId: number): Promise<string | null> {
-  const [row] = await sql<Array<{ id: number }>>`select id from shows where id = ${showId}`;
-  if (!row) return null;
-  const token = generateShareToken();
-  await sql`update shows set share_token = ${token} where id = ${showId}`;
-  return token;
-}
+// logistics the lineup and sound engineer need day-of. Token get/create lives in
+// lib/share-token.ts (imported by the advance renderer, which this module imports).
 
 export interface ShowHubData {
   show: {

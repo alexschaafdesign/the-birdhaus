@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getOrCreateShareToken, regenerateShareToken } from '@/lib/show-hub';
+import { getOrCreateShareToken, regenerateShareToken } from '@/lib/share-token';
 import { SITE_URL } from '@/lib/site';
 
 // Auth is enforced centrally in proxy.ts for all /api/admin/* routes.

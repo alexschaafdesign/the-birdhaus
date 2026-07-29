@@ -1,6 +1,8 @@
 import { sql } from './db';
 import { uploadFileToR2, ADVANCE_ATTACHMENTS_FOLDER } from './r2';
 import { getConfirmedSoundEngineer } from './sound-engineers';
+import { getOrCreateShareToken } from './share-token';
+import { SITE_URL } from './site';
 import {
   DEFAULT_ADVANCE_SUBJECT,
   DEFAULT_ADVANCE_BODY,
@@ -244,7 +246,8 @@ async function loadRecipients(showId: number): Promise<AdvanceRecipient[]> {
 function buildTemplateVars(
   show: ShowForAdvanceRow,
   recipients: AdvanceRecipient[],
-  saved: SavedAdvanceVars
+  saved: SavedAdvanceVars,
+  hubUrl: string
 ): AdvanceTemplateVars {
   return {
     intro: ADVANCE_INTRO,
@@ -254,8 +257,31 @@ function buildTemplateVars(
     sound_engineer: saved.sound_engineer || (show.sound_engineer_name ?? ''),
     lineup: formatLineup(recipients.map((r) => r.name)),
     show_url: showAdvanceUrl(show.slug),
+    hub_url: hubUrl,
     show_date: show.date ? formatAdvanceDate(show.date) : '',
   };
+}
+
+// Builds the band/crew hub URL for a show, generating the share token if needed
+// (same token the Details-tab "Share" box and the /hub page use). Empty string if
+// the show is gone — {{hub_url}} then substitutes to nothing rather than a broken
+// link.
+async function hubUrlFor(showId: number): Promise<string> {
+  const token = await getOrCreateShareToken(showId);
+  return token ? `${SITE_URL}/hub/${token}` : '';
+}
+
+// Ensures the hub link shows even in a saved template that predates the
+// {{hub_url}} placeholder: if the body doesn't already reference it, prepend a
+// callout. Once an author adds {{hub_url}} themselves (in Settings), their
+// placement wins and nothing is prepended.
+function ensureHubPlaceholder(body: string): string {
+  if (/\{\{\s*hub_url\s*\}\}/.test(body)) return body;
+  return (
+    `> 📋 **[View the full show page →]({{hub_url}})** — schedule, gear/input needs, ` +
+    `logistics, and the RSVP count, all in one place. (For the lineup + crew.)\n\n` +
+    body
+  );
 }
 
 interface ShowAdvanceRow {
@@ -331,9 +357,9 @@ export async function getShowAdvanceState(showId: number): Promise<ShowAdvanceSt
   const saved = advanceRow
     ? { ...EMPTY_VARS, ...normalizeAdvanceVars(advanceRow.vars) }
     : { ...EMPTY_VARS };
-  const templateVars = buildTemplateVars(show, recipients, saved);
+  const templateVars = buildTemplateVars(show, recipients, saved, await hubUrlFor(showId));
   const preview = await renderAdvanceEmail(
-    { subject: template.subject, body: template.body },
+    { subject: template.subject, body: ensureHubPlaceholder(template.body) },
     templateVars
   );
 
@@ -371,12 +397,13 @@ export async function getShowAdvanceState(showId: number): Promise<ShowAdvanceSt
 async function renderForShow(
   show: ShowForAdvanceRow,
   recipients: AdvanceRecipient[],
-  saved: SavedAdvanceVars
+  saved: SavedAdvanceVars,
+  hubUrl: string
 ): Promise<{ subject: string; html: string }> {
   const template = await getDefaultAdvanceTemplate();
-  const templateVars = buildTemplateVars(show, recipients, saved);
+  const templateVars = buildTemplateVars(show, recipients, saved, hubUrl);
   const { subject, html } = await renderAdvanceEmail(
-    { subject: template.subject, body: template.body },
+    { subject: template.subject, body: ensureHubPlaceholder(template.body) },
     templateVars
   );
   return { subject, html };
@@ -413,7 +440,7 @@ export async function saveShowAdvanceDraft(
   if (!show) return null;
   const recipients = await loadRecipients(showId);
   const saved = normalizeAdvanceVars(varsInput);
-  const rendered = await renderForShow(show, recipients, saved);
+  const rendered = await renderForShow(show, recipients, saved, await hubUrlFor(showId));
   await upsertShowAdvance(showId, rendered, saved);
   return getShowAdvanceState(showId);
 }
@@ -440,7 +467,7 @@ export async function sendShowAdvance(
   }
 
   const saved = normalizeAdvanceVars(varsInput);
-  const rendered = await renderForShow(show, recipients, saved);
+  const rendered = await renderForShow(show, recipients, saved, await hubUrlFor(showId));
   // Ensure the row (and its reply token) exists before sending, since the
   // Reply-To carries the token.
   const replyToken = await upsertShowAdvance(showId, rendered, saved);
