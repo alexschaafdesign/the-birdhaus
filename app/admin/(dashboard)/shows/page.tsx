@@ -17,7 +17,8 @@ async function getShows(): Promise<ShowListItem[]> {
       coalesce(st.photographer_paid, false) as photographer_paid,
       st.photographer_name,
       coalesce(bp.bands_paid_count, 0)::int as bands_paid_count,
-      coalesce(vc.bands_with_video_count, 0)::int as bands_with_video_count
+      coalesce(vc.bands_with_video_count, 0)::int as bands_with_video_count,
+      coalesce(ii.bands_missing_inputs, 0)::int as bands_missing_inputs
     from shows s
     left join (
       select show_id, count(*) as band_count
@@ -44,6 +45,19 @@ async function getShows(): Promise<ShowListItem[]> {
       join show_videos sv on sv.video_id = bv.video_id and sv.show_id = sb.show_id
       group by sb.show_id
     ) vc on vc.show_id = s.id
+    left join (
+      -- Non-excluded lineup bands with no input items recorded yet (show_input_items
+      -- only ever holds non-excluded bands), so the shows list can flag missing
+      -- input lists / stage plots.
+      select sb.show_id, count(*) as bands_missing_inputs
+      from show_bands sb
+      where not sb.excluded
+        and not exists (
+          select 1 from show_input_items sii
+          where sii.show_id = sb.show_id and sii.band_id = sb.band_id
+        )
+      group by sb.show_id
+    ) ii on ii.show_id = s.id
     order by s.date desc
   `;
   return rows;

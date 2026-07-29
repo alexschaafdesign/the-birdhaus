@@ -26,6 +26,7 @@ export interface ShowListItem {
   photographer_name?: string | null;
   bands_paid_count?: number;
   bands_with_video_count?: number;
+  bands_missing_inputs?: number;
 }
 
 interface Issue {
@@ -77,6 +78,15 @@ function computeIssues(show: ShowListItem, today: string): CategorizedIssues {
   if (bandsNeeded > 0) {
     preShow.push({ key: 'bands', label: `Need ${bandsNeeded} band${bandsNeeded === 1 ? '' : 's'}` });
   }
+  // Input lists come in via the advance, so only flag missing ones once it's been
+  // sent — before that, "Not advanced yet" already covers the next step.
+  const bandsMissingInputs = show.bands_missing_inputs ?? 0;
+  if (show.advance_sent && bandsMissingInputs > 0) {
+    preShow.push({
+      key: 'inputs',
+      label: `Input lists needed (${bandsMissingInputs} band${bandsMissingInputs === 1 ? '' : 's'})`,
+    });
+  }
 
   const postShow: Issue[] = [];
   const bandCount = show.band_count ?? 0;
@@ -124,6 +134,7 @@ const FILTER_DEFS: { key: string; label: string; category: IssueCategory }[] = [
   { key: 'bands', label: 'Needs bands', category: 'preShow' },
   { key: 'flyer', label: 'Needs flyer', category: 'preShow' },
   { key: 'advance', label: 'Not advanced', category: 'preShow' },
+  { key: 'inputs', label: 'Needs input lists', category: 'preShow' },
   { key: 'rsvp-off', label: 'RSVP form off', category: 'statusRsvp' },
   { key: 'no-rsvps', label: 'No RSVPs yet', category: 'statusRsvp' },
   { key: 'bands-unpaid', label: 'Bands unpaid', category: 'postShow' },
