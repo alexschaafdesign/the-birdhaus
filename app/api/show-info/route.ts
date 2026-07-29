@@ -1,6 +1,19 @@
 import { NextResponse } from "next/server";
 import { getAllShows, getTodayCentral } from "@/lib/shows";
 
+// The message is dropped into a TwiML <Say> element, so any XML metacharacters
+// in DB-sourced text (band names and titles routinely contain "&", e.g.
+// "Nina & the Wolves") must be escaped — otherwise the TwiML is malformed and
+// Twilio fails to parse it, silently killing the hotline for that lineup.
+function escapeXml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+}
+
 async function buildMessage(): Promise<string> {
   const today = getTodayCentral(); // "2026-04-19" in Central Time
   const shows = (await getAllShows()).filter((s) => s.announced !== false);
@@ -50,7 +63,7 @@ export async function POST() {
   // Twilio expects TwiML XML in response
   const twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <Say voice="Polly.Joanna-Neural">${message}</Say>
+  <Say voice="Polly.Joanna-Neural">${escapeXml(message)}</Say>
 </Response>`;
 
   return new NextResponse(twiml, {
