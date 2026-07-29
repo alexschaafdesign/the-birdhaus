@@ -2,7 +2,10 @@ import { notFound } from 'next/navigation';
 import { sql } from '@/lib/db';
 import { bandsJoinFragment, videosJoinFragment } from '@/lib/shows';
 import { soundEngineersJoinFragment, type ShowSoundEngineer } from '@/lib/sound-engineers';
+import { getOrCreateShareToken } from '@/lib/show-hub';
+import { SITE_URL } from '@/lib/site';
 import ShowForm, { type ShowFormInitialValues } from '@/components/admin/ShowForm';
+import ShareLinkBox from '@/components/admin/ShareLinkBox';
 
 export const dynamic = 'force-dynamic';
 
@@ -83,5 +86,13 @@ export default async function EditShowPage({ params }: { params: Promise<{ id: s
     squareLinks,
   };
 
-  return <ShowForm mode="edit" embedded initialValues={initialValues} />;
+  const shareToken = await getOrCreateShareToken(showId);
+  const shareUrl = shareToken ? `${SITE_URL}/hub/${shareToken}` : null;
+
+  return (
+    <div className="space-y-6">
+      {shareUrl && <ShareLinkBox showId={showId} initialUrl={shareUrl} />}
+      <ShowForm mode="edit" embedded initialValues={initialValues} />
+    </div>
+  );
 }
