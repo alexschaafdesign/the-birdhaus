@@ -268,7 +268,9 @@ export default function ShowAdvancePanel({
                 <span className="text-[#E8E0D0]/50">{r.email}</span>
               ) : (
                 <Link
-                  href={`/admin/bands/${r.bandId}`}
+                  href={`/admin/bands/${r.bandId}?returnTo=${encodeURIComponent(
+                    `/admin/shows/${state.showId}/advance`
+                  )}`}
                   className="text-amber-300/90 hover:text-amber-200 underline"
                 >
                   no email — add one

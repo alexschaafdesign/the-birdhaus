@@ -1,13 +1,24 @@
 'use client';
 
 import { useState, type FormEvent } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import type { BandShow } from '@/lib/bands';
 import ImageUploadField from './ImageUploadField';
 
 const inputClass =
   'bg-transparent border border-[#E8E0D0]/30 rounded px-3 py-1.5 text-sm focus:outline-none focus:border-[#E8E0D0] placeholder:text-[#E8E0D0]/30';
+
+const BANDS_LIST = '/admin/bands';
+
+// Where to go after save / cancel. A caller (e.g. the Advance tab's "add an
+// email" link) can pass ?returnTo=<internal path> to come back where it started;
+// defaults to the bands list. Only same-origin absolute paths are honored —
+// reject protocol-relative ("//host") and any scheme to avoid an open redirect.
+function safeReturnTo(value: string | null): string {
+  if (!value || !value.startsWith('/') || value.startsWith('//')) return BANDS_LIST;
+  return value;
+}
 
 export interface BandFormInitialValues {
   id?: number;
@@ -30,6 +41,8 @@ export default function BandForm({
   linkedShows?: BandShow[];
 }) {
   const router = useRouter();
+  const returnTo = safeReturnTo(useSearchParams().get('returnTo'));
+  const hasReturn = returnTo !== BANDS_LIST;
   const [name, setName] = useState(initialValues?.name ?? '');
   const [instagram, setInstagram] = useState(initialValues?.instagram ?? '');
   const [bio, setBio] = useState(initialValues?.bio ?? '');
@@ -78,7 +91,7 @@ export default function BandForm({
       });
       const body = await res.json().catch(() => null);
       if (!res.ok) throw new Error(body?.error || 'Failed to save band');
-      router.push('/admin/bands');
+      router.push(returnTo);
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save band');
@@ -93,7 +106,7 @@ export default function BandForm({
     try {
       const res = await fetch(`/api/admin/bands/${initialValues.id}`, { method: 'DELETE' });
       if (!res.ok) throw new Error();
-      router.push('/admin/bands');
+      router.push(returnTo);
       router.refresh();
     } catch {
       setError('Failed to delete band — try again.');
@@ -107,10 +120,10 @@ export default function BandForm({
           <h1 className="text-2xl font-bold">{mode === 'create' ? 'New band' : 'Edit band'}</h1>
           <button
             type="button"
-            onClick={() => router.push('/admin/bands')}
+            onClick={() => router.push(returnTo)}
             className="text-sm text-[#E8E0D0]/60 hover:text-[#E8E0D0]"
           >
-            ← Back to bands
+            {hasReturn ? '← Back' : '← Back to bands'}
           </button>
         </div>
 
