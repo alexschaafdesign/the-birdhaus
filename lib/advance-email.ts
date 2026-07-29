@@ -220,14 +220,29 @@ function wrapEmailShell(styledBody: string): string {
     `font-weight:700;color:#a05a26;">the birdhaus</div>` +
     `<div style="font-size:11px;letter-spacing:0.12em;text-transform:uppercase;` +
     `color:#9a917f;margin-bottom:18px;">show advance</div>`;
-  return (
+  const shell =
     `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" ` +
     `style="width:100%;background:transparent;"><tr><td align="center" style="padding:0;">` +
     `<table role="presentation" width="600" cellpadding="0" cellspacing="0" ` +
     `style="width:100%;max-width:600px;margin:0 auto;"><tr><td ` +
     `style="background:#fffdf8;border:1px solid #e7dfce;border-radius:8px;padding:28px 30px;` +
     `font-family:${font};color:#2A2420;font-size:15px;line-height:1.6;">` +
-    `${kicker}${styledBody}</td></tr></table></td></tr></table>`
+    `${kicker}${styledBody}</td></tr></table></td></tr></table>`;
+  // Wrap in a real document so the color-scheme meta tags ride along in the sent
+  // mail. This is a light-only design (light card, dark text) with no dark
+  // variant, so we tell clients that honor these hints — Apple Mail, iOS Mail,
+  // and Outlook to a degree — NOT to auto-invert it into a broken half-dark
+  // rendering; they keep it as authored. Gmail strips <head> and applies its own
+  // transforms regardless (unavoidable), so this is a best-effort improvement,
+  // not a guarantee. The meta tags are inert when this same HTML is injected into
+  // the admin preview <div> (the browser ignores <head>/<meta> in that context),
+  // so no <style> block — which WOULD leak into the admin page — is used.
+  return (
+    `<!doctype html><html lang="en"><head><meta charset="utf-8">` +
+    `<meta name="viewport" content="width=device-width,initial-scale=1">` +
+    `<meta name="color-scheme" content="light">` +
+    `<meta name="supported-color-schemes" content="light">` +
+    `</head><body style="margin:0;padding:0;background:#ece7db;">${shell}</body></html>`
   );
 }
 
