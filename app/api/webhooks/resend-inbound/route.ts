@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { Resend } from 'resend';
-import { getResendClient, parseReplyToken } from '@/lib/advance-email';
+import { getResendClient, parseReplyToken, ADVANCE_NOTIFY_EMAIL } from '@/lib/advance-email';
 import { recordInboundReply, type InboundAttachmentInput } from '@/lib/advance';
 
 // Resend inbound webhook (email.received). NOT under /api/admin, so proxy.ts
@@ -85,6 +85,34 @@ async function fetchInboundAttachments(
     }
   }
   return out;
+}
+
+// Forwards a band's inbound reply to Alex's inbox so he's alerted to replies
+// without opening the admin (restoring the old "replies land in my email"
+// behavior — bands are BCC-hidden from his address on the outbound send, so
+// their replies don't otherwise reach him). Passthrough forwards the original
+// message with its attachments intact. Best-effort: any failure is logged, not
+// thrown — the reply is already recorded and visible in the admin thread. Only
+// called once per reply (on first processing, not webhook retries), so it
+// doesn't double-send.
+async function forwardReplyToInbox(resend: Resend, emailId: string): Promise<void> {
+  const from = process.env.RESEND_ADVANCE_FROM_EMAIL;
+  if (!from) {
+    console.error('[resend-inbound] RESEND_ADVANCE_FROM_EMAIL not set; cannot forward reply');
+    return;
+  }
+  try {
+    const res = await resend.emails.receiving.forward({
+      emailId,
+      to: ADVANCE_NOTIFY_EMAIL,
+      from,
+    });
+    if (res.error) {
+      console.error('[resend-inbound] forward to inbox returned an error', JSON.stringify(res.error));
+    }
+  } catch (e) {
+    console.error('[resend-inbound] error forwarding reply to inbox', e);
+  }
 }
 
 export async function POST(request: Request) {
@@ -205,6 +233,10 @@ export async function POST(request: Request) {
     // minted in a different environment/DB than the one receiving the webhook
     // (e.g. advance sent from a preview deploy, webhook hitting prod).
     console.warn('[resend-inbound] token had no matching advance', token);
+  } else if (!result.deduped) {
+    // First time we've seen this reply — forward it to Alex's inbox. Guarded on
+    // !deduped so webhook retries (which dedupe) don't re-forward it.
+    await forwardReplyToInbox(resend, event.data.email_id);
   }
 
   return NextResponse.json({ ok: true, matched: result.matched });

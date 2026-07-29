@@ -3,9 +3,10 @@ import { remark } from 'remark';
 import html from 'remark-html';
 import { SITE_URL } from './site';
 
-// Alex BCCs himself on every advance so the full thread also lives in his own
-// inbox, independent of the admin (mirrors lib/rsvp-email.ts's BCC_EMAIL).
-const BCC_EMAIL = 'alex@thebirdhaus.org';
+// Alex's inbox. BCC'd on every outbound advance so the thread lives in his own
+// mail too, and the address inbound band replies get forwarded to (see the
+// resend-inbound webhook) so he's alerted to replies without opening the admin.
+export const ADVANCE_NOTIFY_EMAIL = 'alex@thebirdhaus.org';
 
 // Instantiate lazily rather than at module load: Resend's constructor throws
 // when the API key is missing, and Next imports this module during `next build`,
@@ -349,7 +350,7 @@ export async function sendAdvanceEmail({
   const { data, error } = await getResendClient().emails.send({
     from,
     to: toEmails,
-    bcc: BCC_EMAIL,
+    bcc: ADVANCE_NOTIFY_EMAIL,
     replyTo: replyToAddress(replyToken),
     subject,
     html,
