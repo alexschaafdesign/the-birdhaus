@@ -10,6 +10,7 @@ export default function ShowTabs({ id }: { id: number }) {
   const base = `/admin/shows/${id}`;
   const tabs = [
     { href: base, label: 'Details', exact: true },
+    { href: `${base}/advance`, label: 'Advance', exact: false },
     { href: `${base}/settlement`, label: 'Settlement', exact: false },
     { href: `${base}/rsvps`, label: 'RSVPs', exact: false },
   ];

@@ -17,6 +17,7 @@ export interface BandFormInitialValues {
   photo?: string | null;
   isTouring?: boolean;
   hometown?: string | null;
+  contactEmail?: string | null;
 }
 
 export default function BandForm({
@@ -35,6 +36,7 @@ export default function BandForm({
   const [photo, setPhoto] = useState(initialValues?.photo ?? '');
   const [isTouring, setIsTouring] = useState(initialValues?.isTouring ?? false);
   const [hometown, setHometown] = useState(initialValues?.hometown ?? '');
+  const [contactEmail, setContactEmail] = useState(initialValues?.contactEmail ?? '');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -61,6 +63,8 @@ export default function BandForm({
       // Explicitly null (not omitted) when not touring — PATCH only clears a
       // stored hometown when the "hometown" key is actually present in the body.
       hometown: isTouring ? hometown.trim() || null : null,
+      // Explicit null so clearing the field actually clears the stored email.
+      contactEmail: contactEmail.trim() || null,
     };
 
     setSubmitting(true);
@@ -136,6 +140,22 @@ export default function BandForm({
             onChange={(e) => setInstagram(e.target.value)}
             className={`${inputClass} w-full`}
           />
+        </div>
+
+        <div>
+          <label className="block text-xs uppercase tracking-wide text-[#E8E0D0]/40 mb-1">
+            Contact email
+          </label>
+          <input
+            type="email"
+            value={contactEmail}
+            onChange={(e) => setContactEmail(e.target.value)}
+            placeholder="band@example.com"
+            className={`${inputClass} w-full`}
+          />
+          <p className="text-xs text-[#E8E0D0]/30 mt-1">
+            Saved with the band and reused for show advance emails.
+          </p>
         </div>
 
         <div>

@@ -8,6 +8,10 @@ const TEXT_FIELD_MAP: Record<string, string> = {
   instagram: 'instagram',
   bio: 'bio',
   photo: 'photo',
+  // Band contact email, edited here and reused for advance emails. Safe to own
+  // in the Birdhaus admin: the Twin Scene sync is fill-only-if-empty and never
+  // overwrites a value set here (../twinscene/ARCHITECTURE.md, bands overlay).
+  contactEmail: 'contact_email',
 };
 
 function parseId(id: string): number | null {

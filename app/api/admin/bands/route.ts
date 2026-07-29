@@ -53,10 +53,10 @@ export async function POST(request: Request) {
 
   try {
     const [row] = await sql`
-      insert into bands (slug, name, instagram, bio, photo, is_touring, hometown)
+      insert into bands (slug, name, instagram, bio, photo, is_touring, hometown, contact_email)
       values (
         ${slug}, ${name}, ${nullableTrim(body.instagram)}, ${nullableTrim(body.bio)}, ${nullableTrim(body.photo)},
-        ${isTouring}, ${hometown}
+        ${isTouring}, ${hometown}, ${nullableTrim(body.contactEmail)}
       )
       returning *
     `;
