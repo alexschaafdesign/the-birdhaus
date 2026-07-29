@@ -2,7 +2,8 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import type { ShowAdvanceState, SavedAdvanceVars } from '@/lib/advance';
+import type { ShowAdvanceState, SavedAdvanceVars, AdvanceThreadMessage } from '@/lib/advance';
+import { htmlToText, splitReplyQuote } from '@/lib/reply-text';
 
 const inputClass =
   'bg-transparent border border-[#E8E0D0]/30 rounded px-3 py-1.5 text-sm focus:outline-none focus:border-[#E8E0D0] placeholder:text-[#E8E0D0]/30';
@@ -345,28 +346,7 @@ export default function ShowAdvancePanel({
                   : recipient
                     ? `${recipient.name} replied`
                     : m.fromEmail ?? 'Reply';
-              const bodyText =
-                m.bodyText ?? (m.bodyHtml ? '(HTML reply — open in your email to view)' : null);
-              return (
-                <li
-                  key={m.id}
-                  className={`rounded-lg border px-4 py-3 text-sm ${
-                    m.direction === 'inbound'
-                      ? 'border-[#E8E0D0]/25 bg-[#E8E0D0]/[0.04]'
-                      : 'border-[#E8E0D0]/15'
-                  }`}
-                >
-                  <div className="flex items-center justify-between text-xs text-[#E8E0D0]/50">
-                    <span className={m.direction === 'inbound' ? 'text-[#E8E0D0]/80' : ''}>
-                      {who}
-                    </span>
-                    <span>{new Date(m.createdAt).toLocaleString()}</span>
-                  </div>
-                  {bodyText && (
-                    <div className="mt-1.5 whitespace-pre-wrap text-[#E8E0D0]/75">{bodyText}</div>
-                  )}
-                </li>
-              );
+              return <ThreadMessageItem key={m.id} message={m} who={who} />;
             })}
             {state.messages.length === 0 && (
               <li className="text-sm text-[#E8E0D0]/40">No messages yet.</li>
@@ -397,6 +377,61 @@ export default function ShowAdvancePanel({
         </div>
       )}
     </div>
+  );
+}
+
+function ThreadMessageItem({
+  message,
+  who,
+}: {
+  message: AdvanceThreadMessage;
+  who: string;
+}) {
+  const [showQuote, setShowQuote] = useState(false);
+  // Prefer the text/plain part; fall back to a text rendering of the HTML part
+  // (rendered as text, never injected as HTML — the sender is external). Then
+  // peel off the quoted advance so the new message reads clean.
+  const raw = message.bodyText ?? (message.bodyHtml ? htmlToText(message.bodyHtml) : null);
+  const { body, quoted } = raw ? splitReplyQuote(raw) : { body: '', quoted: '' };
+
+  return (
+    <li
+      className={`rounded-lg border px-4 py-3 text-sm ${
+        message.direction === 'inbound'
+          ? 'border-[#E8E0D0]/25 bg-[#E8E0D0]/[0.04]'
+          : 'border-[#E8E0D0]/15'
+      }`}
+    >
+      <div className="flex items-center justify-between text-xs text-[#E8E0D0]/50">
+        <span className={message.direction === 'inbound' ? 'text-[#E8E0D0]/80' : ''}>
+          {who}
+        </span>
+        <span>{new Date(message.createdAt).toLocaleString()}</span>
+      </div>
+      {body ? (
+        <div className="mt-1.5 whitespace-pre-wrap text-[#E8E0D0]/75">{body}</div>
+      ) : (
+        <div className="mt-1.5 text-[#E8E0D0]/40 italic">
+          {quoted ? '(no new text above the quoted message)' : '(no message content)'}
+        </div>
+      )}
+      {quoted && (
+        <div className="mt-2">
+          <button
+            type="button"
+            onClick={() => setShowQuote((v) => !v)}
+            className="text-xs text-[#E8E0D0]/45 hover:text-[#E8E0D0]/80 underline"
+          >
+            {showQuote ? 'Hide quoted text' : 'Show quoted text'}
+          </button>
+          {showQuote && (
+            <div className="mt-1.5 whitespace-pre-wrap border-l-2 border-[#E8E0D0]/15 pl-3 text-xs text-[#E8E0D0]/40">
+              {quoted}
+            </div>
+          )}
+        </div>
+      )}
+    </li>
   );
 }
 
