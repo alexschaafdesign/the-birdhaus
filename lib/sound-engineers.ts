@@ -38,6 +38,37 @@ export async function getAllSoundEngineers(): Promise<SoundEngineer[]> {
   return rows.map(rowToSoundEngineer);
 }
 
+// The confirmed engineer on a show (at most one), with contact email. Used by
+// the advance to add them as a recipient and forward band replies to them.
+export interface ConfirmedSoundEngineer {
+  id: number;
+  name: string;
+  email: string | null;
+}
+
+export async function getConfirmedSoundEngineer(
+  showId: number
+): Promise<ConfirmedSoundEngineer | null> {
+  const [row] = await sql<Array<{ id: number; name: string; contact_email: string | null }>>`
+    select se.id, se.name, se.contact_email
+    from show_sound_engineers sse
+    join sound_engineers se on se.id = sse.sound_engineer_id
+    where sse.show_id = ${showId} and sse.status = 'confirmed'
+    limit 1
+  `;
+  if (!row) return null;
+  return { id: Number(row.id), name: row.name, email: row.contact_email?.trim() || null };
+}
+
+// Sets (or clears, on empty) an engineer's contact email. Persisted on the
+// engineer so it carries across their shows.
+export async function updateSoundEngineerEmail(id: number, email: string): Promise<void> {
+  const clean = email.trim() || null;
+  await sql`
+    update sound_engineers set contact_email = ${clean}, updated_at = now() where id = ${id}
+  `;
+}
+
 // Reads a show's engineer relationships (name + status). Confirmed first, then
 // asked, then declined; alphabetical within each — matches how the form groups
 // them.

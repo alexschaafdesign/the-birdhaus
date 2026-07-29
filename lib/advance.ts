@@ -1,5 +1,6 @@
 import { sql } from './db';
 import { uploadFileToR2, ADVANCE_ATTACHMENTS_FOLDER } from './r2';
+import { getConfirmedSoundEngineer } from './sound-engineers';
 import {
   DEFAULT_ADVANCE_SUBJECT,
   DEFAULT_ADVANCE_BODY,
@@ -182,6 +183,9 @@ export interface ShowAdvanceState {
   showId: number;
   show: { title: string; date: string | null; slug: string; soundEngineerName: string };
   recipients: AdvanceRecipient[];
+  // The confirmed sound engineer, looped onto the advance as a recipient. null
+  // when the show has no confirmed engineer; email null until one is set.
+  soundEngineer: { id: number; name: string; email: string | null } | null;
   vars: SavedAdvanceVars;
   status: 'none' | 'draft' | 'sent';
   sentAt: string | null;
@@ -268,8 +272,9 @@ export async function getShowAdvanceState(showId: number): Promise<ShowAdvanceSt
   const show = await loadShowForAdvance(showId);
   if (!show) return null;
 
-  const [recipients, template, [advanceRow], messageRows, attachmentRows] = await Promise.all([
+  const [recipients, soundEngineer, template, [advanceRow], messageRows, attachmentRows] = await Promise.all([
     loadRecipients(showId),
+    getConfirmedSoundEngineer(showId),
     getDefaultAdvanceTemplate(),
     sql<ShowAdvanceRow[]>`
       select status, sent_at::text as sent_at, reply_token, vars
@@ -341,6 +346,7 @@ export async function getShowAdvanceState(showId: number): Promise<ShowAdvanceSt
       soundEngineerName: show.sound_engineer_name ?? '',
     },
     recipients,
+    soundEngineer,
     vars: saved,
     status: advanceRow ? advanceRow.status : 'none',
     sentAt: advanceRow?.sent_at ?? null,
@@ -439,7 +445,15 @@ export async function sendShowAdvance(
   // Reply-To carries the token.
   const replyToken = await upsertShowAdvance(showId, rendered, saved);
 
-  const toEmails = withEmail.map((r) => r.email as string);
+  // Loop the confirmed sound engineer onto the send as a recipient (deduped
+  // against the band emails, in case of overlap).
+  const engineer = await getConfirmedSoundEngineer(showId);
+  const toEmails = Array.from(
+    new Set([
+      ...withEmail.map((r) => r.email as string),
+      ...(engineer?.email ? [engineer.email] : []),
+    ])
+  );
   const { id: resendId } = await sendAdvanceEmail({
     toEmails,
     subject: rendered.subject,
@@ -625,7 +639,13 @@ export async function sendShowAdvanceReply(
   if (advance.status !== 'sent') throw new Error('Send the advance before replying on the thread.');
 
   const recipients = await loadRecipients(showId);
-  const toEmails = recipients.map((r) => r.email).filter((e): e is string => !!e);
+  const engineer = await getConfirmedSoundEngineer(showId);
+  const toEmails = Array.from(
+    new Set([
+      ...recipients.map((r) => r.email).filter((e): e is string => !!e),
+      ...(engineer?.email ? [engineer.email] : []),
+    ])
+  );
   if (toEmails.length === 0) throw new Error('No lineup bands have a contact email set.');
 
   const html = await renderReplyHtml(text);

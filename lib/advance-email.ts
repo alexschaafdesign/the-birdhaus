@@ -3,9 +3,12 @@ import { remark } from 'remark';
 import html from 'remark-html';
 import { SITE_URL } from './site';
 
-// Alex's inbox. BCC'd on every outbound advance so the thread lives in his own
-// mail too, and the address inbound band replies get forwarded to (see the
-// resend-inbound webhook) so he's alerted to replies without opening the admin.
+// Alex's own address, CC'd on every outbound advance and admin reply so he's a
+// real recipient on the thread — a band's reply-all lands in his inbox directly,
+// and he can reply from email or from the admin, like the bands and sound
+// engineer. When a band forgets to reply-all, the resend-inbound webhook
+// gap-forwards that reply to this address (Alex only, never the engineer — a
+// private reply shouldn't be fanned out) so he never misses one.
 export const ADVANCE_NOTIFY_EMAIL = 'alex@thebirdhaus.org';
 
 // Instantiate lazily rather than at module load: Resend's constructor throws
@@ -350,7 +353,9 @@ export async function sendAdvanceEmail({
   const { data, error } = await getResendClient().emails.send({
     from,
     to: toEmails,
-    bcc: ADVANCE_NOTIFY_EMAIL,
+    // CC (not BCC) so Alex is a real, visible recipient — a band's reply-all
+    // reaches his inbox directly, no forwarding needed.
+    cc: ADVANCE_NOTIFY_EMAIL,
     replyTo: replyToAddress(replyToken),
     subject,
     html,

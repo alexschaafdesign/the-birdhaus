@@ -1,6 +1,11 @@
 import { NextResponse } from 'next/server';
 import type { Resend } from 'resend';
-import { getResendClient, parseReplyToken, ADVANCE_NOTIFY_EMAIL } from '@/lib/advance-email';
+import {
+  getResendClient,
+  parseReplyToken,
+  extractEmailAddress,
+  ADVANCE_NOTIFY_EMAIL,
+} from '@/lib/advance-email';
 import { recordInboundReply, type InboundAttachmentInput } from '@/lib/advance';
 
 // Resend inbound webhook (email.received). NOT under /api/admin, so proxy.ts
@@ -87,26 +92,34 @@ async function fetchInboundAttachments(
   return out;
 }
 
-// Forwards a band's inbound reply to Alex's inbox so he's alerted to replies
-// without opening the admin (restoring the old "replies land in my email"
-// behavior — bands are BCC-hidden from his address on the outbound send, so
-// their replies don't otherwise reach him). Passthrough forwards the original
-// message with its attachments intact. Best-effort: any failure is logged, not
-// thrown — the reply is already recorded and visible in the admin thread. Only
-// called once per reply (on first processing, not webhook retries), so it
-// doesn't double-send.
-async function forwardReplyToInbox(resend: Resend, emailId: string): Promise<void> {
+// Makes sure a reply reaches Alex even when a band forgets to reply-all. He's a
+// real recipient (CC), so a reply-all lands in his inbox directly — but a plain
+// reply goes only to the group address. So we forward to him, but ONLY when he
+// wasn't already on the message: reply-all → already copied → nothing forwarded
+// (no duplicate); plain reply → gap filled. Deliberately forwards to Alex ONLY,
+// never the sound engineer — a band's plain reply may be private info they think
+// is going just to Alex, so we don't fan it out. Best-effort: failures are
+// logged, not thrown. Called once per reply (not on webhook retries).
+async function forwardReplyIfMissed(
+  resend: Resend,
+  emailId: string,
+  data: NonNullable<InboundEvent['data']>
+): Promise<void> {
   const from = process.env.RESEND_ADVANCE_FROM_EMAIL;
   if (!from) {
     console.error('[resend-inbound] RESEND_ADVANCE_FROM_EMAIL not set; cannot forward reply');
     return;
   }
+
+  // Addresses already on this reply (reply-all copies them). extractEmailAddress
+  // lowercases + unwraps "Name <addr>", matching ADVANCE_NOTIFY_EMAIL's casing.
+  const alreadyOn = new Set(
+    [...(data.to ?? []), ...(data.cc ?? []), ...(data.bcc ?? [])].map(extractEmailAddress)
+  );
+  if (alreadyOn.has(ADVANCE_NOTIFY_EMAIL.toLowerCase())) return;
+
   try {
-    const res = await resend.emails.receiving.forward({
-      emailId,
-      to: ADVANCE_NOTIFY_EMAIL,
-      from,
-    });
+    const res = await resend.emails.receiving.forward({ emailId, to: ADVANCE_NOTIFY_EMAIL, from });
     if (res.error) {
       console.error('[resend-inbound] forward to inbox returned an error', JSON.stringify(res.error));
     }
@@ -234,9 +247,9 @@ export async function POST(request: Request) {
     // (e.g. advance sent from a preview deploy, webhook hitting prod).
     console.warn('[resend-inbound] token had no matching advance', token);
   } else if (!result.deduped) {
-    // First time we've seen this reply — forward it to Alex's inbox. Guarded on
-    // !deduped so webhook retries (which dedupe) don't re-forward it.
-    await forwardReplyToInbox(resend, event.data.email_id);
+    // First time we've seen this reply — forward it to Alex if he wasn't already
+    // reply-all'd. Guarded on !deduped so webhook retries don't re-forward.
+    await forwardReplyIfMissed(resend, event.data.email_id, event.data);
   }
 
   return NextResponse.json({ ok: true, matched: result.matched });

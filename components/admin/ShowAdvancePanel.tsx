@@ -36,9 +36,15 @@ export default function ShowAdvancePanel({
   const [replyBody, setReplyBody] = useState('');
   const [replying, setReplying] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  // Local editor for the confirmed engineer's email; kept in sync with server
+  // state on refresh. Saved separately (it lives on the engineer, not the vars).
+  const [engineerEmail, setEngineerEmail] = useState(initial.soundEngineer?.email ?? '');
+  const [savingEngineer, setSavingEngineer] = useState(false);
   // The rendered email is long, so once it's already been sent, collapse it by
   // default — the thread up top is the point at that stage. Still expandable.
   const [showPreview, setShowPreview] = useState(initial.status !== 'sent');
+
+  const engineerDirty = engineerEmail !== (state.soundEngineer?.email ?? '');
 
   const dirty = JSON.stringify(vars) !== JSON.stringify(savedVars);
   const withEmail = state.recipients.filter((r) => r.email);
@@ -87,10 +93,35 @@ export default function ShowAdvancePanel({
       if (!res.ok) throw new Error(`Refresh failed (${res.status})`);
       const next = (await res.json()) as ShowAdvanceState;
       setState(next);
+      setEngineerEmail(next.soundEngineer?.email ?? '');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Refresh failed');
     } finally {
       setRefreshing(false);
+    }
+  }
+
+  async function saveEngineerEmail() {
+    if (!state.soundEngineer) return;
+    setSavingEngineer(true);
+    setError(null);
+    setNotice(null);
+    try {
+      const res = await fetch(`/api/admin/sound-engineers/${state.soundEngineer.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: engineerEmail }),
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => null);
+        throw new Error(d?.error ?? `Save failed (${res.status})`);
+      }
+      await refresh();
+      setNotice('Sound engineer email saved.');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Save failed');
+    } finally {
+      setSavingEngineer(false);
     }
   }
 
@@ -287,6 +318,44 @@ export default function ShowAdvancePanel({
             <li className="text-[#E8E0D0]/40">No bands on this show yet.</li>
           )}
         </ul>
+      </div>
+
+      {/* Sound engineer — looped onto the advance as a recipient (and forwarded
+          band replies), so they need a contact email. */}
+      <div className="border border-[#E8E0D0]/15 rounded-lg p-4 space-y-2">
+        <p className="text-xs uppercase tracking-wide text-[#E8E0D0]/60">Sound engineer</p>
+        {state.soundEngineer ? (
+          <>
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-[#E8E0D0]">{state.soundEngineer.name}</span>
+              <input
+                type="email"
+                value={engineerEmail}
+                onChange={(e) => setEngineerEmail(e.target.value)}
+                placeholder="email — they'll be added to the advance"
+                className={`${inputClass} flex-1 min-w-[14rem]`}
+                aria-label="Sound engineer email"
+              />
+              <button
+                type="button"
+                onClick={saveEngineerEmail}
+                disabled={savingEngineer || !engineerDirty}
+                className="border border-[#E8E0D0]/40 rounded px-4 py-1.5 text-sm hover:bg-[#E8E0D0]/10 transition-colors disabled:opacity-40"
+              >
+                {savingEngineer ? 'Saving…' : 'Save'}
+              </button>
+            </div>
+            {!engineerEmail.trim() && (
+              <p className="text-xs text-amber-300/80">
+                Add an email so {state.soundEngineer.name} gets the advance and band replies.
+              </p>
+            )}
+          </>
+        ) : (
+          <p className="text-sm text-[#E8E0D0]/40">
+            No confirmed sound engineer on this show — confirm one on the show form to loop them in.
+          </p>
+        )}
       </div>
 
       {/* Per-show fields */}
