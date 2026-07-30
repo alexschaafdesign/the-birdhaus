@@ -1,4 +1,5 @@
 import { v2 as cloudinary } from 'cloudinary';
+import type { CloudinaryPhoto } from './cloudinary-url';
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME || 'defdv9zw7',
@@ -7,12 +8,7 @@ cloudinary.config({
   secure: true,
 });
 
-export interface CloudinaryPhoto {
-  publicId: string;
-  url: string;
-  width: number;
-  height: number;
-}
+export type { CloudinaryPhoto } from './cloudinary-url';
 
 /**
  * Fetch all images from a Cloudinary folder, oldest first.

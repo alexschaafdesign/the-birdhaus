@@ -22,6 +22,7 @@ export default function PhotoGallery({ photos, showTitle }: { photos: string[]; 
             width={0}
             height={0}
             sizes="(max-width: 768px) 50vw, 33vw"
+            unoptimized
             className="w-full h-auto rounded cursor-pointer hover:opacity-80 transition-opacity"
             onClick={() => {
               setIndex(idx);

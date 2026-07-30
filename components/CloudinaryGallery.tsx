@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
-import type { CloudinaryPhoto } from '@/lib/cloudinary';
+import { cloudinaryTransform, type CloudinaryPhoto } from '@/lib/cloudinary-url';
 
 export default function CloudinaryGallery({
   photos,
@@ -73,11 +73,12 @@ export default function CloudinaryGallery({
             aria-label={`Open photo ${idx + 1} of ${photos.length}`}
           >
             <Image
-              src={photo.url}
+              src={cloudinaryTransform(photo.url, 800)}
               alt={`${showTitle} photo ${idx + 1}`}
               width={photo.width}
               height={photo.height}
               sizes="(min-width: 1024px) 25vw, (min-width: 640px) 33vw, 50vw"
+              unoptimized
               className="w-full h-auto shadow-lg"
             />
           </button>
@@ -143,12 +144,13 @@ export default function CloudinaryGallery({
           {/* Image — stop propagation so clicking it doesn't close */}
           <div className="relative" onClick={(e) => e.stopPropagation()}>
             <Image
-              src={current.url}
+              src={cloudinaryTransform(current.url, 1600)}
               alt={`${showTitle} photo ${openIndex! + 1}`}
               width={current.width}
               height={current.height}
               sizes="100vw"
               className="max-h-[90vh] w-auto h-auto object-contain"
+              unoptimized
               priority
             />
           </div>

@@ -152,6 +152,7 @@ export default function CalendarView({
                       alt={`${draftShow.title} flyer`}
                       fill
                       sizes="(max-width: 768px) 14vw, 90px"
+                      unoptimized
                       className="object-cover opacity-60"
                     />
                   ) : (
@@ -216,6 +217,7 @@ export default function CalendarView({
                   alt={`${show.title} flyer`}
                   fill
                   sizes="(max-width: 768px) 14vw, 90px"
+                  unoptimized
                   className="object-cover"
                 />
               ) : (

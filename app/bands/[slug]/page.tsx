@@ -69,6 +69,7 @@ export default async function BandPage({ params }: { params: Promise<{ slug: str
               fill
               sizes="(max-width: 768px) 100vw, 448px"
               priority
+              unoptimized
               className="object-cover"
             />
           </div>

@@ -100,6 +100,7 @@ export default function VideoArchive({ groups }: { groups: ArchiveShowGroup[] })
                       alt=""
                       fill
                       sizes="80px"
+                      unoptimized
                       className="object-cover"
                     />
                   ) : (

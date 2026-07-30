@@ -151,6 +151,7 @@ export default async function ShowPage({ params }: { params: Promise<{ slug: str
                 height={0}
                 sizes="(max-width: 768px) 100vw, 512px"
                 priority
+                unoptimized
                 className="w-full max-w-lg mx-auto h-auto rounded-lg shadow-lg"
               />
             )}
@@ -202,7 +203,7 @@ export default async function ShowPage({ params }: { params: Promise<{ slug: str
                 <div className="flex gap-4 border border-[#E8E0D0]/20 rounded-lg p-4 h-full group-hover:border-[#E8E0D0]/50 transition-colors">
                   {photo ? (
                     <div className="relative w-16 h-16 rounded-lg overflow-hidden flex-shrink-0">
-                      <Image src={photo} alt={bandName} fill sizes="64px" className="object-cover" />
+                      <Image src={photo} alt={bandName} fill sizes="64px" unoptimized className="object-cover" />
                     </div>
                   ) : (
                     <div className="w-16 h-16 rounded-lg bg-[#E8E0D0]/5 flex items-center justify-center flex-shrink-0">

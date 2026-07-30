@@ -4,6 +4,12 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
+import { cloudinaryTransform } from '@/lib/cloudinary-url';
+
+const LOGO_URL = cloudinaryTransform(
+  'https://res.cloudinary.com/defdv9zw7/image/upload/v1780325979/Horiz_mkva70.png',
+  768
+);
 
 type NavLink = { type: 'link'; href: string; label: string; external?: boolean };
 type NavDropdown = {
@@ -52,12 +58,13 @@ export default function Header() {
       <div className="flex flex-col items-center justify-center gap-4 mb-4">
         <Link href="/">
           <Image
-            src="https://res.cloudinary.com/defdv9zw7/image/upload/v1780325979/Horiz_mkva70.png"
+            src={LOGO_URL}
             alt="The Birdhaus"
             width={0}
             height={0}
             sizes="384px"
             priority
+            unoptimized
             className="w-full max-w-sm h-auto"
           />
         </Link>
