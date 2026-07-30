@@ -1,5 +1,6 @@
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import crypto from 'crypto';
+import sharp from 'sharp';
 
 declare global {
   var __birdhausR2: S3Client | undefined;
@@ -48,8 +49,48 @@ export function isAllowedImageType(contentType: string): boolean {
   return contentType in EXTENSION_FOR_TYPE;
 }
 
+// Long-edge cap per upload folder, chosen from the largest on-site display
+// size (retina-adjusted) for each: band photos top out around a 448px
+// container (BandsGallery/bands/[slug]), flyers display up to max-w-lg with
+// a lightbox-free full view, and show photos open in a full-viewport
+// lightbox (PhotoGallery) so they need the most headroom.
+const MAX_DIMENSION: Record<UploadFolder, number> = {
+  bands: 1000,
+  flyers: 1400,
+  photos: 2400,
+};
+
+// Matches the site's dark background (app/layout.tsx) so a transparent PNG
+// source blends in on flatten rather than turning black under JPEG.
+const FLATTEN_BG = '#2A2420';
+
+// Re-encodes an uploaded image so R2 always serves an already-sized file —
+// next/image renders these `unoptimized` (see components/*), so nothing
+// resizes them at request time. Honors EXIF rotation then strips it, caps
+// the long edge without upscaling, and converts to JPEG. GIFs pass through
+// unprocessed so animation survives (sharp would otherwise flatten to a
+// single frame).
+async function processUploadedImage(
+  bytes: Buffer,
+  contentType: string,
+  maxDimension: number
+): Promise<{ buffer: Buffer; contentType: string; extension: string }> {
+  if (contentType === 'image/gif') {
+    return { buffer: bytes, contentType, extension: 'gif' };
+  }
+
+  const buffer = await sharp(bytes)
+    .rotate()
+    .resize(maxDimension, maxDimension, { fit: 'inside', withoutEnlargement: true })
+    .flatten({ background: FLATTEN_BG })
+    .jpeg({ quality: 88, mozjpeg: true })
+    .toBuffer();
+
+  return { buffer, contentType: 'image/jpeg', extension: 'jpg' };
+}
+
 // Uploads a file to R2 under a server-generated key (timestamp + random
-// suffix + an extension derived from the validated MIME type — never the
+// suffix + an extension derived from the processed image — never the
 // client's original filename, which sidesteps sanitization concerns
 // entirely) and returns its public URL.
 export async function uploadToR2(
@@ -63,16 +104,22 @@ export async function uploadToR2(
     throw new Error('R2_BUCKET_NAME / R2_PUBLIC_URL_BASE are not set. See .env.example.');
   }
 
-  const extension = EXTENSION_FOR_TYPE[contentType];
-  if (!extension) {
+  if (!EXTENSION_FOR_TYPE[contentType]) {
     throw new Error(`Unsupported content type: ${contentType}`);
   }
 
-  const key = `${folder}/${Date.now()}-${crypto.randomBytes(4).toString('hex')}.${extension}`;
+  const processed = await processUploadedImage(body, contentType, MAX_DIMENSION[folder]);
+
+  const key = `${folder}/${Date.now()}-${crypto.randomBytes(4).toString('hex')}.${processed.extension}`;
 
   const client = getClient();
   await client.send(
-    new PutObjectCommand({ Bucket: bucket, Key: key, Body: body, ContentType: contentType })
+    new PutObjectCommand({
+      Bucket: bucket,
+      Key: key,
+      Body: processed.buffer,
+      ContentType: processed.contentType,
+    })
   );
 
   return `${publicBase.replace(/\/$/, '')}/${key}`;
