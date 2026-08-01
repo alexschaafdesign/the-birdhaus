@@ -263,6 +263,9 @@ export default function ShowForm({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [photosUploading, setPhotosUploading] = useState(false);
+  const [photosUploadProgress, setPhotosUploadProgress] = useState<{ done: number; total: number } | null>(
+    null
+  );
   const photosFileInputRef = useRef<HTMLInputElement>(null);
   const [twinSceneBands, setTwinSceneBands] = useState<TwinSceneBandOption[]>([]);
   // Which band row (index) opened the full "Add band" modal, and the name to
@@ -432,35 +435,51 @@ export default function ShowForm({
     }));
   }
 
-  // Uploads a file and appends its URL as a new line, rather than replacing
-  // the textarea's existing content like ImageUploadField's single-value fields do.
-  async function handlePhotosUpload(file: File) {
+  // Uploads one or more files and appends their URLs as new lines, rather
+  // than replacing the textarea's existing content like ImageUploadField's
+  // single-value fields do. Uploads sequentially (not Promise.all) so
+  // photosUploadProgress advances one at a time instead of jumping at the end.
+  async function handlePhotosUpload(files: FileList | File[]) {
     setError(null);
-    if (!file.type.startsWith('image/')) {
-      setError('Please choose an image file.');
-      return;
-    }
-    if (file.size > 8 * 1024 * 1024) {
-      setError('Image is too large (max 8MB).');
-      return;
+    const fileArray = Array.from(files);
+    if (fileArray.length === 0) return;
+
+    for (const file of fileArray) {
+      if (!file.type.startsWith('image/')) {
+        setError('Please choose image files only.');
+        return;
+      }
+      if (file.size > 8 * 1024 * 1024) {
+        setError(`"${file.name}" is too large (max 8MB).`);
+        return;
+      }
     }
 
     setPhotosUploading(true);
+    setPhotosUploadProgress({ done: 0, total: fileArray.length });
     try {
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('folder', 'photos');
-      const res = await fetch('/api/admin/uploads', { method: 'POST', body: formData });
-      const body = await res.json().catch(() => null);
-      if (!res.ok) throw new Error(body?.error || 'Upload failed');
+      const uploadedUrls: string[] = [];
+      for (const file of fileArray) {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('folder', 'photos');
+        const res = await fetch('/api/admin/uploads', { method: 'POST', body: formData });
+        const body = await res.json().catch(() => null);
+        if (!res.ok) throw new Error(body?.error || `Upload failed for "${file.name}"`);
+        uploadedUrls.push(body.url);
+        setPhotosUploadProgress((prev) => (prev ? { ...prev, done: prev.done + 1 } : prev));
+      }
       setForm((prev) => ({
         ...prev,
-        photosText: prev.photosText ? `${prev.photosText}\n${body.url}` : body.url,
+        photosText: prev.photosText
+          ? `${prev.photosText}\n${uploadedUrls.join('\n')}`
+          : uploadedUrls.join('\n'),
       }));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Upload failed');
     } finally {
       setPhotosUploading(false);
+      setPhotosUploadProgress(null);
     }
   }
 
@@ -728,7 +747,7 @@ export default function ShowForm({
             type="date"
             value={form.date}
             onChange={(e) => set('date', e.target.value)}
-            className={`${inputClass} w-full`}
+            className={`${inputClass} w-full min-w-0 appearance-none`}
           />
         </div>
         <div className="flex gap-3">
@@ -1137,16 +1156,19 @@ export default function ShowForm({
                 disabled={photosUploading}
                 className="text-xs border border-[#E8E0D0]/30 rounded px-2 py-1 hover:bg-[#E8E0D0]/10 disabled:opacity-50"
               >
-                {photosUploading ? 'Uploading...' : '+ Upload photo'}
+                {photosUploadProgress
+                  ? `Uploading ${photosUploadProgress.done}/${photosUploadProgress.total}...`
+                  : '+ Upload photos'}
               </button>
               <input
                 ref={photosFileInputRef}
                 type="file"
                 accept="image/*"
+                multiple
                 className="hidden"
                 onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) handlePhotosUpload(file);
+                  const files = e.target.files;
+                  if (files && files.length > 0) handlePhotosUpload(files);
                   e.target.value = '';
                 }}
               />

@@ -361,12 +361,12 @@ export default function RsvpSummary({
           ) : (
             <div
               key={rsvp.id}
-              className="flex items-center justify-between gap-4 border border-[#E8E0D0]/15 rounded-lg px-4 py-3"
+              className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4 border border-[#E8E0D0]/15 rounded-lg px-4 py-3"
             >
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-3 flex-wrap">
-                  <span className="font-semibold truncate">{rsvp.name}</span>
-                  <span className="text-sm text-[#E8E0D0]/50 truncate">{rsvp.email}</span>
+                  <span className="font-semibold break-words">{rsvp.name}</span>
+                  <span className="text-sm text-[#E8E0D0]/50 break-all">{rsvp.email}</span>
                   {(() => {
                     const purchase = purchasesByEmail[rsvp.email.toLowerCase()];
                     return purchase ? (
