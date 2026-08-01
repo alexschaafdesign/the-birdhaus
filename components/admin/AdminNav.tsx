@@ -15,7 +15,7 @@ export default function AdminNav() {
   const pathname = usePathname();
 
   return (
-    <nav className="flex gap-4 text-sm uppercase tracking-wide mt-2">
+    <nav className="flex gap-4 text-sm uppercase tracking-wide mt-2 overflow-x-auto whitespace-nowrap -mx-6 px-6 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
       {LINKS.map(({ href, label }) => {
         const active = pathname === href || pathname.startsWith(`${href}/`);
         return (
@@ -24,8 +24,8 @@ export default function AdminNav() {
             href={href}
             className={
               active
-                ? 'text-[#E8E0D0] underline'
-                : 'text-[#E8E0D0]/60 hover:text-[#E8E0D0] transition-colors'
+                ? 'text-[#E8E0D0] underline shrink-0'
+                : 'text-[#E8E0D0]/60 hover:text-[#E8E0D0] transition-colors shrink-0'
             }
           >
             {label}
