@@ -290,7 +290,7 @@ const TLDR_BLOCK = /\*\*tl;dr[\s\S]*?(?:\n[ \t]*[-*] .*)+/i;
 function ensureHubPlaceholder(body: string): string {
   if (/\{\{\s*hub_url\s*\}\}/.test(body)) return body;
   const callout =
-    `> 📋 **[View the full show page →]({{hub_url}})** — schedule, gear/input needs, ` +
+    `> **[View the full show page →]({{hub_url}})** — schedule, gear/input needs, ` +
     `logistics, and the RSVP count, all in one place. (For the lineup + crew.)`;
   if (TLDR_BLOCK.test(body)) {
     return body.replace(TLDR_BLOCK, (m) => `${m}\n\n${callout}`);
