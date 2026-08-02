@@ -390,7 +390,7 @@ this is a little DIY space in the basement of the house i own. i also play in ba
 - **confirmation of the schedule for load / soundcheck / doors / show**
 - **payment info (your Venmo or other method)**
 
-> 📋 **[View the full show page →]({{hub_url}})** — schedule, gear/input needs, logistics, and the RSVP count, all in one place. (For the lineup + crew — please don't post it publicly.)
+> **[View the full show page →]({{hub_url}})** — schedule, gear/input needs, logistics, and the RSVP count, all in one place. (For the lineup + crew — please don't post it publicly.)
 
 {{soundcheck_notes}}
 

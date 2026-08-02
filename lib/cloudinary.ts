@@ -32,11 +32,12 @@ export async function getPhotosFromFolder(folder: string): Promise<CloudinaryPho
       .execute();
 
     return (resources || []).map(
-      (r: { public_id: string; secure_url: string; width: number; height: number }) => ({
+      (r: { public_id: string; secure_url: string; width: number; height: number; format: string }) => ({
         publicId: r.public_id,
         url: r.secure_url,
         width: r.width,
         height: r.height,
+        format: r.format,
       })
     );
   } catch (err) {
