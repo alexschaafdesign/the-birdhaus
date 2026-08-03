@@ -125,10 +125,28 @@ export interface SettlementSummary {
   // Portion of the venue split redirected to an outside party (e.g. charity),
   // taken out after expenses. Zero when venueRedirectPct is 0.
   venueRedirect: number;
+  // Total actually paid out to the (included) bands. Equals artistPool unless a
+  // band's payout was overridden; then it's the sum of each band's override or
+  // computed share.
+  bandPayout: number;
+  // artistPool − bandPayout: the leftover when bands are paid less than their
+  // computed share, which flows to the venue as profit (negative if a band was
+  // paid more than its share). Zero when no overrides are set.
+  bandPayoutSavings: number;
   venueNet: number;
 }
 
-export function computeSettlementSummary(values: SettlementValues, bandCount: number): SettlementSummary {
+// `bandPayoutOverrides` is the per-band override for the *included* bands only —
+// one entry per band that shares the split, null where the band follows the even
+// split. When omitted (or all null) every band takes its computed share, so
+// bandPayout equals artistPool and there are no savings. When a band is paid less
+// than its share the difference is added to the venue net as profit (and a band
+// paid more reduces it), matching how the venue keeps the remainder in practice.
+export function computeSettlementSummary(
+  values: SettlementValues,
+  bandCount: number,
+  bandPayoutOverrides?: (number | null)[]
+): SettlementSummary {
   const extraIncome = values.extraLineItems
     .filter((item) => item.type === 'income')
     .reduce((sum, item) => sum + item.amount, 0);
@@ -163,11 +181,22 @@ export function computeSettlementSummary(values: SettlementValues, bandCount: nu
   }
 
   const perBand = bandCount > 0 ? artistPool / bandCount : 0;
+  // Each included band is paid its override, or the even per-band share when it
+  // has none. With no overrides (undefined, or an empty list for a show with no
+  // bands to divide among) this stays at artistPool, so savings are 0.
+  const hasOverrideInfo = bandPayoutOverrides !== undefined && bandPayoutOverrides.length > 0;
+  const bandPayout = hasOverrideInfo
+    ? bandPayoutOverrides!.reduce((sum: number, override) => sum + (override ?? perBand), 0)
+    : artistPool;
+  // Round to cents so the float dust from an even split (e.g. $100 / 3) doesn't
+  // register as a stray sub-penny "saving".
+  const bandPayoutSavings = Math.round((artistPool - bandPayout) * 100) / 100;
   const venueTotalIncome = venueSplit + venueAdditionalIncome;
   // Redirect is a share of the venue split sent to an outside party, deducted
   // after expenses — the venue covers costs first, then donates from what's left.
   const venueRedirect = venueSplit * (values.venueRedirectPct / 100);
-  const venueNet = venueTotalIncome - totalExpenses - venueRedirect;
+  // Anything a band declines from its share stays with the venue as profit.
+  const venueNet = venueTotalIncome - totalExpenses - venueRedirect + bandPayoutSavings;
 
   return {
     totalIncome,
@@ -178,6 +207,8 @@ export function computeSettlementSummary(values: SettlementValues, bandCount: nu
     venueAdditionalIncome,
     venueTotalIncome,
     venueRedirect,
+    bandPayout,
+    bandPayoutSavings,
     venueNet,
   };
 }

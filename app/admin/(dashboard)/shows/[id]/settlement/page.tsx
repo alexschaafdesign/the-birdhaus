@@ -26,7 +26,8 @@ export default async function SettlementPage({ params }: { params: Promise<{ id:
   const [settlementRow] = await sql<SettlementDbRow[]>`select * from settlements where show_id = ${showId}`;
   const bands = await getShowBandsPaidStatus(showId);
   // Only non-excluded bands share the payout split.
-  const payoutBandCount = bands.filter((b) => !b.excluded).length;
+  const includedBands = bands.filter((b) => !b.excluded);
+  const payoutBandCount = includedBands.length;
 
   // Pre-fill the sound-engineer payee from the show's confirmed engineer (cached
   // on shows.sound_engineer_name, kept in sync by setShowSoundEngineers) when no
@@ -42,7 +43,11 @@ export default async function SettlementPage({ params }: { params: Promise<{ id:
         show.title,
         show.date,
         initialValues,
-        computeSettlementSummary(initialValues, payoutBandCount),
+        computeSettlementSummary(
+          initialValues,
+          payoutBandCount,
+          includedBands.map((b) => b.payoutOverride)
+        ),
         payoutBandCount
       )
     : null;

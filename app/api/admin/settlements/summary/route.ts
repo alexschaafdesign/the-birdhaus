@@ -56,6 +56,24 @@ export async function GET(request: Request) {
     order by year desc
   `;
 
+  // Per-band payout state for the shows in range, so the rollup's venue net
+  // reflects any amounts bands declined from their share (kept as venue profit),
+  // matching each show's own settlement page. Only non-excluded bands share the
+  // split; a null override means the band takes the even share.
+  const bandRows = await sql<{ show_id: number; excluded: boolean; payout_override: string | null }[]>`
+    select sb.show_id, sb.excluded, sb.payout_override
+    from show_bands sb
+    join shows sh on sh.id = sb.show_id
+    where sh.date >= ${rangeStart} and sh.date <= ${rangeEnd}
+  `;
+  const overridesByShow = new Map<number, (number | null)[]>();
+  for (const b of bandRows) {
+    if (b.excluded) continue;
+    const list = overridesByShow.get(b.show_id) ?? [];
+    list.push(b.payout_override === null ? null : Number(b.payout_override));
+    overridesByShow.set(b.show_id, list);
+  }
+
   let grossIncome = 0;
   let artistPayouts = 0;
   let venueExpenses = 0;
@@ -80,10 +98,12 @@ export async function GET(request: Request) {
 
   const perShow = rows.map((row) => {
     const values = settlementValuesFromRow(row);
-    const summary = computeSettlementSummary(values, 0);
+    const includedOverrides = overridesByShow.get(Number(row.show_id)) ?? [];
+    const summary = computeSettlementSummary(values, includedOverrides.length, includedOverrides);
 
     grossIncome += summary.totalIncome;
-    artistPayouts += summary.artistPool;
+    // Actual paid to bands after any overrides (equals the pool when none apply).
+    artistPayouts += summary.bandPayout;
     venueExpenses += summary.totalExpenses;
     venueAdditionalIncome += summary.venueAdditionalIncome;
     venueNet += summary.venueNet;

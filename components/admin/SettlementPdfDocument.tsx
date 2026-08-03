@@ -174,10 +174,15 @@ export default function SettlementPdfDocument({
                 {band.excluded ? band.name : `• ${band.name}`}
               </Text>
               <Text style={band.excluded ? { color: MUTED } : undefined}>
-                {band.excluded ? 'Excluded' : formatCurrency(summary.perBand)}
+                {band.excluded
+                  ? 'Excluded'
+                  : formatCurrency(band.payoutOverride ?? summary.perBand)}
               </Text>
             </View>
           ))}
+          {summary.bandPayoutSavings > 0 && (
+            <Row label="Kept from band payouts" value={formatCurrency(summary.bandPayoutSavings)} />
+          )}
           <Row label="Venue split" value={formatCurrency(summary.venueSplit)} bold />
         </View>
 
