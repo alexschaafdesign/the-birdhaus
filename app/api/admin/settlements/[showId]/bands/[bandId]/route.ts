@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { setShowBandExcluded, setShowBandPaid } from '@/lib/bands';
+import { setShowBandExcluded, setShowBandPaid, setShowBandPayoutOverride } from '@/lib/bands';
 
 function parseId(id: string): number | null {
   const parsed = Number(id);
@@ -36,6 +36,21 @@ export async function PATCH(
       return NextResponse.json({ error: 'Show/band not found' }, { status: 404 });
     }
     return NextResponse.json({ excluded });
+  }
+
+  // `payoutOverride` accepts a finite number (fixed payout) or null (clear the
+  // override, fall back to the even split). Note `'payoutOverride' in body` so a
+  // literal null still routes here rather than falling through to Invalid body.
+  if ('payoutOverride' in body) {
+    const raw = body.payoutOverride;
+    if (raw !== null && (typeof raw !== 'number' || !Number.isFinite(raw))) {
+      return NextResponse.json({ error: 'Invalid payoutOverride' }, { status: 400 });
+    }
+    const payoutOverride = await setShowBandPayoutOverride(showId, bandId, raw);
+    if (payoutOverride === undefined) {
+      return NextResponse.json({ error: 'Show/band not found' }, { status: 404 });
+    }
+    return NextResponse.json({ payoutOverride });
   }
 
   return NextResponse.json({ error: 'Invalid body' }, { status: 400 });
