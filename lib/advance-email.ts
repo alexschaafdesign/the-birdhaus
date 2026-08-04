@@ -455,7 +455,10 @@ We have a full PA and a pretty comprehensive set-up here, akin to any small musi
 - **DRUMS** — there's a house kit that i must insist everyone share, for space and time reasons — but of course bring your own breakables (snare/cymbals etc) if you'd like
 - **BASS AMP** — there's a house bass amp available
 - **GUITAR AMPS** — i have two guitar amps available as well — fender blues jr + peavey classic 30 (let me know if you'd like to use any of the amps)
-- **AUDIO/VIDEO RECORDING** — The 'archival' part of the Birdhaus is important to me, i love recording full sets and posting them for posterity. i do one video for the entire set, to cut down on time needed to export individual songs — but if you want i can send you the video file so that you can use/edit to your heart's desire. this includes recording a multitrack of the audio + mixing that afterwards, and then at least one camera angle (sometimes multiple). I'll edit them together afterwards and send to you + post on the website (but let me know if you don't want this for any reason).
+
+**AUDIO/VIDEO RECORDING**
+
+The 'archival' part of the Birdhaus is important to me, i love recording full sets and posting them for posterity. i do one video for the entire set, to cut down on time needed to export individual songs — but if you want i can send you the video file so that you can use/edit to your heart's desire. this includes recording a multitrack of the audio + mixing that afterwards, and then at least one camera angle (sometimes multiple). I'll edit them together afterwards and send to you + post on the website (but let me know if you don't want this for any reason).
 
 ## THIS SHOW
 
