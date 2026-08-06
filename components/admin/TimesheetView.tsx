@@ -152,6 +152,24 @@ export default function TimesheetView({ initialEntries }: { initialEntries: Time
     }
   }
 
+  async function changePaidDate(entry: TimesheetEntry, paidDate: string) {
+    // Optimistic — update locally, roll back on failure. Keeps paid = true.
+    setEntries((prev) => prev.map((e) => (e.id === entry.id ? { ...e, paid_date: paidDate } : e)));
+    try {
+      const res = await fetch(`/api/admin/timesheet/${entry.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ paid: true, paidDate }),
+      });
+      const body = await res.json().catch(() => null);
+      if (!res.ok || !body?.success) throw new Error();
+      const updated = body.entry as TimesheetEntry;
+      setEntries((prev) => prev.map((e) => (e.id === updated.id ? updated : e)));
+    } catch {
+      setEntries((prev) => prev.map((e) => (e.id === entry.id ? { ...e, paid_date: entry.paid_date } : e)));
+    }
+  }
+
   async function remove(id: number) {
     setEntries((prev) => prev.filter((e) => e.id !== id));
     setConfirmDelete(null);
@@ -317,17 +335,22 @@ export default function TimesheetView({ initialEntries }: { initialEntries: Time
                   <td className="py-2 pr-3 text-right tabular-nums">${(e.rate_cents / 100).toFixed(0)}</td>
                   <td className="py-2 pr-3 text-right font-medium tabular-nums">{formatCurrency(e.payout)}</td>
                   <td className="py-2 pr-3 text-center">
-                    <label className="inline-flex cursor-pointer items-center gap-1">
+                    <div className="inline-flex items-center gap-1.5">
                       <input
                         type="checkbox"
                         checked={e.paid}
                         onChange={() => togglePaid(e)}
-                        className="accent-[#E8E0D0]"
+                        className="cursor-pointer accent-[#E8E0D0]"
                       />
-                      {e.paid && e.paid_date && (
-                        <span className="text-[10px] text-[#E8E0D0]/40">{formatDate(e.paid_date)}</span>
+                      {e.paid && (
+                        <input
+                          type="date"
+                          value={e.paid_date ?? ''}
+                          onChange={(ev) => ev.target.value && changePaidDate(e, ev.target.value)}
+                          className="rounded border border-[#E8E0D0]/20 bg-transparent px-1 py-0.5 text-[11px] text-[#E8E0D0]/70 focus:border-[#E8E0D0] focus:outline-none"
+                        />
                       )}
-                    </label>
+                    </div>
                   </td>
                   <td className="whitespace-nowrap py-2 pr-3 text-right">
                     <button
