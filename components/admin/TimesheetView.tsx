@@ -1,8 +1,8 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import type { TimesheetEntry } from '@/lib/timesheet';
-import { computeHours, computePayout, DEFAULT_RATE_CENTS } from '@/lib/timesheet';
+import type { TimesheetEntry } from '@/lib/timesheet-shared';
+import { computeHours, computePayout, DEFAULT_RATE_CENTS } from '@/lib/timesheet-shared';
 
 const inputClass =
   'bg-transparent border border-[#E8E0D0]/30 rounded px-2.5 py-1.5 text-sm focus:outline-none focus:border-[#E8E0D0]';
