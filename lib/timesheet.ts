@@ -139,6 +139,17 @@ export function getTodayCentral(): string {
   return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Chicago' });
 }
 
+// Unpaid entries whose work happened more than `days` ago, oldest first — the
+// weekly "you still owe for these" reminder (app/api/cron/timesheet-unpaid).
+export async function listUnpaidOlderThan(days: number): Promise<TimesheetEntry[]> {
+  const rows = await sql<Omit<TimesheetEntry, 'hours' | 'payout'>[]>`
+    select ${COLUMNS} from timesheet_entries
+    where paid = false and work_date < (current_date - ${days}::int)
+    order by work_date asc, clock_in asc
+  `;
+  return rows.map(decorate);
+}
+
 // Total paid to each worker within a paid_date range, for the Settlements
 // yearly rollup. Cash-basis: only paid entries, keyed on when they were paid.
 // Returns dollars.

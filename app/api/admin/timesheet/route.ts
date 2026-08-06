@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { listEntries, createEntry, buildEntryInput, type TimesheetEntryBody } from '@/lib/timesheet';
+import { sendNewTimesheetEntryEmail } from '@/lib/timesheet-email';
 
 // Admin-gated by proxy.ts (the /api/admin/* matcher).
 
@@ -16,5 +17,13 @@ export async function POST(request: Request) {
   }
 
   const entry = await createEntry(input);
+
+  // Notify the owner, but never let a mail failure fail the helper's save.
+  try {
+    await sendNewTimesheetEntryEmail(entry);
+  } catch (err) {
+    console.error('Failed to send new timesheet entry email:', err);
+  }
+
   return NextResponse.json({ success: true, entry });
 }
