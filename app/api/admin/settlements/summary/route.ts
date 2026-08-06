@@ -8,6 +8,7 @@ import {
   type PayeeNameField,
   type SettlementDbRow,
 } from '@/lib/settlements';
+import { paidTotalsByWorker } from '@/lib/timesheet';
 
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -139,19 +140,31 @@ export async function GET(request: Request) {
     };
   });
 
+  // Admin help (timesheet) is a venue-level operating expense not tied to any
+  // one show. Cash-basis: count what was actually paid to helpers during the
+  // range (by paid_date), which is the number that matters for taxes.
+  const adminHelp = await paidTotalsByWorker(rangeStart, rangeEnd);
+  const adminHelpTotal = adminHelp.reduce((sum, w) => sum + w.amount, 0);
+  venueExpenses += adminHelpTotal;
+  venueNet -= adminHelpTotal;
+
   const expensesByCategory = [
     ...VENUE_EXPENSE_FIELDS.map(({ key, label }) => ({ key, label, amount: expenseTotals[key] })),
+    { key: 'admin_help', label: 'Admin help', amount: adminHelpTotal },
     // Extra line items aren't tied to a fixed category — net them into one row.
     // Positive = net additional expense across the range; negative = net additional income.
     { key: 'other', label: 'Other', amount: extraExpenseTotal - extraIncomeTotal },
   ];
 
-  const payeeBreakdown = PAYEE_EXPENSE_FIELDS.map(({ nameKey, label }) => ({
-    role: label,
-    payees: Array.from(payeeTotals.get(nameKey)!, ([name, amount]) => ({ name, amount })).sort(
-      (a, b) => b.amount - a.amount
-    ),
-  }));
+  const payeeBreakdown = [
+    ...PAYEE_EXPENSE_FIELDS.map(({ nameKey, label }) => ({
+      role: label,
+      payees: Array.from(payeeTotals.get(nameKey)!, ([name, amount]) => ({ name, amount })).sort(
+        (a, b) => b.amount - a.amount
+      ),
+    })),
+    { role: 'Admin help', payees: adminHelp.sort((a, b) => b.amount - a.amount) },
+  ];
 
   return NextResponse.json({
     totals: { grossIncome, artistPayouts, venueExpenses, venueAdditionalIncome, venueNet },
