@@ -152,6 +152,28 @@ export function normalizeAdvanceVars(input: unknown): SavedAdvanceVars {
   };
 }
 
+// Ad-hoc recipient emails on an advance that aren't tied to a band or the
+// confirmed sound engineer (promoter, venue, tour manager, …). Trims, drops
+// blanks / anything without a plausible address shape, and de-dupes
+// case-insensitively while preserving the first-seen casing.
+export function normalizeExtraEmails(input: unknown): string[] {
+  const list = Array.isArray(input) ? input : [];
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const raw of list) {
+    if (typeof raw !== 'string') continue;
+    const email = raw.trim();
+    // Deliberately loose — a real address just needs an @ with something on
+    // each side and no spaces; Resend rejects anything truly malformed.
+    if (!/^[^\s@]+@[^\s@]+$/.test(email)) continue;
+    const key = email.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(email);
+  }
+  return out;
+}
+
 export interface AdvanceRecipient {
   bandId: number;
   name: string;
@@ -191,6 +213,9 @@ export interface ShowAdvanceState {
   // The confirmed sound engineer, looped onto the advance as a recipient. null
   // when the show has no confirmed engineer; email null until one is set.
   soundEngineer: { id: number; name: string; email: string | null } | null;
+  // Ad-hoc recipient emails, not tied to a band or the engineer. Saved with the
+  // draft and included on every send / reply to the thread.
+  extraEmails: string[];
   vars: SavedAdvanceVars;
   status: 'none' | 'draft' | 'sent';
   sentAt: string | null;
@@ -303,6 +328,7 @@ interface ShowAdvanceRow {
   sent_at: string | null;
   reply_token: string;
   vars: unknown;
+  extra_emails: unknown;
 }
 
 // Full state for the Advance tab: show info, recipient list (with emails so the
@@ -317,7 +343,7 @@ export async function getShowAdvanceState(showId: number): Promise<ShowAdvanceSt
     getConfirmedSoundEngineer(showId),
     getDefaultAdvanceTemplate(),
     sql<ShowAdvanceRow[]>`
-      select status, sent_at::text as sent_at, reply_token, vars
+      select status, sent_at::text as sent_at, reply_token, vars, extra_emails
       from show_advances
       where show_id = ${showId}
     `,
@@ -387,6 +413,7 @@ export async function getShowAdvanceState(showId: number): Promise<ShowAdvanceSt
     },
     recipients,
     soundEngineer,
+    extraEmails: normalizeExtraEmails(advanceRow?.extra_emails),
     vars: saved,
     status: advanceRow ? advanceRow.status : 'none',
     sentAt: advanceRow?.sent_at ?? null,
@@ -429,16 +456,18 @@ async function renderForShow(
 async function upsertShowAdvance(
   showId: number,
   rendered: { subject: string; html: string },
-  saved: SavedAdvanceVars
+  saved: SavedAdvanceVars,
+  extraEmails: string[]
 ): Promise<string> {
   const token = generateReplyToken();
   const [row] = await sql<Array<{ reply_token: string }>>`
-    insert into show_advances (show_id, subject, body, status, reply_token, vars)
-    values (${showId}, ${rendered.subject}, ${rendered.html}, 'draft', ${token}, ${sql.json(saved as unknown as Record<string, string>)})
+    insert into show_advances (show_id, subject, body, status, reply_token, vars, extra_emails)
+    values (${showId}, ${rendered.subject}, ${rendered.html}, 'draft', ${token}, ${sql.json(saved as unknown as Record<string, string>)}, ${sql.json(extraEmails)})
     on conflict (show_id) do update
       set subject = excluded.subject,
           body = excluded.body,
           vars = excluded.vars,
+          extra_emails = excluded.extra_emails,
           updated_at = now()
     returning reply_token
   `;
@@ -448,14 +477,16 @@ async function upsertShowAdvance(
 // Saves the advance as a draft (no email sent). Returns the refreshed state.
 export async function saveShowAdvanceDraft(
   showId: number,
-  varsInput: unknown
+  varsInput: unknown,
+  extraEmailsInput: unknown
 ): Promise<ShowAdvanceState | null> {
   const show = await loadShowForAdvance(showId);
   if (!show) return null;
   const recipients = await loadRecipients(showId);
   const saved = normalizeAdvanceVars(varsInput);
+  const extraEmails = normalizeExtraEmails(extraEmailsInput);
   const rendered = await renderForShow(show, recipients, saved, await hubUrlFor(showId));
-  await upsertShowAdvance(showId, rendered, saved);
+  await upsertShowAdvance(showId, rendered, saved, extraEmails);
   return getShowAdvanceState(showId);
 }
 
@@ -468,7 +499,8 @@ export interface SendAdvanceResult {
 // advanced. Throws if the show is gone or no recipient has an email.
 export async function sendShowAdvance(
   showId: number,
-  varsInput: unknown
+  varsInput: unknown,
+  extraEmailsInput: unknown
 ): Promise<SendAdvanceResult> {
   const show = await loadShowForAdvance(showId);
   if (!show) throw new Error('Show not found');
@@ -476,25 +508,32 @@ export async function sendShowAdvance(
 
   const withEmail = recipients.filter((r) => r.email);
   const skipped = recipients.filter((r) => !r.email).map((r) => r.name);
-  if (withEmail.length === 0) {
-    throw new Error('No lineup bands have a contact email set.');
+  const extraEmails = normalizeExtraEmails(extraEmailsInput);
+  const engineer = await getConfirmedSoundEngineer(showId);
+
+  // Full recipient set: band contacts + the confirmed engineer + any ad-hoc
+  // extras, deduped case-insensitively (a band and an extra could overlap).
+  const toEmails: string[] = [];
+  const seen = new Set<string>();
+  for (const email of [
+    ...withEmail.map((r) => r.email as string),
+    ...(engineer?.email ? [engineer.email] : []),
+    ...extraEmails,
+  ]) {
+    const key = email.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    toEmails.push(email);
+  }
+  if (toEmails.length === 0) {
+    throw new Error('No recipients have an email set — add a band contact or an additional email.');
   }
 
   const saved = normalizeAdvanceVars(varsInput);
   const rendered = await renderForShow(show, recipients, saved, await hubUrlFor(showId));
   // Ensure the row (and its reply token) exists before sending, since the
   // Reply-To carries the token.
-  const replyToken = await upsertShowAdvance(showId, rendered, saved);
-
-  // Loop the confirmed sound engineer onto the send as a recipient (deduped
-  // against the band emails, in case of overlap).
-  const engineer = await getConfirmedSoundEngineer(showId);
-  const toEmails = Array.from(
-    new Set([
-      ...withEmail.map((r) => r.email as string),
-      ...(engineer?.email ? [engineer.email] : []),
-    ])
-  );
+  const replyToken = await upsertShowAdvance(showId, rendered, saved, extraEmails);
   const { id: resendId } = await sendAdvanceEmail({
     toEmails,
     subject: rendered.subject,
@@ -673,8 +712,10 @@ export async function sendShowAdvanceReply(
   const text = bodyMarkdown.trim();
   if (!text) throw new Error('Reply body is empty.');
 
-  const [advance] = await sql<Array<{ reply_token: string; subject: string; status: string }>>`
-    select reply_token, subject, status from show_advances where show_id = ${showId}
+  const [advance] = await sql<
+    Array<{ reply_token: string; subject: string; status: string; extra_emails: unknown }>
+  >`
+    select reply_token, subject, status, extra_emails from show_advances where show_id = ${showId}
   `;
   if (!advance) throw new Error('No advance has been started for this show.');
   if (advance.status !== 'sent') throw new Error('Send the advance before replying on the thread.');
@@ -685,9 +726,10 @@ export async function sendShowAdvanceReply(
     new Set([
       ...recipients.map((r) => r.email).filter((e): e is string => !!e),
       ...(engineer?.email ? [engineer.email] : []),
+      ...normalizeExtraEmails(advance.extra_emails),
     ])
   );
-  if (toEmails.length === 0) throw new Error('No lineup bands have a contact email set.');
+  if (toEmails.length === 0) throw new Error('No recipients have an email set.');
 
   const html = await renderReplyHtml(text);
   const subject = advance.subject.startsWith('Re:') ? advance.subject : `Re: ${advance.subject}`;

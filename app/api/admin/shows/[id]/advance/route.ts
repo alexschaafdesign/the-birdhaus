@@ -39,7 +39,7 @@ export async function PUT(
     return NextResponse.json({ error: 'Invalid id' }, { status: 400 });
   }
   const body = await request.json().catch(() => null);
-  const state = await saveShowAdvanceDraft(showId, body?.vars);
+  const state = await saveShowAdvanceDraft(showId, body?.vars, body?.extraEmails);
   if (!state) {
     return NextResponse.json({ error: 'Show not found' }, { status: 404 });
   }
@@ -58,7 +58,7 @@ export async function POST(
   }
   const body = await request.json().catch(() => null);
   try {
-    const result = await sendShowAdvance(showId, body?.vars);
+    const result = await sendShowAdvance(showId, body?.vars, body?.extraEmails);
     const state = await getShowAdvanceState(showId);
     return NextResponse.json({ ...result, state });
   } catch (error) {

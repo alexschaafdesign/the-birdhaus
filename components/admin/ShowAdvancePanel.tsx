@@ -30,6 +30,10 @@ export default function ShowAdvancePanel({
   const [state, setState] = useState(initial);
   const [vars, setVars] = useState<SavedAdvanceVars>(initial.vars);
   const [savedVars, setSavedVars] = useState<SavedAdvanceVars>(initial.vars);
+  // Ad-hoc recipient emails (promoter, venue, tour manager, …), not tied to a
+  // band or the engineer. Edited here and persisted with the draft/send.
+  const [extraEmails, setExtraEmails] = useState<string[]>(initial.extraEmails);
+  const [savedExtraEmails, setSavedExtraEmails] = useState<string[]>(initial.extraEmails);
   const [saving, setSaving] = useState(false);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -47,10 +51,15 @@ export default function ShowAdvancePanel({
 
   const engineerDirty = engineerEmail !== (state.soundEngineer?.email ?? '');
 
-  const dirty = JSON.stringify(vars) !== JSON.stringify(savedVars);
+  const dirty =
+    JSON.stringify(vars) !== JSON.stringify(savedVars) ||
+    JSON.stringify(extraEmails) !== JSON.stringify(savedExtraEmails);
   const withEmail = state.recipients.filter((r) => r.email);
   const missingEmail = state.recipients.filter((r) => !r.email);
-  const canSend = withEmail.length > 0;
+  // Anything with an @ counts toward sendability; the server does the real
+  // validation/normalization on save & send.
+  const validExtraEmails = extraEmails.filter((e) => e.includes('@'));
+  const canSend = withEmail.length > 0 || validExtraEmails.length > 0;
 
   function setVar(key: 'sound_engineer' | 'soundcheck_notes', value: string) {
     setVars((v) => ({ ...v, [key]: value }));
@@ -58,6 +67,18 @@ export default function ShowAdvancePanel({
 
   function setSchedule(rows: ScheduleRow[]) {
     setVars((v) => ({ ...v, schedule: rows }));
+  }
+
+  function setExtraEmail(index: number, value: string) {
+    setExtraEmails((list) => list.map((e, i) => (i === index ? value : e)));
+  }
+
+  function addExtraEmail() {
+    setExtraEmails((list) => [...list, '']);
+  }
+
+  function removeExtraEmail(index: number) {
+    setExtraEmails((list) => list.filter((_, i) => i !== index));
   }
 
   async function saveDraft() {
@@ -68,7 +89,7 @@ export default function ShowAdvancePanel({
       const res = await fetch(`/api/admin/shows/${state.showId}/advance`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ vars }),
+        body: JSON.stringify({ vars, extraEmails }),
       });
       if (!res.ok) {
         const d = await res.json().catch(() => null);
@@ -78,6 +99,8 @@ export default function ShowAdvancePanel({
       setState(next);
       setVars(next.vars);
       setSavedVars(next.vars);
+      setExtraEmails(next.extraEmails);
+      setSavedExtraEmails(next.extraEmails);
       setNotice('Draft saved — preview updated.');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Save failed');
@@ -95,6 +118,13 @@ export default function ShowAdvancePanel({
       const next = (await res.json()) as ShowAdvanceState;
       setState(next);
       setEngineerEmail(next.soundEngineer?.email ?? '');
+      // Don't clobber unsaved additional-recipient edits (refresh also fires
+      // after inline band/engineer saves); only resync when there's nothing
+      // pending locally.
+      if (JSON.stringify(extraEmails) === JSON.stringify(savedExtraEmails)) {
+        setExtraEmails(next.extraEmails);
+      }
+      setSavedExtraEmails(next.extraEmails);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Refresh failed');
     } finally {
@@ -151,6 +181,10 @@ export default function ShowAdvancePanel({
 
   async function send() {
     const n = withEmail.length;
+    const extra = validExtraEmails.length;
+    const who =
+      `${n} band${n === 1 ? '' : 's'}` +
+      (extra ? ` + ${extra} additional recipient${extra === 1 ? '' : 's'}` : '');
     const skip = missingEmail.length
       ? `\n\n${missingEmail.length} band(s) without an email will be skipped: ${missingEmail
           .map((r) => r.name)
@@ -158,7 +192,7 @@ export default function ShowAdvancePanel({
       : '';
     if (
       !confirm(
-        `Send the advance to ${n} band${n === 1 ? '' : 's'}${
+        `Send the advance to ${who}${
           state.status === 'sent' ? ' again' : ''
         }?${skip}`
       )
@@ -172,7 +206,7 @@ export default function ShowAdvancePanel({
       const res = await fetch(`/api/admin/shows/${state.showId}/advance`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ vars }),
+        body: JSON.stringify({ vars, extraEmails }),
       });
       const d = await res.json().catch(() => null);
       if (!res.ok) throw new Error(d?.error ?? `Send failed (${res.status})`);
@@ -180,6 +214,8 @@ export default function ShowAdvancePanel({
         setState(d.state as ShowAdvanceState);
         setVars((d.state as ShowAdvanceState).vars);
         setSavedVars((d.state as ShowAdvanceState).vars);
+        setExtraEmails((d.state as ShowAdvanceState).extraEmails);
+        setSavedExtraEmails((d.state as ShowAdvanceState).extraEmails);
       }
       setNotice(
         `Sent to ${d.sentCount} band${d.sentCount === 1 ? '' : 's'}.` +
@@ -360,6 +396,49 @@ export default function ShowAdvancePanel({
         )}
       </div>
 
+      {/* Additional recipients — ad-hoc emails not tied to a band or the
+          engineer (promoter, venue, tour manager, …). Saved with the draft and
+          included on every send / reply. */}
+      <div className="border border-[#E8E0D0]/15 rounded-lg p-4 space-y-3">
+        <p className="text-xs uppercase tracking-wide text-[#E8E0D0]/60">
+          Additional recipients
+        </p>
+        {extraEmails.length > 0 && (
+          <ul className="space-y-2">
+            {extraEmails.map((email, i) => (
+              <li key={i} className="flex items-center gap-2">
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setExtraEmail(i, e.target.value)}
+                  placeholder="name@example.com"
+                  className={`${inputClass} flex-1 min-w-[14rem]`}
+                  aria-label={`Additional recipient ${i + 1}`}
+                />
+                <button
+                  type="button"
+                  onClick={() => removeExtraEmail(i)}
+                  className="border border-[#E8E0D0]/40 rounded px-3 py-1.5 text-sm hover:bg-[#E8E0D0]/10 transition-colors"
+                  aria-label={`Remove additional recipient ${i + 1}`}
+                >
+                  Remove
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+        <button
+          type="button"
+          onClick={addExtraEmail}
+          className="border border-[#E8E0D0]/40 rounded px-4 py-1.5 text-sm hover:bg-[#E8E0D0]/10 transition-colors"
+        >
+          + Add email
+        </button>
+        <p className="text-xs text-[#E8E0D0]/40">
+          Anyone here gets the advance and any thread replies. Saved with the draft below.
+        </p>
+      </div>
+
       {/* Per-show fields */}
       <div className="space-y-4">
         <Field
@@ -440,7 +519,7 @@ export default function ShowAdvancePanel({
         </button>
         {!canSend && (
           <span className="text-xs text-amber-300/80">
-            Add a contact email to at least one band to send.
+            Add a contact email to at least one band — or an additional recipient — to send.
           </span>
         )}
         {dirty && (
