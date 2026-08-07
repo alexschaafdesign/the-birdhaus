@@ -146,6 +146,47 @@ const FILTER_DEFS: { key: string; label: string; category: IssueCategory }[] = [
 const UPCOMING_CATEGORIES: IssueCategory[] = ['statusRsvp', 'preShow'];
 const PAST_CATEGORIES: IssueCategory[] = ['postShow'];
 
+// One consistent color per issue type, so the list is scannable by hue — every
+// "Not advanced yet" chip looks the same and different from every "Input lists
+// needed" chip. Colors only need to be distinct *within* a row's categories:
+// upcoming rows show statusRsvp + preShow together (so those 7 keys are all
+// distinct), past rows show only postShow (its 4 keys distinct among themselves,
+// free to reuse hues from the upcoming set). Full literal class strings so
+// Tailwind's JIT picks them up. `pill` styles the chip, `dismiss` the "×", and
+// `action` the PaidTag "Mark paid" button.
+type ChipColor = 'rose' | 'sky' | 'violet' | 'fuchsia' | 'amber' | 'orange' | 'slate' | 'teal';
+
+const CHIP_CLASSES: Record<ChipColor, { pill: string; dismiss: string; action: string }> = {
+  rose: { pill: 'border-rose-400/40 text-rose-300', dismiss: 'text-rose-300/50 hover:text-rose-300', action: 'bg-rose-400/15 hover:bg-rose-400/25' },
+  sky: { pill: 'border-sky-400/40 text-sky-300', dismiss: 'text-sky-300/50 hover:text-sky-300', action: 'bg-sky-400/15 hover:bg-sky-400/25' },
+  violet: { pill: 'border-violet-400/40 text-violet-300', dismiss: 'text-violet-300/50 hover:text-violet-300', action: 'bg-violet-400/15 hover:bg-violet-400/25' },
+  fuchsia: { pill: 'border-fuchsia-400/40 text-fuchsia-300', dismiss: 'text-fuchsia-300/50 hover:text-fuchsia-300', action: 'bg-fuchsia-400/15 hover:bg-fuchsia-400/25' },
+  amber: { pill: 'border-amber-400/40 text-amber-300', dismiss: 'text-amber-300/50 hover:text-amber-300', action: 'bg-amber-400/15 hover:bg-amber-400/25' },
+  orange: { pill: 'border-orange-400/40 text-orange-300', dismiss: 'text-orange-300/50 hover:text-orange-300', action: 'bg-orange-400/15 hover:bg-orange-400/25' },
+  slate: { pill: 'border-slate-400/40 text-slate-300', dismiss: 'text-slate-300/50 hover:text-slate-300', action: 'bg-slate-400/15 hover:bg-slate-400/25' },
+  teal: { pill: 'border-teal-400/40 text-teal-300', dismiss: 'text-teal-300/50 hover:text-teal-300', action: 'bg-teal-400/15 hover:bg-teal-400/25' },
+};
+
+const ISSUE_COLOR: Record<string, ChipColor> = {
+  // Upcoming rows (statusRsvp + preShow) — all distinct:
+  advance: 'rose',
+  inputs: 'sky',
+  sound: 'violet',
+  flyer: 'fuchsia',
+  bands: 'amber',
+  'no-rsvps': 'orange',
+  'rsvp-off': 'slate',
+  // Past rows (postShow) — distinct among themselves:
+  'bands-unpaid': 'amber',
+  'sound-unpaid': 'violet',
+  'photographer-unpaid': 'fuchsia',
+  'videos-missing': 'sky',
+};
+
+function chipClasses(key: string) {
+  return CHIP_CLASSES[ISSUE_COLOR[key] ?? 'amber'];
+}
+
 const inputClass =
   'bg-transparent border border-[#E8E0D0]/30 rounded px-3 py-1.5 text-sm focus:outline-none focus:border-[#E8E0D0] placeholder:text-[#E8E0D0]/30';
 
@@ -586,7 +627,7 @@ function ShowGroup({
                         ) : (
                           <span
                             key={issue.key}
-                            className="flex items-center gap-1.5 text-xs pl-2 pr-1 py-0.5 rounded-full border border-amber-400/40 text-amber-300 whitespace-nowrap"
+                            className={`flex items-center gap-1.5 text-xs pl-2 pr-1 py-0.5 rounded-full border whitespace-nowrap ${chipClasses(issue.key).pill}`}
                           >
                             {issue.label}
                             <button
@@ -596,7 +637,7 @@ function ShowGroup({
                                 onDismissIssue(show, issue.key);
                               }}
                               title="Not an issue for this show"
-                              className="text-amber-300/50 hover:text-amber-300 leading-none"
+                              className={`leading-none ${chipClasses(issue.key).dismiss}`}
                             >
                               ×
                             </button>
@@ -683,15 +724,16 @@ function PaidTag({
     (issueKey === 'sound-unpaid' ? show.sound_engineer_name : show.photographer_name)?.trim() ||
     (issueKey === 'sound-unpaid' ? 'Sound engineer' : 'Photographer');
 
+  const color = chipClasses(issueKey);
   return (
     // Stop clicks bubbling to the row (which navigates to the show's edit page).
     <span ref={containerRef} className="relative" onClick={(e) => e.stopPropagation()}>
-      <span className="flex items-center gap-1.5 text-xs pl-2 pr-1 py-0.5 rounded-full border border-amber-400/40 text-amber-300 whitespace-nowrap">
+      <span className={`flex items-center gap-1.5 text-xs pl-2 pr-1 py-0.5 rounded-full border whitespace-nowrap ${color.pill}`}>
         {label}
         <button
           type="button"
           onClick={toggleOpen}
-          className="flex items-center gap-0.5 rounded-full bg-amber-400/15 px-1.5 py-0.5 hover:bg-amber-400/25"
+          className={`flex items-center gap-0.5 rounded-full px-1.5 py-0.5 ${color.action}`}
           title="Mark paid"
         >
           Mark paid
@@ -701,7 +743,7 @@ function PaidTag({
           type="button"
           onClick={onDismiss}
           title="Not an issue for this show"
-          className="text-amber-300/50 hover:text-amber-300 leading-none"
+          className={`leading-none ${color.dismiss}`}
         >
           ×
         </button>
