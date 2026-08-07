@@ -498,23 +498,31 @@ function RecipientRow({
   onSaved: (notice: string) => void | Promise<void>;
   onError: (error: string) => void;
 }) {
+  const [email, setEmail] = useState(recipient.email ?? '');
   const [venmo, setVenmo] = useState(recipient.paymentMethod ?? '');
   const [saving, setSaving] = useState(false);
-  const dirty = venmo.trim() !== (recipient.paymentMethod ?? '');
+  const emailDirty = email.trim() !== (recipient.email ?? '');
+  const venmoDirty = venmo.trim() !== (recipient.paymentMethod ?? '');
+  const dirty = emailDirty || venmoDirty;
 
   async function save() {
     setSaving(true);
     try {
+      // Only send the fields that actually changed so a blank untouched field
+      // never clears the other value.
+      const payload: { contactEmail?: string; paymentMethod?: string } = {};
+      if (emailDirty) payload.contactEmail = email;
+      if (venmoDirty) payload.paymentMethod = venmo;
       const res = await fetch(`/api/admin/bands/${recipient.bandId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ paymentMethod: venmo }),
+        body: JSON.stringify(payload),
       });
       if (!res.ok) {
         const d = await res.json().catch(() => null);
         throw new Error(d?.error ?? `Save failed (${res.status})`);
       }
-      await onSaved(`Saved ${recipient.name}'s payout handle.`);
+      await onSaved(`Saved ${recipient.name}'s contact details.`);
     } catch (e) {
       onError(e instanceof Error ? e.message : 'Save failed');
     } finally {
@@ -524,20 +532,16 @@ function RecipientRow({
 
   return (
     <li className="space-y-1.5">
+      <span className="text-[#E8E0D0]">{recipient.name}</span>
       <div className="flex items-center gap-2 flex-wrap">
-        <span className="text-[#E8E0D0]">{recipient.name}</span>
-        {recipient.email ? (
-          <span className="text-[#E8E0D0]/50">{recipient.email}</span>
-        ) : (
-          <Link
-            href={`/admin/bands/${recipient.bandId}?returnTo=${encodeURIComponent(
-              `/admin/shows/${showId}/advance`
-            )}`}
-            className="text-amber-300/90 hover:text-amber-200 underline"
-          >
-            no email — add one
-          </Link>
-        )}
+        <input
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="contact email — they'll get the advance"
+          className={`${inputClass} flex-1 min-w-[14rem]`}
+          aria-label={`${recipient.name} contact email`}
+        />
       </div>
       <div className="flex items-center gap-2 flex-wrap">
         <input
