@@ -61,7 +61,7 @@ export default function ShowAdvancePanel({
   const validExtraEmails = extraEmails.filter((e) => e.includes('@'));
   const canSend = withEmail.length > 0 || validExtraEmails.length > 0;
 
-  function setVar(key: 'sound_engineer' | 'soundcheck_notes', value: string) {
+  function setVar(key: 'sound_engineer' | 'soundcheck_notes' | 'pay', value: string) {
     setVars((v) => ({ ...v, [key]: value }));
   }
 
@@ -478,6 +478,44 @@ export default function ShowAdvancePanel({
             rows={3}
             className={`${inputClass} w-full resize-y`}
           />
+        </Field>
+
+        <Field
+          label="Pay (this show only)"
+          hint="Leave blank to use the standard door deal from the template. Fill this in to override just the PAY section for this show — the general template is unchanged. Markdown is supported."
+        >
+          <textarea
+            value={vars.pay}
+            onChange={(e) => setVar('pay', e.target.value)}
+            rows={5}
+            placeholder="Blank = standard door deal."
+            className={`${inputClass} w-full resize-y`}
+          />
+          <div className="mt-1.5 flex items-center gap-3 flex-wrap">
+            {!vars.pay.trim() && state.standardPay && (
+              <button
+                type="button"
+                onClick={() => setVar('pay', state.standardPay)}
+                className="text-xs text-[#E8E0D0]/60 hover:text-[#E8E0D0] underline"
+              >
+                Start from the standard text
+              </button>
+            )}
+            {vars.pay.trim() && (
+              <>
+                <span className="text-xs text-amber-300/80">
+                  Overriding the standard pay text for this show.
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setVar('pay', '')}
+                  className="text-xs text-[#E8E0D0]/60 hover:text-[#E8E0D0] underline"
+                >
+                  Reset to standard
+                </button>
+              </>
+            )}
+          </div>
         </Field>
 
         <div className="text-xs text-[#E8E0D0]/40 border border-[#E8E0D0]/10 rounded p-3 space-y-0.5">

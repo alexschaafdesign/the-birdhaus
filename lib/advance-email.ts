@@ -158,6 +158,29 @@ export function formatCallout(text: string): string {
   return lines.map((l) => `> ${l}`).join('\n');
 }
 
+// Matches the template's "### PAY" section: the heading line (group 1) and the
+// body beneath it (group 2), stopping before the next heading (any level) or the
+// end of the document. Case-insensitive so "### Pay" works too. Used both to
+// read the standard pay text out of the template and to swap in a per-show
+// override, so the general template stays the source of the default.
+const PAY_SECTION_RE = /(###[ \t]+PAY\b[^\n]*\n)([\s\S]*?)(?=\n#{1,6}[ \t]|$)/i;
+
+// The standard pay text from a template body (blank if it has no PAY section).
+// Surfaced to the advance UI so a per-show override can be pre-filled from it.
+export function extractPaySection(body: string): string {
+  const m = body.match(PAY_SECTION_RE);
+  return m ? m[2].trim() : '';
+}
+
+// Replaces the body of the template's PAY section with a per-show override,
+// keeping the "### PAY" heading. Blank override (the common case) leaves the
+// template's standard pay text untouched. No PAY heading → returned unchanged.
+export function applyPayOverride(body: string, pay: string): string {
+  const override = (pay ?? '').trim();
+  if (!override) return body;
+  return body.replace(PAY_SECTION_RE, (_full, heading) => `${heading}\n${override}\n`);
+}
+
 // Substitute {{key}} placeholders in the (Markdown) template body/subject. Any
 // {{unknown}} placeholder is left as-is rather than silently blanked, so a typo
 // in the template is visible in the preview instead of vanishing.

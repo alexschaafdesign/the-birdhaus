@@ -17,6 +17,8 @@ import {
   formatCallout,
   renderReplyHtml,
   extractEmailAddress,
+  extractPaySection,
+  applyPayOverride,
   type ScheduleRow,
 } from './advance-email';
 
@@ -103,12 +105,16 @@ export interface SavedAdvanceVars {
   schedule: ScheduleRow[];
   soundcheck_notes: string;
   sound_engineer: string;
+  // Per-show override for the template's PAY section. Blank = use the standard
+  // door deal from the template; set = replace just this show's pay text.
+  pay: string;
 }
 
 const EMPTY_VARS: SavedAdvanceVars = {
   schedule: [],
   soundcheck_notes: '',
   sound_engineer: '',
+  pay: '',
 };
 
 // Coerces stored/request schedule into structured rows. Handles both the new
@@ -149,6 +155,7 @@ export function normalizeAdvanceVars(input: unknown): SavedAdvanceVars {
     schedule: normalizeSchedule(v.schedule),
     soundcheck_notes: str(v.soundcheck_notes),
     sound_engineer: str(v.sound_engineer),
+    pay: str(v.pay),
   };
 }
 
@@ -217,6 +224,10 @@ export interface ShowAdvanceState {
   // draft and included on every send / reply to the thread.
   extraEmails: string[];
   vars: SavedAdvanceVars;
+  // The standard pay text pulled from the current template's PAY section, so the
+  // UI can pre-fill a per-show override (vars.pay) from it. Empty if the template
+  // has no PAY section.
+  standardPay: string;
   status: 'none' | 'draft' | 'sent';
   sentAt: string | null;
   preview: { subject: string; html: string };
@@ -399,7 +410,7 @@ export async function getShowAdvanceState(showId: number): Promise<ShowAdvanceSt
     : { ...EMPTY_VARS };
   const templateVars = buildTemplateVars(show, recipients, saved, await hubUrlFor(showId));
   const preview = await renderAdvanceEmail(
-    { subject: template.subject, body: ensureHubPlaceholder(template.body) },
+    { subject: template.subject, body: applyPayOverride(ensureHubPlaceholder(template.body), saved.pay) },
     templateVars
   );
 
@@ -413,6 +424,7 @@ export async function getShowAdvanceState(showId: number): Promise<ShowAdvanceSt
     },
     recipients,
     soundEngineer,
+    standardPay: extractPaySection(template.body),
     extraEmails: normalizeExtraEmails(advanceRow?.extra_emails),
     vars: saved,
     status: advanceRow ? advanceRow.status : 'none',
@@ -444,7 +456,7 @@ async function renderForShow(
   const template = await getDefaultAdvanceTemplate();
   const templateVars = buildTemplateVars(show, recipients, saved, hubUrl);
   const { subject, html } = await renderAdvanceEmail(
-    { subject: template.subject, body: ensureHubPlaceholder(template.body) },
+    { subject: template.subject, body: applyPayOverride(ensureHubPlaceholder(template.body), saved.pay) },
     templateVars
   );
   return { subject, html };
