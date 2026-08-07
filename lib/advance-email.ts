@@ -110,9 +110,20 @@ export interface ScheduleRow {
 // paragraph; it passes through the Markdown render because that runs with
 // sanitize:false. Rows blank on both fields are dropped; an empty list renders
 // nothing.
+// Standardizes clock times in a schedule's time cell: a bare hour gets ":00"
+// (so "5pm" → "5:00pm"), while times that already have minutes, the am/pm
+// suffix, range separators, and any non-numeric text (e.g. "Doors") are left
+// exactly as typed. Runs on each hour token, so ranges like "8–8:30pm" become
+// "8:00–8:30pm".
+export function normalizeScheduleTime(time: string): string {
+  return time.replace(/(\d{1,2})(:(\d{2}))?/g, (match, hour, minutes) =>
+    minutes ? match : `${hour}:00`
+  );
+}
+
 export function formatScheduleBlock(schedule: ScheduleRow[]): string {
   const rows = schedule
-    .map((r) => ({ time: r.time.trim(), label: r.label.trim() }))
+    .map((r) => ({ time: normalizeScheduleTime(r.time.trim()), label: r.label.trim() }))
     .filter((r) => r.time || r.label)
     .map((r) => {
       const cell =
