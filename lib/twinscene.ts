@@ -153,6 +153,7 @@ export interface TwinSceneBandInput {
   contactMethod?: string;
   website?: string;
   instagram?: string;
+  facebook?: string;
   bandcamp?: string;
   bandcampLink?: string;
   youtubeChannel?: string;
@@ -212,6 +213,125 @@ export async function createTwinSceneBandFull(
   profile: TwinSceneBandInput
 ): Promise<CreatedTwinSceneBand> {
   return postTwinSceneBand({ name, ...profile });
+}
+
+// The full editable profile Twin Scene hands back from GET [slug]?edit=1 — every
+// field a PATCH must round-trip, INCLUDING the ones its public reads withhold
+// (locality, FFO/similarTo, contact). Mirrors Twin Scene's own EditableBand.
+// This is the pre-fill source for the "Edit full profile" modal; a save must
+// send the whole shape back because upsertBand("correct") is a full replace.
+export interface TwinSceneEditableBand {
+  id: number;
+  slug: string;
+  name: string;
+  genres: string[];
+  similarTo: string[];
+  city: string;
+  locality: string; // "" | "local" | "touring"
+  neighborhoods: string[];
+  members: string[];
+  contactEmail: string;
+  contactMethod: string;
+  website: string;
+  instagram: string;
+  facebook: string;
+  bandcamp: string;
+  bandcampLink: string;
+  youtubeChannel: string;
+  bio: string;
+  featuredLinks: { url: string; label: string }[];
+  photoUrl: string;
+}
+
+function parseEditable(raw: unknown): TwinSceneEditableBand {
+  const r = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
+  const featuredLinks = Array.isArray(r.featuredLinks)
+    ? r.featuredLinks
+        .filter((l): l is Record<string, unknown> => !!l && typeof l === 'object')
+        .map((l) => ({ url: asString(l.url), label: asString(l.label) }))
+        .filter((l) => l.url)
+    : [];
+  const id = typeof r.id === 'number' ? r.id : Number(r.id);
+  return {
+    id: Number.isFinite(id) ? id : 0,
+    slug: asString(r.slug),
+    name: asString(r.name),
+    genres: asStringArray(r.genres),
+    similarTo: asStringArray(r.similarTo),
+    city: asString(r.city),
+    locality: asString(r.locality),
+    neighborhoods: asStringArray(r.neighborhoods),
+    members: asStringArray(r.members),
+    contactEmail: asString(r.contactEmail),
+    contactMethod: asString(r.contactMethod),
+    website: asString(r.website),
+    instagram: asString(r.instagram),
+    facebook: asString(r.facebook),
+    bandcamp: asString(r.bandcamp),
+    bandcampLink: asString(r.bandcampLink),
+    youtubeChannel: asString(r.youtubeChannel),
+    bio: asString(r.bio),
+    featuredLinks,
+    photoUrl: asString(r.photoUrl),
+  };
+}
+
+// Read the full editable profile of an existing Twin Scene band (write-gated on
+// Twin Scene's side via ?edit=1). Pre-fills the "Edit full profile" modal.
+export async function getTwinSceneBandEditable(slug: string): Promise<TwinSceneEditableBand> {
+  const baseUrl = process.env.TWIN_SCENE_API_URL;
+  const apiKey = process.env.TWIN_SCENE_API_KEY;
+  if (!baseUrl || !apiKey) {
+    throw new Error('TWIN_SCENE_API_URL/TWIN_SCENE_API_KEY not configured. See .env.example.');
+  }
+
+  const res = await fetch(`${baseUrl}/api/public/bands/${encodeURIComponent(slug)}?edit=1`, {
+    headers: { 'x-api-key': apiKey },
+    cache: 'no-store',
+  });
+  if (!res.ok) {
+    throw new Error(`Twin Scene editable fetch failed (${res.status})`);
+  }
+  return parseEditable(await res.json());
+}
+
+// Write path: UPDATE an existing Twin Scene band's full profile in place (PATCH
+// [slug], can_write-gated). The edit counterpart to createTwinSceneBandFull —
+// Twin Scene runs it through upsertBand("correct"), a full replace, so `profile`
+// must be the complete round-tripped shape. Returns the updated canonical record.
+export async function updateTwinSceneBandFull(
+  slug: string,
+  name: string,
+  profile: TwinSceneBandInput
+): Promise<CreatedTwinSceneBand> {
+  const baseUrl = process.env.TWIN_SCENE_API_URL;
+  const apiKey = process.env.TWIN_SCENE_API_KEY;
+  if (!baseUrl || !apiKey) {
+    throw new Error('TWIN_SCENE_API_URL/TWIN_SCENE_API_KEY not configured. See .env.example.');
+  }
+
+  const res = await fetch(`${baseUrl}/api/public/bands/${encodeURIComponent(slug)}`, {
+    method: 'PATCH',
+    headers: { 'x-api-key': apiKey, 'content-type': 'application/json' },
+    cache: 'no-store',
+    body: JSON.stringify({ name, ...profile }),
+  });
+  if (!res.ok) {
+    throw new Error(`Twin Scene band update failed (${res.status})`);
+  }
+
+  const parsed = (await res.json()) as Record<string, unknown>;
+  const id = typeof parsed.id === 'number' ? parsed.id : Number(parsed.id);
+  const parsedSlug = asString(parsed.slug) || slug;
+  if (!Number.isFinite(id)) {
+    throw new Error('Twin Scene band update returned no id');
+  }
+  return {
+    id,
+    slug: parsedSlug,
+    name: asString(parsed.name) || name,
+    matched: true,
+  };
 }
 
 export function splitGenres(genre: string): string[] {
