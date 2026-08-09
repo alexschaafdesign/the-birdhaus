@@ -268,9 +268,14 @@ export default function ShowForm({
   );
   const photosFileInputRef = useRef<HTMLInputElement>(null);
   const [twinSceneBands, setTwinSceneBands] = useState<TwinSceneBandOption[]>([]);
-  // Which band row (index) opened the full "Add band" modal, and the name to
-  // prefill it with. null when the modal is closed.
-  const [addBandModal, setAddBandModal] = useState<{ index: number; name: string } | null>(null);
+  // Which band row (index) opened the full band modal, and the name to prefill
+  // it with. `editBandId` set → edit that existing band's Twin Scene profile;
+  // absent → create a new band. null when the modal is closed.
+  const [addBandModal, setAddBandModal] = useState<{
+    index: number;
+    name: string;
+    editBandId?: number;
+  } | null>(null);
 
   // Square donation-link state — created on demand via the button below, never
   // automatically on save. Seeded from whatever's already synced for this show.
@@ -659,6 +664,7 @@ export default function ShowForm({
     {addBandModal && (
       <AddBandModal
         initialName={addBandModal.name}
+        editBandId={addBandModal.editBandId}
         onCreated={(match) => {
           selectBand(addBandModal.index, match);
           setAddBandModal(null);
@@ -831,7 +837,18 @@ export default function ShowForm({
                     className={`${inputClass} w-full`}
                   />
                   {band.bandId && (
-                    <p className="text-xs text-green-400/70 mt-1">🔗 Linked to existing band profile</p>
+                    <p className="text-xs mt-1 flex items-center gap-2">
+                      <span className="text-green-400/70">🔗 Linked to existing band profile</span>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setAddBandModal({ index, name: band.name, editBandId: band.bandId ?? undefined })
+                        }
+                        className="text-[#E8E0D0]/60 underline underline-offset-2 hover:text-[#E8E0D0]"
+                      >
+                        Edit full profile
+                      </button>
+                    </p>
                   )}
                 </div>
                 <input
