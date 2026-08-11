@@ -252,7 +252,7 @@ export default function SettlementsSummaryView() {
 
       {data && (
         <>
-          <div className="grid gap-3 sm:grid-cols-5">
+          <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
             <div className={cardClass}>
               <p className="text-xs uppercase tracking-wide text-[#E8E0D0]/40 mb-1">Total income</p>
               <p className="text-xl font-semibold">{formatCurrency(data.totals.grossIncome)}</p>
@@ -262,13 +262,15 @@ export default function SettlementsSummaryView() {
                 Artist payouts <span className="text-[#E8E0D0]/30">(pass-through)</span>
               </p>
               <p className="text-xl font-semibold text-[#E8E0D0]/70">{formatCurrency(data.totals.artistPayouts)}</p>
+            </div>
+            <div className={cardClass}>
+              <p className="text-xs uppercase tracking-wide text-[#E8E0D0]/40 mb-1">Avg band payout</p>
+              <p className="text-xl font-semibold">
+                {data.totals.averageBandPayout !== null ? formatCurrency(data.totals.averageBandPayout) : '—'}
+              </p>
               {data.totals.averageBandPayout !== null && (
-                <p className="text-xs text-[#E8E0D0]/40 mt-1.5">
-                  Avg per band: {formatCurrency(data.totals.averageBandPayout)}
-                  <span className="text-[#E8E0D0]/30">
-                    {' '}
-                    ({data.totals.bandPayoutShowCount} {data.totals.bandPayoutShowCount === 1 ? 'show' : 'shows'})
-                  </span>
+                <p className="text-xs text-[#E8E0D0]/30 mt-1">
+                  across {data.totals.bandPayoutShowCount} {data.totals.bandPayoutShowCount === 1 ? 'show' : 'shows'}
                 </p>
               )}
             </div>
