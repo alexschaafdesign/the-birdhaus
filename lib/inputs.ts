@@ -276,3 +276,104 @@ export async function saveShowInputs(
 
   return getShowInputsState(showId);
 }
+
+// The saved input items for one band on a show, in display order. Empty array if
+// none (or the band isn't on the show). Used by the public portal's inputs GET.
+export async function getBandInputs(showId: number, bandId: number): Promise<InputItem[]> {
+  if (!Number.isInteger(bandId)) return [];
+  const rows = await sql<Array<{
+    id: number;
+    item_type: string;
+    custom_label: string | null;
+    quantity: number;
+    note: string | null;
+    sort_order: number;
+  }>>`
+    select id, item_type, custom_label, quantity, note, sort_order
+    from show_input_items
+    where show_id = ${showId} and band_id = ${bandId}
+    order by sort_order, id
+  `;
+  return rows.map((r) => ({
+    id: Number(r.id),
+    itemType: r.item_type,
+    customLabel: r.custom_label,
+    quantity: Number(r.quantity),
+    note: r.note,
+    sortOrder: Number(r.sort_order),
+  }));
+}
+
+// Replaces the input items for a SINGLE band on a show, leaving every other
+// band's rows untouched. Used by the public band portal (/hub) so one band's
+// save can't clobber another's — unlike saveShowInputs, which the admin uses to
+// PUT the whole show at once. Returns the band's cleaned, saved items (empty
+// array if the band isn't in the lineup or the show is gone), so the caller
+// doesn't reload the whole show state for one band's edit.
+export async function saveBandInputs(
+  showId: number,
+  bandId: number,
+  itemsInput: unknown
+): Promise<InputItem[]> {
+  if (!Number.isInteger(bandId)) return [];
+
+  const [inLineup] = await sql<Array<{ band_id: number }>>`
+    select band_id from show_bands
+    where show_id = ${showId} and band_id = ${bandId} and not excluded
+  `;
+  if (!inLineup) return [];
+
+  // Same per-item cleaning as saveShowInputs, but bandId is fixed to the
+  // token-authorized band (never trusted from the row) so a band can only write
+  // its own list.
+  const raw = Array.isArray(itemsInput) ? itemsInput : [];
+  const clean = raw
+    .map((it) => {
+      const o = (it ?? {}) as Record<string, unknown>;
+      const itemType = typeof o.itemType === 'string' && isInputCatalogKey(o.itemType) ? o.itemType : null;
+      if (!itemType) return null;
+      const customLabel =
+        itemType === OTHER_INPUT_KEY && typeof o.customLabel === 'string'
+          ? o.customLabel.trim().slice(0, 120) || null
+          : null;
+      const note = typeof o.note === 'string' && o.note.trim() ? o.note.trim().slice(0, 500) : null;
+      const sortOrder = Number.isInteger(Number(o.sortOrder)) ? Number(o.sortOrder) : 0;
+      return { itemType, customLabel, quantity: normalizeQuantity(o.quantity), note, sortOrder };
+    })
+    .filter((x): x is NonNullable<typeof x> => x !== null);
+
+  await sql.begin(async (tx) => {
+    await tx`delete from show_input_items where show_id = ${showId} and band_id = ${bandId}`;
+    for (const [i, it] of clean.entries()) {
+      await tx`
+        insert into show_input_items
+          (show_id, band_id, item_type, custom_label, quantity, note, sort_order)
+        values
+          (${showId}, ${bandId}, ${it.itemType}, ${it.customLabel},
+           ${it.quantity}, ${it.note}, ${it.sortOrder || i})
+      `;
+    }
+  });
+
+  const rows = await sql<Array<{
+    id: number;
+    item_type: string;
+    custom_label: string | null;
+    quantity: number;
+    note: string | null;
+    sort_order: number;
+  }>>`
+    select id, item_type, custom_label, quantity, note, sort_order
+    from show_input_items
+    where show_id = ${showId} and band_id = ${bandId}
+    order by sort_order, id
+  `;
+  return rows.map((r) => ({
+    id: Number(r.id),
+    itemType: r.item_type,
+    customLabel: r.custom_label,
+    quantity: Number(r.quantity),
+    note: r.note,
+    sortOrder: Number(r.sort_order),
+  }));
+}
