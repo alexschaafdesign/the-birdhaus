@@ -46,6 +46,7 @@ export default async function ShowHubPage({
           <InputsSection data={data} />
         )}
         <RsvpSection data={data} />
+        <PaySection data={data} />
         <LogisticsSection />
         <footer className="text-center text-xs text-[#E8E0D0]/40 pt-4">
           the BIRDHAUS · show details for the lineup &amp; crew
@@ -188,6 +189,17 @@ function RsvpSection({ data }: { data: ShowHubData }) {
       <p className="text-xs text-[#E8E0D0]/40">
         RSVPs are a soft headcount, not a guarantee — turnout often shifts at the door.
       </p>
+    </Card>
+  );
+}
+
+function PaySection({ data }: { data: ShowHubData }) {
+  return (
+    <Card title="Pay / door deal">
+      <div
+        className="hub-prose text-sm text-[#E8E0D0]/80 leading-relaxed"
+        dangerouslySetInnerHTML={{ __html: data.payHtml }}
+      />
     </Card>
   );
 }

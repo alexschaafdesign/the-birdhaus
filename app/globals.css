@@ -32,3 +32,15 @@ body {
 .advance-preview li { margin: 0.2em 0; }
 .advance-preview strong { font-weight: 700; }
 .advance-preview a { color: #1d4ed8; text-decoration: underline; }
+
+/* Prose formatting for remark-generated HTML on the dark /hub portal (e.g. the
+   Pay card), which Tailwind's reset would otherwise flatten. Scoped so it can't
+   leak into the app UI. */
+.hub-prose p { margin: 0.6em 0; }
+.hub-prose p:first-child { margin-top: 0; }
+.hub-prose p:last-child { margin-bottom: 0; }
+.hub-prose ul { list-style: disc; padding-left: 1.4em; margin: 0.6em 0; }
+.hub-prose ol { list-style: decimal; padding-left: 1.4em; margin: 0.6em 0; }
+.hub-prose li { margin: 0.2em 0; }
+.hub-prose strong { font-weight: 700; color: #E8E0D0; }
+.hub-prose a { color: #c8a26a; text-decoration: underline; }

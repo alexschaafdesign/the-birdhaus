@@ -1,3 +1,5 @@
+import { remark } from 'remark';
+import html from 'remark-html';
 import { sql } from './db';
 import { getShowById } from './shows';
 import { getShowInputsState, type InputTotalLine, type InputItem } from './inputs';
@@ -6,7 +8,7 @@ import { normalizeAdvanceVars } from './advance';
 import { getConfirmedSoundEngineer } from './sound-engineers';
 import { getShowIdByShareToken } from './share-token';
 import { getPortalThread, type PortalMessage } from './hub-portal';
-import type { ScheduleRow } from './advance-email';
+import { DEFAULT_PAY_MARKDOWN, type ScheduleRow } from './advance-email';
 
 // The shareable band/engineer "show hub" (/hub/<token>). Read-only, token-gated,
 // outside the admin auth gate — so it deliberately exposes only headcount for
@@ -38,6 +40,10 @@ export interface ShowHubData {
   // Headcount only — no attendee PII. `expected` sums each RSVP's party size
   // ("number of guests including you"), so it's the real expected turnout.
   rsvp: { count: number; expected: number };
+  // The door/pay deal rendered to HTML (from the show's per-show override when
+  // set, else the standard DEFAULT_PAY_MARKDOWN). Pay lives here now rather than
+  // in the advance email. Trusted, admin-authored Markdown.
+  payHtml: string;
   // The advance thread, sanitized for the portal (no email addresses) so bands
   // and Alex can message back and forth without email.
   messages: PortalMessage[];
@@ -60,6 +66,8 @@ export async function getShowHubData(token: string): Promise<ShowHubData | null>
   if (!show) return null;
 
   const vars = normalizeAdvanceVars(advanceRows[0]?.vars);
+  const payMarkdown = vars.pay.trim() || DEFAULT_PAY_MARKDOWN;
+  const payHtml = (await remark().use(html).process(payMarkdown)).toString();
 
   return {
     show: {
@@ -83,6 +91,7 @@ export async function getShowHubData(token: string): Promise<ShowHubData | null>
         stagePlotAttachments: b.stagePlotAttachments,
       })) ?? [],
     rsvp: { count: rsvp.totalCount, expected: rsvp.totalGuests },
+    payHtml,
     messages,
   };
 }

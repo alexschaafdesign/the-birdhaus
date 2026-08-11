@@ -482,7 +482,7 @@ export default function ShowAdvancePanel({
 
         <Field
           label="Pay (this show only)"
-          hint="Leave blank to use the standard door deal from the template. Fill this in to override just the PAY section for this show — the general template is unchanged. Markdown is supported."
+          hint="Shown on the band portal's Pay card (the advance email itself just links to the portal). Leave blank for the standard door deal; fill this in to override the pay text for this show only. Markdown is supported."
         >
           <textarea
             value={vars.pay}
