@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import { getShowHubData, type ShowHubData } from '@/lib/show-hub';
 import { inputCatalogItem, OTHER_INPUT_KEY } from '@/lib/input-catalog';
 import type { InputItem } from '@/lib/inputs';
+import HubPortal from '@/components/hub/HubPortal';
 
 export const dynamic = 'force-dynamic';
 
@@ -39,6 +40,7 @@ export default async function ShowHubPage({
     <main className="min-h-screen bg-[#2A2420] text-[#E8E0D0] px-5 py-10">
       <div className="max-w-2xl mx-auto space-y-8">
         <Header data={data} />
+        <HubPortal token={token} bands={data.inputsByBand} initialMessages={data.messages} />
         {data.schedule.length > 0 && <ScheduleSection data={data} />}
         {(data.inputsTotal.length > 0 || data.inputsByBand.some((b) => b.items.length > 0)) && (
           <InputsSection data={data} />

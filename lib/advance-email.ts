@@ -403,6 +403,36 @@ export async function sendAdvanceEmail({
   return { id: data?.id ?? '' };
 }
 
+// Pings Alex when a band does something in the /hub advance portal (uploads a
+// stage plot, posts a message) so he doesn't have to sit watching the admin.
+// Best-effort by design: the caller wraps this so a Resend hiccup never fails
+// the band's submission — the data is already saved and visible in the admin.
+export async function notifyAdvanceActivity({
+  showId,
+  showTitle,
+  summary,
+  detail,
+}: {
+  showId: number;
+  showTitle: string;
+  summary: string;
+  detail?: string;
+}): Promise<void> {
+  const from = process.env.RESEND_ADVANCE_FROM_EMAIL;
+  if (!from) return; // Not configured (e.g. local) — silently skip.
+  const adminUrl = `${SITE_URL}/admin/shows/${showId}/advance`;
+  const detailLine = detail ? `<p>${escapeHtml(detail)}</p>` : '';
+  await getResendClient().emails.send({
+    from,
+    to: ADVANCE_NOTIFY_EMAIL,
+    subject: `[Advance] ${summary} — ${showTitle}`,
+    html:
+      `<p>${escapeHtml(summary)} for <strong>${escapeHtml(showTitle)}</strong>.</p>` +
+      detailLine +
+      `<p><a href="${adminUrl}">Open the advance in the admin →</a></p>`,
+  });
+}
+
 // The seed boilerplate — Alex's canonical advance, authored as Markdown with
 // {{placeholders}} for the per-show bits. Inserted as the default template
 // (migration 030 / Phase 3 settings screen), after which it's edited in the
@@ -424,7 +454,7 @@ this is a little DIY space in the basement of the house i own. i also play in ba
 - **confirmation of the schedule for load / soundcheck / doors / show**
 - **payment info (your Venmo or other method)**
 
-> **[View the full show page →]({{hub_url}})** — schedule, gear/input needs, logistics, and the RSVP count, all in one place. (For the lineup + crew — please don't post it publicly.)
+> **[Open your advance portal →]({{hub_url}})** — the easiest way to get me the stuff above: upload your stage plot, build your input list, and message me back, all in one place (no login, no reply-all needed). It's also got the schedule, gear/input needs, logistics, and RSVP count. (For the lineup + crew — please don't post it publicly.)
 
 {{soundcheck_notes}}
 
