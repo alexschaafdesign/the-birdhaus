@@ -61,7 +61,10 @@ export async function GET(request: Request) {
   // reflects any amounts bands declined from their share (kept as venue profit),
   // matching each show's own settlement page. Only non-excluded bands share the
   // split; a null override means the band takes the even share.
-  const bandRows = await sql<{ show_id: number; excluded: boolean; payout_override: string | null }[]>`
+  // shows.id is bigserial, so show_id comes back as a string from postgres.js —
+  // normalize to a number for the map key so it matches the Number(row.show_id)
+  // lookups below (a raw-string key silently misses, dropping every override).
+  const bandRows = await sql<{ show_id: string; excluded: boolean; payout_override: string | null }[]>`
     select sb.show_id, sb.excluded, sb.payout_override
     from show_bands sb
     join shows sh on sh.id = sb.show_id
@@ -70,9 +73,10 @@ export async function GET(request: Request) {
   const overridesByShow = new Map<number, (number | null)[]>();
   for (const b of bandRows) {
     if (b.excluded) continue;
-    const list = overridesByShow.get(b.show_id) ?? [];
+    const showId = Number(b.show_id);
+    const list = overridesByShow.get(showId) ?? [];
     list.push(b.payout_override === null ? null : Number(b.payout_override));
-    overridesByShow.set(b.show_id, list);
+    overridesByShow.set(showId, list);
   }
 
   let grossIncome = 0;
