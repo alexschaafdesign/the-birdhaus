@@ -93,6 +93,14 @@ export async function GET(request: Request) {
   let extraIncomeTotal = 0;
   let extraExpenseTotal = 0;
 
+  // Average band payout: over shows that actually have band data (>=1 included
+  // band), the total paid to bands divided by the total number of band slots —
+  // i.e. what the average band walked away with per show. Shows with no band
+  // data are skipped so they don't drag the average toward zero.
+  let bandPayoutForAvg = 0;
+  let bandSlotsForAvg = 0;
+  let bandPayoutShowCount = 0;
+
   const payeeTotals = new Map<PayeeNameField, Map<string, number>>(
     PAYEE_EXPENSE_FIELDS.map(({ nameKey }) => [nameKey, new Map<string, number>()])
   );
@@ -108,6 +116,12 @@ export async function GET(request: Request) {
     venueExpenses += summary.totalExpenses;
     venueAdditionalIncome += summary.venueAdditionalIncome;
     venueNet += summary.venueNet;
+
+    if (includedOverrides.length > 0) {
+      bandPayoutForAvg += summary.bandPayout;
+      bandSlotsForAvg += includedOverrides.length;
+      bandPayoutShowCount += 1;
+    }
 
     incomeSquare += values.incomeSquare;
     incomeVenmo += values.incomeVenmo;
@@ -167,7 +181,15 @@ export async function GET(request: Request) {
   ];
 
   return NextResponse.json({
-    totals: { grossIncome, artistPayouts, venueExpenses, venueAdditionalIncome, venueNet },
+    totals: {
+      grossIncome,
+      artistPayouts,
+      venueExpenses,
+      venueAdditionalIncome,
+      venueNet,
+      averageBandPayout: bandSlotsForAvg > 0 ? bandPayoutForAvg / bandSlotsForAvg : null,
+      bandPayoutShowCount,
+    },
     incomeByMethod: { square: incomeSquare, venmo: incomeVenmo, cash: incomeCash },
     expensesByCategory,
     payeeBreakdown,

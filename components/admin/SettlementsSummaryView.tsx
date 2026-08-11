@@ -10,6 +10,10 @@ interface Totals {
   venueExpenses: number;
   venueAdditionalIncome: number;
   venueNet: number;
+  // Weighted average of what each band was paid per show, across shows that have
+  // band data. null when no show in range has any bands recorded.
+  averageBandPayout: number | null;
+  bandPayoutShowCount: number;
 }
 
 interface IncomeByMethod {
@@ -82,6 +86,9 @@ function buildCsv(data: SummaryResponse): string {
   lines.push(['Metric', 'Amount'].join(','));
   lines.push(['Total income', data.totals.grossIncome].map(csvEscape).join(','));
   lines.push(['Artist payouts', data.totals.artistPayouts].map(csvEscape).join(','));
+  if (data.totals.averageBandPayout !== null) {
+    lines.push(['Average band payout', data.totals.averageBandPayout].map(csvEscape).join(','));
+  }
   lines.push(['Venue expenses', data.totals.venueExpenses].map(csvEscape).join(','));
   lines.push(['Venue additional income', data.totals.venueAdditionalIncome].map(csvEscape).join(','));
   lines.push(['Venue net', data.totals.venueNet].map(csvEscape).join(','));
@@ -255,6 +262,15 @@ export default function SettlementsSummaryView() {
                 Artist payouts <span className="text-[#E8E0D0]/30">(pass-through)</span>
               </p>
               <p className="text-xl font-semibold text-[#E8E0D0]/70">{formatCurrency(data.totals.artistPayouts)}</p>
+              {data.totals.averageBandPayout !== null && (
+                <p className="text-xs text-[#E8E0D0]/40 mt-1.5">
+                  Avg per band: {formatCurrency(data.totals.averageBandPayout)}
+                  <span className="text-[#E8E0D0]/30">
+                    {' '}
+                    ({data.totals.bandPayoutShowCount} {data.totals.bandPayoutShowCount === 1 ? 'show' : 'shows'})
+                  </span>
+                </p>
+              )}
             </div>
             <div className={cardClass}>
               <p className="text-xs uppercase tracking-wide text-[#E8E0D0]/40 mb-1">Venue expenses</p>
