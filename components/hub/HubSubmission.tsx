@@ -18,6 +18,16 @@ interface EditItem {
   note: string;
 }
 
+// Contextual reminders shown under a row when a band picks gear the house
+// commonly provides — so they know the house option exists (and, for drums, what
+// to still bring). Keyed by input-catalog key; only the house-backed items have
+// one. Copy lives here (portal UI) rather than the shared catalog.
+const HOUSE_GEAR_HINTS: Record<string, string> = {
+  bass_amp: 'There’s a house bass amp — want to use it? Note it here (or let us know if you’re bringing your own).',
+  guitar_amp: 'Two house guitar amps are available (Fender Blues Jr + Peavey Classic 30) — let us know if you’d like to use one.',
+  drum_kit: 'Reminder: there’s a house kit to share, but bring your own breakables (snare/cymbals) if you’d like!',
+};
+
 let uidCounter = 0;
 function nextUid(): string {
   uidCounter += 1;
@@ -197,56 +207,64 @@ export default function HubSubmission({ token, band }: { token: string; band: Hu
 
         {rows.length > 0 && (
           <div className="space-y-2">
-            {rows.map((row) => (
-              <div key={row.uid} className="flex items-center gap-2 flex-wrap">
-                <input
-                  type="number"
-                  min={1}
-                  max={99}
-                  value={row.quantity}
-                  onChange={(e) => updateRow(row.uid, { quantity: Math.max(1, Number(e.target.value) || 1) })}
-                  className={`${inputClass} w-16 tabular-nums`}
-                  aria-label="Quantity"
-                />
-                <span className="text-[#E8E0D0]/40 text-sm">×</span>
-                <select
-                  value={row.itemType}
-                  onChange={(e) => updateRow(row.uid, { itemType: e.target.value })}
-                  className={`${inputClass} [&>option]:bg-[#2A2420]`}
-                  aria-label="Item type"
-                >
-                  {INPUT_CATALOG.map((c) => (
-                    <option key={c.key} value={c.key}>
-                      {c.label}
-                    </option>
-                  ))}
-                </select>
-                {row.itemType === OTHER_INPUT_KEY && (
-                  <input
-                    value={row.customLabel}
-                    onChange={(e) => updateRow(row.uid, { customLabel: e.target.value })}
-                    placeholder="what is it?"
-                    className={`${inputClass} w-40`}
-                    aria-label="Custom item name"
-                  />
-                )}
-                <input
-                  value={row.note}
-                  onChange={(e) => updateRow(row.uid, { note: e.target.value })}
-                  placeholder="note (optional)"
-                  className={`${inputClass} flex-1 min-w-[8rem]`}
-                  aria-label="Note"
-                />
-                <button
-                  type="button"
-                  onClick={() => removeRow(row.uid)}
-                  className="text-[#E8E0D0]/40 hover:text-red-300 text-sm px-1"
-                  aria-label="Remove item"
-                >
-                  ✕
-                </button>
-              </div>
-            ))}
+            {rows.map((row) => {
+              const houseHint = HOUSE_GEAR_HINTS[row.itemType];
+              return (
+                <div key={row.uid} className="space-y-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <input
+                      type="number"
+                      min={1}
+                      max={99}
+                      value={row.quantity}
+                      onChange={(e) => updateRow(row.uid, { quantity: Math.max(1, Number(e.target.value) || 1) })}
+                      className={`${inputClass} w-16 tabular-nums`}
+                      aria-label="Quantity"
+                    />
+                    <span className="text-[#E8E0D0]/40 text-sm">×</span>
+                    <select
+                      value={row.itemType}
+                      onChange={(e) => updateRow(row.uid, { itemType: e.target.value })}
+                      className={`${inputClass} [&>option]:bg-[#2A2420]`}
+                      aria-label="Item type"
+                    >
+                      {INPUT_CATALOG.map((c) => (
+                        <option key={c.key} value={c.key}>
+                          {c.label}
+                        </option>
+                      ))}
+                    </select>
+                    {row.itemType === OTHER_INPUT_KEY && (
+                      <input
+                        value={row.customLabel}
+                        onChange={(e) => updateRow(row.uid, { customLabel: e.target.value })}
+                        placeholder="what is it?"
+                        className={`${inputClass} w-40`}
+                        aria-label="Custom item name"
+                      />
+                    )}
+                    <input
+                      value={row.note}
+                      onChange={(e) => updateRow(row.uid, { note: e.target.value })}
+                      placeholder="note (optional)"
+                      className={`${inputClass} flex-1 min-w-[8rem]`}
+                      aria-label="Note"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeRow(row.uid)}
+                      className="text-[#E8E0D0]/40 hover:text-red-300 text-sm px-1"
+                      aria-label="Remove item"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                  {houseHint && (
+                    <p className="pl-[4.5rem] text-xs text-[#c8a26a]/90">{houseHint}</p>
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
 
