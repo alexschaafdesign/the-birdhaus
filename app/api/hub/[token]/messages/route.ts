@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getShowIdByShareToken } from '@/lib/share-token';
-import { getPortalThread, recordPortalMessage } from '@/lib/hub-portal';
+import { getPortalThread, recordPortalMessage, recordAdminPortalMessage } from '@/lib/hub-portal';
+import { isAdminSession } from '@/lib/admin-session';
 
 // PUBLIC route — token-gated (see stage-plot/route.ts). Two-way messaging so the
 // advance can live entirely in the portal instead of email. GET returns the
@@ -19,7 +20,10 @@ export async function GET(
   return NextResponse.json({ messages });
 }
 
-// POST { bandId, body } — bandId may be null ("Sound engineer / other").
+// POST { bandId, body, asAdmin } — bandId may be null ("Sound engineer / other").
+// asAdmin posts as the Birdhaus (outbound), but only if the request actually
+// carries a valid admin session — the flag from the client is never trusted on
+// its own, so a band can't impersonate the Birdhaus.
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ token: string }> }
@@ -34,6 +38,19 @@ export async function POST(
   if (!text.trim()) {
     return NextResponse.json({ error: 'Message is empty.' }, { status: 400 });
   }
+
+  if (body?.asAdmin === true) {
+    if (!(await isAdminSession())) {
+      return NextResponse.json({ error: 'Not authorized to post as the Birdhaus.' }, { status: 403 });
+    }
+    const ok = await recordAdminPortalMessage({ showId, body: text });
+    if (!ok) {
+      return NextResponse.json({ error: "Couldn't post that message." }, { status: 400 });
+    }
+    const messages = await getPortalThread(showId);
+    return NextResponse.json({ messages });
+  }
+
   const rawBandId = body?.bandId;
   const bandId = rawBandId === null || rawBandId === undefined ? null : Number(rawBandId);
   if (bandId !== null && !Number.isInteger(bandId)) {

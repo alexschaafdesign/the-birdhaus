@@ -7,31 +7,45 @@ import HubSubmission from './HubSubmission';
 import HubMessages from './HubMessages';
 
 const OTHER = 'other' as const;
-type Selection = number | typeof OTHER;
+const ADMIN = 'admin' as const;
+type Selection = number | typeof OTHER | typeof ADMIN;
 
 // The interactive half of the show hub: bands identify themselves once (remembered
 // per-link in localStorage), then upload a stage plot / input list and message the
 // Birdhaus — all without a login. Everything writes through the token-gated
 // /api/hub/[token] routes.
+//
+// `isAdmin` is true when the visitor has a valid admin session cookie (checked
+// server-side): Alex opening a portal link is offered a "the Birdhaus" identity
+// and defaults to it, so his message-board posts are attributed to the Birdhaus,
+// not accidentally to whichever band the picker landed on. The admin post is
+// re-verified server-side in the API — this prop only drives the UI.
 export default function HubPortal({
   token,
   bands,
   initialMessages,
+  isAdmin,
 }: {
   token: string;
   bands: ShowHubData['inputsByBand'];
   initialMessages: PortalMessage[];
+  isAdmin: boolean;
 }) {
-  // Deterministic first render (first band, or "other" if none) so SSR and the
-  // first client render match; the stored choice is applied in an effect after.
-  const [selection, setSelection] = useState<Selection>(bands[0]?.bandId ?? OTHER);
+  // Deterministic first render so SSR and the first client render match: the
+  // Birdhaus identity for an admin, else the first band (or "other" if none).
+  // The stored choice is applied in an effect after.
+  const [selection, setSelection] = useState<Selection>(
+    isAdmin ? ADMIN : (bands[0]?.bandId ?? OTHER)
+  );
   const storageKey = `birdhaus-hub-band:${token}`;
 
   // Restore the remembered choice once, after hydration. localStorage is a
   // client-only external system, so it can't seed the initial (SSR) render
   // without a hydration mismatch — syncing it in from an effect is the intended
-  // pattern here.
+  // pattern here. Skipped for an admin: they always default to the Birdhaus
+  // identity rather than a band choice a previous session happened to store.
   useEffect(() => {
+    if (isAdmin) return;
     let restored: Selection | null = null;
     try {
       const stored = window.localStorage.getItem(storageKey);
@@ -44,7 +58,7 @@ export default function HubPortal({
     }
     // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time restore from localStorage
     if (restored !== null) setSelection(restored);
-  }, [storageKey, bands]);
+  }, [storageKey, bands, isAdmin]);
 
   function choose(value: Selection) {
     setSelection(value);
@@ -56,7 +70,14 @@ export default function HubPortal({
   }
 
   const selectedBand = typeof selection === 'number' ? bands.find((b) => b.bandId === selection) : undefined;
+  const isAdminPosting = selection === ADMIN;
   const bandIdForMessages = typeof selection === 'number' ? selection : null;
+
+  function onSelectChange(value: string) {
+    if (value === OTHER) choose(OTHER);
+    else if (value === ADMIN) choose(ADMIN);
+    else choose(Number(value));
+  }
 
   return (
     <div className="space-y-8">
@@ -68,9 +89,10 @@ export default function HubPortal({
           <select
             id="hub-band"
             value={String(selection)}
-            onChange={(e) => choose(e.target.value === OTHER ? OTHER : Number(e.target.value))}
+            onChange={(e) => onSelectChange(e.target.value)}
             className="w-full bg-transparent border border-[#E8E0D0]/30 rounded px-3 py-2 text-sm focus:outline-none focus:border-[#E8E0D0] [&>option]:bg-[#2A2420]"
           >
+            {isAdmin && <option value={ADMIN}>the Birdhaus (you)</option>}
             {bands.map((b) => (
               <option key={b.bandId} value={String(b.bandId)}>
                 {b.name}
@@ -86,14 +108,20 @@ export default function HubPortal({
           </div>
         ) : (
           <p className="text-sm text-[#E8E0D0]/50 pt-2">
-            Pick your band above to upload a stage plot or build an input list. You can still send a
-            message below.
+            {isAdminPosting
+              ? 'Posting as the Birdhaus. Pick a band above if you need to submit a stage plot or input list on their behalf.'
+              : 'Pick your band above to upload a stage plot or build an input list. You can still send a message below.'}
           </p>
         )}
       </Card>
 
       <Card title="Message board">
-        <HubMessages token={token} initialMessages={initialMessages} bandId={bandIdForMessages} />
+        <HubMessages
+          token={token}
+          initialMessages={initialMessages}
+          bandId={bandIdForMessages}
+          asAdmin={isAdminPosting}
+        />
       </Card>
     </div>
   );

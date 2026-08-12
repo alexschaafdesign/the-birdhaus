@@ -161,6 +161,31 @@ export async function recordPortalMessage(input: {
   return true;
 }
 
+// Records a message the admin (Alex) posted on the portal's message board while
+// authenticated — recorded as an OUTBOUND "the Birdhaus" message (band_id null),
+// so it reads as a Birdhaus post to the lineup rather than being attributed to a
+// band. No email is sent (posting to the board never emails) and no self-
+// notification fires (don't ping Alex about his own post). The caller
+// (messages route) has already verified the admin session. Returns false if the
+// show is gone or the body is empty.
+export async function recordAdminPortalMessage(input: {
+  showId: number;
+  body: string;
+}): Promise<boolean> {
+  const body = input.body.trim().slice(0, 5000);
+  if (!body) return false;
+  const title = await getShowTitle(input.showId);
+  if (title === null) return false;
+
+  await sql`
+    insert into advance_messages
+      (show_id, band_id, direction, from_email, to_emails, subject, body_text)
+    values
+      (${input.showId}, null, 'outbound', null, '[]'::jsonb, null, ${body})
+  `;
+  return true;
+}
+
 // Fire the "band did something in the portal" email to Alex. Swallows errors so a
 // Resend outage never turns a saved submission into a user-facing failure.
 async function notifyPortalActivity(showId: number, summary: string, detail: string): Promise<void> {

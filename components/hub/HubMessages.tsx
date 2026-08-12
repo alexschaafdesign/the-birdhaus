@@ -12,10 +12,14 @@ export default function HubMessages({
   token,
   initialMessages,
   bandId,
+  asAdmin = false,
 }: {
   token: string;
   initialMessages: PortalMessage[];
   bandId: number | null;
+  // True when an authenticated admin (Alex) is posting: the message is recorded
+  // as the Birdhaus rather than attributed to a band. Re-verified server-side.
+  asAdmin?: boolean;
 }) {
   const [messages, setMessages] = useState<PortalMessage[]>(initialMessages);
   const [draft, setDraft] = useState('');
@@ -31,7 +35,7 @@ export default function HubMessages({
       const res = await fetch(`/api/hub/${token}/messages`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ bandId, body }),
+        body: JSON.stringify({ bandId, body, asAdmin }),
       });
       const data = await res.json().catch(() => null);
       if (!res.ok) throw new Error(data?.error ?? `Couldn't send (${res.status})`);
