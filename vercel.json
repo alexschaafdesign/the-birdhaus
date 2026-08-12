@@ -3,6 +3,10 @@
     {
       "path": "/api/cron/timesheet-unpaid",
       "schedule": "0 14 * * 1"
+    },
+    {
+      "path": "/api/cron/sync-twinscene-bands",
+      "schedule": "0 8 * * *"
     }
   ]
 }
