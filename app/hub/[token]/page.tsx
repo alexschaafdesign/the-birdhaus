@@ -47,7 +47,7 @@ export default async function ShowHubPage({
         )}
         <RsvpSection data={data} />
         <PaySection data={data} />
-        <LogisticsSection />
+        <InfoSection data={data} />
         <footer className="text-center text-xs text-[#E8E0D0]/40 pt-4">
           the BIRDHAUS · show details for the lineup &amp; crew
         </footer>
@@ -204,40 +204,13 @@ function PaySection({ data }: { data: ShowHubData }) {
   );
 }
 
-function LogisticsSection() {
+function InfoSection({ data }: { data: ShowHubData }) {
   return (
-    <Card title="Venue & logistics">
-      <div className="space-y-3 text-sm text-[#E8E0D0]/80 leading-relaxed">
-        <p>
-          <span className="text-[#E8E0D0] font-medium">3721 17th Ave S, Minneapolis MN 55407</span>
-          <br />
-          Red roof, little free library out front, pride flag in the window, &quot;Birdhaus&quot; on the door
-          (near Powderhorn Park).
-        </p>
-        <p>
-          <span className="text-[#E8E0D0]/60">Load-in / parking:</span> free street parking, usually easy
-          right outside — please don&apos;t block the median sidewalk across the street. Load in through the
-          front door.
-        </p>
-        <p>
-          <span className="text-[#E8E0D0]/60">Backline:</span> house drum kit (please share), house bass amp,
-          and two guitar amps (Fender Blues Jr + Peavey Classic 30). Bring your own breakables.
-        </p>
-        <p>
-          <span className="text-[#E8E0D0]/60">Space:</span> shows are in the basement — stairs only, not
-          fully accessible. All ages &amp; BYOB. Bosco the dog is usually around.
-        </p>
-        <p>
-          <span className="text-[#E8E0D0]/60">WiFi:</span> Bosco_USI / Bosco-5G_USI · password{' '}
-          <span className="text-[#E8E0D0]">zoomies99</span>
-        </p>
-        <p>
-          <span className="text-[#E8E0D0]/60">Day-of contact:</span> text or call{' '}
-          <a href="tel:+19208095713" className="text-[#c8a26a] underline">
-            920 809 5713
-          </a>
-        </p>
-      </div>
+    <Card title="Venue & info">
+      <div
+        className="hub-prose text-sm text-[#E8E0D0]/80 leading-relaxed"
+        dangerouslySetInnerHTML={{ __html: data.infoHtml }}
+      />
     </Card>
   );
 }

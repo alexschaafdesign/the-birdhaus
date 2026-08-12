@@ -8,6 +8,7 @@ import { normalizeAdvanceVars } from './advance';
 import { getConfirmedSoundEngineer } from './sound-engineers';
 import { getShowIdByShareToken } from './share-token';
 import { getPortalThread, type PortalMessage } from './hub-portal';
+import { getPortalInfo } from './portal-content';
 import { DEFAULT_PAY_MARKDOWN, type ScheduleRow } from './advance-email';
 
 // The shareable band/engineer "show hub" (/hub/<token>). Read-only, token-gated,
@@ -44,6 +45,9 @@ export interface ShowHubData {
   // set, else the standard DEFAULT_PAY_MARKDOWN). Pay lives here now rather than
   // in the advance email. Trusted, admin-authored Markdown.
   payHtml: string;
+  // The static venue/logistics rundown rendered to HTML, from the editable
+  // portal_info row (lib/portal-content.ts). Trusted, admin-authored Markdown.
+  infoHtml: string;
   // The advance thread, sanitized for the portal (no email addresses) so bands
   // and Alex can message back and forth without email.
   messages: PortalMessage[];
@@ -55,19 +59,23 @@ export async function getShowHubData(token: string): Promise<ShowHubData | null>
   const showId = await getShowIdByShareToken(token);
   if (showId === null) return null;
 
-  const [show, inputs, rsvp, engineer, advanceRows, messages] = await Promise.all([
+  const [show, inputs, rsvp, engineer, advanceRows, messages, portalInfo] = await Promise.all([
     getShowById(showId),
     getShowInputsState(showId),
     getRsvpsForShow(showId),
     getConfirmedSoundEngineer(showId),
     sql<Array<{ vars: unknown }>>`select vars from show_advances where show_id = ${showId}`,
     getPortalThread(showId),
+    getPortalInfo(),
   ]);
   if (!show) return null;
 
   const vars = normalizeAdvanceVars(advanceRows[0]?.vars);
   const payMarkdown = vars.pay.trim() || DEFAULT_PAY_MARKDOWN;
-  const payHtml = (await remark().use(html).process(payMarkdown)).toString();
+  const [payHtml, infoHtml] = await Promise.all([
+    remark().use(html).process(payMarkdown).then((r) => r.toString()),
+    remark().use(html).process(portalInfo.body).then((r) => r.toString()),
+  ]);
 
   return {
     show: {
@@ -92,6 +100,7 @@ export async function getShowHubData(token: string): Promise<ShowHubData | null>
       })) ?? [],
     rsvp: { count: rsvp.totalCount, expected: rsvp.totalGuests },
     payHtml,
+    infoHtml,
     messages,
   };
 }

@@ -33,9 +33,28 @@ body {
 .advance-preview strong { font-weight: 700; }
 .advance-preview a { color: #1d4ed8; text-decoration: underline; }
 
-/* Prose formatting for remark-generated HTML on the dark /hub portal (e.g. the
-   Pay card), which Tailwind's reset would otherwise flatten. Scoped so it can't
-   leak into the app UI. */
+/* Prose formatting for remark-generated HTML on the dark /hub portal (the Pay
+   and Venue & info cards), which Tailwind's reset would otherwise flatten.
+   Scoped so it can't leak into the app UI. */
+.hub-prose h2 {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #E8E0D0;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin: 1.7em 0 0.5em;
+  padding-bottom: 0.35em;
+  border-bottom: 1px solid rgba(232, 224, 208, 0.15);
+}
+.hub-prose h2:first-child { margin-top: 0; }
+.hub-prose h3 {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #c8a26a;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin: 1.2em 0 0.3em;
+}
 .hub-prose p { margin: 0.6em 0; }
 .hub-prose p:first-child { margin-top: 0; }
 .hub-prose p:last-child { margin-bottom: 0; }
@@ -44,3 +63,4 @@ body {
 .hub-prose li { margin: 0.2em 0; }
 .hub-prose strong { font-weight: 700; color: #E8E0D0; }
 .hub-prose a { color: #c8a26a; text-decoration: underline; }
+.hub-prose hr { border: none; border-top: 1px solid rgba(232, 224, 208, 0.15); margin: 1.4em 0; }
