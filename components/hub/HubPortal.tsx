@@ -92,7 +92,7 @@ export default function HubPortal({
         )}
       </Card>
 
-      <Card title="Messages">
+      <Card title="Message board">
         <HubMessages token={token} initialMessages={initialMessages} bandId={bandIdForMessages} />
       </Card>
     </div>

@@ -34,11 +34,22 @@ function toEditItems(band: HubBand): EditItem[] {
   }));
 }
 
+// The input list is required, so a band that hasn't saved anything yet starts
+// with one visible row (a vocal mic — the most common first input) rather than
+// an empty section that's easy to skip. Bands with saved items load those as-is.
+// The seeded row reads as an unsaved change (savedSnapshot stays the true empty
+// state), which enables the Save button and nudges them to confirm it.
+function initialEditItems(band: HubBand): EditItem[] {
+  const saved = toEditItems(band);
+  if (saved.length > 0) return saved;
+  return [{ uid: nextUid(), itemType: 'vocal_mic', customLabel: '', quantity: 1, note: '' }];
+}
+
 // A band's own stage-plot upload + input-list builder. Remounted (via a key on
 // the band id) when the band selection changes, so its state re-seeds from that
 // band's saved data. Writes only its own band via the token-gated /api/hub routes.
 export default function HubSubmission({ token, band }: { token: string; band: HubBand }) {
-  const [rows, setRows] = useState<EditItem[]>(() => toEditItems(band));
+  const [rows, setRows] = useState<EditItem[]>(() => initialEditItems(band));
   const [savedSnapshot, setSavedSnapshot] = useState(() => snapshot(toEditItems(band)));
   const [files, setFiles] = useState<Attachment[]>(band.stagePlotAttachments);
 
@@ -175,9 +186,12 @@ export default function HubSubmission({ token, band }: { token: string; band: Hu
       {/* Input-list builder */}
       <div className="space-y-3">
         <div>
-          <h3 className="text-sm font-semibold text-[#E8E0D0]">Build your input list</h3>
+          <h3 className="text-sm font-semibold text-[#E8E0D0]">
+            Build your input list <span className="text-[#c8a26a]">*</span>
+          </h3>
           <p className="text-xs text-[#E8E0D0]/50">
-            Optional — list what you need on stage. This goes straight to the Birdhaus.
+            Required — list everything you need on stage (mics, DIs, amps, etc.). We&apos;ve
+            started you off with a vocal mic; adjust it and add the rest, then save.
           </p>
         </div>
 

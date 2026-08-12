@@ -3,10 +3,11 @@
 import { useState } from 'react';
 import type { PortalMessage } from '@/lib/hub-portal';
 
-// Two-way thread with the Birdhaus, so the advance can happen entirely in the
-// portal instead of email. `bandId` (from the identity picker upstream) attributes
-// the message; null = "sound engineer / other". Posting returns the refreshed
-// thread so Alex's replies show up too.
+// Shared message board for the show: every post is visible to anyone who opens
+// this portal link — the whole lineup, the sound engineer, and the Birdhaus — so
+// the advance conversation is a group thread, not a private DM to Alex. `bandId`
+// (from the identity picker upstream) attributes the post; null = "sound engineer
+// / other". Posting returns the refreshed thread so Alex's replies show up too.
 export default function HubMessages({
   token,
   initialMessages,
@@ -45,9 +46,15 @@ export default function HubMessages({
 
   return (
     <div className="space-y-4">
+      <p className="text-xs text-[#E8E0D0]/45">
+        Posts here are shared with everyone on the bill — the whole lineup, the
+        sound engineer, and the Birdhaus can all see them.
+      </p>
+
       {messages.length === 0 ? (
         <p className="text-sm text-[#E8E0D0]/40">
-          No messages yet. Questions about load-in, gear, timing? Send them here.
+          No posts yet. Introduce yourself, or ask the group about load-in, gear,
+          or timing — everyone on this show will see it.
         </p>
       ) : (
         <ul className="space-y-3">
@@ -84,7 +91,7 @@ export default function HubMessages({
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           rows={3}
-          placeholder="Write a message to the Birdhaus…"
+          placeholder="Post to the whole bill…"
           className="w-full resize-y bg-transparent border border-[#E8E0D0]/30 rounded px-3 py-2 text-sm focus:outline-none focus:border-[#E8E0D0] placeholder:text-[#E8E0D0]/30"
         />
         <button
@@ -93,7 +100,7 @@ export default function HubMessages({
           disabled={sending || !draft.trim()}
           className="bg-[#E8E0D0] text-[#2A2420] border border-[#E8E0D0] rounded px-5 py-2 text-sm font-medium hover:bg-[#E8E0D0]/90 transition-colors disabled:opacity-50"
         >
-          {sending ? 'Sending…' : 'Send message'}
+          {sending ? 'Posting…' : 'Post'}
         </button>
       </div>
     </div>
