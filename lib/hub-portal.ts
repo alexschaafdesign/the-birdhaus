@@ -186,6 +186,63 @@ export async function recordAdminPortalMessage(input: {
   return true;
 }
 
+// Records the non-file bits of a band's advance: their Venmo/payout handle and
+// their response to the schedule. Both are optional — the caller sends whichever
+// the band just saved. Returns false only if the band isn't in the lineup.
+//
+// Venmo goes to bands.payment_method (Birdhaus-local, sync-safe — see migration
+// 039) where the admin's Advance recipients list and Settlement form already read
+// it. It is WRITE-ONLY from here: because this is a shared link, a band's handle
+// is never read back out to the public hub, only mentioned in the private admin
+// notification. The schedule response is a plain (PII-free) inbound thread message
+// so it shows on the message board and to the rest of the bill.
+export async function recordPortalDetails(input: {
+  showId: number;
+  bandId: number;
+  paymentMethod?: string | null;
+  schedule?: { ok: boolean; changes: string } | null;
+}): Promise<boolean> {
+  const band = await getLineupBand(input.showId, input.bandId);
+  if (!band) return false;
+
+  const notifyParts: string[] = [];
+
+  if (typeof input.paymentMethod === 'string') {
+    const handle = input.paymentMethod.trim().slice(0, 200);
+    if (handle) {
+      await sql`update bands set payment_method = ${handle} where id = ${band.id}`;
+      notifyParts.push(`payout handle: ${handle}`); // private admin email only
+    }
+  }
+
+  if (input.schedule) {
+    const changes = input.schedule.changes.trim().slice(0, 2000);
+    const body = input.schedule.ok
+      ? `${band.name} confirmed the schedule looks good.`
+      : changes
+        ? `${band.name} requested schedule changes: ${changes}`
+        : '';
+    if (body) {
+      await sql`
+        insert into advance_messages
+          (show_id, band_id, direction, from_email, to_emails, subject, body_text)
+        values
+          (${input.showId}, ${band.id}, 'inbound', null, '[]'::jsonb, null, ${body})
+      `;
+      notifyParts.push(input.schedule.ok ? 'confirmed the schedule' : 'requested schedule changes');
+    }
+  }
+
+  if (notifyParts.length > 0) {
+    await notifyPortalActivity(
+      input.showId,
+      `${band.name} updated their advance details`,
+      notifyParts.join(' · ')
+    );
+  }
+  return true;
+}
+
 // Fire the "band did something in the portal" email to Alex. Swallows errors so a
 // Resend outage never turns a saved submission into a user-facing failure.
 async function notifyPortalActivity(showId: number, summary: string, detail: string): Promise<void> {

@@ -44,6 +44,7 @@ export default async function ShowHubPage({
         <HubPortal
           token={token}
           bands={data.inputsByBand}
+          schedule={data.schedule}
           initialMessages={data.messages}
           isAdmin={isAdmin}
         />

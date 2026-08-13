@@ -6,9 +6,12 @@ import type { ShowHubData } from '@/lib/show-hub';
 
 type HubBand = ShowHubData['inputsByBand'][number];
 type Attachment = HubBand['stagePlotAttachments'][number];
+type ScheduleRows = ShowHubData['schedule'];
 
 const inputClass =
   'bg-transparent border border-[#E8E0D0]/30 rounded px-2.5 py-1.5 text-sm focus:outline-none focus:border-[#E8E0D0] placeholder:text-[#E8E0D0]/30';
+const saveBtnClass =
+  'bg-[#E8E0D0] text-[#2A2420] border border-[#E8E0D0] rounded px-5 py-2 text-sm font-medium hover:bg-[#E8E0D0]/90 transition-colors disabled:opacity-50';
 
 interface EditItem {
   uid: string;
@@ -58,7 +61,15 @@ function initialEditItems(band: HubBand): EditItem[] {
 // A band's own stage-plot upload + input-list builder. Remounted (via a key on
 // the band id) when the band selection changes, so its state re-seeds from that
 // band's saved data. Writes only its own band via the token-gated /api/hub routes.
-export default function HubSubmission({ token, band }: { token: string; band: HubBand }) {
+export default function HubSubmission({
+  token,
+  band,
+  schedule,
+}: {
+  token: string;
+  band: HubBand;
+  schedule: ScheduleRows;
+}) {
   const [rows, setRows] = useState<EditItem[]>(() => initialEditItems(band));
   const [savedSnapshot, setSavedSnapshot] = useState(() => snapshot(toEditItems(band)));
   const [files, setFiles] = useState<Attachment[]>(band.stagePlotAttachments);
@@ -287,6 +298,189 @@ export default function HubSubmission({ token, band }: { token: string; band: Hu
           {dirty && <span className="text-xs text-[#E8E0D0]/40">Unsaved changes</span>}
         </div>
       </div>
+
+      {/* Payout handle */}
+      <div className="space-y-2 border-t border-[#E8E0D0]/10 pt-5">
+        <h3 className="text-sm font-semibold text-[#E8E0D0]">Your payout handle</h3>
+        <PayoutTask token={token} bandId={band.bandId} />
+      </div>
+
+      {/* Schedule sign-off */}
+      <div className="space-y-2 border-t border-[#E8E0D0]/10 pt-5">
+        <h3 className="text-sm font-semibold text-[#E8E0D0]">The schedule</h3>
+        <ScheduleTask token={token} bandId={band.bandId} schedule={schedule} />
+      </div>
+    </div>
+  );
+}
+
+function Notice({ kind, children }: { kind: 'error' | 'ok'; children: React.ReactNode }) {
+  const cls =
+    kind === 'error'
+      ? 'border-red-400/40 bg-red-400/10 text-red-200'
+      : 'border-emerald-400/40 bg-emerald-400/10 text-emerald-100';
+  return <div className={`border ${cls} text-sm rounded px-3 py-1.5`}>{children}</div>;
+}
+
+// Venmo / payout handle → bands.payment_method (write-only from the shared link;
+// never seeded from the server, so one band's handle isn't shown to whoever holds
+// the link). Blank each visit; type + save.
+function PayoutTask({ token, bandId }: { token: string; bandId: number }) {
+  const [venmo, setVenmo] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [saved, setSaved] = useState<string | null>(null);
+
+  async function save() {
+    if (!venmo.trim()) return;
+    setSaving(true);
+    setError(null);
+    setSaved(null);
+    try {
+      const res = await fetch(`/api/hub/${token}/details`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bandId, paymentMethod: venmo.trim() }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(data?.error ?? `Save failed (${res.status})`);
+      setSaved(venmo.trim());
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Save failed');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="space-y-2">
+      <p className="text-xs text-[#E8E0D0]/50">
+        How should we pay you? Venmo (or other) handle. Private — goes straight to the Birdhaus.
+      </p>
+      {error && <Notice kind="error">{error}</Notice>}
+      {saved && <Notice kind="ok">Got it — we&apos;ll pay you at {saved}.</Notice>}
+      <div className="flex items-center gap-2 flex-wrap">
+        <input
+          value={venmo}
+          onChange={(e) => setVenmo(e.target.value)}
+          placeholder="@your-venmo"
+          className={`${inputClass} flex-1 min-w-[10rem]`}
+          aria-label="Venmo or payout handle"
+        />
+        <button type="button" onClick={save} disabled={saving || !venmo.trim()} className={saveBtnClass}>
+          {saving ? 'Saving…' : 'Save'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// Schedule sign-off: "looks good" or "I have changes" (with details). A confirm or
+// change-request posts a plain, attributed message to the show's board.
+function ScheduleTask({
+  token,
+  bandId,
+  schedule,
+}: {
+  token: string;
+  bandId: number;
+  schedule: ScheduleRows;
+}) {
+  const [choice, setChoice] = useState<'' | 'ok' | 'changes'>('');
+  const [changes, setChanges] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
+
+  async function save() {
+    if (choice === '') return;
+    if (choice === 'changes' && !changes.trim()) {
+      setError('Add the changes you need below.');
+      return;
+    }
+    setSaving(true);
+    setError(null);
+    setSaved(false);
+    try {
+      const res = await fetch(`/api/hub/${token}/details`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          bandId,
+          schedule: { ok: choice === 'ok', changes: choice === 'changes' ? changes.trim() : '' },
+        }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(data?.error ?? `Save failed (${res.status})`);
+      setSaved(true);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Save failed');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="space-y-3">
+      {schedule.length > 0 ? (
+        <ul className="rounded-lg bg-[#E8E0D0]/[0.04] p-3 space-y-1">
+          {schedule.map((row, i) => (
+            <li key={i} className="flex gap-3 text-sm">
+              <span className="w-24 shrink-0 font-semibold tabular-nums text-[#E8E0D0]">{row.time}</span>
+              <span className="text-[#E8E0D0]/85">{row.label}</span>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="text-xs text-[#E8E0D0]/50">The schedule isn&apos;t posted yet — check back soon.</p>
+      )}
+
+      {error && <Notice kind="error">{error}</Notice>}
+      {saved && (
+        <Notice kind="ok">
+          {choice === 'ok' ? 'Thanks — marked as good.' : 'Thanks — we got your changes.'}
+        </Notice>
+      )}
+
+      <div className="space-y-2">
+        <label className="flex items-center gap-2 text-sm text-[#E8E0D0]/85">
+          <input
+            type="radio"
+            name={`sched-${bandId}`}
+            checked={choice === 'ok'}
+            onChange={() => {
+              setChoice('ok');
+              setSaved(false);
+            }}
+          />
+          The schedule looks good
+        </label>
+        <label className="flex items-center gap-2 text-sm text-[#E8E0D0]/85">
+          <input
+            type="radio"
+            name={`sched-${bandId}`}
+            checked={choice === 'changes'}
+            onChange={() => {
+              setChoice('changes');
+              setSaved(false);
+            }}
+          />
+          I have changes — list below
+        </label>
+        {choice === 'changes' && (
+          <textarea
+            value={changes}
+            onChange={(e) => setChanges(e.target.value)}
+            rows={3}
+            placeholder="e.g. we can't load in until 6:30…"
+            className="w-full resize-y bg-transparent border border-[#E8E0D0]/30 rounded px-3 py-2 text-sm focus:outline-none focus:border-[#E8E0D0] placeholder:text-[#E8E0D0]/30"
+          />
+        )}
+      </div>
+
+      <button type="button" onClick={save} disabled={saving || choice === ''} className={saveBtnClass}>
+        {saving ? 'Saving…' : 'Submit schedule response'}
+      </button>
     </div>
   );
 }

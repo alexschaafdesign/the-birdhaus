@@ -23,11 +23,13 @@ type Selection = number | typeof OTHER | typeof ADMIN;
 export default function HubPortal({
   token,
   bands,
+  schedule,
   initialMessages,
   isAdmin,
 }: {
   token: string;
   bands: ShowHubData['inputsByBand'];
+  schedule: ShowHubData['schedule'];
   initialMessages: PortalMessage[];
   isAdmin: boolean;
 }) {
@@ -82,15 +84,17 @@ export default function HubPortal({
   return (
     <div className="space-y-8">
       <Card title="Submit your advance">
-        <div className="space-y-2">
-          <label htmlFor="hub-band" className="block text-sm text-[#E8E0D0]/70">
-            Who&apos;s submitting?
+        {/* Prominent identity step — everything below keys off who this is. */}
+        <div className="rounded-lg border border-[#c8a26a]/40 bg-[#c8a26a]/[0.07] p-4 space-y-2">
+          <label htmlFor="hub-band" className="block text-base font-semibold text-[#E8E0D0]">
+            Who are you?
           </label>
+          <p className="text-xs text-[#E8E0D0]/55">Pick your band so we know whose advance this is.</p>
           <select
             id="hub-band"
             value={String(selection)}
             onChange={(e) => onSelectChange(e.target.value)}
-            className="w-full bg-transparent border border-[#E8E0D0]/30 rounded px-3 py-2 text-sm focus:outline-none focus:border-[#E8E0D0] [&>option]:bg-[#2A2420]"
+            className="w-full bg-transparent border border-[#E8E0D0]/40 rounded px-3 py-2.5 text-base focus:outline-none focus:border-[#E8E0D0] [&>option]:bg-[#2A2420]"
           >
             {isAdmin && <option value={ADMIN}>the Birdhaus (you)</option>}
             {bands.map((b) => (
@@ -103,8 +107,17 @@ export default function HubPortal({
         </div>
 
         {selectedBand ? (
-          <div className="pt-2">
-            <HubSubmission key={selectedBand.bandId} token={token} band={selectedBand} />
+          <div className="pt-1">
+            <p className="text-sm text-[#E8E0D0]/60 pb-4">
+              A few quick things from{' '}
+              <span className="text-[#E8E0D0] font-medium">{selectedBand.name}</span>:
+            </p>
+            <HubSubmission
+              key={selectedBand.bandId}
+              token={token}
+              band={selectedBand}
+              schedule={schedule}
+            />
           </div>
         ) : (
           <p className="text-sm text-[#E8E0D0]/50 pt-2">

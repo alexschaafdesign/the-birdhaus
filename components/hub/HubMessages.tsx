@@ -55,6 +55,30 @@ export default function HubMessages({
         sound engineer, and the Birdhaus can all see them.
       </p>
 
+      {/* Compose first, so the way to post is the first thing people see. */}
+      <div className="space-y-2">
+        <textarea
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          rows={3}
+          placeholder="Post to the whole bill…"
+          className="w-full resize-y bg-transparent border border-[#E8E0D0]/30 rounded px-3 py-2 text-sm focus:outline-none focus:border-[#E8E0D0] placeholder:text-[#E8E0D0]/30"
+        />
+        {error && (
+          <div className="border border-red-400/40 bg-red-400/10 text-red-200 text-sm rounded px-3 py-1.5">
+            {error}
+          </div>
+        )}
+        <button
+          type="button"
+          onClick={send}
+          disabled={sending || !draft.trim()}
+          className="bg-[#E8E0D0] text-[#2A2420] border border-[#E8E0D0] rounded px-5 py-2 text-sm font-medium hover:bg-[#E8E0D0]/90 transition-colors disabled:opacity-50"
+        >
+          {sending ? 'Posting…' : 'Post'}
+        </button>
+      </div>
+
       {messages.length === 0 ? (
         <p className="text-sm text-[#E8E0D0]/40">
           No posts yet. Introduce yourself, or ask the group about load-in, gear,
@@ -84,29 +108,6 @@ export default function HubMessages({
         </ul>
       )}
 
-      {error && (
-        <div className="border border-red-400/40 bg-red-400/10 text-red-200 text-sm rounded px-4 py-2">
-          {error}
-        </div>
-      )}
-
-      <div className="space-y-2">
-        <textarea
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          rows={3}
-          placeholder="Post to the whole bill…"
-          className="w-full resize-y bg-transparent border border-[#E8E0D0]/30 rounded px-3 py-2 text-sm focus:outline-none focus:border-[#E8E0D0] placeholder:text-[#E8E0D0]/30"
-        />
-        <button
-          type="button"
-          onClick={send}
-          disabled={sending || !draft.trim()}
-          className="bg-[#E8E0D0] text-[#2A2420] border border-[#E8E0D0] rounded px-5 py-2 text-sm font-medium hover:bg-[#E8E0D0]/90 transition-colors disabled:opacity-50"
-        >
-          {sending ? 'Posting…' : 'Post'}
-        </button>
-      </div>
     </div>
   );
 }
