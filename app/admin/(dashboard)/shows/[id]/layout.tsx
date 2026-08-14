@@ -1,6 +1,8 @@
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { sql } from '@/lib/db';
+import { getOrCreateShareToken } from '@/lib/share-token';
+import { SITE_URL } from '@/lib/site';
 import ShowTabs from '@/components/admin/ShowTabs';
 
 export const dynamic = 'force-dynamic';
@@ -22,6 +24,9 @@ export default async function ShowLayout({
     select id, title, date::text as date from shows where id = ${showId}
   `;
   if (!show) notFound();
+
+  const shareToken = await getOrCreateShareToken(showId);
+  const portalUrl = shareToken ? `${SITE_URL}/hub/${shareToken}` : null;
 
   const prettyDate = show.date
     ? new Date(`${show.date}T00:00:00`).toLocaleDateString('en-US', {
@@ -45,7 +50,7 @@ export default async function ShowLayout({
           <h1 className="text-2xl font-bold">{show.title}</h1>
           {prettyDate && <p className="text-sm text-[#E8E0D0]/50">{prettyDate}</p>}
         </div>
-        <ShowTabs id={showId} />
+        <ShowTabs id={showId} portalUrl={portalUrl} />
       </div>
       {children}
     </main>
