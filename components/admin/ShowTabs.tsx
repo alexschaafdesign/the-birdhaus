@@ -3,19 +3,13 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
-// Tab nav for the per-show workspace. The Portal tab opens the read-only band
-// hub in a new tab (external link). Details is the base route, so it's only
+// Tab nav for the per-show workspace. Details is the base route, so it's only
 // active on an exact match; the others match their path prefix.
-export default function ShowTabs({
-  id,
-  portalUrl,
-}: {
-  id: number;
-  portalUrl?: string | null;
-}) {
+export default function ShowTabs({ id }: { id: number }) {
   const pathname = usePathname();
   const base = `/admin/shows/${id}`;
   const tabs = [
+    { href: `${base}/portal`, label: 'Portal', exact: false },
     { href: base, label: 'Details', exact: true },
     { href: `${base}/advance`, label: 'Advance', exact: false },
     { href: `${base}/inputs`, label: 'Inputs', exact: false },
@@ -25,16 +19,6 @@ export default function ShowTabs({
 
   return (
     <nav className="flex gap-5 text-sm border-b border-[#E8E0D0]/15">
-      {portalUrl && (
-        <a
-          href={portalUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="pb-2 -mb-px border-b-2 border-transparent text-[#E8E0D0]/55 hover:text-[#E8E0D0] transition-colors"
-        >
-          Portal ↗
-        </a>
-      )}
       {tabs.map(({ href, label, exact }) => {
         const active = exact ? pathname === href : pathname.startsWith(href);
         return (
