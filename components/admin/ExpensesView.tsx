@@ -2,11 +2,25 @@
 
 import { useMemo, useRef, useState } from 'react';
 import {
+  CATEGORIES_BY_DIVISION,
+  DIVISIONS,
+  divisionForCategory,
   EXPENSE_CATEGORIES,
   formatCents,
   formatDate,
+  type Division,
   type Expense,
 } from '@/lib/expenses-shared';
+
+type Filter =
+  | { kind: 'all' }
+  | { kind: 'division'; value: Division }
+  | { kind: 'category'; value: string };
+
+function filterLabel(filter: Filter): string {
+  if (filter.kind === 'all') return 'All expenses';
+  return filter.value;
+}
 
 const inputClass =
   'bg-transparent border border-[#E8E0D0]/30 rounded px-2.5 py-1.5 text-sm focus:outline-none focus:border-[#E8E0D0]';
@@ -72,31 +86,49 @@ export default function ExpensesView({
   }, [expenses]);
 
   const [year, setYear] = useState<number>(years[0]);
-  const [categoryFilter, setCategoryFilter] = useState<string>('all');
+  const [filter, setFilter] = useState<Filter>({ kind: 'all' });
 
   const inYear = useMemo(
     () => expenses.filter((e) => yearOf(e.expense_date) === year),
     [expenses, year]
   );
 
-  // Cash-basis category totals for the selected year (in cents).
-  const { byCategory, yearTotal } = useMemo(() => {
-    const map = new Map<string, number>();
+  // Cash-basis totals for the selected year, grouped by division → category.
+  const { divisions, yearTotal } = useMemo(() => {
+    const totals = new Map<string, number>();
     let total = 0;
     for (const e of inYear) {
-      map.set(e.category, (map.get(e.category) ?? 0) + e.amount_cents);
+      totals.set(e.category, (totals.get(e.category) ?? 0) + e.amount_cents);
       total += e.amount_cents;
     }
-    const rows = [...map.entries()]
-      .map(([category, cents]) => ({ category, cents }))
-      .sort((a, b) => b.cents - a.cents);
-    return { byCategory: rows, yearTotal: total };
+    const byDiv = new Map<Division, { category: string; cents: number }[]>();
+    for (const [category, cents] of totals) {
+      const d = divisionForCategory(category);
+      if (!byDiv.has(d)) byDiv.set(d, []);
+      byDiv.get(d)!.push({ category, cents });
+    }
+    const rows = DIVISIONS.filter((d) => byDiv.has(d)).map((division) => {
+      const cats = byDiv.get(division)!.sort((a, b) => b.cents - a.cents);
+      return { division, cats, subtotal: cats.reduce((s, c) => s + c.cents, 0) };
+    });
+    return { divisions: rows, yearTotal: total };
   }, [inYear]);
 
-  const visible = useMemo(
-    () => (categoryFilter === 'all' ? inYear : inYear.filter((e) => e.category === categoryFilter)),
-    [inYear, categoryFilter]
-  );
+  const visible = useMemo(() => {
+    if (filter.kind === 'all') return inYear;
+    if (filter.kind === 'division') {
+      return inYear.filter((e) => divisionForCategory(e.category) === filter.value);
+    }
+    return inYear.filter((e) => e.category === filter.value);
+  }, [inYear, filter]);
+
+  function toggleDivision(division: Division) {
+    setFilter((f) => (f.kind === 'division' && f.value === division ? { kind: 'all' } : { kind: 'division', value: division }));
+  }
+
+  function toggleCategory(category: string) {
+    setFilter((f) => (f.kind === 'category' && f.value === category ? { kind: 'all' } : { kind: 'category', value: category }));
+  }
 
   function resetForm() {
     setForm(blankForm());
@@ -220,26 +252,46 @@ export default function ExpensesView({
         </label>
       </div>
 
-      {/* Year-end summary: total + per-category breakdown */}
+      {/* Year-end summary: total + per-division / per-category breakdown */}
       <div className={cardClass}>
         <div className="flex items-baseline justify-between">
           <p className="text-xs uppercase tracking-wide text-[#E8E0D0]/40">{year} total</p>
           <p className="text-2xl font-bold tabular-nums">{formatCents(yearTotal)}</p>
         </div>
-        {byCategory.length > 0 && (
-          <div className="mt-4 grid gap-x-6 gap-y-2 sm:grid-cols-2">
-            {byCategory.map(({ category, cents }) => (
-              <button
-                key={category}
-                type="button"
-                onClick={() => setCategoryFilter((c) => (c === category ? 'all' : category))}
-                className={`flex items-baseline justify-between gap-3 rounded px-2 py-1 text-left text-sm transition hover:bg-[#E8E0D0]/[0.04] ${
-                  categoryFilter === category ? 'bg-[#E8E0D0]/[0.06]' : ''
-                }`}
-              >
-                <span className="text-[#E8E0D0]/70">{category}</span>
-                <span className="tabular-nums text-[#E8E0D0]/90">{formatCents(cents)}</span>
-              </button>
+        {divisions.length > 0 && (
+          <div className="mt-4 space-y-4">
+            {divisions.map(({ division, cats, subtotal }) => (
+              <div key={division}>
+                <button
+                  type="button"
+                  onClick={() => toggleDivision(division)}
+                  className={`flex w-full items-baseline justify-between gap-3 rounded border-b border-[#E8E0D0]/10 px-2 py-1 text-left transition hover:bg-[#E8E0D0]/[0.04] ${
+                    filter.kind === 'division' && filter.value === division ? 'bg-[#E8E0D0]/[0.06]' : ''
+                  }`}
+                >
+                  <span className="text-xs font-semibold uppercase tracking-wide text-[#E8E0D0]/60">
+                    {division}
+                  </span>
+                  <span className="text-sm font-semibold tabular-nums text-[#E8E0D0]">
+                    {formatCents(subtotal)}
+                  </span>
+                </button>
+                <div className="mt-1 grid gap-x-6 sm:grid-cols-2">
+                  {cats.map(({ category, cents }) => (
+                    <button
+                      key={category}
+                      type="button"
+                      onClick={() => toggleCategory(category)}
+                      className={`flex items-baseline justify-between gap-3 rounded px-2 py-1 text-left text-sm transition hover:bg-[#E8E0D0]/[0.04] ${
+                        filter.kind === 'category' && filter.value === category ? 'bg-[#E8E0D0]/[0.06]' : ''
+                      }`}
+                    >
+                      <span className="text-[#E8E0D0]/70">{category}</span>
+                      <span className="tabular-nums text-[#E8E0D0]/90">{formatCents(cents)}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
             ))}
           </div>
         )}
@@ -281,10 +333,14 @@ export default function ExpensesView({
               onChange={(e) => setForm({ ...form, category: e.target.value })}
               className={inputClass}
             >
-              {EXPENSE_CATEGORIES.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
+              {DIVISIONS.map((division) => (
+                <optgroup key={division} label={division}>
+                  {CATEGORIES_BY_DIVISION[division].map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </optgroup>
               ))}
             </select>
           </label>
@@ -394,12 +450,12 @@ export default function ExpensesView({
       {/* Ledger */}
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold text-[#E8E0D0]/80">
-          {categoryFilter === 'all' ? 'All expenses' : categoryFilter} · {year}
+          {filterLabel(filter)} · {year}
         </h3>
-        {categoryFilter !== 'all' && (
+        {filter.kind !== 'all' && (
           <button
             type="button"
-            onClick={() => setCategoryFilter('all')}
+            onClick={() => setFilter({ kind: 'all' })}
             className="text-xs text-[#E8E0D0]/50 hover:text-[#E8E0D0]"
           >
             Clear filter ✕
