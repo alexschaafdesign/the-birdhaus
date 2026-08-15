@@ -38,6 +38,11 @@ export type UploadFolder = (typeof ALLOWED_UPLOAD_FOLDERS)[number];
 // PDFs). Kept separate so the public upload route's image validation stays tight.
 export const ADVANCE_ATTACHMENTS_FOLDER = 'advance-attachments';
 
+// Receipts uploaded against Admin expense-ledger rows — images or PDFs, stored
+// as-is (no image re-encoding, since a PDF must survive intact). Uploaded via
+// app/api/admin/expenses/receipt using uploadFileToR2.
+export const RECEIPTS_FOLDER = 'receipts';
+
 const EXTENSION_FOR_TYPE: Record<string, string> = {
   'image/jpeg': 'jpg',
   'image/png': 'png',
