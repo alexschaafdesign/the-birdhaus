@@ -57,8 +57,28 @@ export default function RsvpSummary({
   const [editForm, setEditForm] = useState<EditForm | null>(null);
   const [savingEdit, setSavingEdit] = useState(false);
 
+  const [composing, setComposing] = useState(false);
+  const [audience, setAudience] = useState<'all' | 'not-bought'>('all');
+  const [blastSubject, setBlastSubject] = useState('');
+  const [blastMessage, setBlastMessage] = useState('');
+  const [sending, setSending] = useState(false);
+  const [blastResult, setBlastResult] = useState<{
+    sent: number;
+    failed: { email: string; error: string }[];
+    recipientCount: number;
+    invalid: string[];
+    audience: 'all' | 'not-bought';
+  } | null>(null);
+
   const totalCount = rsvps.length;
   const totalGuests = rsvps.reduce((sum, r) => sum + r.guests, 0);
+  const uniqueEmails = new Set(
+    rsvps.map((r) => r.email.trim().toLowerCase()).filter(Boolean)
+  );
+  const uniqueEmailCount = uniqueEmails.size;
+  // purchasesByEmail is keyed by lowercased email and only contains matched RSVPs.
+  const notBoughtCount = [...uniqueEmails].filter((e) => !purchasesByEmail[e]).length;
+  const audienceCount = audience === 'not-bought' ? notBoughtCount : uniqueEmailCount;
   const boughtCount = Object.keys(purchasesByEmail).length;
   const revenueCents =
     Object.values(purchasesByEmail).reduce((sum, p) => sum + p.totalCents, 0) +
@@ -138,6 +158,55 @@ export default function RsvpSummary({
     }
     win.document.write(html);
     win.document.close();
+  }
+
+  function openCompose(which: 'all' | 'not-bought') {
+    setAudience(which);
+    setComposing(true);
+    setBlastResult(null);
+    setError(null);
+  }
+
+  async function handleSendBlast(e: FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setBlastResult(null);
+
+    if (!blastSubject.trim() || !blastMessage.trim()) {
+      setError('Subject and message are required');
+      return;
+    }
+    if (audienceCount === 0) {
+      setError('No recipients match this audience.');
+      return;
+    }
+
+    const label =
+      audience === 'not-bought'
+        ? `${audienceCount} RSVP${audienceCount === 1 ? '' : 's'} who haven't bought a ticket`
+        : `all ${audienceCount} RSVP${audienceCount === 1 ? '' : 's'}`;
+    if (!confirm(`Send this email to ${label}? This cannot be undone.`)) return;
+
+    setSending(true);
+    try {
+      const res = await fetch(`/api/admin/shows/${showId}/email-rsvps`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ subject: blastSubject, message: blastMessage, audience }),
+      });
+      const body = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(body?.error || 'Failed to send');
+      setBlastResult(body);
+      if ((body?.failed?.length ?? 0) === 0) {
+        setComposing(false);
+        setBlastSubject('');
+        setBlastMessage('');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to send');
+    } finally {
+      setSending(false);
+    }
   }
 
   async function handleAdd(e: FormEvent) {
@@ -253,6 +322,22 @@ export default function RsvpSummary({
           </span>
           <button
             type="button"
+            onClick={() => openCompose('all')}
+            disabled={uniqueEmailCount === 0}
+            className="border border-[#E8E0D0]/40 rounded px-3 py-1 text-xs hover:bg-[#E8E0D0]/10 transition-colors disabled:opacity-40"
+          >
+            Email all RSVPs
+          </button>
+          <button
+            type="button"
+            onClick={() => openCompose('not-bought')}
+            disabled={notBoughtCount === 0}
+            className="border border-[#E8E0D0]/40 rounded px-3 py-1 text-xs hover:bg-[#E8E0D0]/10 transition-colors disabled:opacity-40"
+          >
+            Email non-buyers
+          </button>
+          <button
+            type="button"
             onClick={handlePrint}
             disabled={rsvps.length === 0}
             className="border border-[#E8E0D0]/40 rounded px-3 py-1 text-xs hover:bg-[#E8E0D0]/10 transition-colors disabled:opacity-40"
@@ -261,6 +346,117 @@ export default function RsvpSummary({
           </button>
         </div>
       </div>
+
+      {composing && (
+        <form
+          onSubmit={handleSendBlast}
+          className="mb-4 border border-[#E8E0D0]/25 rounded-lg p-4 space-y-3"
+        >
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <h3 className="text-sm font-semibold text-[#E8E0D0]/80">
+              Compose email
+            </h3>
+            <div className="flex items-center gap-1 text-xs">
+              <button
+                type="button"
+                onClick={() => setAudience('all')}
+                className={`rounded px-2.5 py-1 border transition-colors ${
+                  audience === 'all'
+                    ? 'border-[#E8E0D0] bg-[#E8E0D0]/10'
+                    : 'border-[#E8E0D0]/30 hover:bg-[#E8E0D0]/10'
+                }`}
+              >
+                All ({uniqueEmailCount})
+              </button>
+              <button
+                type="button"
+                onClick={() => setAudience('not-bought')}
+                className={`rounded px-2.5 py-1 border transition-colors ${
+                  audience === 'not-bought'
+                    ? 'border-[#E8E0D0] bg-[#E8E0D0]/10'
+                    : 'border-[#E8E0D0]/30 hover:bg-[#E8E0D0]/10'
+                }`}
+              >
+                Haven&apos;t bought ({notBoughtCount})
+              </button>
+            </div>
+          </div>
+
+          <p className="text-xs text-[#E8E0D0]/50">
+            Sending to{' '}
+            <strong className="text-[#E8E0D0]/80">
+              {audienceCount} recipient{audienceCount === 1 ? '' : 's'}
+            </strong>{' '}
+            (unique emails). Use <code className="text-[#E8E0D0]/70">{'{name}'}</code> in the
+            message to insert each person&apos;s first name.
+          </p>
+
+          <div>
+            <label className="block text-xs uppercase tracking-wide text-[#E8E0D0]/40 mb-1">
+              Subject
+            </label>
+            <input
+              value={blastSubject}
+              onChange={(e) => setBlastSubject(e.target.value)}
+              className={`${inputClass} w-full`}
+              placeholder={`Reminder: ${showTitle}`}
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs uppercase tracking-wide text-[#E8E0D0]/40 mb-1">
+              Message
+            </label>
+            <textarea
+              value={blastMessage}
+              onChange={(e) => setBlastMessage(e.target.value)}
+              rows={8}
+              className={`${inputClass} w-full resize-y`}
+              placeholder={'Hi {name},\n\nJust a reminder that the show is this weekend...'}
+            />
+          </div>
+
+          <div className="flex items-center gap-3">
+            <button
+              type="submit"
+              disabled={sending || audienceCount === 0}
+              className="border border-[#E8E0D0]/40 rounded px-4 py-1.5 text-sm hover:bg-[#E8E0D0]/10 transition-colors disabled:opacity-50"
+            >
+              {sending
+                ? 'Sending...'
+                : `Send to ${audienceCount} recipient${audienceCount === 1 ? '' : 's'}`}
+            </button>
+            <button
+              type="button"
+              onClick={() => setComposing(false)}
+              className="text-[#E8E0D0]/60 hover:text-[#E8E0D0] text-sm"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      )}
+
+      {blastResult && (
+        <div className="mb-4 border border-green-400/30 bg-green-400/5 text-sm rounded px-3 py-2">
+          <div className="text-green-300">
+            Sent {blastResult.sent} email{blastResult.sent === 1 ? '' : 's'}
+            {blastResult.audience === 'not-bought' ? ' (non-buyers)' : ''}.
+          </div>
+          {blastResult.invalid.length > 0 && (
+            <div className="text-[#E8E0D0]/50 mt-1">
+              Skipped {blastResult.invalid.length} invalid address
+              {blastResult.invalid.length === 1 ? '' : 'es'}: {blastResult.invalid.join(', ')}
+            </div>
+          )}
+          {blastResult.failed.length > 0 && (
+            <div className="text-red-300 mt-1">
+              Failed {blastResult.failed.length}:{' '}
+              {blastResult.failed.map((f) => f.email).join(', ')}
+            </div>
+          )}
+        </div>
+      )}
 
       {error && (
         <div className="mb-3 border border-red-400/40 bg-red-400/10 text-red-300 text-sm rounded px-3 py-2 flex justify-between items-center">

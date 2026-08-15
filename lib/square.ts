@@ -10,6 +10,8 @@
 //   SQUARE_VENUE_ADDRESS_ID - existing catalog ADDRESS id, reused as-is (never recreated)
 //   SQUARE_SYNC_ENABLED     - "true" to actually call Square; anything else = skip
 
+import { sql } from './db';
+
 try {
   // Populate process.env from .env.local when running locally. In production the
   // file is absent and env is already injected, so swallow the ENOENT.
@@ -392,6 +394,77 @@ export async function getShowPurchases(
     console.error('[square] getShowPurchases failed', err);
     return [];
   }
+}
+
+export type ShowPurchaseMatches = {
+  // Keyed by lowercased email; only includes emails that match an RSVP.
+  purchasesByEmail: Record<string, { totalCents: number; count: number }>;
+  // Buyers whose email didn't match any RSVP (typo or different address).
+  unmatchedBuyers: { email: string; amountCents: number; purchasedAt: string }[];
+  // Lowercased emails of RSVPs that have at least one matching purchase.
+  paidEmails: Set<string>;
+};
+
+// Matches this show's Square donation purchases to a set of RSVP emails. Extracted
+// from the RSVP admin page so the "email RSVPs who haven't bought" flow shares the
+// exact same matching (variation IDs + a tight time window around the show date).
+// Best-effort: returns empty matches if Square is off or the show was never synced.
+export async function getShowPurchaseMatches(
+  showId: number,
+  rsvpEmails: string[],
+): Promise<ShowPurchaseMatches> {
+  const empty: ShowPurchaseMatches = {
+    purchasesByEmail: {},
+    unmatchedBuyers: [],
+    paidEmails: new Set<string>(),
+  };
+
+  const links = await sql<{ variationId: string | null; createdAt: string }[]>`
+    select square_variation_id as "variationId", created_at as "createdAt"
+    from show_square_links
+    where show_id = ${showId}
+  `;
+  const variationIds = links.map((l) => l.variationId).filter((v): v is string => Boolean(v));
+  if (variationIds.length === 0) return empty;
+
+  const [show] = await sql<{ date: string }[]>`
+    select date::text as date from shows where id = ${showId}
+  `;
+  if (!show) return empty;
+
+  // Only scan payments from when the links were created through a few days after
+  // the show — keeps the Square sweep tight.
+  const earliest = links.reduce<string | null>(
+    (min, l) => (l.createdAt && (!min || l.createdAt < min) ? l.createdAt : min),
+    null,
+  );
+  const showMidnight = new Date(show.date + 'T00:00:00').getTime();
+  const since = earliest ? new Date(earliest) : new Date(showMidnight - 120 * 86_400_000);
+  const until = new Date(showMidnight + 3 * 86_400_000);
+
+  const purchases = await getShowPurchases(variationIds, { since, until });
+
+  const rsvpEmailSet = new Set(rsvpEmails.map((e) => e.toLowerCase()));
+  const purchasesByEmail: Record<string, { totalCents: number; count: number }> = {};
+  const unmatchedBuyers: { email: string; amountCents: number; purchasedAt: string }[] = [];
+  const paidEmails = new Set<string>();
+
+  for (const p of purchases) {
+    const email = p.email?.toLowerCase() ?? '';
+    if (email && rsvpEmailSet.has(email)) {
+      const cur = purchasesByEmail[email] ?? { totalCents: 0, count: 0 };
+      purchasesByEmail[email] = { totalCents: cur.totalCents + p.amountCents, count: cur.count + 1 };
+      paidEmails.add(email);
+    } else {
+      unmatchedBuyers.push({
+        email: p.email ?? '(no email)',
+        amountCents: p.amountCents,
+        purchasedAt: p.purchasedAt,
+      });
+    }
+  }
+
+  return { purchasesByEmail, unmatchedBuyers, paidEmails };
 }
 
 // Attach a show's flyer to an already-created Square item, for the "created the

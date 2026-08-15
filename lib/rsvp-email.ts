@@ -88,6 +88,74 @@ export function renderRsvpConfirmationEmail(
   return { subject, html };
 }
 
+function escapeHtml(value: string): string {
+  return value.replace(
+    /[&<>"']/g,
+    (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c] as string,
+  );
+}
+
+// Renders an admin-authored plain-text blast into simple HTML: `{name}` (any
+// case) is replaced with the recipient's first name (or "there"), blank lines
+// become paragraph breaks, and single newlines become <br>. Escaping happens
+// after token substitution so a first name with special chars stays safe.
+export function renderRsvpBlast(name: string, bodyText: string): string {
+  const firstName = splitName(name).firstName || 'there';
+  const personalized = bodyText.replace(/\{name\}/gi, firstName);
+  return escapeHtml(personalized)
+    .split(/\n{2,}/)
+    .map((paragraph) => `<p>${paragraph.replace(/\n/g, '<br>')}</p>`)
+    .join('\n');
+}
+
+// Sends one custom message to every recipient via Resend's batch API (up to 100
+// per request, so we chunk). Each message is personalized, so the batch carries
+// distinct html per recipient. Returns a per-recipient failure list; a whole
+// chunk is marked failed if its batch request errors. No BCC here (unlike the
+// confirmation email) — bcc'ing every message would flood the house inbox.
+export async function sendRsvpBlast({
+  recipients,
+  subject,
+  bodyText,
+}: {
+  recipients: { name: string; email: string }[];
+  subject: string;
+  bodyText: string;
+}): Promise<{ sent: number; failed: { email: string; error: string }[] }> {
+  const from = process.env.RESEND_FROM_EMAIL;
+  if (!from) throw new Error('RESEND_FROM_EMAIL is not set');
+
+  const client = getResendClient();
+  const failed: { email: string; error: string }[] = [];
+  let sent = 0;
+
+  const CHUNK_SIZE = 100;
+  for (let i = 0; i < recipients.length; i += CHUNK_SIZE) {
+    const chunk = recipients.slice(i, i + CHUNK_SIZE);
+    const payload = chunk.map((r) => ({
+      from,
+      to: r.email,
+      subject,
+      html: renderRsvpBlast(r.name, bodyText),
+    }));
+
+    try {
+      const { error } = await client.batch.send(payload);
+      if (error) {
+        const message = typeof error === 'string' ? error : JSON.stringify(error);
+        for (const r of chunk) failed.push({ email: r.email, error: message });
+      } else {
+        sent += chunk.length;
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      for (const r of chunk) failed.push({ email: r.email, error: message });
+    }
+  }
+
+  return { sent, failed };
+}
+
 export async function sendRsvpConfirmationEmail({
   show,
   name,
