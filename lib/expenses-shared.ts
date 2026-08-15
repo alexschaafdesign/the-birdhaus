@@ -9,7 +9,7 @@
 // Gear is split by discipline (Audio / Filming / TVs / Lighting) so equipment
 // spend can be reviewed per area. Edit these lists to add or rename categories —
 // they're validated in code, not by a DB constraint, so no migration is needed.
-export const DIVISIONS = ['Venue', 'Record Label', 'Other'] as const;
+export const DIVISIONS = ['Venue', 'Record Label', 'Recording Studio', 'Other'] as const;
 export type Division = (typeof DIVISIONS)[number];
 
 const VENUE_CATEGORIES = [
@@ -35,24 +35,38 @@ const LABEL_CATEGORIES = [
   'Artwork & Design',
 ] as const;
 
+const STUDIO_CATEGORIES = [
+  'Recording Gear',
+  'Instruments',
+  'Software & Plugins',
+  'Acoustic Treatment',
+  'Studio Rent & Utilities',
+  'Session Musicians',
+  'Maintenance & Repairs',
+  'Studio Supplies',
+] as const;
+
 const OTHER_CATEGORIES = ['Other'] as const;
 
 // Categories grouped by division — the source of truth. Order drives display.
 export const CATEGORIES_BY_DIVISION = {
   Venue: VENUE_CATEGORIES,
   'Record Label': LABEL_CATEGORIES,
+  'Recording Studio': STUDIO_CATEGORIES,
   Other: OTHER_CATEGORIES,
 } as const;
 
 export type ExpenseCategory =
   | (typeof VENUE_CATEGORIES)[number]
   | (typeof LABEL_CATEGORIES)[number]
+  | (typeof STUDIO_CATEGORIES)[number]
   | (typeof OTHER_CATEGORIES)[number];
 
 // Flat list of every category, in division order.
 export const EXPENSE_CATEGORIES: readonly ExpenseCategory[] = [
   ...VENUE_CATEGORIES,
   ...LABEL_CATEGORIES,
+  ...STUDIO_CATEGORIES,
   ...OTHER_CATEGORIES,
 ];
 
