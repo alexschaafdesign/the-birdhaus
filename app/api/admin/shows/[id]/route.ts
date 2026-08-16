@@ -27,6 +27,7 @@ import {
   setShowSoundEngineers,
   type ShowSoundEngineer,
 } from '@/lib/sound-engineers';
+import { SITE_URL } from '@/lib/site';
 
 // Maps the camelCase keys the client sends (matching the `Show` interface) to
 // their snake_case columns for the plain text/URL fields. Fields with their own
@@ -97,6 +98,24 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       return NextResponse.json({ error: 'Invalid slug' }, { status: 400 });
     }
     updates.push({ column: 'slug', value: slug });
+
+    // ticket_url embeds the slug for Square-managed shows — it's stored as
+    // `${SITE_URL}/shows/${slug}/tickets` (see api/admin/shows/[id]/square).
+    // If we don't rewrite it here, a slug change leaves ticket_url pointing at
+    // the old, now-404 slug, breaking the "Buy an advance ticket" link on the
+    // show page and in the RSVP confirmation email. Only rewrite our own
+    // internal tiers-page URL; a manually-entered external ticket URL is left
+    // untouched. This overrides the (stale) ticketUrl the edit form re-submits.
+    const [current] = await sql<{ ticket_url: string | null }[]>`
+      select ticket_url from shows where id = ${showId}
+    `;
+    const prefix = `${SITE_URL}/shows/`;
+    if (current?.ticket_url?.startsWith(prefix) && current.ticket_url.endsWith('/tickets')) {
+      const newTicketUrl = `${SITE_URL}/shows/${slug}/tickets`;
+      const existing = updates.find((u) => u.column === 'ticket_url');
+      if (existing) existing.value = newTicketUrl;
+      else updates.push({ column: 'ticket_url', value: newTicketUrl });
+    }
   }
 
   let bandsInput: Show['bands'] | undefined;
