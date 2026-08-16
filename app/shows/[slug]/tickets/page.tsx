@@ -23,6 +23,32 @@ function dollars(cents: number): string {
   });
 }
 
+// Tiers that share a Square link collapse into one button. Our automated sync
+// creates one payment link per tier (distinct URLs → one button each). A
+// manually-created combined link — a single Square page with a built-in tier
+// selector — is stored on every tier row, so it groups into a single button
+// showing the amount range ($10–$30) instead of three redundant buttons.
+type TierGroup = { url: string; label: string; amount: string };
+
+function groupByUrl(links: TierLink[]): TierGroup[] {
+  const byUrl = new Map<string, TierLink[]>();
+  for (const link of links) {
+    if (!link.url) continue;
+    const group = byUrl.get(link.url) ?? [];
+    group.push(link);
+    byUrl.set(link.url, group);
+  }
+  return Array.from(byUrl.entries()).map(([url, tiers]) => {
+    const amounts = tiers.map((t) => t.amountCents).sort((a, b) => a - b);
+    const min = amounts[0];
+    const max = amounts[amounts.length - 1];
+    if (tiers.length === 1) {
+      return { url, label: tierName(tiers[0].tierLabel), amount: dollars(min) };
+    }
+    return { url, label: 'Tickets / Donate', amount: `${dollars(min)}–${dollars(max)}` };
+  });
+}
+
 export async function generateMetadata({
   params,
 }: {
@@ -45,6 +71,8 @@ export default async function TicketsPage({ params }: { params: Promise<{ slug: 
     where show_id = ${show.id}
     order by amount_cents
   `;
+
+  const groups = groupByUrl(links);
 
   const formattedDate = new Date(show.date + 'T00:00:00').toLocaleDateString('en-US', {
     weekday: 'long',
@@ -72,29 +100,24 @@ export default async function TicketsPage({ params }: { params: Promise<{ slug: 
           venue running. Pick whatever works for you.
         </p>
 
-        {links.filter((l) => l.url).length === 0 ? (
+        {groups.length === 0 ? (
           <p className="text-sm text-[#E8E0D0]/50">
             Donation links aren&apos;t available for this show yet — check back soon.
           </p>
         ) : (
           <div className="space-y-3">
-            {links.map(
-              (link) =>
-                link.url && (
-                  <a
-                    key={link.tierLabel}
-                    href={link.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center justify-between gap-4 border-2 border-[#E8E0D0]/20 rounded-lg px-6 py-4 bg-[#E8E0D0]/5 hover:bg-[#E8E0D0]/10 transition-colors"
-                  >
-                    <span className="font-bold">{tierName(link.tierLabel)}</span>
-                    <span className="text-lg font-bold whitespace-nowrap">
-                      {dollars(link.amountCents)} →
-                    </span>
-                  </a>
-                ),
-            )}
+            {groups.map((group) => (
+              <a
+                key={group.url}
+                href={group.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-between gap-4 border-2 border-[#E8E0D0]/20 rounded-lg px-6 py-4 bg-[#E8E0D0]/5 hover:bg-[#E8E0D0]/10 transition-colors"
+              >
+                <span className="font-bold">{group.label}</span>
+                <span className="text-lg font-bold whitespace-nowrap">{group.amount} →</span>
+              </a>
+            ))}
           </div>
         )}
       </div>
