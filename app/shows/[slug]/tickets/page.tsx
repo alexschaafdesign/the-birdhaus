@@ -8,7 +8,14 @@ import type { Metadata } from 'next';
 // Square checkout. Kept dynamic so it always reflects the current Square links.
 export const dynamic = 'force-dynamic';
 
-type TierLink = { tierLabel: string; amountCents: number; url: string | null };
+// One row per donation tier. A tier is buyable when it has a catalog variation
+// (used to mint a fresh on-demand Square link) or, in dev, a stored link.
+type TierLink = {
+  tierLabel: string;
+  amountCents: number;
+  variationId: string | null;
+  url: string | null;
+};
 
 function tierName(label: string): string {
   // "Reduced donation ($10)" -> "Reduced donation"; the amount is shown separately.
@@ -20,32 +27,6 @@ function dollars(cents: number): string {
     style: 'currency',
     currency: 'USD',
     minimumFractionDigits: 0,
-  });
-}
-
-// Tiers that share a Square link collapse into one button. Our automated sync
-// creates one payment link per tier (distinct URLs → one button each). A
-// manually-created combined link — a single Square page with a built-in tier
-// selector — is stored on every tier row, so it groups into a single button
-// showing the amount range ($10–$30) instead of three redundant buttons.
-type TierGroup = { url: string; label: string; amount: string };
-
-function groupByUrl(links: TierLink[]): TierGroup[] {
-  const byUrl = new Map<string, TierLink[]>();
-  for (const link of links) {
-    if (!link.url) continue;
-    const group = byUrl.get(link.url) ?? [];
-    group.push(link);
-    byUrl.set(link.url, group);
-  }
-  return Array.from(byUrl.entries()).map(([url, tiers]) => {
-    const amounts = tiers.map((t) => t.amountCents).sort((a, b) => a - b);
-    const min = amounts[0];
-    const max = amounts[amounts.length - 1];
-    if (tiers.length === 1) {
-      return { url, label: tierName(tiers[0].tierLabel), amount: dollars(min) };
-    }
-    return { url, label: 'Tickets / Donate', amount: `${dollars(min)}–${dollars(max)}` };
   });
 }
 
@@ -66,13 +47,16 @@ export default async function TicketsPage({ params }: { params: Promise<{ slug: 
   if (!show) notFound();
 
   const links = await sql<TierLink[]>`
-    select tier_label as "tierLabel", amount_cents as "amountCents", url
+    select tier_label as "tierLabel", amount_cents as "amountCents",
+           square_variation_id as "variationId", url
     from show_square_links
     where show_id = ${show.id}
     order by amount_cents
   `;
 
-  const groups = groupByUrl(links);
+  // A tier is buyable if we can start a checkout for it: a catalog variation to
+  // mint a fresh on-demand link from (prod), or a stored link as a dev fallback.
+  const tiers = links.filter((l) => l.variationId || l.url);
 
   const formattedDate = new Date(show.date + 'T00:00:00').toLocaleDateString('en-US', {
     weekday: 'long',
@@ -100,22 +84,26 @@ export default async function TicketsPage({ params }: { params: Promise<{ slug: 
           venue running. Pick whatever works for you.
         </p>
 
-        {groups.length === 0 ? (
+        {tiers.length === 0 ? (
           <p className="text-sm text-[#E8E0D0]/50">
             Donation links aren&apos;t available for this show yet — check back soon.
           </p>
         ) : (
           <div className="space-y-3">
-            {groups.map((group) => (
+            {tiers.map((tier) => (
+              // Plain <a> (not next/link) so the route handler isn't prefetched —
+              // each visit mints a fresh Square link, so we only want it on click.
               <a
-                key={group.url}
-                href={group.url}
+                key={tier.amountCents}
+                href={`/shows/${show.slug}/checkout?tier=${tier.amountCents}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center justify-between gap-4 border-2 border-[#E8E0D0]/20 rounded-lg px-6 py-4 bg-[#E8E0D0]/5 hover:bg-[#E8E0D0]/10 transition-colors"
               >
-                <span className="font-bold">{group.label}</span>
-                <span className="text-lg font-bold whitespace-nowrap">{group.amount} →</span>
+                <span className="font-bold">{tierName(tier.tierLabel)}</span>
+                <span className="text-lg font-bold whitespace-nowrap">
+                  {dollars(tier.amountCents)} →
+                </span>
               </a>
             ))}
           </div>

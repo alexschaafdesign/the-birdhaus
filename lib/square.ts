@@ -305,6 +305,44 @@ export function isSquareSyncEnabled(): boolean {
   return process.env.SQUARE_SYNC_ENABLED === 'true';
 }
 
+export type FreshPaymentLink = { url: string; paymentLinkId: string; orderId: string | null };
+
+// Mint a FRESH single-use Square payment link for one catalog variation, on
+// demand (one per checkout click). API-generated payment links are single-use
+// ONLY: a link is bound to its order and, after the first purchase, permanently
+// shows that order's "payment confirmed" receipt to everyone. The API cannot
+// create reusable links (only the Square Dashboard can). So instead of storing
+// three static links per show, `/shows/[slug]/checkout` calls this per click
+// and 302s the buyer to the fresh link — unlimited buyers, and the order keeps
+// its catalog `catalog_object_id` so getShowPurchases still matches by variation.
+// Returns undefined when Square sync is disabled (dev); throws on API error.
+export async function createTierPaymentLink(
+  variationId: string,
+): Promise<FreshPaymentLink | undefined> {
+  if (!isSquareSyncEnabled()) return;
+  const token = requireEnv('SQUARE_ACCESS_TOKEN');
+  const locationId = requireEnv('SQUARE_LOCATION_ID');
+  const res = await squareFetch<PaymentLinkResponse>(
+    '/v2/online-checkout/payment-links',
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        // Unique per click → a distinct order, i.e. a genuinely fresh link each
+        // time (a stable key would just return the same single-use link again).
+        idempotency_key: crypto.randomUUID(),
+        order: {
+          location_id: locationId,
+          line_items: [{ catalog_object_id: variationId, quantity: '1' }],
+        },
+      }),
+    },
+    token,
+  );
+  const link = res.payment_link;
+  if (!link?.url) throw new Error('[square] on-demand payment-link create returned no url');
+  return { url: link.url, paymentLinkId: link.id, orderId: link.order_id ?? null };
+}
+
 export type ShowPurchase = {
   email: string | null;
   amountCents: number;

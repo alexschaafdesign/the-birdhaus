@@ -1,6 +1,6 @@
 # Square ticket links are single-use — audit + fix plan
 
-**Status:** investigation done, remediation NOT finished. Picking this back up on another machine.
+**Status:** FIXED in code — on-demand link minting. Ships on next prod deploy; verify one show live before trusting all 7 (see below).
 **Date:** 2026-08-15
 
 ## The bug
@@ -32,7 +32,9 @@ Diagnostic signal: a broken link's `square.link/u/...` redirects to
 ## Audit — 7 of 8 upcoming shows broken (as of 2026-08-15)
 
 Every show synced through `lib/square.ts` has three single-use `/order/` links (a ticking
-time bomb — breaks after its first sale). Only #100 has been fixed.
+time bomb — breaks after its first sale). At audit time only #100 had been hand-fixed;
+the on-demand code fix below covers all of them at once (no per-row action needed), since
+it stops using the stored links entirely.
 
 | Show | Date | ID | Status |
 |------|------|----|--------|
@@ -60,31 +62,46 @@ scratchpad; regenerate if needed.)
    Donate — $10–$30"). Backward-compatible: shows with 3 distinct per-tier links still
    render 3 buttons. Committed on this branch.
 
-## Remaining work (the decision to resume on)
+## The fix that shipped — on-demand single-use links
 
-Owner chose: **fix `lib/square.ts`** + **investigate a re-sync path** (NOT manual
-link-pasting). But the API cannot make reusable links, so the strategy must change. Options:
+Chosen path: **generate a fresh single-use link on demand** (the recommended option).
+Buyers no longer visit stored per-tier links at all — the `/tickets` buttons point at a
+new route that mints a brand-new link per click.
 
-- **(Recommended) Generate a fresh single-use link on demand.** Stop storing 3 static
-  links. Make the `/tickets` buttons hit an API route that calls `CreatePaymentLink`
-  per click and 302-redirects to the fresh link. Unlimited buyers, keeps catalog
-  linkage (so `getShowPurchases` variation-ID matching still works). Downside: an extra
-  Square call per checkout; needs a story for `getShowPurchases` (it already matches on
-  COMPLETED payments' order line-item `catalog_object_id`, which is preserved here).
-- **Semi-manual:** sync creates the catalog item only; a human makes one reusable
-  Dashboard checkout link per show and pastes it (stored in `show_square_links`). This is
-  literally how #100 was fixed. Reliable, but manual per show.
-- **Self-hosted checkout:** build our own payment page with the Square Web Payments SDK +
-  Orders API. Biggest change; full control; fully reusable + catalog-linked.
+**Key insight that made this cheap:** the 7 shows' Square **catalog items and variations
+are still valid** — only the stored payment *links* were single-use. So there is **no data
+migration and no re-sync**. Minting a new link from each existing variation fixes every
+broken show (and keeps #100 working) with code alone.
 
-**Re-sync path caveat:** the existing "Create Square links" endpoint
-(`app/api/admin/shows/[id]/square/route.ts`) is create-once — it early-returns `exists`
-for shows that already have `square_item_id` (all 7 broken shows do). Regenerating links
-for them needs a new/updated code path regardless of which option above is chosen.
+Changes (branch `fix/square-ticket-links`):
 
-**Testing caveat:** the Square Catalog/Checkout API has **no Sandbox** (per `lib/square.ts`
-header) and `SQUARE_SYNC_ENABLED` is live-only. Verify any fix on ONE show before rolling
-out to the other 6.
+1. **`lib/square.ts` → `createTierPaymentLink(variationId)`** — POSTs a fresh
+   `CreatePaymentLink` order for one catalog variation, with a **unique
+   `idempotency_key` per call** (`crypto.randomUUID()`) so each buyer gets a distinct
+   single-use link. Returns `undefined` when `SQUARE_SYNC_ENABLED` is off (dev).
+2. **`app/shows/[slug]/checkout/route.ts`** (new) — `GET ?tier=<amountCents>`. Resolves
+   the show's catalog variation server-side from `show_square_links` (never trusts a
+   variation id in the URL), mints a fresh link, and **302-redirects** to it. In dev
+   (sync disabled) it falls back to the stored `url` if present.
+3. **`app/shows/[slug]/tickets/page.tsx`** — buttons now link to
+   `/shows/[slug]/checkout?tier=…` (plain `<a>`, not `next/link`, so the route isn't
+   prefetched — a fresh link is minted only on click). Reverted the URL-collapse grouping;
+   with distinct fixed-price tiers we show the three tier buttons again.
+
+`getShowPurchases` is unaffected — it matches COMPLETED payments by order line-item
+`catalog_object_id`, which the on-demand orders still carry.
+
+**Left as-is (harmless):** `syncShowToSquare` still creates 3 static per-tier links on
+first sync and stores them in `show_square_links`. In prod they're no longer the buyer's
+redirect target (only a dev fallback), so they're inert. Ripping that out touches the
+fragile create-once endpoint — deferred as optional cleanup.
+
+**Verification (do this on ONE show first — no Square Sandbox, live-only):**
+- Deploy; open a broken show's `/tickets`, click a tier, confirm Square shows a real
+  checkout (`/checkout/<id>`, NOT `/order/<id>` receipt).
+- Click the SAME tier again in a fresh session → a *different* link → still a live
+  checkout. That's the single-use bug actually fixed.
+- Then spot-check the other 6 shows.
 
 ## Sources
 
