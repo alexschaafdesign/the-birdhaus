@@ -39,6 +39,23 @@ RSVP (free)                              TICKET (optional, paid)
 - **Table** (`scripts/migrations/015_rsvps.sql`): `rsvps(id, show_id, name, email,
   guests, email_list_opt_in, confirmation_email_sent_at, created_at)`.
 
+**Mailchimp config (required for the opt-in sync):** the upsert needs
+`MAILCHIMP_API_KEY` (format `<key>-<datacenter>`) and `MAILCHIMP_AUDIENCE_ID` in the
+Vercel environment (Production + Preview). Because the sync is fire-and-forget, a
+missing/broken config drops opt-ins **silently** — the RSVP + confirmation email still
+succeed. This bit us once: the direct-to-Mailchimp sync shipped with the 2026-07-13
+Sheets→Postgres migration but its env vars were never set, so ~a month of opt-ins were
+swallowed before anyone noticed. Guards against a repeat:
+- The RSVP route logs a *distinct* `Mailchimp NOT CONFIGURED … opt-in DROPPED` line for
+  the missing-config case (vs. a generic API error), so it's greppable.
+- **`GET /api/health/mailchimp`** reports config presence and returns **503** when
+  unconfigured — point an uptime monitor at it. `?live=1` (admin session) also pings
+  Mailchimp to confirm the key + audience actually work.
+- The admin **Settings** page shows a green/red Mailchimp status card + the running
+  opt-in count.
+- One-off recovery: `scripts/backfill-mailchimp-optins.mjs` re-syncs every distinct
+  opted-in email (idempotent — same PUT the route uses).
+
 **The confirmation email** (`lib/rsvp-email.ts`) includes a **"Buy an advance ticket →"**
 button pointing at `show.ticketUrl`, and is explicit that an RSVP does *not* guarantee a
 spot — buying a ticket is how you lock it in.

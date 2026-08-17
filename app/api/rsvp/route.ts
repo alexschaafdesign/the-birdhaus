@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { sql } from '@/lib/db';
 import { getShowById } from '@/lib/shows';
 import { sendRsvpConfirmationEmail } from '@/lib/rsvp-email';
-import { upsertMailchimpSubscriber } from '@/lib/mailchimp';
+import { upsertMailchimpSubscriber, getMailchimpConfigStatus } from '@/lib/mailchimp';
 import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -71,9 +71,22 @@ export async function POST(request: Request) {
 
   // Non-blocking: a Mailchimp outage must never delay or fail the RSVP response.
   if (emailListOptIn) {
-    upsertMailchimpSubscriber({ email, name }).catch((err) => {
-      console.error('[rsvp] Mailchimp upsert failed:', err);
-    });
+    // Distinguish "never configured" from "API rejected the call" — otherwise a
+    // missing env var looks identical to a Mailchimp outage in the logs, and an
+    // opt-in silently going nowhere is invisible (this exact gap left a month of
+    // opt-ins unsynced). The health endpoint /api/health/mailchimp surfaces the
+    // same config state for monitoring.
+    const mc = getMailchimpConfigStatus();
+    if (!mc.configured) {
+      console.error(
+        `[rsvp] Mailchimp NOT CONFIGURED (apiKey=${mc.apiKeyPresent} audience=${mc.audiencePresent}) — ` +
+          `mailing-list opt-in DROPPED for ${email}. Set MAILCHIMP_API_KEY and MAILCHIMP_AUDIENCE_ID.`
+      );
+    } else {
+      upsertMailchimpSubscriber({ email, name }).catch((err) => {
+        console.error('[rsvp] Mailchimp upsert failed (API error):', err);
+      });
+    }
   }
 
   return NextResponse.json({ ok: true });
