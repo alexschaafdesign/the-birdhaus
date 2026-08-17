@@ -91,20 +91,44 @@ export default async function TicketsPage({ params }: { params: Promise<{ slug: 
         ) : (
           <div className="space-y-3">
             {tiers.map((tier) => (
-              // Plain <a> (not next/link) so the route handler isn't prefetched —
-              // each visit mints a fresh Square link, so we only want it on click.
-              <a
+              // A GET <form> (not next/link) so the route handler isn't prefetched —
+              // each submit mints a fresh Square link, so we only want it on click.
+              // The quantity <select> lets buyers cover their whole party in one
+              // checkout (Square's own page has no quantity field, so we set it here).
+              <form
                 key={tier.amountCents}
-                href={`/shows/${show.slug}/checkout?tier=${tier.amountCents}`}
+                action={`/shows/${show.slug}/checkout`}
+                method="GET"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center justify-between gap-4 border-2 border-[#E8E0D0]/20 rounded-lg px-6 py-4 bg-[#E8E0D0]/5 hover:bg-[#E8E0D0]/10 transition-colors"
               >
+                <input type="hidden" name="tier" value={tier.amountCents} />
                 <span className="font-bold">{tierName(tier.tierLabel)}</span>
-                <span className="text-lg font-bold whitespace-nowrap">
-                  {dollars(tier.amountCents)} →
-                </span>
-              </a>
+                <div className="flex items-center gap-3">
+                  <label className="flex items-center gap-1.5 text-sm text-[#E8E0D0]/70">
+                    <span className="uppercase tracking-wide">Qty</span>
+                    <select
+                      name="qty"
+                      defaultValue="1"
+                      aria-label={`Quantity for ${tierName(tier.tierLabel)}`}
+                      className="rounded-md border-2 border-[#E8E0D0]/20 bg-[#1a1a1a] text-[#E8E0D0] px-2 py-1 font-bold"
+                    >
+                      {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
+                        <option key={n} value={n}>
+                          {n}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <button
+                    type="submit"
+                    className="text-lg font-bold whitespace-nowrap hover:text-white transition-colors"
+                  >
+                    {dollars(tier.amountCents)} →
+                  </button>
+                </div>
+              </form>
             ))}
           </div>
         )}

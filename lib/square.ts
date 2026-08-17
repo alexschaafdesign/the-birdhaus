@@ -318,10 +318,15 @@ export type FreshPaymentLink = { url: string; paymentLinkId: string; orderId: st
 // Returns undefined when Square sync is disabled (dev); throws on API error.
 export async function createTierPaymentLink(
   variationId: string,
+  quantity = 1,
 ): Promise<FreshPaymentLink | undefined> {
   if (!isSquareSyncEnabled()) return;
   const token = requireEnv('SQUARE_ACCESS_TOKEN');
   const locationId = requireEnv('SQUARE_LOCATION_ID');
+  // Square's hosted checkout can't offer a quantity selector to the buyer, so the
+  // count is baked into the order here (chosen on our /tickets page). Clamp to a
+  // sane 1..10 — quantity doesn't affect getShowPurchases, which matches by variation.
+  const qty = Math.min(Math.max(Math.trunc(quantity) || 1, 1), 10);
   const res = await squareFetch<PaymentLinkResponse>(
     '/v2/online-checkout/payment-links',
     {
@@ -332,7 +337,7 @@ export async function createTierPaymentLink(
         idempotency_key: crypto.randomUUID(),
         order: {
           location_id: locationId,
-          line_items: [{ catalog_object_id: variationId, quantity: '1' }],
+          line_items: [{ catalog_object_id: variationId, quantity: String(qty) }],
         },
       }),
     },

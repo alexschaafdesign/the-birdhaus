@@ -15,10 +15,16 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request, { params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const amount = Number(new URL(request.url).searchParams.get('tier'));
+  const searchParams = new URL(request.url).searchParams;
+  const amount = Number(searchParams.get('tier'));
   if (!Number.isInteger(amount) || amount <= 0) {
     return NextResponse.json({ error: 'Invalid tier' }, { status: 400 });
   }
+  // Optional party size chosen on /tickets. Square's checkout page has no quantity
+  // field, so we bake it into the order. Clamp to 1..10 (createTierPaymentLink also
+  // clamps); default to 1 when absent or garbage.
+  const qtyRaw = Number(searchParams.get('qty'));
+  const quantity = Number.isInteger(qtyRaw) && qtyRaw > 0 ? Math.min(qtyRaw, 10) : 1;
 
   const [row] = await sql<{ variationId: string | null; url: string | null }[]>`
     select l.square_variation_id as "variationId", l.url
@@ -44,7 +50,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
   }
 
   try {
-    const link = await createTierPaymentLink(row.variationId);
+    const link = await createTierPaymentLink(row.variationId, quantity);
     if (!link) {
       return NextResponse.json({ error: 'Checkout unavailable' }, { status: 503 });
     }
