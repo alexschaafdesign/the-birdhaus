@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { getEventById } from '@/lib/song-club';
 import { getRsvpsForEvent } from '@/lib/song-club-rsvps';
+import SongClubRsvpBlast from '@/components/admin/SongClubRsvpBlast';
 
 export const metadata: Metadata = {
   title: 'RSVPs',
@@ -47,6 +48,8 @@ export default async function SongClubRsvpsPage({
           {totalGuests === 1 ? 'guest' : 'guests'}
         </p>
       </div>
+
+      <SongClubRsvpBlast eventId={event.id} eventTitle={event.title} rsvps={rsvps} />
 
       {rsvps.length === 0 ? (
         <p className="text-sm text-[#E8E0D0]/50">No RSVPs yet.</p>
