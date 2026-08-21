@@ -72,6 +72,8 @@ export default function RsvpSummary({
 
   const totalCount = rsvps.length;
   const totalGuests = rsvps.reduce((sum, r) => sum + r.guests, 0);
+  const arrivedCount = rsvps.filter((r) => r.arrived).length;
+  const paidCount = rsvps.filter((r) => r.paid).length;
   const uniqueEmails = new Set(
     rsvps.map((r) => r.email.trim().toLowerCase()).filter(Boolean)
   );
@@ -243,6 +245,25 @@ export default function RsvpSummary({
     }
   }
 
+  // Optimistically flip a door-list flag (arrived / paid), rolling back on failure.
+  async function toggleFlag(id: number, field: 'arrived' | 'paid', value: boolean) {
+    const previous = rsvps;
+    setRsvps((prev) => prev.map((r) => (r.id === id ? { ...r, [field]: value } : r)));
+    try {
+      const res = await fetch(`/api/admin/rsvps/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ [field]: value }),
+      });
+      if (!res.ok) throw new Error();
+      const updated = (await res.json().catch(() => null)) as Rsvp | null;
+      if (updated) setRsvps((prev) => prev.map((r) => (r.id === id ? updated : r)));
+    } catch {
+      setRsvps(previous);
+      setError('Failed to update — try again.');
+    }
+  }
+
   async function handleDelete(id: number) {
     if (!confirm('Remove this RSVP?')) return;
     const previous = rsvps;
@@ -311,6 +332,12 @@ export default function RsvpSummary({
         <div className="flex items-center gap-3">
           <span className="text-xs text-[#E8E0D0]/50">
             {totalCount} RSVP{totalCount === 1 ? '' : 's'} · {totalGuests} guest{totalGuests === 1 ? '' : 's'}
+            {arrivedCount > 0 && (
+              <> · <span className="text-sky-300/80">{arrivedCount} arrived</span></>
+            )}
+            {paidCount > 0 && (
+              <> · <span className="text-green-300/80">{paidCount} paid</span></>
+            )}
             {hasPurchases && (
               <>
                 {' '}·{' '}
@@ -583,6 +610,30 @@ export default function RsvpSummary({
                 <span>
                   {rsvp.guests} guest{rsvp.guests === 1 ? '' : 's'}
                 </span>
+                <button
+                  type="button"
+                  onClick={() => toggleFlag(rsvp.id, 'arrived', !rsvp.arrived)}
+                  aria-pressed={rsvp.arrived}
+                  className={`text-xs px-2.5 py-1 rounded-full border transition-colors whitespace-nowrap ${
+                    rsvp.arrived
+                      ? 'border-sky-400/50 bg-sky-400/10 text-sky-300'
+                      : 'border-[#E8E0D0]/25 text-[#E8E0D0]/50 hover:bg-[#E8E0D0]/10'
+                  }`}
+                >
+                  {rsvp.arrived ? '✓ Arrived' : 'Arrived'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => toggleFlag(rsvp.id, 'paid', !rsvp.paid)}
+                  aria-pressed={rsvp.paid}
+                  className={`text-xs px-2.5 py-1 rounded-full border transition-colors whitespace-nowrap ${
+                    rsvp.paid
+                      ? 'border-green-400/50 bg-green-400/10 text-green-300'
+                      : 'border-[#E8E0D0]/25 text-[#E8E0D0]/50 hover:bg-[#E8E0D0]/10'
+                  }`}
+                >
+                  {rsvp.paid ? '✓ Paid' : 'Paid'}
+                </button>
                 <span className="font-mono text-xs">{formatSubmittedAt(rsvp.created_at)}</span>
                 <button type="button" onClick={() => startEdit(rsvp)} className="text-[#E8E0D0]/80 hover:text-[#E8E0D0] underline">
                   Edit

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { deleteRsvp, updateRsvp } from '@/lib/rsvps';
+import { deleteRsvp, setRsvpArrived, setRsvpPaid, updateRsvp } from '@/lib/rsvps';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -22,6 +22,24 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   }
 
   const body = await request.json().catch(() => null);
+
+  // Door-list toggles: a body with just { arrived } or { paid } flips that one
+  // flag without touching the rest of the row (skips the name/email edit path).
+  if (typeof body?.arrived === 'boolean') {
+    const rsvp = await setRsvpArrived(rsvpId, body.arrived);
+    if (!rsvp) {
+      return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    }
+    return NextResponse.json(rsvp);
+  }
+  if (typeof body?.paid === 'boolean') {
+    const rsvp = await setRsvpPaid(rsvpId, body.paid);
+    if (!rsvp) {
+      return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    }
+    return NextResponse.json(rsvp);
+  }
+
   const name = nullableTrim(body?.name);
   const email = nullableTrim(body?.email);
   if (!name || !email || !EMAIL_REGEX.test(email)) {

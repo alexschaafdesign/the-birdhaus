@@ -7,9 +7,19 @@ export interface Rsvp {
   email: string;
   guests: number;
   email_list_opt_in: boolean;
+  arrived: boolean;
+  arrived_at: string | null;
+  paid: boolean;
+  paid_at: string | null;
   confirmation_email_sent_at: string | null;
   created_at: string;
 }
+
+// Shared column list so every read returns the full Rsvp shape.
+const RSVP_COLUMNS = sql`
+  id, show_id, name, email, guests, email_list_opt_in,
+  arrived, arrived_at, paid, paid_at, confirmation_email_sent_at, created_at
+`;
 
 export interface RsvpSummary {
   rsvps: Rsvp[];
@@ -19,7 +29,7 @@ export interface RsvpSummary {
 
 export async function getRsvpsForShow(showId: number): Promise<RsvpSummary> {
   const rsvps = await sql<Rsvp[]>`
-    select id, show_id, name, email, guests, email_list_opt_in, confirmation_email_sent_at, created_at
+    select ${RSVP_COLUMNS}
     from rsvps
     where show_id = ${showId}
     order by created_at desc
@@ -41,7 +51,7 @@ export async function createRsvp(input: {
   const [row] = await sql<Rsvp[]>`
     insert into rsvps (show_id, name, email, guests, email_list_opt_in)
     values (${input.showId}, ${input.name}, ${input.email}, ${input.guests}, ${input.emailListOptIn})
-    returning id, show_id, name, email, guests, email_list_opt_in, confirmation_email_sent_at, created_at
+    returning ${RSVP_COLUMNS}
   `;
   return row;
 }
@@ -54,7 +64,30 @@ export async function updateRsvp(
     update rsvps
     set name = ${input.name}, email = ${input.email}, guests = ${input.guests}, email_list_opt_in = ${input.emailListOptIn}
     where id = ${id}
-    returning id, show_id, name, email, guests, email_list_opt_in, confirmation_email_sent_at, created_at
+    returning ${RSVP_COLUMNS}
+  `;
+  return row ?? null;
+}
+
+// Door-list toggles: check someone in when they arrive, and mark them paid by
+// hand. Each stamps/clears an `_at` timestamp alongside the boolean so we know
+// when it happened. Return the updated row (null if the RSVP doesn't exist).
+export async function setRsvpArrived(id: number, arrived: boolean): Promise<Rsvp | null> {
+  const [row] = await sql<Rsvp[]>`
+    update rsvps
+    set arrived = ${arrived}, arrived_at = ${arrived ? sql`now()` : null}
+    where id = ${id}
+    returning ${RSVP_COLUMNS}
+  `;
+  return row ?? null;
+}
+
+export async function setRsvpPaid(id: number, paid: boolean): Promise<Rsvp | null> {
+  const [row] = await sql<Rsvp[]>`
+    update rsvps
+    set paid = ${paid}, paid_at = ${paid ? sql`now()` : null}
+    where id = ${id}
+    returning ${RSVP_COLUMNS}
   `;
   return row ?? null;
 }
