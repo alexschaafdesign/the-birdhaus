@@ -41,10 +41,20 @@ export async function generateMetadata({
   return { title: `Donate — ${show.title}`, robots: { index: false } };
 }
 
-export default async function TicketsPage({ params }: { params: Promise<{ slug: string }> }) {
+export default async function TicketsPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ slug: string }>;
+  searchParams: Promise<{ checkout_error?: string }>;
+}) {
   const { slug } = await params;
   const show = await getShowBySlug(slug);
   if (!show) notFound();
+
+  // Set when /checkout couldn't mint a Square link and bounced the buyer back
+  // here (the tier forms open in a new tab, so the banner lands in that tab).
+  const { checkout_error: checkoutError } = await searchParams;
 
   const links = await sql<TierLink[]>`
     select tier_label as "tierLabel", amount_cents as "amountCents",
@@ -77,6 +87,19 @@ export default async function TicketsPage({ params }: { params: Promise<{ slug: 
 
         <h1 className="text-3xl md:text-4xl font-bold mb-2 leading-tight">{show.title}</h1>
         <p className="text-sm text-[#E8E0D0]/70 mb-8">{formattedDate}</p>
+
+        {checkoutError ? (
+          <div
+            role="alert"
+            className="mb-6 border-2 border-amber-400/40 bg-amber-400/10 rounded-lg px-5 py-4 text-sm"
+          >
+            <p className="font-bold mb-1">Sorry — we couldn&apos;t start checkout just now.</p>
+            <p className="text-[#E8E0D0]/80">
+              It&apos;s not you. Please try again in a minute, or just pay at the door — cash,
+              Venmo, and card all work. We&apos;ve been notified and are on it.
+            </p>
+          </div>
+        ) : null}
 
         <h2 className="text-xl font-bold mb-2">Choose your donation</h2>
         <p className="text-sm text-[#E8E0D0]/70 mb-6 max-w-prose">

@@ -348,6 +348,39 @@ export async function createTierPaymentLink(
   return { url: link.url, paymentLinkId: link.id, orderId: link.order_id ?? null };
 }
 
+// Delete a payment link (also cancels its draft order). Used by the checkout
+// canary so daily test links don't accumulate in Square. No-op when sync is
+// disabled — there's nothing live to delete.
+export async function deletePaymentLink(paymentLinkId: string): Promise<void> {
+  if (!isSquareSyncEnabled()) return;
+  const token = requireEnv('SQUARE_ACCESS_TOKEN');
+  await squareFetch<Record<string, never>>(
+    `/v2/online-checkout/payment-links/${encodeURIComponent(paymentLinkId)}`,
+    { method: 'DELETE' },
+    token,
+  );
+}
+
+export type RetrievedOrderLine = { catalogObjectId: string | null; quantity: number };
+
+// Retrieve one order's line items — the webhook uses this to map a payment back
+// to a show via the line items' catalog variation ids. Read-only, so it doesn't
+// check SQUARE_SYNC_ENABLED (same as getShowPurchases). Throws on API error so
+// the webhook can 500 and let Square retry.
+export async function retrieveOrderLines(orderId: string): Promise<RetrievedOrderLine[]> {
+  const token = requireEnv('SQUARE_ACCESS_TOKEN');
+  const data = await squareFetch<{ order?: { line_items?: { catalog_object_id?: string; quantity?: string }[] } }>(
+    `/v2/orders/${encodeURIComponent(orderId)}`,
+    { method: 'GET' },
+    token,
+  );
+  return (data.order?.line_items ?? []).map((li) => ({
+    catalogObjectId: li.catalog_object_id ?? null,
+    // Square sends quantity as a string; clamp garbage to 1.
+    quantity: Math.max(1, Math.trunc(Number(li.quantity)) || 1),
+  }));
+}
+
 export type ShowPurchase = {
   email: string | null;
   amountCents: number;
