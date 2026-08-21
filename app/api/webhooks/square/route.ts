@@ -108,6 +108,15 @@ export async function POST(request: Request) {
       }
     }
   } catch (err) {
+    // Permanent failures — an order we can never fetch (Square's "Send test
+    // event" uses a canned order from a different merchant → 403; a deleted or
+    // bogus order → 404). Retrying cannot succeed, so ACK instead of making
+    // Square hammer us for 24h. squareFetch encodes the status in its message.
+    const msg = String(err);
+    if (msg.includes('failed: 403') || msg.includes('failed: 404')) {
+      console.warn(`[square-webhook] order ${payment.order_id} unfetchable (permanent) — ignoring`, err);
+      return NextResponse.json({ ok: true, ignored: true });
+    }
     console.error(`[square-webhook] order retrieve failed for payment ${payment.id}`, err);
     return NextResponse.json({ error: 'Order retrieve failed' }, { status: 500 });
   }
