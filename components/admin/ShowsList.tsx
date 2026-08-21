@@ -27,6 +27,8 @@ export interface ShowListItem {
   bands_paid_count?: number;
   bands_with_video_count?: number;
   bands_missing_inputs?: number;
+  tickets_sold?: number;
+  revenue_cents?: number;
 }
 
 interface Issue {
@@ -606,6 +608,13 @@ function ShowGroup({
                     <span className="text-xs px-2 py-0.5 rounded-full border border-[#E8E0D0]/30 text-[#E8E0D0]/60 whitespace-nowrap">
                       {show.rsvp_count} RSVP{show.rsvp_count === 1 ? '' : 's'} · {show.guest_count} guest
                       {show.guest_count === 1 ? '' : 's'}
+                    </span>
+                  )}
+                  {!!show.tickets_sold && (
+                    // Advance ticket sales recorded by the Square webhook/backfill.
+                    <span className="text-xs px-2 py-0.5 rounded-full border border-amber-400/40 text-amber-300 whitespace-nowrap">
+                      {show.tickets_sold} ticket{show.tickets_sold === 1 ? '' : 's'} · $
+                      {Math.round((show.revenue_cents ?? 0) / 100)}
                     </span>
                   )}
                   {clusters.map((cluster, clusterIndex) => (

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { sql } from '@/lib/db';
+import { claimAlertSlot, sendAdminAlertEmail } from '@/lib/alerts';
 import { createTierPaymentLink, isSquareSyncEnabled } from '@/lib/square';
 
 // On-demand Square checkout. Square API payment links are single-use — a stored
@@ -45,18 +46,40 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
     return NextResponse.json({ error: 'Checkout unavailable' }, { status: 503 });
   }
 
+  // Buyer-facing failures land back on the tickets page with a friendly banner
+  // (never raw JSON — a real person clicked this).
+  const errorRedirect = () =>
+    NextResponse.redirect(new URL(`/shows/${slug}/tickets?checkout_error=1`, request.url), 302);
+
   if (!row.variationId) {
-    return NextResponse.json({ error: 'Checkout unavailable for this tier' }, { status: 503 });
+    return errorRedirect();
   }
 
   try {
     const link = await createTierPaymentLink(row.variationId, quantity);
     if (!link) {
-      return NextResponse.json({ error: 'Checkout unavailable' }, { status: 503 });
+      return errorRedirect();
     }
     return NextResponse.redirect(link.url, 302);
   } catch (err) {
     console.error(`[square] on-demand checkout failed for ${slug} tier ${amount}`, err);
-    return NextResponse.json({ error: 'Could not start checkout' }, { status: 502 });
+    // Alert the admin (max one email/hour across all lambdas) — a mint failure
+    // here means a real buyer just couldn't buy. Alerting must never mask the
+    // buyer-facing redirect, so it gets its own try/catch.
+    try {
+      if (await claimAlertSlot('checkout-mint-failure')) {
+        await sendAdminAlertEmail(`Checkout is failing: could not mint Square link (${slug})`, [
+          `Show: ${slug}`,
+          `Tier: ${amount}¢ · qty ${quantity}`,
+          `Error: ${String(err)}`,
+          '',
+          'A buyer just hit this. Check Square status and SQUARE_ACCESS_TOKEN.',
+          'The daily canary cron may fire too. Throttled to one of these emails per hour.',
+        ]);
+      }
+    } catch (alertErr) {
+      console.error('[square] mint-failure alert failed', alertErr);
+    }
+    return errorRedirect();
   }
 }

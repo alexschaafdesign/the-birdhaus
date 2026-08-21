@@ -18,7 +18,9 @@ async function getShows(): Promise<ShowListItem[]> {
       st.photographer_name,
       coalesce(bp.bands_paid_count, 0)::int as bands_paid_count,
       coalesce(vc.bands_with_video_count, 0)::int as bands_with_video_count,
-      coalesce(ii.bands_missing_inputs, 0)::int as bands_missing_inputs
+      coalesce(ii.bands_missing_inputs, 0)::int as bands_missing_inputs,
+      coalesce(tp.tickets_sold, 0)::int as tickets_sold,
+      coalesce(tp.revenue_cents, 0)::int as revenue_cents
     from shows s
     left join (
       select show_id, count(*) as band_count
@@ -58,6 +60,13 @@ async function getShows(): Promise<ShowListItem[]> {
         )
       group by sb.show_id
     ) ii on ii.show_id = s.id
+    left join (
+      -- Advance ticket sales recorded by the Square webhook / backfill.
+      select show_id, sum(quantity) as tickets_sold, sum(amount_cents) as revenue_cents
+      from ticket_purchases
+      where status = 'completed' and show_id is not null
+      group by show_id
+    ) tp on tp.show_id = s.id
     order by s.date desc
   `;
   return rows;
