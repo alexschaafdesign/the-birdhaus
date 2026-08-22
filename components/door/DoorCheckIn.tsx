@@ -106,6 +106,16 @@ export default function DoorCheckIn({ token, data }: { token: string; data: Door
 
   return (
     <main className="min-h-screen bg-[#171412] text-[#E8E0D0]">
+      {/* Big loud call-to-action so no one walks past the iPad */}
+      <div className="bg-[#c8a26a] text-[#171412] text-center px-5 py-6">
+        <div className="text-3xl sm:text-5xl font-extrabold tracking-tight leading-none">
+          👋 Check in for the show!
+        </div>
+        <div className="text-sm sm:text-lg font-semibold mt-2">
+          Tap your name below — or “Didn’t RSVP?” if you just walked in
+        </div>
+      </div>
+
       {/* Sticky header with the live show total */}
       <header className="sticky top-0 z-10 bg-[#171412]/95 backdrop-blur border-b border-[#E8E0D0]/10 px-5 py-4">
         <div className="max-w-3xl mx-auto flex items-end justify-between gap-4">

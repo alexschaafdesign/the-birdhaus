@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 
 export default function AdminBanner({ isAdmin }: { isAdmin: boolean }) {
   const pathname = usePathname();
-  if (!isAdmin || pathname.startsWith('/admin')) return null;
+  if (!isAdmin || pathname.startsWith('/admin') || pathname.startsWith('/door')) return null;
 
   return (
     <div className="sticky top-0 z-50 bg-yellow-500 px-4 py-1.5 text-center text-xs font-bold uppercase tracking-widest text-black">
