@@ -31,6 +31,17 @@ export default async function SettlementPage({ params }: { params: Promise<{ id:
   const includedBands = bands.filter((b) => !b.excluded);
   const payoutBandCount = includedBands.length;
 
+  // Sound-engineer photos keyed by lowercased name. The settlement's engineer
+  // payee is free text (settlements.sound_engineer_name), so we match it back to
+  // the registry by name to show the engineer's avatar on the sheet.
+  const engineerRows = await sql<{ name: string; photo: string | null }[]>`
+    select name, photo from sound_engineers where photo is not null
+  `;
+  const soundEngineerPhotos: Record<string, string> = {};
+  for (const row of engineerRows) {
+    if (row.photo) soundEngineerPhotos[row.name.trim().toLowerCase()] = row.photo;
+  }
+
   // Live advance ticket-sales total from Square (matched RSVP purchases + any
   // unmatched buyers), same figure the RSVP admin shows. Best-effort: 0 when
   // Square is off or the show was never synced. Used to pre-fill the Square income
@@ -99,6 +110,7 @@ export default async function SettlementPage({ params }: { params: Promise<{ id:
         bands={bands}
         initialValues={initialValues}
         advanceTicketSalesDollars={advanceTicketSalesDollars}
+        soundEngineerPhotos={soundEngineerPhotos}
       />
     </div>
   );

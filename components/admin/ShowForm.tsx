@@ -931,7 +931,16 @@ export default function ShowForm({
                   className={`${inputClass} w-full`}
                 />
                 {engineer.soundEngineerId && (
-                  <p className="text-xs text-green-400/70 mt-1">🔗 Linked to existing engineer</p>
+                  <p className="mt-1 flex items-center gap-1.5 text-xs text-green-400/70">
+                    <span>Linked to existing engineer</span>
+                    <Link
+                      href={`/admin/sound-engineers/${engineer.soundEngineerId}`}
+                      target="_blank"
+                      className="text-[#E8E0D0]/60 underline decoration-dotted underline-offset-2 hover:text-[#E8E0D0]"
+                    >
+                      view profile ↗
+                    </Link>
+                  </p>
                 )}
               </div>
               <select

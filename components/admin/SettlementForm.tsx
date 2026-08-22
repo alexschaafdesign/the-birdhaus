@@ -372,6 +372,9 @@ interface SettlementFormProps {
   // Live advance ticket-sales total (dollars) from Square, or null when there are
   // none. Used to pre-fill Square income and offer a one-click "apply" re-sync.
   advanceTicketSalesDollars?: number | null;
+  // Sound-engineer photo URLs keyed by lowercased name, so the engineer payee
+  // field can show an avatar for whichever registered engineer is entered.
+  soundEngineerPhotos?: Record<string, string>;
 }
 
 type FormState = {
@@ -406,6 +409,7 @@ export default function SettlementForm({
   bands: initialBands,
   initialValues,
   advanceTicketSalesDollars = null,
+  soundEngineerPhotos = {},
 }: SettlementFormProps) {
   const router = useRouter();
   const [form, setForm] = useState<FormState>(() => toFormState(initialValues ?? DEFAULT_SETTLEMENT_VALUES));
@@ -818,6 +822,12 @@ export default function SettlementForm({
                     const label = VENUE_EXPENSE_FIELDS.find((f) => f.key === key)?.label ?? key;
                     const payee = PAYEE_EXPENSE_FIELDS.find((p) => p.amountKey === key);
                     const feeLink = FEE_INCOME_FIELDS.find((f) => f.feeKey === key);
+                    // Avatar for the sound-engineer payee when the entered name
+                    // matches a registered engineer with a photo.
+                    const engineerPhoto =
+                      payee?.nameKey === 'soundEngineerName'
+                        ? soundEngineerPhotos[(form.soundEngineerName || '').trim().toLowerCase()]
+                        : undefined;
                     return (
                       <MoneyField
                         key={key}
@@ -843,13 +853,25 @@ export default function SettlementForm({
                                 />
                                 Paid
                               </label>
-                              <PayeeNameInput
-                                role={payee.nameKey}
-                                placeholder="Paid to"
-                                value={form[payee.nameKey]}
-                                onChange={(value) => set(payee.nameKey, value)}
-                                className={`${inputClass} w-full border-l-2 border-l-[#E8E0D0]/20`}
-                              />
+                              <div className="flex items-center gap-2">
+                                {engineerPhoto && (
+                                  // eslint-disable-next-line @next/next/no-img-element
+                                  <img
+                                    src={engineerPhoto}
+                                    alt=""
+                                    className="h-8 w-8 shrink-0 rounded-full object-cover"
+                                  />
+                                )}
+                                <div className="min-w-0 flex-1">
+                                  <PayeeNameInput
+                                    role={payee.nameKey}
+                                    placeholder="Paid to"
+                                    value={form[payee.nameKey]}
+                                    onChange={(value) => set(payee.nameKey, value)}
+                                    className={`${inputClass} w-full border-l-2 border-l-[#E8E0D0]/20`}
+                                  />
+                                </div>
+                              </div>
                             </div>
                           )
                         }
