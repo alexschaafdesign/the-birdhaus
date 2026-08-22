@@ -119,7 +119,7 @@ export default function DoorCheckIn({ token, data }: { token: string; data: Door
       {/* Big loud call-to-action so no one walks past the iPad */}
       <div className="bg-[#c8a26a] text-[#171412] text-center px-5 py-6">
         <div className="text-3xl sm:text-5xl font-extrabold tracking-tight leading-none">
-          👋 Check in for the show!
+          Check in for the show!
         </div>
         <div className="text-sm sm:text-lg font-semibold mt-2">
           Tap your name below — or “Didn’t RSVP?” if you just walked in
@@ -170,8 +170,10 @@ export default function DoorCheckIn({ token, data }: { token: string; data: Door
         {/* Walk-in tally — for anyone who didn't RSVP. No name needed. */}
         <section className="border border-[#c8a26a]/40 bg-[#c8a26a]/[0.06] rounded-2xl px-5 py-4 flex items-center justify-between gap-4">
           <div className="min-w-0">
-            <div className="text-lg font-semibold">Didn’t RSVP?</div>
-            <div className="text-sm text-[#E8E0D0]/55">Tap the + for each person</div>
+            <div className="text-xl sm:text-2xl font-semibold">Didn’t RSVP?</div>
+            <div className="text-base sm:text-lg text-[#E8E0D0]/70">
+              Tap the + for each person so that we can keep track of attendance
+            </div>
           </div>
           <div className="flex items-center gap-4">
             <button
