@@ -42,8 +42,8 @@ export type SettlementValues = {
 } & Record<NumericField, number>;
 
 export const DEFAULT_SETTLEMENT_VALUES: SettlementValues = {
-  dealType: 'straight_split',
-  dealThreshold: 0,
+  dealType: 'venue_guarantee_then_split',
+  dealThreshold: 100,
   artistSplitPct: 75,
   venueRedirectPct: 0,
   incomeSquare: 0,

@@ -31,29 +31,78 @@ const ACCENT = {
   neutral: 'bg-[#E8E0D0]/50',
   income: 'bg-emerald-400',
   expense: 'bg-amber-400',
+  band: 'bg-purple-400',
+} as const;
+
+// Background/border for the whole card when `tint` is set — a wash of the accent
+// color; otherwise the neutral panel style.
+const TINT = {
+  neutral: 'border-[#E8E0D0]/15 bg-[#E8E0D0]/[0.03]',
+  income: 'border-emerald-400/20 bg-emerald-400/[0.04]',
+  expense: 'border-amber-400/20 bg-amber-400/[0.05]',
+  band: 'border-purple-400/20 bg-purple-400/[0.05]',
 } as const;
 
 function SectionCard({
   title,
   accent = 'neutral',
   action,
+  summary,
+  tint = false,
+  collapsible = false,
+  defaultCollapsed = false,
   children,
 }: {
   title: string;
   accent?: keyof typeof ACCENT;
   action?: ReactNode;
+  // Shown next to the title while collapsed, for an at-a-glance read.
+  summary?: ReactNode;
+  // Wash the whole card in the accent color.
+  tint?: boolean;
+  collapsible?: boolean;
+  defaultCollapsed?: boolean;
   children: ReactNode;
 }) {
+  const [collapsed, setCollapsed] = useState(defaultCollapsed);
+  const showBody = !collapsible || !collapsed;
   return (
-    <div className="rounded-lg border border-[#E8E0D0]/15 bg-[#E8E0D0]/[0.03] p-4">
-      <div className="flex items-center justify-between mb-3">
-        <h2 className="flex items-center gap-2 text-sm font-semibold text-[#E8E0D0]/80">
-          <span className={`h-1.5 w-1.5 rounded-full ${ACCENT[accent]}`} />
-          {title}
-        </h2>
+    <div className={`rounded-lg border p-4 ${tint ? TINT[accent] : TINT.neutral}`}>
+      <div className={`flex items-center justify-between gap-3 ${showBody ? 'mb-3' : ''}`}>
+        {collapsible ? (
+          <button
+            type="button"
+            onClick={() => setCollapsed((c) => !c)}
+            className="group flex min-w-0 flex-1 items-center gap-3 text-left"
+          >
+            <span className="flex shrink-0 items-center gap-2 text-sm font-semibold text-[#E8E0D0]/80 group-hover:text-[#E8E0D0]">
+              <span className={`h-1.5 w-1.5 rounded-full ${ACCENT[accent]}`} />
+              {title}
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                className={`text-[#E8E0D0]/50 transition-transform ${collapsed ? '' : 'rotate-180'}`}
+              >
+                <path d="m6 9 6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </span>
+            {collapsed && summary != null && (
+              <span className="truncate text-xs text-[#E8E0D0]/50">{summary}</span>
+            )}
+          </button>
+        ) : (
+          <h2 className="flex items-center gap-2 text-sm font-semibold text-[#E8E0D0]/80">
+            <span className={`h-1.5 w-1.5 rounded-full ${ACCENT[accent]}`} />
+            {title}
+          </h2>
+        )}
         {action}
       </div>
-      {children}
+      {showBody && children}
     </div>
   );
 }
@@ -77,6 +126,238 @@ function Field({
     </div>
   );
 }
+
+// Small inline icons used to label money rows so the sheet is quick to scan.
+// Square/Venmo are approximated brand marks; the rest are generic line icons
+// (stroke = currentColor, colored by the wrapper in FIELD_ICON).
+function Icon({ name, className = 'h-[18px] w-[18px]' }: { name: string; className?: string }) {
+  const svg = { width: 16, height: 16, viewBox: '0 0 24 24', className, 'aria-hidden': true } as const;
+  const line = { ...svg, fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round' } as const;
+  switch (name) {
+    case 'square':
+      return (
+        <svg {...svg} fill="none" stroke="currentColor" strokeWidth={1.8}>
+          <rect x="4" y="4" width="16" height="16" rx="4" />
+          <rect x="9.5" y="9.5" width="5" height="5" rx="1" />
+        </svg>
+      );
+    case 'venmo':
+      return (
+        <svg {...svg}>
+          <rect width="24" height="24" rx="5.5" fill="#008CFF" />
+          <path d="M8 7.5 12 16.5 16 7.5" fill="none" stroke="#fff" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      );
+    case 'cash':
+      return (
+        <svg {...line}>
+          <rect x="2.5" y="6" width="19" height="12" rx="2" />
+          <circle cx="12" cy="12" r="2.5" />
+          <path d="M6 9.5v5M18 9.5v5" />
+        </svg>
+      );
+    case 'cup':
+      return (
+        <svg {...line}>
+          <path d="M6 8h12l-1.2 11.2A2 2 0 0 1 14.8 21H9.2a2 2 0 0 1-2-1.8L6 8Z" />
+          <path d="M5 8h14" />
+        </svg>
+      );
+    case 'sound':
+      return (
+        <svg {...line}>
+          <path d="M4 9v6h4l5 4V5L8 9H4Z" />
+          <path d="M16.5 8.5a5 5 0 0 1 0 7" />
+        </svg>
+      );
+    case 'camera':
+      return (
+        <svg {...line}>
+          <path d="M8 7 9.5 4.5h5L16 7" />
+          <rect x="3" y="7" width="18" height="13" rx="2" />
+          <circle cx="12" cy="13.5" r="3.5" />
+        </svg>
+      );
+    case 'door':
+      return (
+        <svg {...line}>
+          <path d="M6 21V4a1 1 0 0 1 1-1h8a1 1 0 0 1 1 1v17" />
+          <path d="M4 21h16" />
+          <circle cx="13" cy="12" r="0.9" fill="currentColor" stroke="none" />
+        </svg>
+      );
+    case 'print':
+      return (
+        <svg {...line}>
+          <rect x="3" y="5" width="18" height="14" rx="2" />
+          <path d="M7 9h6M7 12.5h6M7 16h4M16 9h1.5M16 12.5h1.5" />
+        </svg>
+      );
+    case 'online':
+      return (
+        <svg {...line}>
+          <rect x="3" y="4" width="18" height="12" rx="2" />
+          <path d="M8 20h8M12 16v4" />
+        </svg>
+      );
+    case 'snacks':
+      return (
+        <svg {...line}>
+          <path d="M6.5 8h11l-1 11.2A2 2 0 0 1 14.5 21h-5a2 2 0 0 1-2-1.8L6.5 8Z" />
+          <path d="M9 8a3 3 0 0 1 6 0" />
+        </svg>
+      );
+    case 'beer':
+      return (
+        <svg {...line}>
+          <path d="M6 8h9v11a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V8Z" />
+          <path d="M15 10h2a2 2 0 0 1 2 2v2a2 2 0 0 1-2 2h-2" />
+          <path d="M8 5v2M11.5 5v2" />
+        </svg>
+      );
+    default:
+      return null;
+  }
+}
+
+// Maps each money field to a colored, scannable icon. Payment methods keep a
+// consistent color everywhere they appear (income + fees); category icons are neutral.
+const FIELD_ICON: Partial<Record<NumericField, ReactNode>> = {
+  incomeSquare: <span className="text-[#E8E0D0]/85"><Icon name="square" /></span>,
+  incomeVenmo: <Icon name="venmo" />,
+  incomeCash: <span className="text-emerald-400/80"><Icon name="cash" /></span>,
+  beverageIncomeVenmo: <Icon name="venmo" />,
+  beverageIncomeCash: <span className="text-emerald-400/80"><Icon name="cash" /></span>,
+  expSquareFees: <span className="text-[#E8E0D0]/85"><Icon name="square" /></span>,
+  expVenmoFees: <Icon name="venmo" />,
+  expSoundEngineer: <span className="text-[#E8E0D0]/45"><Icon name="sound" /></span>,
+  expPhotos: <span className="text-[#E8E0D0]/45"><Icon name="camera" /></span>,
+  expDoorPerson: <span className="text-[#E8E0D0]/45"><Icon name="door" /></span>,
+  expAdPrint: <span className="text-[#E8E0D0]/45"><Icon name="print" /></span>,
+  expAdOnline: <span className="text-[#E8E0D0]/45"><Icon name="online" /></span>,
+  expSnacks: <span className="text-[#E8E0D0]/45"><Icon name="snacks" /></span>,
+  expBeer: <span className="text-[#E8E0D0]/45"><Icon name="beer" /></span>,
+};
+
+// Compact one-line money input: icon + label on the left, a narrow $-prefixed
+// number field on the right. `footer` renders below (payee/paid, hints).
+function MoneyField({
+  icon,
+  label,
+  badge,
+  value,
+  onChange,
+  disabled,
+  footer,
+}: {
+  icon?: ReactNode;
+  label: string;
+  badge?: ReactNode;
+  value: string;
+  onChange: (value: string) => void;
+  disabled?: boolean;
+  footer?: ReactNode;
+}) {
+  return (
+    <div className="rounded-lg bg-black/10 p-3">
+      <div className="flex items-center gap-2">
+        {icon && <span className="flex h-[18px] w-[18px] shrink-0 items-center justify-center">{icon}</span>}
+        <span className="flex min-w-0 flex-1 items-center gap-1.5 text-sm text-[#E8E0D0]/80">
+          <span className="truncate">{label}</span>
+          {badge}
+        </span>
+      </div>
+      <div className="relative mt-2 w-32">
+        <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-sm text-[#E8E0D0]/40">$</span>
+        <input
+          type="number"
+          step="0.01"
+          inputMode="decimal"
+          disabled={disabled}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className={`${numberInputClass} w-full pl-6 pr-3 text-right`}
+        />
+      </div>
+      {footer}
+    </div>
+  );
+}
+
+// A labeled sub-group rendered as a solid bordered panel, optionally
+// collapsible. The header always shows the group's running total on the right
+// so nothing is hidden when collapsed.
+function SubGroup({
+  title,
+  summary,
+  collapsible = false,
+  defaultCollapsed = false,
+  children,
+}: {
+  title: string;
+  summary?: ReactNode;
+  collapsible?: boolean;
+  defaultCollapsed?: boolean;
+  children: ReactNode;
+}) {
+  const [collapsed, setCollapsed] = useState(defaultCollapsed);
+  const show = !collapsible || !collapsed;
+  const header = (
+    <>
+      <span className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-[#E8E0D0]/70">
+        {collapsible && (
+          <svg
+            width="12"
+            height="12"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.5"
+            className={`text-[#E8E0D0]/50 transition-transform ${collapsed ? '-rotate-90' : ''}`}
+          >
+            <path d="m6 9 6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        )}
+        {title}
+      </span>
+      {summary != null && <span className="text-xs tabular-nums text-[#E8E0D0]/45">{summary}</span>}
+    </>
+  );
+  return (
+    <div className="overflow-hidden rounded-lg border border-[#E8E0D0]/10 bg-black/20">
+      {collapsible ? (
+        <button
+          type="button"
+          onClick={() => setCollapsed((c) => !c)}
+          className={`flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left transition-colors hover:bg-[#E8E0D0]/[0.04] ${
+            show ? 'border-b border-[#E8E0D0]/10' : ''
+          }`}
+        >
+          {header}
+        </button>
+      ) : (
+        <div className="flex items-center justify-between gap-2 border-b border-[#E8E0D0]/10 px-3 py-2.5">
+          {header}
+        </div>
+      )}
+      {show && <div className="p-3">{children}</div>}
+    </div>
+  );
+}
+
+// Visual grouping of the venue expense fields. Advertising is collapsed by
+// default since it's the rarest.
+const EXPENSE_GROUPS: Array<{
+  title: string;
+  keys: NumericField[];
+  collapsible?: boolean;
+  defaultCollapsed?: boolean;
+}> = [
+  { title: 'Crew payments', keys: ['expSoundEngineer', 'expPhotos', 'expDoorPerson'], collapsible: true },
+  { title: 'Payment fees', keys: ['expSquareFees', 'expVenmoFees'], collapsible: true, defaultCollapsed: true },
+  { title: 'Advertising', keys: ['expAdPrint', 'expAdOnline'], collapsible: true, defaultCollapsed: true },
+  { title: 'Concessions', keys: ['expSnacks', 'expBeer'], collapsible: true },
+];
 
 interface FormExtraLineItem {
   type: 'income' | 'expense';
@@ -305,6 +586,17 @@ export default function SettlementForm({
     return computeSettlementSummary(values, payoutBandCount, includedOverrides);
   }, [form, payoutBandCount, bands]);
 
+  // At-a-glance deal terms shown in the collapsed section header.
+  const isGuarantee = form.dealType === 'venue_guarantee_then_split';
+  const dealSummary = [
+    isGuarantee ? 'Venue guarantee, then split' : 'Straight split',
+    `${Number(form.artistSplitPct) || 0}% artists`,
+    isGuarantee ? `${formatCurrency(Number(form.dealThreshold) || 0)} guarantee` : null,
+    Number(form.venueRedirectPct) > 0 ? `${Number(form.venueRedirectPct)}% redirect` : null,
+  ]
+    .filter(Boolean)
+    .join(' · ');
+
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
@@ -346,7 +638,7 @@ export default function SettlementForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <form onSubmit={handleSubmit} className="space-y-4">
       {error && (
         <div className="border border-red-400/40 bg-red-400/10 text-red-300 text-sm rounded px-4 py-2 flex justify-between items-center">
           <span>{error}</span>
@@ -356,7 +648,62 @@ export default function SettlementForm({
         </div>
       )}
 
-      <SectionCard title="Deal terms">
+      <div className="rounded-lg border border-[#E8E0D0]/25 bg-[#E8E0D0]/[0.06] p-4 shadow-[0_0_0_1px_rgba(232,224,208,0.03)]">
+        <h2 className="text-sm font-semibold text-[#E8E0D0]/90 mb-3">Summary</h2>
+        <dl className="grid gap-x-6 gap-y-1.5 sm:grid-cols-2 text-sm">
+          <div className="flex justify-between">
+            <dt className="text-emerald-300/70">Total income</dt>
+            <dd className="text-emerald-300/90">{formatCurrency(summary.totalIncome)}</dd>
+          </div>
+          <div className="flex justify-between">
+            <dt className="text-[#E8E0D0]/60">Artist pool</dt>
+            <dd>{formatCurrency(summary.artistPool)}</dd>
+          </div>
+          <div className="flex justify-between">
+            <dt className="text-[#E8E0D0]/60">Per band ({payoutBandCount})</dt>
+            <dd>{formatCurrency(summary.perBand)}</dd>
+          </div>
+          {summary.bandPayoutSavings !== 0 && (
+            <div className="flex justify-between">
+              <dt className="text-[#E8E0D0]/60">
+                {summary.bandPayoutSavings > 0 ? 'Kept from band payouts' : 'Extra paid to bands'}
+              </dt>
+              <dd className={summary.bandPayoutSavings > 0 ? 'text-emerald-300/90' : 'text-amber-300/90'}>
+                {summary.bandPayoutSavings > 0 ? '+' : '−'}
+                {formatCurrency(Math.abs(summary.bandPayoutSavings))}
+              </dd>
+            </div>
+          )}
+          <div className="flex justify-between">
+            <dt className="text-amber-300/70">Total expenses</dt>
+            <dd className="text-amber-300/90">{formatCurrency(summary.totalExpenses)}</dd>
+          </div>
+          <div className="flex justify-between">
+            <dt className="text-[#E8E0D0]/60">Venue split</dt>
+            <dd>{formatCurrency(summary.venueSplit)}</dd>
+          </div>
+          <div className="flex justify-between">
+            <dt className="text-emerald-300/70">Venue additional income</dt>
+            <dd className="text-emerald-300/90">{formatCurrency(summary.venueAdditionalIncome)}</dd>
+          </div>
+          {summary.venueRedirect !== 0 && (
+            <div className="flex justify-between">
+              <dt className="text-amber-300/70">Venue redirect ({formatPct(Number(form.venueRedirectPct) || 0)}%)</dt>
+              <dd className="text-amber-300/90">−{formatCurrency(summary.venueRedirect)}</dd>
+            </div>
+          )}
+        </dl>
+        <div
+          className={`mt-3 flex justify-between items-center rounded-md px-3 py-2 font-semibold ${
+            summary.venueNet >= 0 ? 'bg-emerald-400/10 text-emerald-300' : 'bg-rose-400/10 text-rose-300'
+          }`}
+        >
+          <span>Venue net</span>
+          <span className="text-base">{formatCurrency(summary.venueNet)}</span>
+        </div>
+      </div>
+
+      <SectionCard title="Deal terms" collapsible defaultCollapsed summary={dealSummary}>
         <div className="grid gap-3 sm:grid-cols-3">
           <Field label="Deal type">
             <select
@@ -402,94 +749,121 @@ export default function SettlementForm({
         </div>
       </SectionCard>
 
-      <SectionCard title="Show Income" accent="income">
-        <div className="grid gap-3 sm:grid-cols-3">
+      <SectionCard title="Show Income" accent="income" tint>
+        <div className="grid gap-2 [grid-template-columns:repeat(auto-fit,minmax(200px,1fr))]">
           {SHOW_INCOME_FIELDS.map(({ key, label }) => {
             const showAdvanceHint = key === 'incomeSquare' && advanceTicketSalesDollars != null;
             const advanceMatches =
               advanceTicketSalesDollars != null &&
               Number(form.incomeSquare) === advanceTicketSalesDollars;
             return (
-              <Field key={key} label={label}>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={form[key]}
-                  onChange={(e) => setIncome(key, e.target.value)}
-                  className={`${numberInputClass} w-full`}
-                />
-                {showAdvanceHint && (
-                  <p className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-[#E8E0D0]/40">
-                    <span>Advance sales: {formatCurrency(advanceTicketSalesDollars!)}</span>
-                    {advanceMatches ? (
-                      <span className="text-emerald-400/70">✓</span>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => setIncome('incomeSquare', advanceTicketSalesDollars!.toFixed(2))}
-                        className="text-[#E8E0D0]/70 underline decoration-dotted underline-offset-2 hover:text-[#E8E0D0]"
-                      >
-                        apply
-                      </button>
-                    )}
-                  </p>
-                )}
-              </Field>
-            );
-          })}
-        </div>
-      </SectionCard>
-
-      <SectionCard title="Venue Expenses" accent="expense">
-        <div className="grid gap-3 sm:grid-cols-3">
-          {VENUE_EXPENSE_FIELDS.map(({ key, label }) => {
-            const payee = PAYEE_EXPENSE_FIELDS.find((p) => p.amountKey === key);
-            const feeLink = FEE_INCOME_FIELDS.find((f) => f.feeKey === key);
-            return (
-              <Field
+              <MoneyField
                 key={key}
+                icon={FIELD_ICON[key]}
                 label={label}
-                suffix={
-                  feeLink && (
-                    <span className="ml-1.5 inline-block rounded-full bg-emerald-400/10 px-1.5 py-0.5 text-[10px] normal-case tracking-normal text-emerald-300/70">
-                      auto {(feeLink.rate * 100).toFixed(1)}%
-                    </span>
+                value={form[key]}
+                onChange={(v) => setIncome(key, v)}
+                footer={
+                  showAdvanceHint && (
+                    <p className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px] text-[#E8E0D0]/40">
+                      <span>Advance sales: {formatCurrency(advanceTicketSalesDollars!)}</span>
+                      {advanceMatches ? (
+                        <span className="text-emerald-400/70">✓</span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setIncome('incomeSquare', advanceTicketSalesDollars!.toFixed(2))}
+                          className="text-[#E8E0D0]/70 underline decoration-dotted underline-offset-2 hover:text-[#E8E0D0]"
+                        >
+                          apply
+                        </button>
+                      )}
+                    </p>
                   )
                 }
-              >
-                <input
-                  type="number"
-                  step="0.01"
-                  value={form[key]}
-                  onChange={(e) => set(key, e.target.value)}
-                  className={`${numberInputClass} w-full`}
-                />
-                {payee && (
-                  <label className="mt-1.5 flex items-center gap-1.5 text-xs text-[#E8E0D0]/60">
-                    <input
-                      type="checkbox"
-                      checked={form[payee.paidKey]}
-                      onChange={(e) => set(payee.paidKey, e.target.checked)}
-                    />
-                    Paid
-                  </label>
-                )}
-                {payee && (
-                  <PayeeNameInput
-                    role={payee.nameKey}
-                    placeholder="Paid to"
-                    value={form[payee.nameKey]}
-                    onChange={(value) => set(payee.nameKey, value)}
-                    className={`${inputClass} w-full mt-1.5 border-l-2 border-l-[#E8E0D0]/20`}
-                  />
-                )}
-              </Field>
+              />
             );
           })}
         </div>
       </SectionCard>
 
-      <SectionCard title="Band payouts" accent="expense">
+      <SectionCard title="Venue Additional Income" accent="income" tint>
+        <div className="grid gap-2 [grid-template-columns:repeat(auto-fit,minmax(200px,1fr))]">
+          {VENUE_ADDITIONAL_INCOME_FIELDS.map(({ key, label }) => (
+            <MoneyField
+              key={key}
+              icon={FIELD_ICON[key]}
+              label={label}
+              value={form[key]}
+              onChange={(v) => setIncome(key, v)}
+            />
+          ))}
+        </div>
+      </SectionCard>
+
+      <SectionCard title="Venue Expenses" accent="expense" tint>
+        <div className="space-y-2">
+          {EXPENSE_GROUPS.map((group) => {
+            const groupTotal = group.keys.reduce((sum, k) => sum + (Number(form[k]) || 0), 0);
+            return (
+              <SubGroup
+                key={group.title}
+                title={group.title}
+                collapsible={group.collapsible}
+                defaultCollapsed={group.defaultCollapsed}
+                summary={formatCurrency(groupTotal)}
+              >
+                <div className="grid items-start gap-2 [grid-template-columns:repeat(auto-fit,minmax(200px,1fr))]">
+                  {group.keys.map((key) => {
+                    const label = VENUE_EXPENSE_FIELDS.find((f) => f.key === key)?.label ?? key;
+                    const payee = PAYEE_EXPENSE_FIELDS.find((p) => p.amountKey === key);
+                    const feeLink = FEE_INCOME_FIELDS.find((f) => f.feeKey === key);
+                    return (
+                      <MoneyField
+                        key={key}
+                        icon={FIELD_ICON[key]}
+                        label={label}
+                        badge={
+                          feeLink && (
+                            <span className="shrink-0 rounded-full bg-emerald-400/10 px-1.5 py-0.5 text-[10px] text-emerald-300/70">
+                              auto {(feeLink.rate * 100).toFixed(1)}%
+                            </span>
+                          )
+                        }
+                        value={form[key]}
+                        onChange={(v) => set(key, v)}
+                        footer={
+                          payee && (
+                            <div className="mt-2 space-y-1.5">
+                              <label className="flex items-center gap-1.5 text-xs text-[#E8E0D0]/60">
+                                <input
+                                  type="checkbox"
+                                  checked={form[payee.paidKey]}
+                                  onChange={(e) => set(payee.paidKey, e.target.checked)}
+                                />
+                                Paid
+                              </label>
+                              <PayeeNameInput
+                                role={payee.nameKey}
+                                placeholder="Paid to"
+                                value={form[payee.nameKey]}
+                                onChange={(value) => set(payee.nameKey, value)}
+                                className={`${inputClass} w-full border-l-2 border-l-[#E8E0D0]/20`}
+                              />
+                            </div>
+                          )
+                        }
+                      />
+                    );
+                  })}
+                </div>
+              </SubGroup>
+            );
+          })}
+        </div>
+      </SectionCard>
+
+      <SectionCard title="Band payouts" accent="band" tint>
         {bandPayError && (
           <div className="mb-3 border border-red-400/40 bg-red-400/10 text-red-300 text-xs rounded px-3 py-2 flex justify-between items-center">
             <span>{bandPayError}</span>
@@ -505,107 +879,106 @@ export default function SettlementForm({
         {bands.length === 0 ? (
           <p className="text-xs text-[#E8E0D0]/30">No bands linked to this show.</p>
         ) : (
-          <div className="space-y-2">
+          <div className="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(150px,1fr))]">
             {bands.map((band) => (
               <div
                 key={band.bandId}
-                className={`flex items-center justify-between gap-3 rounded-md bg-black/10 p-2.5 text-sm ${
+                className={`flex flex-col items-center rounded-lg bg-black/10 p-3 text-center ${
                   band.excluded ? 'opacity-50' : ''
                 }`}
               >
-                <label className="flex items-start gap-2">
-                  <input
-                    type="checkbox"
-                    checked={band.paid}
-                    disabled={band.excluded}
-                    onChange={(e) => toggleBandPaid(band.bandId, e.target.checked)}
-                    className="mt-1"
-                  />
-                  <span>
-                    <span className={band.excluded ? 'line-through' : ''}>{band.name}</span>
-                    {band.paymentMethod ? (
-                      <span className="block text-xs text-[#E8E0D0]/45">💸 {band.paymentMethod}</span>
-                    ) : (
-                      <span className="block text-xs text-[#E8E0D0]/25">no payment method saved</span>
-                    )}
+                {band.photo ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={band.photo} alt="" className="h-16 w-16 shrink-0 rounded-full object-cover" />
+                ) : (
+                  <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-[#E8E0D0]/10 text-xl font-semibold text-[#E8E0D0]/50">
+                    {band.name.charAt(0).toUpperCase()}
                   </span>
-                </label>
-                <span className="flex items-center gap-2">
+                )}
+                <span className={`mt-2 text-sm font-medium leading-tight ${band.excluded ? 'line-through' : ''}`}>
+                  {band.name}
+                </span>
+                {band.paymentMethod ? (
+                  <span className="mt-0.5 text-xs text-[#E8E0D0]/45">{band.paymentMethod}</span>
+                ) : (
+                  <span className="mt-0.5 text-xs text-[#E8E0D0]/25">no payment method</span>
+                )}
+
+                <div className="mt-3 w-full space-y-2">
                   {band.excluded ? (
-                    <span className="text-xs text-[#E8E0D0]/40">excluded</span>
+                    <p className="py-1 text-xs text-[#E8E0D0]/40">Excluded from split</p>
                   ) : (
-                    <span className="flex items-center gap-1">
-                      <span className="text-xs text-[#E8E0D0]/40">$</span>
-                      <input
-                        type="number"
-                        step="0.01"
-                        inputMode="decimal"
-                        aria-label={`Payout for ${band.name}`}
-                        title={
-                          band.payoutOverride !== null
-                            ? 'Custom payout — the difference from the even split is kept as venue profit'
-                            : 'Even split — edit to set a custom payout'
-                        }
-                        value={
-                          payoutDrafts[band.bandId] ??
-                          (band.payoutOverride !== null
-                            ? band.payoutOverride.toFixed(2)
-                            : summary.perBand.toFixed(2))
-                        }
-                        onChange={(e) =>
-                          setPayoutDrafts((prev) => ({ ...prev, [band.bandId]: e.target.value }))
-                        }
-                        onBlur={() => commitPayoutDraft(band.bandId)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault();
-                            e.currentTarget.blur();
+                    <>
+                      <div className="relative">
+                        <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-xs text-[#E8E0D0]/40">
+                          $
+                        </span>
+                        <input
+                          type="number"
+                          step="0.01"
+                          inputMode="decimal"
+                          aria-label={`Payout for ${band.name}`}
+                          title={
+                            band.payoutOverride !== null
+                              ? 'Custom payout — the difference from the even split is kept as venue profit'
+                              : 'Even split — edit to set a custom payout'
                           }
-                        }}
-                        className={`${numberInputClass} w-20 text-right ${
-                          band.payoutOverride !== null ? 'border-amber-400/60' : ''
-                        }`}
-                      />
+                          value={
+                            payoutDrafts[band.bandId] ??
+                            (band.payoutOverride !== null
+                              ? band.payoutOverride.toFixed(2)
+                              : summary.perBand.toFixed(2))
+                          }
+                          onChange={(e) =>
+                            setPayoutDrafts((prev) => ({ ...prev, [band.bandId]: e.target.value }))
+                          }
+                          onBlur={() => commitPayoutDraft(band.bandId)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              e.currentTarget.blur();
+                            }
+                          }}
+                          className={`${numberInputClass} w-full pl-5 pr-2 text-right ${
+                            band.payoutOverride !== null ? 'border-amber-400/60' : ''
+                          }`}
+                        />
+                      </div>
                       {band.payoutOverride !== null && (
                         <button
                           type="button"
                           onClick={() => resetBandPayout(band.bandId)}
                           title="Reset to even split"
-                          className="text-[10px] text-[#E8E0D0]/50 hover:text-[#E8E0D0] underline decoration-dotted"
+                          className="text-[10px] text-[#E8E0D0]/50 underline decoration-dotted hover:text-[#E8E0D0]"
                         >
-                          reset
+                          reset to even split
                         </button>
                       )}
-                    </span>
+                      <button
+                        type="button"
+                        onClick={() => toggleBandPaid(band.bandId, !band.paid)}
+                        className={`w-full rounded border px-2 py-1 text-xs font-medium transition-colors ${
+                          band.paid
+                            ? 'border-emerald-400/50 bg-emerald-400/15 text-emerald-300'
+                            : 'border-[#E8E0D0]/25 text-[#E8E0D0]/60 hover:bg-[#E8E0D0]/10'
+                        }`}
+                      >
+                        {band.paid ? '✓ Paid' : 'Mark as paid'}
+                      </button>
+                    </>
                   )}
                   <button
                     type="button"
                     onClick={() => toggleBandExcluded(band.bandId, !band.excluded)}
-                    className="text-xs border border-[#E8E0D0]/25 rounded px-2 py-0.5 hover:bg-[#E8E0D0]/10"
+                    className="w-full rounded border border-[#E8E0D0]/25 px-2 py-1 text-xs text-[#E8E0D0]/60 hover:bg-[#E8E0D0]/10"
                   >
-                    {band.excluded ? 'Include' : 'Exclude'}
+                    {band.excluded ? 'Include in split' : 'Exclude from split'}
                   </button>
-                </span>
+                </div>
               </div>
             ))}
           </div>
         )}
-      </SectionCard>
-
-      <SectionCard title="Venue Additional Income" accent="income">
-        <div className="grid gap-3 sm:grid-cols-3">
-          {VENUE_ADDITIONAL_INCOME_FIELDS.map(({ key, label }) => (
-            <Field key={key} label={label}>
-              <input
-                type="number"
-                step="0.01"
-                value={form[key]}
-                onChange={(e) => setIncome(key, e.target.value)}
-                className={`${numberInputClass} w-full`}
-              />
-            </Field>
-          ))}
-        </div>
       </SectionCard>
 
       <SectionCard
@@ -670,61 +1043,6 @@ export default function SettlementForm({
           className={`${inputClass} w-full resize-y`}
         />
       </SectionCard>
-
-      <div className="rounded-lg border border-[#E8E0D0]/25 bg-[#E8E0D0]/[0.06] p-4 shadow-[0_0_0_1px_rgba(232,224,208,0.03)]">
-        <h2 className="text-sm font-semibold text-[#E8E0D0]/90 mb-3">Summary</h2>
-        <dl className="grid gap-x-6 gap-y-1.5 sm:grid-cols-2 text-sm">
-          <div className="flex justify-between">
-            <dt className="text-emerald-300/70">Total income</dt>
-            <dd className="text-emerald-300/90">{formatCurrency(summary.totalIncome)}</dd>
-          </div>
-          <div className="flex justify-between">
-            <dt className="text-[#E8E0D0]/60">Artist pool</dt>
-            <dd>{formatCurrency(summary.artistPool)}</dd>
-          </div>
-          <div className="flex justify-between">
-            <dt className="text-[#E8E0D0]/60">Per band ({payoutBandCount})</dt>
-            <dd>{formatCurrency(summary.perBand)}</dd>
-          </div>
-          {summary.bandPayoutSavings !== 0 && (
-            <div className="flex justify-between">
-              <dt className="text-[#E8E0D0]/60">
-                {summary.bandPayoutSavings > 0 ? 'Kept from band payouts' : 'Extra paid to bands'}
-              </dt>
-              <dd className={summary.bandPayoutSavings > 0 ? 'text-emerald-300/90' : 'text-amber-300/90'}>
-                {summary.bandPayoutSavings > 0 ? '+' : '−'}
-                {formatCurrency(Math.abs(summary.bandPayoutSavings))}
-              </dd>
-            </div>
-          )}
-          <div className="flex justify-between">
-            <dt className="text-amber-300/70">Total expenses</dt>
-            <dd className="text-amber-300/90">{formatCurrency(summary.totalExpenses)}</dd>
-          </div>
-          <div className="flex justify-between">
-            <dt className="text-[#E8E0D0]/60">Venue split</dt>
-            <dd>{formatCurrency(summary.venueSplit)}</dd>
-          </div>
-          <div className="flex justify-between">
-            <dt className="text-emerald-300/70">Venue additional income</dt>
-            <dd className="text-emerald-300/90">{formatCurrency(summary.venueAdditionalIncome)}</dd>
-          </div>
-          {summary.venueRedirect !== 0 && (
-            <div className="flex justify-between">
-              <dt className="text-amber-300/70">Venue redirect ({formatPct(Number(form.venueRedirectPct) || 0)}%)</dt>
-              <dd className="text-amber-300/90">−{formatCurrency(summary.venueRedirect)}</dd>
-            </div>
-          )}
-        </dl>
-        <div
-          className={`mt-3 flex justify-between items-center rounded-md px-3 py-2 font-semibold ${
-            summary.venueNet >= 0 ? 'bg-emerald-400/10 text-emerald-300' : 'bg-rose-400/10 text-rose-300'
-          }`}
-        >
-          <span>Venue net</span>
-          <span className="text-base">{formatCurrency(summary.venueNet)}</span>
-        </div>
-      </div>
 
       <div className="flex items-center justify-end gap-3 pt-2 border-t border-[#E8E0D0]/10">
         {saved && <span className="text-sm text-emerald-300">Saved ✓</span>}

@@ -164,6 +164,8 @@ export interface ShowBandPaidStatus {
   // computed even split; a set value fixes this band's payout and sends the
   // difference from its computed share to the venue net as profit.
   payoutOverride: number | null;
+  // Band photo URL (bands.photo), shown as an avatar on the payout checklist.
+  photo: string | null;
 }
 
 // Payout checklist for the settlement form — who played this show and
@@ -177,9 +179,10 @@ export async function getShowBandsPaidStatus(showId: number): Promise<ShowBandPa
       excluded: boolean;
       payment_method: string | null;
       payout_override: string | null;
+      photo: string | null;
     }>
   >`
-    select b.id as band_id, b.name, sb.paid, sb.excluded, b.payment_method, sb.payout_override
+    select b.id as band_id, b.name, sb.paid, sb.excluded, b.payment_method, sb.payout_override, b.photo
     from show_bands sb
     join bands b on b.id = sb.band_id
     where sb.show_id = ${showId}
@@ -193,6 +196,7 @@ export async function getShowBandsPaidStatus(showId: number): Promise<ShowBandPa
     paymentMethod: r.payment_method,
     // numeric comes back as a string from postgres.js; null stays null.
     payoutOverride: r.payout_override === null ? null : Number(r.payout_override),
+    photo: r.photo,
   }));
 }
 
