@@ -51,7 +51,7 @@ export const DEFAULT_SETTLEMENT_VALUES: SettlementValues = {
   incomeCash: 0,
   expSquareFees: 0,
   expVenmoFees: 0,
-  expSoundEngineer: 0,
+  expSoundEngineer: 150,
   expPhotos: 0,
   expDoorPerson: 0,
   expAdPrint: 0,

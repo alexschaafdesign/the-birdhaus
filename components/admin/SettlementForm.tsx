@@ -17,6 +17,7 @@ import {
   VENUE_ADDITIONAL_INCOME_FIELDS,
   type DealType,
   type NumericField,
+  type PayeeNameField,
   type SettlementValues,
 } from '@/lib/settlements';
 
@@ -170,6 +171,15 @@ function Icon({ name, className = 'h-[18px] w-[18px]' }: { name: string; classNa
           <path d="M16.5 8.5a5 5 0 0 1 0 7" />
         </svg>
       );
+    case 'mic':
+      return (
+        <svg {...line}>
+          <rect x="9" y="2" width="6" height="11" rx="3" />
+          <path d="M9.5 5.5h5M9.5 8h5" />
+          <path d="M6 11a6 6 0 0 0 12 0" />
+          <path d="M12 17v3.5M9 20.5h6" />
+        </svg>
+      );
     case 'camera':
       return (
         <svg {...line}>
@@ -230,7 +240,7 @@ const FIELD_ICON: Partial<Record<NumericField, ReactNode>> = {
   beverageIncomeCash: <span className="text-emerald-400/80"><Icon name="cash" /></span>,
   expSquareFees: <span className="text-[#E8E0D0]/85"><Icon name="square" /></span>,
   expVenmoFees: <Icon name="venmo" />,
-  expSoundEngineer: <span className="text-[#E8E0D0]/45"><Icon name="sound" /></span>,
+  expSoundEngineer: <span className="text-[#E8E0D0]/45"><Icon name="mic" /></span>,
   expPhotos: <span className="text-[#E8E0D0]/45"><Icon name="camera" /></span>,
   expDoorPerson: <span className="text-[#E8E0D0]/45"><Icon name="door" /></span>,
   expAdPrint: <span className="text-[#E8E0D0]/45"><Icon name="print" /></span>,
@@ -359,6 +369,14 @@ const EXPENSE_GROUPS: Array<{
   { title: 'Concessions', keys: ['expSnacks', 'expBeer'], collapsible: true },
 ];
 
+// Placeholder icon (shown in the avatar circle when there's no photo) for each
+// crew card, rendered larger than the inline FIELD_ICON marks.
+const CREW_ICON: Partial<Record<NumericField, string>> = {
+  expSoundEngineer: 'mic',
+  expPhotos: 'camera',
+  expDoorPerson: 'door',
+};
+
 interface FormExtraLineItem {
   type: 'income' | 'expense';
   label: string;
@@ -375,6 +393,8 @@ interface SettlementFormProps {
   // Sound-engineer photo URLs keyed by lowercased name, so the engineer payee
   // field can show an avatar for whichever registered engineer is entered.
   soundEngineerPhotos?: Record<string, string>;
+  // Full registry list, shown as a menu when switching the sound engineer.
+  soundEngineers?: Array<{ name: string; photo: string | null }>;
 }
 
 type FormState = {
@@ -410,6 +430,7 @@ export default function SettlementForm({
   initialValues,
   advanceTicketSalesDollars = null,
   soundEngineerPhotos = {},
+  soundEngineers = [],
 }: SettlementFormProps) {
   const router = useRouter();
   const [form, setForm] = useState<FormState>(() => toFormState(initialValues ?? DEFAULT_SETTLEMENT_VALUES));
@@ -419,6 +440,8 @@ export default function SettlementForm({
   // back to the stored override (or the live even split when there's none).
   const [payoutDrafts, setPayoutDrafts] = useState<Record<number, string>>({});
   const [bandPayError, setBandPayError] = useState<string | null>(null);
+  // Which crew payee's name is being edited (so its card swaps to a typeahead).
+  const [editingPayee, setEditingPayee] = useState<PayeeNameField | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -817,68 +840,154 @@ export default function SettlementForm({
                 defaultCollapsed={group.defaultCollapsed}
                 summary={formatCurrency(groupTotal)}
               >
-                <div className="grid items-start gap-2 [grid-template-columns:repeat(auto-fit,minmax(200px,1fr))]">
-                  {group.keys.map((key) => {
-                    const label = VENUE_EXPENSE_FIELDS.find((f) => f.key === key)?.label ?? key;
-                    const payee = PAYEE_EXPENSE_FIELDS.find((p) => p.amountKey === key);
-                    const feeLink = FEE_INCOME_FIELDS.find((f) => f.feeKey === key);
-                    // Avatar for the sound-engineer payee when the entered name
-                    // matches a registered engineer with a photo.
-                    const engineerPhoto =
-                      payee?.nameKey === 'soundEngineerName'
-                        ? soundEngineerPhotos[(form.soundEngineerName || '').trim().toLowerCase()]
-                        : undefined;
-                    return (
-                      <MoneyField
-                        key={key}
-                        icon={FIELD_ICON[key]}
-                        label={label}
-                        badge={
-                          feeLink && (
-                            <span className="shrink-0 rounded-full bg-emerald-400/10 px-1.5 py-0.5 text-[10px] text-emerald-300/70">
-                              auto {(feeLink.rate * 100).toFixed(1)}%
+                {group.title === 'Crew payments' ? (
+                  <div className="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(160px,1fr))]">
+                    {group.keys.map((key) => {
+                      const payee = PAYEE_EXPENSE_FIELDS.find((p) => p.amountKey === key);
+                      const roleLabel = payee?.label ?? VENUE_EXPENSE_FIELDS.find((f) => f.key === key)?.label ?? key;
+                      const name = payee ? form[payee.nameKey] : '';
+                      // Only the free-text photographer name toggles an inline editor;
+                      // the sound engineer is a registry dropdown that's always live.
+                      const editing = payee?.nameKey === 'photographerName' && editingPayee === 'photographerName';
+                      // Avatar for the sound-engineer payee when the entered name
+                      // matches a registered engineer with a photo.
+                      const engineerPhoto =
+                        payee?.nameKey === 'soundEngineerName'
+                          ? soundEngineerPhotos[(name || '').trim().toLowerCase()]
+                          : undefined;
+                      // Match the stored engineer name to a registry entry (so the
+                      // <select> highlights it with the registry's casing); keep an
+                      // unmatched custom value as its own option so it's not lost.
+                      const matchedEngineer =
+                        payee?.nameKey === 'soundEngineerName'
+                          ? soundEngineers.find((e) => e.name.trim().toLowerCase() === name.trim().toLowerCase())
+                          : undefined;
+                      return (
+                        <div key={key} className="flex flex-col items-center rounded-lg bg-black/10 p-3 text-center">
+                          {engineerPhoto ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={engineerPhoto} alt="" className="h-16 w-16 shrink-0 rounded-full object-cover" />
+                          ) : (
+                            <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-[#E8E0D0]/10 text-[#E8E0D0]/45">
+                              <Icon name={CREW_ICON[key] ?? 'sound'} className="h-7 w-7" />
                             </span>
-                          )
-                        }
-                        value={form[key]}
-                        onChange={(v) => set(key, v)}
-                        footer={
-                          payee && (
-                            <div className="mt-2 space-y-1.5">
-                              <label className="flex items-center gap-1.5 text-xs text-[#E8E0D0]/60">
-                                <input
-                                  type="checkbox"
-                                  checked={form[payee.paidKey]}
-                                  onChange={(e) => set(payee.paidKey, e.target.checked)}
+                          )}
+
+                          {payee ? (
+                            payee.nameKey === 'soundEngineerName' ? (
+                              <>
+                                <span className="mt-2 text-[11px] uppercase tracking-wide text-[#E8E0D0]/35">
+                                  {roleLabel}
+                                </span>
+                                <select
+                                  value={matchedEngineer ? matchedEngineer.name : name}
+                                  onChange={(e) => set(payee.nameKey, e.target.value)}
+                                  className={`${inputClass} mt-1 w-full text-center`}
+                                >
+                                  <option value="" className="text-[#2A2420]">Unassigned</option>
+                                  {name && !matchedEngineer && (
+                                    <option value={name} className="text-[#2A2420]">{name}</option>
+                                  )}
+                                  {soundEngineers.map((engineer) => (
+                                    <option key={engineer.name} value={engineer.name} className="text-[#2A2420]">
+                                      {engineer.name}
+                                    </option>
+                                  ))}
+                                </select>
+                              </>
+                            ) : editing ? (
+                              <div className="mt-2 w-full">
+                                <PayeeNameInput
+                                  role={payee.nameKey}
+                                  placeholder="Paid to"
+                                  value={name}
+                                  onChange={(v) => set(payee.nameKey, v)}
+                                  className={`${inputClass} w-full text-center`}
                                 />
-                                Paid
-                              </label>
-                              <div className="flex items-center gap-2">
-                                {engineerPhoto && (
-                                  // eslint-disable-next-line @next/next/no-img-element
-                                  <img
-                                    src={engineerPhoto}
-                                    alt=""
-                                    className="h-8 w-8 shrink-0 rounded-full object-cover"
-                                  />
-                                )}
-                                <div className="min-w-0 flex-1">
-                                  <PayeeNameInput
-                                    role={payee.nameKey}
-                                    placeholder="Paid to"
-                                    value={form[payee.nameKey]}
-                                    onChange={(value) => set(payee.nameKey, value)}
-                                    className={`${inputClass} w-full border-l-2 border-l-[#E8E0D0]/20`}
-                                  />
-                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => setEditingPayee(null)}
+                                  className="mt-1 text-[11px] text-[#E8E0D0]/50 underline decoration-dotted hover:text-[#E8E0D0]"
+                                >
+                                  done
+                                </button>
                               </div>
-                            </div>
-                          )
-                        }
-                      />
-                    );
-                  })}
-                </div>
+                            ) : (
+                              <>
+                                <span className="mt-2 text-sm font-medium leading-tight">
+                                  {name || <span className="text-[#E8E0D0]/40">Unassigned</span>}
+                                </span>
+                                <span className="text-[11px] uppercase tracking-wide text-[#E8E0D0]/35">
+                                  {roleLabel}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => setEditingPayee(payee.nameKey)}
+                                  className="mt-0.5 text-[11px] text-[#E8E0D0]/50 underline decoration-dotted hover:text-[#E8E0D0]"
+                                >
+                                  {name ? 'change' : 'set name'}
+                                </button>
+                              </>
+                            )
+                          ) : (
+                            <span className="mt-2 text-sm font-medium leading-tight">{roleLabel}</span>
+                          )}
+
+                          <div className="relative mt-3 w-full">
+                            <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-sm text-[#E8E0D0]/40">
+                              $
+                            </span>
+                            <input
+                              type="number"
+                              step="0.01"
+                              inputMode="decimal"
+                              value={form[key]}
+                              onChange={(e) => set(key, e.target.value)}
+                              className={`${numberInputClass} w-full pl-6 pr-3 text-right`}
+                            />
+                          </div>
+
+                          {payee && (
+                            <button
+                              type="button"
+                              onClick={() => set(payee.paidKey, !form[payee.paidKey])}
+                              className={`mt-2 w-full rounded border px-2 py-1 text-xs font-medium transition-colors ${
+                                form[payee.paidKey]
+                                  ? 'border-emerald-400/50 bg-emerald-400/15 text-emerald-300'
+                                  : 'border-[#E8E0D0]/25 text-[#E8E0D0]/60 hover:bg-[#E8E0D0]/10'
+                              }`}
+                            >
+                              {form[payee.paidKey] ? '✓ Paid' : 'Mark as paid'}
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="grid items-start gap-2 [grid-template-columns:repeat(auto-fit,minmax(200px,1fr))]">
+                    {group.keys.map((key) => {
+                      const label = VENUE_EXPENSE_FIELDS.find((f) => f.key === key)?.label ?? key;
+                      const feeLink = FEE_INCOME_FIELDS.find((f) => f.feeKey === key);
+                      return (
+                        <MoneyField
+                          key={key}
+                          icon={FIELD_ICON[key]}
+                          label={label}
+                          badge={
+                            feeLink && (
+                              <span className="shrink-0 rounded-full bg-emerald-400/10 px-1.5 py-0.5 text-[10px] text-emerald-300/70">
+                                auto {(feeLink.rate * 100).toFixed(1)}%
+                              </span>
+                            )
+                          }
+                          value={form[key]}
+                          onChange={(v) => set(key, v)}
+                        />
+                      );
+                    })}
+                  </div>
+                )}
               </SubGroup>
             );
           })}
