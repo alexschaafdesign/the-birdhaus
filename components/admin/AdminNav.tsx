@@ -8,6 +8,7 @@ const LINKS = [
   { href: '/admin/song-club', label: 'Song Club' },
   { href: '/admin/bands', label: 'Bands' },
   { href: '/admin/sound-engineers', label: 'Sound Engineers' },
+  { href: '/admin/photographers', label: 'Photographers' },
   { href: '/admin/settlements', label: 'Settlements' },
   { href: '/admin/expenses', label: 'Expenses' },
   { href: '/admin/timesheet', label: 'Timesheet' },

@@ -30,7 +30,7 @@ function getClient(): S3Client {
 
 // Whitelist of upload destinations — keeps the object key's folder under our
 // control rather than letting a request pick an arbitrary path.
-export const ALLOWED_UPLOAD_FOLDERS = ['bands', 'flyers', 'photos', 'song-club', 'sound-engineers'] as const;
+export const ALLOWED_UPLOAD_FOLDERS = ['bands', 'flyers', 'photos', 'song-club', 'sound-engineers', 'photographers'] as const;
 export type UploadFolder = (typeof ALLOWED_UPLOAD_FOLDERS)[number];
 
 // Folders for non-image uploads that don't go through the image-only route —
@@ -66,6 +66,8 @@ const MAX_DIMENSION: Record<UploadFolder, number> = {
   'song-club': 1400,
   // Engineer headshots display at roughly the same size as band photos.
   'sound-engineers': 1000,
+  // Photographer headshots — same as engineers.
+  photographers: 1000,
 };
 
 // Matches the site's dark background (app/layout.tsx) so a transparent PNG

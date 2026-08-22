@@ -44,6 +44,16 @@ export default async function SettlementPage({ params }: { params: Promise<{ id:
   // Full registry list for the settlement form's "change engineer" menu.
   const soundEngineers = engineerRows.map((row) => ({ name: row.name, photo: row.photo }));
 
+  // Photographers registry — same treatment as sound engineers.
+  const photographerRows = await sql<{ name: string; photo: string | null }[]>`
+    select name, photo from photographers order by name asc
+  `;
+  const photographerPhotos: Record<string, string> = {};
+  for (const row of photographerRows) {
+    if (row.photo) photographerPhotos[row.name.trim().toLowerCase()] = row.photo;
+  }
+  const photographers = photographerRows.map((row) => ({ name: row.name, photo: row.photo }));
+
   // Live advance ticket-sales total from Square (matched RSVP purchases + any
   // unmatched buyers), same figure the RSVP admin shows. Best-effort: 0 when
   // Square is off or the show was never synced. Used to pre-fill the Square income
@@ -114,6 +124,8 @@ export default async function SettlementPage({ params }: { params: Promise<{ id:
         advanceTicketSalesDollars={advanceTicketSalesDollars}
         soundEngineerPhotos={soundEngineerPhotos}
         soundEngineers={soundEngineers}
+        photographerPhotos={photographerPhotos}
+        photographers={photographers}
       />
     </div>
   );

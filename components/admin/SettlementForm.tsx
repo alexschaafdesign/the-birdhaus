@@ -2,7 +2,6 @@
 
 import { useMemo, useState, type FormEvent, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
-import PayeeNameInput from './PayeeNameInput';
 import type { ShowBandPaidStatus } from '@/lib/bands';
 import {
   computeSettlementSummary,
@@ -17,7 +16,6 @@ import {
   VENUE_ADDITIONAL_INCOME_FIELDS,
   type DealType,
   type NumericField,
-  type PayeeNameField,
   type SettlementValues,
 } from '@/lib/settlements';
 
@@ -393,8 +391,11 @@ interface SettlementFormProps {
   // Sound-engineer photo URLs keyed by lowercased name, so the engineer payee
   // field can show an avatar for whichever registered engineer is entered.
   soundEngineerPhotos?: Record<string, string>;
-  // Full registry list, shown as a menu when switching the sound engineer.
+  // Full registry list, shown in the dropdown when switching the sound engineer.
   soundEngineers?: Array<{ name: string; photo: string | null }>;
+  // Same, for photographers.
+  photographerPhotos?: Record<string, string>;
+  photographers?: Array<{ name: string; photo: string | null }>;
 }
 
 type FormState = {
@@ -431,6 +432,8 @@ export default function SettlementForm({
   advanceTicketSalesDollars = null,
   soundEngineerPhotos = {},
   soundEngineers = [],
+  photographerPhotos = {},
+  photographers = [],
 }: SettlementFormProps) {
   const router = useRouter();
   const [form, setForm] = useState<FormState>(() => toFormState(initialValues ?? DEFAULT_SETTLEMENT_VALUES));
@@ -440,8 +443,6 @@ export default function SettlementForm({
   // back to the stored override (or the live even split when there's none).
   const [payoutDrafts, setPayoutDrafts] = useState<Record<number, string>>({});
   const [bandPayError, setBandPayError] = useState<string | null>(null);
-  // Which crew payee's name is being edited (so its card swaps to a typeahead).
-  const [editingPayee, setEditingPayee] = useState<PayeeNameField | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -846,89 +847,52 @@ export default function SettlementForm({
                       const payee = PAYEE_EXPENSE_FIELDS.find((p) => p.amountKey === key);
                       const roleLabel = payee?.label ?? VENUE_EXPENSE_FIELDS.find((f) => f.key === key)?.label ?? key;
                       const name = payee ? form[payee.nameKey] : '';
-                      // Only the free-text photographer name toggles an inline editor;
-                      // the sound engineer is a registry dropdown that's always live.
-                      const editing = payee?.nameKey === 'photographerName' && editingPayee === 'photographerName';
-                      // Avatar for the sound-engineer payee when the entered name
-                      // matches a registered engineer with a photo.
-                      const engineerPhoto =
+                      // Both crew payees are registry-backed — pick the right list + photos.
+                      const registry =
                         payee?.nameKey === 'soundEngineerName'
-                          ? soundEngineerPhotos[(name || '').trim().toLowerCase()]
-                          : undefined;
-                      // Match the stored engineer name to a registry entry (so the
-                      // <select> highlights it with the registry's casing); keep an
-                      // unmatched custom value as its own option so it's not lost.
-                      const matchedEngineer =
-                        payee?.nameKey === 'soundEngineerName'
-                          ? soundEngineers.find((e) => e.name.trim().toLowerCase() === name.trim().toLowerCase())
-                          : undefined;
+                          ? { list: soundEngineers, photos: soundEngineerPhotos }
+                          : payee?.nameKey === 'photographerName'
+                            ? { list: photographers, photos: photographerPhotos }
+                            : null;
+                      // Match the stored name to a registry entry (so the <select>
+                      // highlights it with the registry's casing); keep an unmatched
+                      // custom value as its own option so it's never lost.
+                      const matched = registry?.list.find(
+                        (r) => r.name.trim().toLowerCase() === name.trim().toLowerCase()
+                      );
+                      const payeePhoto = registry?.photos[name.trim().toLowerCase()];
                       return (
                         <div key={key} className="flex flex-col items-center rounded-lg bg-black/10 p-3 text-center">
-                          {engineerPhoto ? (
+                          {payeePhoto ? (
                             // eslint-disable-next-line @next/next/no-img-element
-                            <img src={engineerPhoto} alt="" className="h-16 w-16 shrink-0 rounded-full object-cover" />
+                            <img src={payeePhoto} alt="" className="h-16 w-16 shrink-0 rounded-full object-cover" />
                           ) : (
                             <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-[#E8E0D0]/10 text-[#E8E0D0]/45">
                               <Icon name={CREW_ICON[key] ?? 'sound'} className="h-7 w-7" />
                             </span>
                           )}
 
-                          {payee ? (
-                            payee.nameKey === 'soundEngineerName' ? (
-                              <>
-                                <span className="mt-2 text-[11px] uppercase tracking-wide text-[#E8E0D0]/35">
-                                  {roleLabel}
-                                </span>
-                                <select
-                                  value={matchedEngineer ? matchedEngineer.name : name}
-                                  onChange={(e) => set(payee.nameKey, e.target.value)}
-                                  className={`${inputClass} mt-1 w-full text-center`}
-                                >
-                                  <option value="" className="text-[#2A2420]">Unassigned</option>
-                                  {name && !matchedEngineer && (
-                                    <option value={name} className="text-[#2A2420]">{name}</option>
-                                  )}
-                                  {soundEngineers.map((engineer) => (
-                                    <option key={engineer.name} value={engineer.name} className="text-[#2A2420]">
-                                      {engineer.name}
-                                    </option>
-                                  ))}
-                                </select>
-                              </>
-                            ) : editing ? (
-                              <div className="mt-2 w-full">
-                                <PayeeNameInput
-                                  role={payee.nameKey}
-                                  placeholder="Paid to"
-                                  value={name}
-                                  onChange={(v) => set(payee.nameKey, v)}
-                                  className={`${inputClass} w-full text-center`}
-                                />
-                                <button
-                                  type="button"
-                                  onClick={() => setEditingPayee(null)}
-                                  className="mt-1 text-[11px] text-[#E8E0D0]/50 underline decoration-dotted hover:text-[#E8E0D0]"
-                                >
-                                  done
-                                </button>
-                              </div>
-                            ) : (
-                              <>
-                                <span className="mt-2 text-sm font-medium leading-tight">
-                                  {name || <span className="text-[#E8E0D0]/40">Unassigned</span>}
-                                </span>
-                                <span className="text-[11px] uppercase tracking-wide text-[#E8E0D0]/35">
-                                  {roleLabel}
-                                </span>
-                                <button
-                                  type="button"
-                                  onClick={() => setEditingPayee(payee.nameKey)}
-                                  className="mt-0.5 text-[11px] text-[#E8E0D0]/50 underline decoration-dotted hover:text-[#E8E0D0]"
-                                >
-                                  {name ? 'change' : 'set name'}
-                                </button>
-                              </>
-                            )
+                          {payee && registry ? (
+                            <>
+                              <span className="mt-2 text-[11px] uppercase tracking-wide text-[#E8E0D0]/35">
+                                {roleLabel}
+                              </span>
+                              <select
+                                value={matched ? matched.name : name}
+                                onChange={(e) => set(payee.nameKey, e.target.value)}
+                                className={`${inputClass} mt-1 w-full text-center`}
+                              >
+                                <option value="" className="text-[#2A2420]">Unassigned</option>
+                                {name && !matched && (
+                                  <option value={name} className="text-[#2A2420]">{name}</option>
+                                )}
+                                {registry.list.map((entry) => (
+                                  <option key={entry.name} value={entry.name} className="text-[#2A2420]">
+                                    {entry.name}
+                                  </option>
+                                ))}
+                              </select>
+                            </>
                           ) : (
                             <span className="mt-2 text-sm font-medium leading-tight">{roleLabel}</span>
                           )}
