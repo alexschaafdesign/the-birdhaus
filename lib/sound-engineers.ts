@@ -38,6 +38,58 @@ export async function getAllSoundEngineers(): Promise<SoundEngineer[]> {
   return rows.map(rowToSoundEngineer);
 }
 
+// Full editable profile for the Sound Engineers admin section. contact_email
+// already lived on the engineer (used by the advance); photo/bio/instagram were
+// added in 049_sound_engineers_profile.sql.
+export interface SoundEngineerProfile {
+  id: number;
+  name: string;
+  photo: string | null;
+  bio: string | null;
+  instagram: string | null;
+  contactEmail: string | null;
+}
+
+export async function getSoundEngineerProfile(id: number): Promise<SoundEngineerProfile | null> {
+  const [row] = await sql<
+    Array<{ id: number; name: string; photo: string | null; bio: string | null; instagram: string | null; contact_email: string | null }>
+  >`
+    select id, name, photo, bio, instagram, contact_email from sound_engineers where id = ${id}
+  `;
+  if (!row) return null;
+  return {
+    id: Number(row.id),
+    name: row.name,
+    photo: row.photo,
+    bio: row.bio,
+    instagram: row.instagram,
+    contactEmail: row.contact_email,
+  };
+}
+
+// A show this engineer worked (or was asked about), for the profile page's
+// history list. Newest first.
+export interface SoundEngineerShow {
+  id: number;
+  slug: string;
+  title: string;
+  date: string;
+  status: SoundEngineerStatus;
+}
+
+export async function getShowsForSoundEngineer(id: number): Promise<SoundEngineerShow[]> {
+  const rows = await sql<
+    Array<{ id: number; slug: string; title: string; date: string; status: SoundEngineerStatus }>
+  >`
+    select s.id, s.slug, s.title, s.date::text as date, sse.status
+    from show_sound_engineers sse
+    join shows s on s.id = sse.show_id
+    where sse.sound_engineer_id = ${id}
+    order by s.date desc
+  `;
+  return rows.map((r) => ({ id: Number(r.id), slug: r.slug, title: r.title, date: r.date, status: r.status }));
+}
+
 // The confirmed engineer on a show (at most one), with contact email. Used by
 // the advance to add them as a recipient and forward band replies to them.
 export interface ConfirmedSoundEngineer {

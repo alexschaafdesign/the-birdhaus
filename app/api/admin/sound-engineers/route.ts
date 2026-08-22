@@ -19,3 +19,35 @@ export async function GET(request: Request) {
   `;
   return NextResponse.json(rows.map((r) => ({ id: Number(r.id), name: r.name })));
 }
+
+function nullableTrim(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  return value.trim() || null;
+}
+
+// Create a sound engineer profile from the admin section. Name is unique
+// case-insensitively (sound_engineers_name_idx) — a collision returns 409.
+export async function POST(request: Request) {
+  const body = await request.json().catch(() => null);
+  const name = nullableTrim(body?.name);
+  if (!name) {
+    return NextResponse.json({ error: 'Name is required' }, { status: 400 });
+  }
+
+  try {
+    const [row] = await sql<Array<{ id: number }>>`
+      insert into sound_engineers (name, photo, bio, instagram, contact_email)
+      values (
+        ${name}, ${nullableTrim(body.photo)}, ${nullableTrim(body.bio)},
+        ${nullableTrim(body.instagram)}, ${nullableTrim(body.contactEmail)}
+      )
+      returning id
+    `;
+    return NextResponse.json({ id: Number(row.id) }, { status: 201 });
+  } catch (error) {
+    if (error instanceof Error && 'code' in error && error.code === '23505') {
+      return NextResponse.json({ error: 'A sound engineer with this name already exists' }, { status: 409 });
+    }
+    throw error;
+  }
+}
