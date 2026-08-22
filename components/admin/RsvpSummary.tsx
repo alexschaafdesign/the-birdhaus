@@ -35,6 +35,7 @@ export default function RsvpSummary({
   showId,
   showTitle,
   showDate,
+  doorToken = null,
   rsvps: initialRsvps,
   purchasesByEmail = {},
   unmatchedBuyers = [],
@@ -42,9 +43,24 @@ export default function RsvpSummary({
   showId: number;
   showTitle: string;
   showDate: string;
+  doorToken?: string | null;
   purchasesByEmail?: Record<string, { totalCents: number; count: number }>;
   unmatchedBuyers?: { email: string; amountCents: number; purchasedAt: string }[];
 } & RsvpSummaryData) {
+  const [copiedDoorLink, setCopiedDoorLink] = useState(false);
+
+  async function copyDoorLink() {
+    if (!doorToken) return;
+    const url = `${window.location.origin}/door/${doorToken}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopiedDoorLink(true);
+      setTimeout(() => setCopiedDoorLink(false), 1500);
+    } catch {
+      // Clipboard blocked (e.g. insecure context) — fall back to opening it.
+      window.open(url, '_blank');
+    }
+  }
   const [rsvps, setRsvps] = useState<Rsvp[]>(initialRsvps);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -371,6 +387,25 @@ export default function RsvpSummary({
           >
             Print door list
           </button>
+          {doorToken && (
+            <>
+              <a
+                href={`/door/${doorToken}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="border border-[#c8a26a]/50 text-[#c8a26a] rounded px-3 py-1 text-xs hover:bg-[#c8a26a]/10 transition-colors"
+              >
+                Open door check-in ↗
+              </a>
+              <button
+                type="button"
+                onClick={copyDoorLink}
+                className="border border-[#E8E0D0]/40 rounded px-3 py-1 text-xs hover:bg-[#E8E0D0]/10 transition-colors"
+              >
+                {copiedDoorLink ? 'Copied!' : 'Copy iPad link'}
+              </button>
+            </>
+          )}
         </div>
       </div>
 

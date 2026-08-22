@@ -9,6 +9,7 @@ export interface Rsvp {
   email_list_opt_in: boolean;
   arrived: boolean;
   arrived_at: string | null;
+  arrived_count: number;
   paid: boolean;
   paid_at: string | null;
   confirmation_email_sent_at: string | null;
@@ -18,7 +19,7 @@ export interface Rsvp {
 // Shared column list so every read returns the full Rsvp shape.
 const RSVP_COLUMNS = sql`
   id, show_id, name, email, guests, email_list_opt_in,
-  arrived, arrived_at, paid, paid_at, confirmation_email_sent_at, created_at
+  arrived, arrived_at, arrived_count, paid, paid_at, confirmation_email_sent_at, created_at
 `;
 
 export interface RsvpSummary {
@@ -87,6 +88,31 @@ export async function setRsvpPaid(id: number, paid: boolean): Promise<Rsvp | nul
     update rsvps
     set paid = ${paid}, paid_at = ${paid ? sql`now()` : null}
     where id = ${id}
+    returning ${RSVP_COLUMNS}
+  `;
+  return row ?? null;
+}
+
+// Door kiosk: bump how many people from this RSVP have shown up (a party of 3
+// taps +1 three times; the − button walks it back on a mis-tap). Clamped at 0 so
+// it can never go negative. Kept scoped to the show the door token authorized, so
+// a token for one show can't touch another show's RSVPs. `arrived`/`arrived_at`
+// are kept in sync (arrived = count > 0) so the admin door-list UI still lines up.
+export async function bumpRsvpArrivedCount(
+  id: number,
+  showId: number,
+  delta: number
+): Promise<Rsvp | null> {
+  const [row] = await sql<Rsvp[]>`
+    update rsvps
+    set arrived_count = greatest(0, arrived_count + ${delta}),
+        arrived = greatest(0, arrived_count + ${delta}) > 0,
+        arrived_at = case
+          when greatest(0, arrived_count + ${delta}) > 0 and arrived_at is null then now()
+          when greatest(0, arrived_count + ${delta}) = 0 then null
+          else arrived_at
+        end
+    where id = ${id} and show_id = ${showId}
     returning ${RSVP_COLUMNS}
   `;
   return row ?? null;
