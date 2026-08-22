@@ -3,11 +3,13 @@ import { sql } from '@/lib/db';
 import CopySummaryButton from '@/components/admin/CopySummaryButton';
 import SettlementForm from '@/components/admin/SettlementForm';
 import { getShowBandsPaidStatus } from '@/lib/bands';
+import { getShowPurchaseMatches } from '@/lib/square';
 import {
   computeSettlementSummary,
   settlementEmailSummary,
   settlementValuesFromRow,
   DEFAULT_SETTLEMENT_VALUES,
+  FEE_INCOME_FIELDS,
   type SettlementDbRow,
 } from '@/lib/settlements';
 
@@ -29,12 +31,32 @@ export default async function SettlementPage({ params }: { params: Promise<{ id:
   const includedBands = bands.filter((b) => !b.excluded);
   const payoutBandCount = includedBands.length;
 
+  // Live advance ticket-sales total from Square (matched RSVP purchases + any
+  // unmatched buyers), same figure the RSVP admin shows. Best-effort: 0 when
+  // Square is off or the show was never synced. Used to pre-fill the Square income
+  // field and offered as an "apply" hint in the form.
+  const purchaseMatches = await getShowPurchaseMatches(showId, []);
+  const advanceSalesCents =
+    Object.values(purchaseMatches.purchasesByEmail).reduce((sum, p) => sum + p.totalCents, 0) +
+    purchaseMatches.unmatchedBuyers.reduce((sum, b) => sum + b.amountCents, 0);
+  const advanceTicketSalesDollars = advanceSalesCents > 0 ? advanceSalesCents / 100 : null;
+
   // Pre-fill the sound-engineer payee from the show's confirmed engineer (cached
-  // on shows.sound_engineer_name, kept in sync by setShowSoundEngineers) when no
-  // settlement exists yet.
+  // on shows.sound_engineer_name, kept in sync by setShowSoundEngineers) and seed
+  // Square income from advance ticket sales — both only when no settlement exists
+  // yet (a saved row is never overwritten). The Square value stays editable, and
+  // the form offers an "apply" hint to re-sync it as more sales come in.
+  const squareFeeRate = FEE_INCOME_FIELDS.find((f) => f.incomeKeys.includes('incomeSquare'))?.rate ?? 0;
   const initialValues = settlementRow
     ? settlementValuesFromRow(settlementRow)
-    : { ...DEFAULT_SETTLEMENT_VALUES, soundEngineerName: show.sound_engineer_name };
+    : {
+        ...DEFAULT_SETTLEMENT_VALUES,
+        soundEngineerName: show.sound_engineer_name,
+        incomeSquare: advanceTicketSalesDollars ?? DEFAULT_SETTLEMENT_VALUES.incomeSquare,
+        expSquareFees: advanceTicketSalesDollars
+          ? Number((advanceTicketSalesDollars * squareFeeRate).toFixed(2))
+          : DEFAULT_SETTLEMENT_VALUES.expSquareFees,
+      };
 
   // Copy-summary and PDF read the saved record, so only offer them once a
   // settlement has actually been recorded.
@@ -72,7 +94,12 @@ export default async function SettlementPage({ params }: { params: Promise<{ id:
         </div>
       )}
 
-      <SettlementForm showId={showId} bands={bands} initialValues={initialValues} />
+      <SettlementForm
+        showId={showId}
+        bands={bands}
+        initialValues={initialValues}
+        advanceTicketSalesDollars={advanceTicketSalesDollars}
+      />
     </div>
   );
 }

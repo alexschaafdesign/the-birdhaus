@@ -88,6 +88,9 @@ interface SettlementFormProps {
   showId: number;
   bands: ShowBandPaidStatus[];
   initialValues: SettlementValues | null;
+  // Live advance ticket-sales total (dollars) from Square, or null when there are
+  // none. Used to pre-fill Square income and offer a one-click "apply" re-sync.
+  advanceTicketSalesDollars?: number | null;
 }
 
 type FormState = {
@@ -117,7 +120,12 @@ function toFormState(values: SettlementValues): FormState {
   };
 }
 
-export default function SettlementForm({ showId, bands: initialBands, initialValues }: SettlementFormProps) {
+export default function SettlementForm({
+  showId,
+  bands: initialBands,
+  initialValues,
+  advanceTicketSalesDollars = null,
+}: SettlementFormProps) {
   const router = useRouter();
   const [form, setForm] = useState<FormState>(() => toFormState(initialValues ?? DEFAULT_SETTLEMENT_VALUES));
   const [bands, setBands] = useState<ShowBandPaidStatus[]>(initialBands);
@@ -396,17 +404,39 @@ export default function SettlementForm({ showId, bands: initialBands, initialVal
 
       <SectionCard title="Show Income" accent="income">
         <div className="grid gap-3 sm:grid-cols-3">
-          {SHOW_INCOME_FIELDS.map(({ key, label }) => (
-            <Field key={key} label={label}>
-              <input
-                type="number"
-                step="0.01"
-                value={form[key]}
-                onChange={(e) => setIncome(key, e.target.value)}
-                className={`${numberInputClass} w-full`}
-              />
-            </Field>
-          ))}
+          {SHOW_INCOME_FIELDS.map(({ key, label }) => {
+            const showAdvanceHint = key === 'incomeSquare' && advanceTicketSalesDollars != null;
+            const advanceMatches =
+              advanceTicketSalesDollars != null &&
+              Number(form.incomeSquare) === advanceTicketSalesDollars;
+            return (
+              <Field key={key} label={label}>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={form[key]}
+                  onChange={(e) => setIncome(key, e.target.value)}
+                  className={`${numberInputClass} w-full`}
+                />
+                {showAdvanceHint && (
+                  <p className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-[#E8E0D0]/40">
+                    <span>Advance sales: {formatCurrency(advanceTicketSalesDollars!)}</span>
+                    {advanceMatches ? (
+                      <span className="text-emerald-400/70">✓</span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setIncome('incomeSquare', advanceTicketSalesDollars!.toFixed(2))}
+                        className="text-[#E8E0D0]/70 underline decoration-dotted underline-offset-2 hover:text-[#E8E0D0]"
+                      >
+                        apply
+                      </button>
+                    )}
+                  </p>
+                )}
+              </Field>
+            );
+          })}
         </div>
       </SectionCard>
 
