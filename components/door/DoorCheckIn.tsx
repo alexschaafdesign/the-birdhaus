@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { DoorData, DoorRsvp } from '@/lib/door';
 
 function formatDate(date: string): string {
@@ -51,6 +51,16 @@ export default function DoorCheckIn({ token, data }: { token: string; data: Door
   const [walkins, setWalkins] = useState(data.walkinCount);
   const [query, setQuery] = useState('');
   const [error, setError] = useState<string | null>(null);
+  // The walk-in − is anonymous, so a stray tap loses a head silently. Require a
+  // deliberate two-tap: the first arms it, the second (within a few seconds)
+  // actually removes one. A single accidental brush does nothing.
+  const [walkinMinusArmed, setWalkinMinusArmed] = useState(false);
+
+  useEffect(() => {
+    if (!walkinMinusArmed) return;
+    const t = setTimeout(() => setWalkinMinusArmed(false), 3000);
+    return () => clearTimeout(t);
+  }, [walkinMinusArmed]);
 
   const rsvpHeads = rsvps.reduce((sum, r) => sum + r.arrivedCount, 0);
   const total = rsvpHeads + walkins;
@@ -164,7 +174,27 @@ export default function DoorCheckIn({ token, data }: { token: string; data: Door
             <div className="text-sm text-[#E8E0D0]/55">Tap the + for each person</div>
           </div>
           <div className="flex items-center gap-4">
-            <StepButton label="Remove a walk-in" sign="−" onClick={() => bumpWalkin(-1)} disabled={walkins === 0} />
+            <button
+              type="button"
+              aria-label={walkinMinusArmed ? 'Tap again to remove a walk-in' : 'Remove a walk-in'}
+              onClick={() => {
+                if (walkins === 0) return;
+                if (walkinMinusArmed) {
+                  setWalkinMinusArmed(false);
+                  bumpWalkin(-1);
+                } else {
+                  setWalkinMinusArmed(true);
+                }
+              }}
+              disabled={walkins === 0}
+              className={`flex items-center justify-center rounded-full h-16 text-2xl leading-none select-none transition-all disabled:opacity-25 active:scale-95 ${
+                walkinMinusArmed
+                  ? 'w-28 bg-red-500 text-white font-semibold text-lg'
+                  : 'w-16 border border-[#E8E0D0]/25 text-[#E8E0D0]/70'
+              }`}
+            >
+              {walkinMinusArmed ? 'Remove?' : '−'}
+            </button>
             <span className="text-4xl font-bold tabular-nums w-12 text-center">{walkins}</span>
             <StepButton label="Add a walk-in" sign="+" variant="accent" onClick={() => bumpWalkin(1)} />
           </div>
