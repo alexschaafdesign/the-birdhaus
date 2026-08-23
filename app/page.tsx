@@ -104,13 +104,16 @@ export default async function Home() {
           remaining columns and crops to the card's height. */}
       <div className="w-full max-w-4xl mx-auto px-8 mb-12 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 sm:items-stretch">
         {nextShow && (
-          <div className="flex flex-col">
-            <p className="mb-2 font-mono text-xs uppercase tracking-widest text-vhs-red">Next show</p>
+          // The eyebrow is absolutely positioned so it doesn't add height to
+          // this column — the card alone defines the row height, keeping the
+          // card and the photo exactly level.
+          <div className="relative">
+            <p className="absolute -top-6 left-0 font-mono text-xs uppercase tracking-widest text-vhs-red">Next show</p>
             <ShowCard show={nextShow} />
           </div>
         )}
-        <div className="flex flex-col lg:col-span-2">
-          <div className="relative aspect-[4/3] sm:aspect-auto sm:flex-1 border-2 border-ink">
+        <div className="relative lg:col-span-2">
+          <div className="relative aspect-[4/3] sm:aspect-auto sm:h-full border-2 border-ink">
             <Image
               src="https://images.thebirdhaus.org/misc/2016-01-16%20by%20Jeremy%20Nelson%205.jpg"
               alt="The Birdhaus venue"
@@ -121,7 +124,8 @@ export default async function Home() {
               className="object-cover"
             />
           </div>
-          <p className="mt-2 font-mono text-[11px] uppercase tracking-wider text-ink/50 text-right">Photo by Jeremy Nelson</p>
+          {/* Credit hangs below the image, outside the height calculation. */}
+          <p className="absolute -bottom-6 right-0 font-mono text-[11px] uppercase tracking-wider text-ink/50">Photo by Jeremy Nelson</p>
         </div>
       </div>
 
