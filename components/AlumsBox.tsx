@@ -84,7 +84,14 @@ export default function AlumsBox({
               </span>
             </span>
             <span className="flex-shrink-0 whitespace-nowrap font-mono text-xs uppercase tracking-widest text-vhs-red group-hover:underline">
-              {expanded ? 'Hide ▾' : `Show all ${bands.length} →`}
+              {expanded ? (
+                'Hide ▾'
+              ) : (
+                <>
+                  Show all {bands.length} <span className="sm:hidden">↓</span>
+                  <span className="hidden sm:inline">→</span>
+                </>
+              )}
             </span>
           </button>
           {expanded ? (
