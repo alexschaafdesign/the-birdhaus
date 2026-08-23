@@ -58,9 +58,9 @@ export default function Header({ isAdmin }: { isAdmin?: boolean }) {
     `block w-full text-center border-2 border-ink/40 px-4 py-3 font-mono text-xs uppercase tracking-widest transition-colors hover:border-ink hover:bg-ink hover:text-paper md:w-auto md:border-0 md:p-0 md:text-sm md:tracking-wider md:hover:bg-transparent md:hover:text-ink md:hover:underline md:decoration-vhs-red md:decoration-2 md:underline-offset-4${isActive ? ' bg-ink text-paper font-bold md:bg-transparent md:text-ink md:underline md:decoration-vhs-red md:decoration-2 md:underline-offset-4' : ''}`;
 
   return (
-    <header className="pb-8">
+    <header className="pb-5">
       {/* Ink band behind the cream logo — the "tape shell" above the paper label. */}
-      <div className="bg-[#1A1712] px-8 pt-12 pb-8">
+      <div className="bg-[#1A1712] px-8 pt-6 pb-6">
         <Link href="/" className="mx-auto block w-full max-w-sm">
           <Image
             src={LOGO_URL}
@@ -75,7 +75,7 @@ export default function Header({ isAdmin }: { isAdmin?: boolean }) {
         </Link>
       </div>
       <div className="vhs-stripes h-1.5 w-full" aria-hidden="true" />
-      <nav className="mt-8 px-8 grid grid-cols-2 gap-2 md:flex md:flex-row md:items-center md:justify-center md:gap-6 text-sm max-w-sm md:max-w-none mx-auto">
+      <nav className="mt-5 px-8 grid grid-cols-2 gap-2 md:flex md:flex-row md:items-center md:justify-center md:gap-6 text-sm max-w-sm md:max-w-none mx-auto">
         {navItems.map((item, i) => {
           const isLast = i === navItems.length - 1;
           const wrapperClass = `flex items-center md:gap-6${isLast && navItems.length % 2 === 1 ? ' col-span-2 md:col-auto' : ''}`;
