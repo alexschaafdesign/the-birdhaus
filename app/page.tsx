@@ -102,7 +102,7 @@ export default async function Home() {
       {/* Same container + grid as the Upcoming Shows list below, so the
           next-show card matches those cards exactly; the photo fills the
           remaining columns and crops to the card's height. */}
-      <div className="w-full max-w-4xl mx-auto px-8 mb-12 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 sm:items-stretch">
+      <div className="w-full max-w-4xl mx-auto px-8 mb-12 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-[2fr_3fr] sm:items-stretch">
         {nextShow && (
           // The eyebrow is absolutely positioned so it doesn't add height to
           // this column — the card alone defines the row height, keeping the
@@ -112,7 +112,7 @@ export default async function Home() {
             <ShowCard show={nextShow} />
           </div>
         )}
-        <div className="relative lg:col-span-2">
+        <div className="relative">
           <div className="relative aspect-[4/3] sm:aspect-auto sm:h-full border-2 border-ink">
             <Image
               src="https://images.thebirdhaus.org/misc/2016-01-16%20by%20Jeremy%20Nelson%205.jpg"
