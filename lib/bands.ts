@@ -1,6 +1,7 @@
 import postgres from 'postgres';
 import { sql } from './db';
 import type { Show } from './shows';
+import { isPaidMethod, type PaidMethod } from './settlements';
 import {
   getTwinSceneBands,
   createTwinSceneBand,
@@ -154,6 +155,9 @@ export interface ShowBandPaidStatus {
   bandId: number;
   name: string;
   paid: boolean;
+  // How the payout was made (show_bands.paid_method). Null when unpaid, or
+  // for payouts recorded before the method was tracked.
+  paidMethod: PaidMethod | null;
   // Excluded from the payout split — the artist pool is divided only among
   // the bands that aren't excluded (show_bands.excluded).
   excluded: boolean;
@@ -176,13 +180,14 @@ export async function getShowBandsPaidStatus(showId: number): Promise<ShowBandPa
       band_id: number;
       name: string;
       paid: boolean;
+      paid_method: string | null;
       excluded: boolean;
       payment_method: string | null;
       payout_override: string | null;
       photo: string | null;
     }>
   >`
-    select b.id as band_id, b.name, sb.paid, sb.excluded, b.payment_method, sb.payout_override, b.photo
+    select b.id as band_id, b.name, sb.paid, sb.paid_method, sb.excluded, b.payment_method, sb.payout_override, b.photo
     from show_bands sb
     join bands b on b.id = sb.band_id
     where sb.show_id = ${showId}
@@ -192,6 +197,7 @@ export async function getShowBandsPaidStatus(showId: number): Promise<ShowBandPa
     bandId: r.band_id,
     name: r.name,
     paid: r.paid,
+    paidMethod: isPaidMethod(r.paid_method) ? r.paid_method : null,
     excluded: r.excluded,
     paymentMethod: r.payment_method,
     // numeric comes back as a string from postgres.js; null stays null.
@@ -204,13 +210,22 @@ export async function getShowBandsPaidStatus(showId: number): Promise<ShowBandPa
 // separate from the settlement record, since show_bands has no dependency
 // on a settlements row existing. Returns null if the show/band pairing
 // doesn't exist.
-export async function setShowBandPaid(showId: number, bandId: number, paid: boolean): Promise<boolean | null> {
-  const [row] = await sql<Array<{ paid: boolean }>>`
-    update show_bands set paid = ${paid}
+export async function setShowBandPaid(
+  showId: number,
+  bandId: number,
+  paid: boolean,
+  paidMethod: PaidMethod | null = null
+): Promise<{ paid: boolean; paidMethod: PaidMethod | null } | null> {
+  // Unmarking always clears the method — a method only means something for a
+  // payment that happened.
+  const method = paid ? paidMethod : null;
+  const [row] = await sql<Array<{ paid: boolean; paid_method: string | null }>>`
+    update show_bands set paid = ${paid}, paid_method = ${method}
     where show_id = ${showId} and band_id = ${bandId}
-    returning paid
+    returning paid, paid_method
   `;
-  return row ? row.paid : null;
+  if (!row) return null;
+  return { paid: row.paid, paidMethod: isPaidMethod(row.paid_method) ? row.paid_method : null };
 }
 
 // Toggles whether a band is excluded from the payout split for a show —

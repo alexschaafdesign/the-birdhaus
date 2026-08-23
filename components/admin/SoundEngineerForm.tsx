@@ -24,6 +24,7 @@ export interface SoundEngineerFormInitialValues {
   bio?: string | null;
   instagram?: string | null;
   contactEmail?: string | null;
+  paymentMethod?: string | null;
 }
 
 export default function SoundEngineerForm({
@@ -40,6 +41,7 @@ export default function SoundEngineerForm({
   const [photo, setPhoto] = useState(initialValues?.photo ?? '');
   const [instagram, setInstagram] = useState(initialValues?.instagram ?? '');
   const [contactEmail, setContactEmail] = useState(initialValues?.contactEmail ?? '');
+  const [paymentMethod, setPaymentMethod] = useState(initialValues?.paymentMethod ?? '');
   const [bio, setBio] = useState(initialValues?.bio ?? '');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -59,6 +61,7 @@ export default function SoundEngineerForm({
       instagram: instagram.trim() || null,
       // Explicit null so clearing a field actually clears the stored value.
       contactEmail: contactEmail.trim() || null,
+      paymentMethod: paymentMethod.trim() || null,
       bio: bio.trim() || null,
     };
 
@@ -159,6 +162,19 @@ export default function SoundEngineerForm({
           />
           <p className="text-xs text-[#E8E0D0]/30 mt-1">
             Saved with the engineer and reused when they&rsquo;re looped onto a show advance.
+          </p>
+        </div>
+
+        <div>
+          <label className="block text-xs uppercase tracking-wide text-[#E8E0D0]/40 mb-1">Payment handle</label>
+          <input
+            value={paymentMethod}
+            onChange={(e) => setPaymentMethod(e.target.value)}
+            placeholder="@venmo-username"
+            className={`${inputClass} w-full`}
+          />
+          <p className="text-xs text-[#E8E0D0]/30 mt-1">
+            Venmo username (or how they like to be paid). Admin-only — shown on the settlement sheet when paying out.
           </p>
         </div>
 

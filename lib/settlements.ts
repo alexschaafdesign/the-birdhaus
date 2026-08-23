@@ -30,6 +30,15 @@ export type NumericField = (typeof NUMERIC_FIELDS)[number];
 
 export type PayeeNameField = 'photographerName' | 'soundEngineerName';
 export type PayeePaidField = 'photographerPaid' | 'soundPaid';
+export type PayeePaidMethodField = 'photographerPaidMethod' | 'soundPaidMethod';
+
+// How a payout was actually made. Null = unpaid, or paid before this was tracked.
+export type PaidMethod = 'cash' | 'venmo';
+export const PAID_METHODS: PaidMethod[] = ['cash', 'venmo'];
+
+export function isPaidMethod(value: unknown): value is PaidMethod {
+  return value === 'cash' || value === 'venmo';
+}
 
 export type SettlementValues = {
   dealType: DealType;
@@ -39,6 +48,8 @@ export type SettlementValues = {
   soundEngineerName: string | null;
   soundPaid: boolean;
   photographerPaid: boolean;
+  soundPaidMethod: PaidMethod | null;
+  photographerPaidMethod: PaidMethod | null;
 } & Record<NumericField, number>;
 
 export const DEFAULT_SETTLEMENT_VALUES: SettlementValues = {
@@ -66,19 +77,35 @@ export const DEFAULT_SETTLEMENT_VALUES: SettlementValues = {
   soundEngineerName: null,
   soundPaid: false,
   photographerPaid: false,
+  soundPaidMethod: null,
+  photographerPaidMethod: null,
 };
 
-// Links an expense field to the payee-name field tracking who it was paid to
-// and the paid-status field tracking whether they've actually been paid, so
-// the form/view/summary can render this without hardcoding the pairing.
+// Links an expense field to the payee-name field tracking who it was paid to,
+// the paid-status field tracking whether they've actually been paid, and the
+// paid-method field tracking how (cash/venmo), so the form/view/summary can
+// render this without hardcoding the pairing.
 export const PAYEE_EXPENSE_FIELDS: Array<{
   amountKey: NumericField;
   nameKey: PayeeNameField;
   paidKey: PayeePaidField;
+  methodKey: PayeePaidMethodField;
   label: string;
 }> = [
-  { amountKey: 'expPhotos', nameKey: 'photographerName', paidKey: 'photographerPaid', label: 'Photographer' },
-  { amountKey: 'expSoundEngineer', nameKey: 'soundEngineerName', paidKey: 'soundPaid', label: 'Sound engineer' },
+  {
+    amountKey: 'expPhotos',
+    nameKey: 'photographerName',
+    paidKey: 'photographerPaid',
+    methodKey: 'photographerPaidMethod',
+    label: 'Photographer',
+  },
+  {
+    amountKey: 'expSoundEngineer',
+    nameKey: 'soundEngineerName',
+    paidKey: 'soundPaid',
+    methodKey: 'soundPaidMethod',
+    label: 'Sound engineer',
+  },
 ];
 
 export const SHOW_INCOME_FIELDS: Array<{ key: NumericField; label: string }> = [
@@ -290,6 +317,8 @@ export interface SettlementDbRow {
   sound_engineer_name: string | null;
   sound_paid: boolean;
   photographer_paid: boolean;
+  sound_paid_method: string | null;
+  photographer_paid_method: string | null;
 }
 
 export function settlementValuesFromRow(row: SettlementDbRow): SettlementValues {
@@ -318,5 +347,7 @@ export function settlementValuesFromRow(row: SettlementDbRow): SettlementValues 
     soundEngineerName: row.sound_engineer_name,
     soundPaid: row.sound_paid,
     photographerPaid: row.photographer_paid,
+    soundPaidMethod: isPaidMethod(row.sound_paid_method) ? row.sound_paid_method : null,
+    photographerPaidMethod: isPaidMethod(row.photographer_paid_method) ? row.photographer_paid_method : null,
   };
 }

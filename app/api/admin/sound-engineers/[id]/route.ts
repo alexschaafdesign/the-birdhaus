@@ -12,6 +12,7 @@ const TEXT_FIELD_MAP: Record<string, string> = {
   bio: 'bio',
   instagram: 'instagram',
   contactEmail: 'contact_email',
+  paymentMethod: 'payment_method',
 };
 
 function parseId(id: string): number | null {

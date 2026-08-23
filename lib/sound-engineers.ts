@@ -48,13 +48,16 @@ export interface SoundEngineerProfile {
   bio: string | null;
   instagram: string | null;
   contactEmail: string | null;
+  // Payment handle (Venmo username, etc.), mirroring bands.payment_method.
+  // Admin-only — surfaced on the settlement sheet when paying out.
+  paymentMethod: string | null;
 }
 
 export async function getSoundEngineerProfile(id: number): Promise<SoundEngineerProfile | null> {
   const [row] = await sql<
-    Array<{ id: number; name: string; photo: string | null; bio: string | null; instagram: string | null; contact_email: string | null }>
+    Array<{ id: number; name: string; photo: string | null; bio: string | null; instagram: string | null; contact_email: string | null; payment_method: string | null }>
   >`
-    select id, name, photo, bio, instagram, contact_email from sound_engineers where id = ${id}
+    select id, name, photo, bio, instagram, contact_email, payment_method from sound_engineers where id = ${id}
   `;
   if (!row) return null;
   return {
@@ -64,6 +67,7 @@ export async function getSoundEngineerProfile(id: number): Promise<SoundEngineer
     bio: row.bio,
     instagram: row.instagram,
     contactEmail: row.contact_email,
+    paymentMethod: row.payment_method,
   };
 }
 

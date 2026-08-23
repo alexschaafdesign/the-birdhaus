@@ -10,12 +10,14 @@ import {
   DEFAULT_SETTLEMENT_VALUES,
   FEE_INCOME_FIELDS,
   NUMERIC_FIELDS,
+  PAID_METHODS,
   PAYEE_EXPENSE_FIELDS,
   SHOW_INCOME_FIELDS,
   VENUE_EXPENSE_FIELDS,
   VENUE_ADDITIONAL_INCOME_FIELDS,
   type DealType,
   type NumericField,
+  type PaidMethod,
   type SettlementValues,
 } from '@/lib/settlements';
 
@@ -292,6 +294,49 @@ function MoneyField({
   );
 }
 
+const PAID_METHOD_LABEL: Record<PaidMethod, string> = { cash: 'cash', venmo: 'Venmo' };
+
+// Paid toggle that records how the payment was made: unpaid shows one button
+// per method (cash/Venmo), paid collapses to a single "✓ Paid · method" button
+// that unmarks on click.
+function PaidToggle({
+  paid,
+  method,
+  onChange,
+}: {
+  paid: boolean;
+  method: PaidMethod | null;
+  onChange: (paid: boolean, method: PaidMethod | null) => void;
+}) {
+  if (paid) {
+    return (
+      <button
+        type="button"
+        onClick={() => onChange(false, null)}
+        title="Click to mark unpaid"
+        className="w-full rounded border border-emerald-400/50 bg-emerald-400/15 px-2 py-1 text-xs font-medium text-emerald-300 transition-colors"
+      >
+        ✓ Paid{method ? ` · ${PAID_METHOD_LABEL[method]}` : ''}
+      </button>
+    );
+  }
+  return (
+    <div className="flex w-full gap-1">
+      {PAID_METHODS.map((m) => (
+        <button
+          key={m}
+          type="button"
+          onClick={() => onChange(true, m)}
+          title={`Mark as paid by ${PAID_METHOD_LABEL[m]}`}
+          className="flex-1 rounded border border-[#E8E0D0]/25 px-1 py-1 text-xs font-medium text-[#E8E0D0]/60 transition-colors hover:bg-[#E8E0D0]/10"
+        >
+          Paid {PAID_METHOD_LABEL[m]}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 // A labeled sub-group rendered as a solid bordered panel, optionally
 // collapsible. The header always shows the group's running total on the right
 // so nothing is hidden when collapsed.
@@ -392,10 +437,10 @@ interface SettlementFormProps {
   // field can show an avatar for whichever registered engineer is entered.
   soundEngineerPhotos?: Record<string, string>;
   // Full registry list, shown in the dropdown when switching the sound engineer.
-  soundEngineers?: Array<{ name: string; photo: string | null }>;
+  soundEngineers?: Array<{ name: string; photo: string | null; paymentMethod?: string | null }>;
   // Same, for photographers.
   photographerPhotos?: Record<string, string>;
-  photographers?: Array<{ name: string; photo: string | null }>;
+  photographers?: Array<{ name: string; photo: string | null; paymentMethod?: string | null }>;
 }
 
 type FormState = {
@@ -405,6 +450,8 @@ type FormState = {
   soundEngineerName: string;
   soundPaid: boolean;
   photographerPaid: boolean;
+  soundPaidMethod: PaidMethod | null;
+  photographerPaidMethod: PaidMethod | null;
   extraLineItems: FormExtraLineItem[];
 } & Record<NumericField, string>;
 
@@ -421,6 +468,8 @@ function toFormState(values: SettlementValues): FormState {
     soundEngineerName: values.soundEngineerName ?? '',
     soundPaid: values.soundPaid,
     photographerPaid: values.photographerPaid,
+    soundPaidMethod: values.soundPaidMethod,
+    photographerPaidMethod: values.photographerPaidMethod,
     extraLineItems: values.extraLineItems.map((item) => ({ ...item, amount: String(item.amount) })),
   };
 }
@@ -450,14 +499,16 @@ export default function SettlementForm({
   // Only bands that aren't excluded share the payout split.
   const payoutBandCount = bands.filter((b) => !b.excluded).length;
 
-  async function toggleBandPaid(bandId: number, paid: boolean) {
+  async function toggleBandPaid(bandId: number, paid: boolean, paidMethod: PaidMethod | null = null) {
+    // Unmarking clears the method — it only means something for a payment that happened.
+    const method = paid ? paidMethod : null;
     const previous = bands;
-    setBands((cur) => cur.map((b) => (b.bandId === bandId ? { ...b, paid } : b)));
+    setBands((cur) => cur.map((b) => (b.bandId === bandId ? { ...b, paid, paidMethod: method } : b)));
     try {
       const res = await fetch(`/api/admin/settlements/${showId}/bands/${bandId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ paid }),
+        body: JSON.stringify({ paid, paidMethod: method }),
       });
       if (!res.ok) throw new Error();
     } catch {
@@ -524,7 +575,11 @@ export default function SettlementForm({
     // Excluding a band also drops it out of the paid checklist — it isn't part
     // of the payout, so its paid status is no longer meaningful.
     setBands((cur) =>
-      cur.map((b) => (b.bandId === bandId ? { ...b, excluded, paid: excluded ? false : b.paid } : b))
+      cur.map((b) =>
+        b.bandId === bandId
+          ? { ...b, excluded, paid: excluded ? false : b.paid, paidMethod: excluded ? null : b.paidMethod }
+          : b
+      )
     );
     try {
       const res = await fetch(`/api/admin/settlements/${showId}/bands/${bandId}`, {
@@ -602,6 +657,8 @@ export default function SettlementForm({
       soundEngineerName: form.soundEngineerName,
       soundPaid: form.soundPaid,
       photographerPaid: form.photographerPaid,
+      soundPaidMethod: form.soundPaidMethod,
+      photographerPaidMethod: form.photographerPaidMethod,
       extraLineItems: form.extraLineItems.map((item) => ({
         type: item.type,
         label: item.label,
@@ -636,6 +693,8 @@ export default function SettlementForm({
       soundEngineerName: form.soundEngineerName.trim() || null,
       soundPaid: form.soundPaid,
       photographerPaid: form.photographerPaid,
+      soundPaidMethod: form.soundPaidMethod,
+      photographerPaidMethod: form.photographerPaidMethod,
       extraLineItems: form.extraLineItems
         .filter((item) => item.label.trim())
         .map((item) => ({ type: item.type, label: item.label.trim(), amount: Number(item.amount) || 0 })),
@@ -911,18 +970,26 @@ export default function SettlementForm({
                             />
                           </div>
 
+                          {/* Payment handle from the crew registry (matched by name),
+                              mirroring the band cards — on hand when paying out. */}
+                          {payee && name.trim() && (
+                            matched?.paymentMethod ? (
+                              <span className="mt-1 text-xs text-[#E8E0D0]/45">{matched.paymentMethod}</span>
+                            ) : (
+                              <span className="mt-1 text-xs text-[#E8E0D0]/25">no payment method</span>
+                            )
+                          )}
+
                           {payee && (
-                            <button
-                              type="button"
-                              onClick={() => set(payee.paidKey, !form[payee.paidKey])}
-                              className={`mt-2 w-full rounded border px-2 py-1 text-xs font-medium transition-colors ${
-                                form[payee.paidKey]
-                                  ? 'border-emerald-400/50 bg-emerald-400/15 text-emerald-300'
-                                  : 'border-[#E8E0D0]/25 text-[#E8E0D0]/60 hover:bg-[#E8E0D0]/10'
-                              }`}
-                            >
-                              {form[payee.paidKey] ? '✓ Paid' : 'Mark as paid'}
-                            </button>
+                            <div className="mt-2 w-full">
+                              <PaidToggle
+                                paid={form[payee.paidKey]}
+                                method={form[payee.methodKey]}
+                                onChange={(paid, method) =>
+                                  setForm((prev) => ({ ...prev, [payee.paidKey]: paid, [payee.methodKey]: method }))
+                                }
+                              />
+                            </div>
                           )}
                         </div>
                       );
@@ -1049,17 +1116,11 @@ export default function SettlementForm({
                           reset to even split
                         </button>
                       )}
-                      <button
-                        type="button"
-                        onClick={() => toggleBandPaid(band.bandId, !band.paid)}
-                        className={`w-full rounded border px-2 py-1 text-xs font-medium transition-colors ${
-                          band.paid
-                            ? 'border-emerald-400/50 bg-emerald-400/15 text-emerald-300'
-                            : 'border-[#E8E0D0]/25 text-[#E8E0D0]/60 hover:bg-[#E8E0D0]/10'
-                        }`}
-                      >
-                        {band.paid ? '✓ Paid' : 'Mark as paid'}
-                      </button>
+                      <PaidToggle
+                        paid={band.paid}
+                        method={band.paidMethod}
+                        onChange={(paid, method) => toggleBandPaid(band.bandId, paid, method)}
+                      />
                     </>
                   )}
                   <button

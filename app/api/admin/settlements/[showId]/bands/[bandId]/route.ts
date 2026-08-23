@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { setShowBandExcluded, setShowBandPaid, setShowBandPayoutOverride } from '@/lib/bands';
+import { isPaidMethod } from '@/lib/settlements';
 
 function parseId(id: string): number | null {
   const parsed = Number(id);
@@ -23,11 +24,14 @@ export async function PATCH(
   }
 
   if (typeof body.paid === 'boolean') {
-    const paid = await setShowBandPaid(showId, bandId, body.paid);
-    if (paid === null) {
+    // Optional cash/venmo method rides along when marking paid; ignored (and
+    // cleared server-side) when unmarking.
+    const method = isPaidMethod(body.paidMethod) ? body.paidMethod : null;
+    const result = await setShowBandPaid(showId, bandId, body.paid, method);
+    if (result === null) {
       return NextResponse.json({ error: 'Show/band not found' }, { status: 404 });
     }
-    return NextResponse.json({ paid });
+    return NextResponse.json(result);
   }
 
   if (typeof body.excluded === 'boolean') {

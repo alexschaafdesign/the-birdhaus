@@ -33,26 +33,35 @@ export default async function SettlementPage({ params }: { params: Promise<{ id:
 
   // Sound-engineer photos keyed by lowercased name. The settlement's engineer
   // payee is free text (settlements.sound_engineer_name), so we match it back to
-  // the registry by name to show the engineer's avatar on the sheet.
-  const engineerRows = await sql<{ name: string; photo: string | null }[]>`
-    select name, photo from sound_engineers order by name asc
+  // the registry by name to show the engineer's avatar on the sheet. The payment
+  // handle (Venmo etc.) rides along the same way so it's on hand when paying out.
+  const engineerRows = await sql<{ name: string; photo: string | null; payment_method: string | null }[]>`
+    select name, photo, payment_method from sound_engineers order by name asc
   `;
   const soundEngineerPhotos: Record<string, string> = {};
   for (const row of engineerRows) {
     if (row.photo) soundEngineerPhotos[row.name.trim().toLowerCase()] = row.photo;
   }
   // Full registry list for the settlement form's "change engineer" menu.
-  const soundEngineers = engineerRows.map((row) => ({ name: row.name, photo: row.photo }));
+  const soundEngineers = engineerRows.map((row) => ({
+    name: row.name,
+    photo: row.photo,
+    paymentMethod: row.payment_method,
+  }));
 
   // Photographers registry — same treatment as sound engineers.
-  const photographerRows = await sql<{ name: string; photo: string | null }[]>`
-    select name, photo from photographers order by name asc
+  const photographerRows = await sql<{ name: string; photo: string | null; payment_method: string | null }[]>`
+    select name, photo, payment_method from photographers order by name asc
   `;
   const photographerPhotos: Record<string, string> = {};
   for (const row of photographerRows) {
     if (row.photo) photographerPhotos[row.name.trim().toLowerCase()] = row.photo;
   }
-  const photographers = photographerRows.map((row) => ({ name: row.name, photo: row.photo }));
+  const photographers = photographerRows.map((row) => ({
+    name: row.name,
+    photo: row.photo,
+    paymentMethod: row.payment_method,
+  }));
 
   // Live advance ticket-sales total from Square (matched RSVP purchases + any
   // unmatched buyers), same figure the RSVP admin shows. Best-effort: 0 when

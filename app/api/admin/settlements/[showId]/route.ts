@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { sql } from '@/lib/db';
+import { isPaidMethod, type PaidMethod } from '@/lib/settlements';
 
 const DEAL_TYPES = ['straight_split', 'venue_guarantee_then_split'];
 
@@ -59,7 +60,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ show
 // Partial update for the post-show paid flags (sound engineer / photographer),
 // so the Shows-list tags can be toggled without loading the whole settlement.
 // Upserts a bare settlement row if none exists yet — every other column has a
-// default, so show_id + the flag is enough.
+// default, so show_id + the flag is enough. An optional paid-method (cash/venmo)
+// rides along with each flag; unmarking always clears it.
 export async function PATCH(request: Request, { params }: { params: Promise<{ showId: string }> }) {
   const { showId: showIdParam } = await params;
   const showId = parseId(showIdParam);
@@ -78,17 +80,28 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ sh
     return NextResponse.json({ error: 'Nothing to update' }, { status: 400 });
   }
 
+  const soundMethod: PaidMethod | null =
+    hasSound && body.soundPaid && isPaidMethod(body.soundPaidMethod) ? body.soundPaidMethod : null;
+  const photographerMethod: PaidMethod | null =
+    hasPhotographer && body.photographerPaid && isPaidMethod(body.photographerPaidMethod)
+      ? body.photographerPaidMethod
+      : null;
+
   try {
     if (hasSound) {
       await sql`
-        insert into settlements (show_id, sound_paid) values (${showId}, ${body.soundPaid})
-        on conflict (show_id) do update set sound_paid = ${body.soundPaid}, updated_at = now()
+        insert into settlements (show_id, sound_paid, sound_paid_method)
+        values (${showId}, ${body.soundPaid}, ${soundMethod})
+        on conflict (show_id) do update set
+          sound_paid = ${body.soundPaid}, sound_paid_method = ${soundMethod}, updated_at = now()
       `;
     }
     if (hasPhotographer) {
       await sql`
-        insert into settlements (show_id, photographer_paid) values (${showId}, ${body.photographerPaid})
-        on conflict (show_id) do update set photographer_paid = ${body.photographerPaid}, updated_at = now()
+        insert into settlements (show_id, photographer_paid, photographer_paid_method)
+        values (${showId}, ${body.photographerPaid}, ${photographerMethod})
+        on conflict (show_id) do update set
+          photographer_paid = ${body.photographerPaid}, photographer_paid_method = ${photographerMethod}, updated_at = now()
       `;
     }
     return NextResponse.json({ ok: true });
@@ -130,6 +143,10 @@ export async function PUT(request: Request, { params }: { params: Promise<{ show
     typeof body.soundEngineerName === 'string' ? body.soundEngineerName.trim() || null : null;
   const soundPaid = Boolean(body.soundPaid);
   const photographerPaid = Boolean(body.photographerPaid);
+  // A paid method only means something for a payment that happened.
+  const soundPaidMethod = soundPaid && isPaidMethod(body.soundPaidMethod) ? body.soundPaidMethod : null;
+  const photographerPaidMethod =
+    photographerPaid && isPaidMethod(body.photographerPaidMethod) ? body.photographerPaidMethod : null;
 
   try {
     const [row] = await sql`
@@ -140,7 +157,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ show
         exp_ad_print, exp_ad_online, exp_snacks, exp_beer,
         beverage_income_venmo, beverage_income_cash,
         extra_line_items, notes, photographer_name, sound_engineer_name,
-        sound_paid, photographer_paid, updated_at
+        sound_paid, photographer_paid, sound_paid_method, photographer_paid_method, updated_at
       ) values (
         ${showId}, ${dealType}, ${values.deal_threshold}, ${values.artist_split_pct}, ${values.venue_redirect_pct},
         ${values.income_square}, ${values.income_venmo}, ${values.income_cash},
@@ -148,7 +165,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ show
         ${values.exp_ad_print}, ${values.exp_ad_online}, ${values.exp_snacks}, ${values.exp_beer},
         ${values.beverage_income_venmo}, ${values.beverage_income_cash},
         ${sql.json(extraLineItems)}, ${notes}, ${photographerName}, ${soundEngineerName},
-        ${soundPaid}, ${photographerPaid}, now()
+        ${soundPaid}, ${photographerPaid}, ${soundPaidMethod}, ${photographerPaidMethod}, now()
       )
       on conflict (show_id) do update set
         deal_type = excluded.deal_type,
@@ -175,6 +192,8 @@ export async function PUT(request: Request, { params }: { params: Promise<{ show
         sound_engineer_name = excluded.sound_engineer_name,
         sound_paid = excluded.sound_paid,
         photographer_paid = excluded.photographer_paid,
+        sound_paid_method = excluded.sound_paid_method,
+        photographer_paid_method = excluded.photographer_paid_method,
         updated_at = now()
       returning *
     `;

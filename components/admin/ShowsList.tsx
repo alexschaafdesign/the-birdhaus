@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { ShowBandPaidStatus } from '@/lib/bands';
+import { PAID_METHODS, type PaidMethod } from '@/lib/settlements';
 import SoundEngineerNameInput from './SoundEngineerNameInput';
 
 export interface ShowListItem {
@@ -325,9 +326,10 @@ export default function ShowsList({ initialShows, today }: { initialShows: ShowL
     setIgnored(show.id, [...current, key]);
   }
 
-  // Marks one band paid/unpaid for a show and adjusts the show's cached
-  // paid count so the "N bands unpaid" tag updates without a reload.
-  async function markBandPaid(showId: number, bandId: number, paid: boolean) {
+  // Marks one band paid/unpaid for a show (recording how it was paid) and
+  // adjusts the show's cached paid count so the "N bands unpaid" tag updates
+  // without a reload.
+  async function markBandPaid(showId: number, bandId: number, paid: boolean, method: PaidMethod | null) {
     const previous = shows;
     setShows((cur) =>
       cur.map((s) =>
@@ -340,7 +342,7 @@ export default function ShowsList({ initialShows, today }: { initialShows: ShowL
       const res = await fetch(`/api/admin/settlements/${showId}/bands/${bandId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ paid }),
+        body: JSON.stringify({ paid, paidMethod: paid ? method : null }),
       });
       if (!res.ok) throw new Error();
     } catch {
@@ -349,9 +351,14 @@ export default function ShowsList({ initialShows, today }: { initialShows: ShowL
     }
   }
 
-  // Marks the sound engineer or photographer paid for a show, flipping the
-  // cached flag so the corresponding tag clears immediately.
-  async function markCrewPaid(showId: number, role: 'sound' | 'photographer', paid: boolean) {
+  // Marks the sound engineer or photographer paid for a show (recording how),
+  // flipping the cached flag so the corresponding tag clears immediately.
+  async function markCrewPaid(
+    showId: number,
+    role: 'sound' | 'photographer',
+    paid: boolean,
+    method: PaidMethod | null
+  ) {
     const previous = shows;
     const column = role === 'sound' ? 'sound_paid' : 'photographer_paid';
     setShows((cur) => cur.map((s) => (s.id === showId ? { ...s, [column]: paid } : s)));
@@ -359,7 +366,11 @@ export default function ShowsList({ initialShows, today }: { initialShows: ShowL
       const res = await fetch(`/api/admin/settlements/${showId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(role === 'sound' ? { soundPaid: paid } : { photographerPaid: paid }),
+        body: JSON.stringify(
+          role === 'sound'
+            ? { soundPaid: paid, soundPaidMethod: paid ? method : null }
+            : { photographerPaid: paid, photographerPaidMethod: paid ? method : null }
+        ),
       });
       if (!res.ok) throw new Error();
     } catch {
@@ -542,8 +553,8 @@ function ShowGroup({
   shows: ShowListItem[];
   today: string;
   onDismissIssue: (show: ShowListItem, key: string) => void;
-  onMarkBandPaid: (showId: number, bandId: number, paid: boolean) => void;
-  onMarkCrewPaid: (showId: number, role: 'sound' | 'photographer', paid: boolean) => void;
+  onMarkBandPaid: (showId: number, bandId: number, paid: boolean, method: PaidMethod | null) => void;
+  onMarkCrewPaid: (showId: number, role: 'sound' | 'photographer', paid: boolean, method: PaidMethod | null) => void;
   issueCategories: IssueCategory[];
   // Present only for the selectable (Upcoming) group's bulk "ask engineer" flow.
   selectMode?: boolean;
@@ -665,11 +676,55 @@ function ShowGroup({
   );
 }
 
+const PAID_METHOD_LABEL: Record<PaidMethod, string> = { cash: 'cash', venmo: 'Venmo' };
+
+// Compact cash/venmo button pair for the popover rows — marking paid records
+// how the payment was made; a paid row collapses to "✓ method", which unmarks
+// on click.
+function PaidMethodButtons({
+  paid,
+  method,
+  onChange,
+}: {
+  paid: boolean;
+  method: PaidMethod | null;
+  onChange: (paid: boolean, method: PaidMethod | null) => void;
+}) {
+  if (paid) {
+    return (
+      <button
+        type="button"
+        onClick={() => onChange(false, null)}
+        title="Click to mark unpaid"
+        className="shrink-0 text-xs text-emerald-300 hover:text-emerald-200"
+      >
+        ✓ {method ? PAID_METHOD_LABEL[method] : 'paid'}
+      </button>
+    );
+  }
+  return (
+    <span className="flex shrink-0 gap-1">
+      {PAID_METHODS.map((m) => (
+        <button
+          key={m}
+          type="button"
+          onClick={() => onChange(true, m)}
+          title={`Mark paid by ${PAID_METHOD_LABEL[m]}`}
+          className="rounded border border-[#E8E0D0]/25 px-1.5 py-0.5 text-[11px] text-[#E8E0D0]/60 hover:bg-[#E8E0D0]/10"
+        >
+          {PAID_METHOD_LABEL[m]}
+        </button>
+      ))}
+    </span>
+  );
+}
+
 // A post-show "unpaid" tag with an explicit "Mark paid" button that opens a
-// small popover of checkboxes — one per band, or a single row for the sound
-// engineer / photographer. Toggling calls back up so the tag clears (or its
-// count drops) live. The label text is plain; only the button opens the popover
-// so the affordance is obvious.
+// small popover — one row per band, or a single row for the sound engineer /
+// photographer, each with cash/venmo buttons that record how the payout was
+// made. Toggling calls back up so the tag clears (or its count drops) live.
+// The label text is plain; only the button opens the popover so the affordance
+// is obvious.
 function PaidTag({
   show,
   issueKey,
@@ -682,8 +737,8 @@ function PaidTag({
   issueKey: 'bands-unpaid' | 'sound-unpaid' | 'photographer-unpaid';
   label: string;
   onDismiss: () => void;
-  onMarkBandPaid: (showId: number, bandId: number, paid: boolean) => void;
-  onMarkCrewPaid: (showId: number, role: 'sound' | 'photographer', paid: boolean) => void;
+  onMarkBandPaid: (showId: number, bandId: number, paid: boolean, method: PaidMethod | null) => void;
+  onMarkCrewPaid: (showId: number, role: 'sound' | 'photographer', paid: boolean, method: PaidMethod | null) => void;
 }) {
   const isBands = issueKey === 'bands-unpaid';
   const [open, setOpen] = useState(false);
@@ -723,9 +778,11 @@ function PaidTag({
     if (next && isBands && bands === null && !loading) loadBands();
   }
 
-  function handleBandToggle(bandId: number, paid: boolean) {
-    setBands((cur) => (cur ? cur.map((b) => (b.bandId === bandId ? { ...b, paid } : b)) : cur));
-    onMarkBandPaid(show.id, bandId, paid);
+  function handleBandToggle(bandId: number, paid: boolean, method: PaidMethod | null) {
+    setBands((cur) =>
+      cur ? cur.map((b) => (b.bandId === bandId ? { ...b, paid, paidMethod: paid ? method : null } : b)) : cur
+    );
+    onMarkBandPaid(show.id, bandId, paid, method);
   }
 
   const crewRole = issueKey === 'sound-unpaid' ? 'sound' : 'photographer';
@@ -788,31 +845,35 @@ function PaidTag({
                         <span className="text-xs text-[#E8E0D0]/40">excluded</span>
                       </div>
                     ) : (
-                      <label
+                      <div
                         key={band.bandId}
-                        className="flex items-center gap-2 text-sm cursor-pointer rounded px-1 py-0.5 hover:bg-[#E8E0D0]/5"
+                        className="flex items-center justify-between gap-2 text-sm rounded px-1 py-0.5"
                       >
-                        <input
-                          type="checkbox"
-                          checked={band.paid}
-                          onChange={(e) => handleBandToggle(band.bandId, e.target.checked)}
+                        <span className={`truncate ${band.paid ? 'text-[#E8E0D0]/50 line-through' : ''}`}>
+                          {band.name}
+                        </span>
+                        <PaidMethodButtons
+                          paid={band.paid}
+                          method={band.paidMethod}
+                          onChange={(paid, method) => handleBandToggle(band.bandId, paid, method)}
                         />
-                        <span className={band.paid ? 'text-[#E8E0D0]/50 line-through' : ''}>{band.name}</span>
-                      </label>
+                      </div>
                     )
                   )}
                 </div>
               )}
             </>
           ) : (
-            <label className="flex items-center gap-2 text-sm cursor-pointer rounded px-1 py-0.5 hover:bg-[#E8E0D0]/5">
-              <input
-                type="checkbox"
-                checked={false}
-                onChange={(e) => onMarkCrewPaid(show.id, crewRole, e.target.checked)}
+            // The tag only renders while unpaid, so this row never needs the
+            // paid/unmark state — picking a method marks paid and clears it.
+            <div className="flex items-center justify-between gap-2 text-sm rounded px-1 py-0.5">
+              <span className="truncate">{crewName}</span>
+              <PaidMethodButtons
+                paid={false}
+                method={null}
+                onChange={(paid, method) => onMarkCrewPaid(show.id, crewRole, paid, method)}
               />
-              <span>{crewName}</span>
-            </label>
+            </div>
           )}
         </div>
       )}

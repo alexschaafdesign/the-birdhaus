@@ -35,10 +35,10 @@ export async function POST(request: Request) {
 
   try {
     const [row] = await sql<Array<{ id: number }>>`
-      insert into photographers (name, photo, bio, instagram, contact_email)
+      insert into photographers (name, photo, bio, instagram, contact_email, payment_method)
       values (
         ${name}, ${nullableTrim(body.photo)}, ${nullableTrim(body.bio)},
-        ${nullableTrim(body.instagram)}, ${nullableTrim(body.contactEmail)}
+        ${nullableTrim(body.instagram)}, ${nullableTrim(body.contactEmail)}, ${nullableTrim(body.paymentMethod)}
       )
       returning id
     `;
