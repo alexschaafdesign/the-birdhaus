@@ -62,12 +62,12 @@ export default async function SettingsPage() {
 
       <section className="space-y-6 border-t border-[#E8E0D0]/10 pt-10">
         <div className="space-y-1">
-          <h2 className="text-xl font-bold">Advance email template</h2>
+          <h2 className="text-xl font-bold">Portal invite email</h2>
           <p className="text-sm text-[#E8E0D0]/55">
-            The short boilerplate sent to bands ahead of each show — mostly a
-            pointer to the band portal. Per-show details (schedule, sound
-            engineer, show link, lineup) fill in when you compose an advance from
-            a show&apos;s Advance tab.
+            The short boilerplate emailed to bands ahead of each show — an
+            invitation pointing them at their show portal. Per-show details
+            (schedule, sound engineer, show link, lineup) fill in when you send
+            it from a show&apos;s Portal tab.
           </p>
         </div>
         <AdvanceTemplateEditor initial={template} />
@@ -75,12 +75,12 @@ export default async function SettingsPage() {
 
       <section className="space-y-6 border-t border-[#E8E0D0]/10 pt-10">
         <div className="space-y-1">
-          <h2 className="text-xl font-bold">Advance watchers</h2>
+          <h2 className="text-xl font-bold">Watchers</h2>
           <p className="text-sm text-[#E8E0D0]/55">
-            Who&apos;s CC&apos;d on every advance and thread message, and notified
-            when a band replies or does something in the show portal (stage plot,
-            message, schedule response). Replies-all from bands reach these
-            inboxes directly.
+            Who&apos;s CC&apos;d on every portal invite and thread message, and
+            notified when a band replies or does something in the show portal
+            (stage plot, message, schedule response). Replies-all from bands
+            reach these inboxes directly.
           </p>
         </div>
         <AdvanceWatchersEditor initial={watchers} />

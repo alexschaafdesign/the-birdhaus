@@ -210,7 +210,7 @@ export default function ShowAdvancePanel({
       : '';
     if (
       !confirm(
-        `Send the advance to ${who}${
+        `Send the portal invite to ${who}${
           state.status === 'sent' ? ' again' : ''
         }?${skip}`
       )
@@ -236,7 +236,7 @@ export default function ShowAdvancePanel({
         setSavedExtraEmails((d.state as ShowAdvanceState).extraEmails);
       }
       setNotice(
-        `Sent to ${d.sentCount} band${d.sentCount === 1 ? '' : 's'}.` +
+        `Portal invite sent to ${d.sentCount} recipient${d.sentCount === 1 ? '' : 's'}.` +
           (d.skipped?.length ? ` Skipped (no email): ${d.skipped.join(', ')}.` : '')
       );
       // Now that it's out, the thread jumps to the top and the long email
@@ -261,18 +261,18 @@ export default function ShowAdvancePanel({
           click/copy away up here. */}
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div className="flex items-center gap-3">
-          <h2 className="text-lg font-semibold">Advance &amp; messages</h2>
+          <h2 className="text-lg font-semibold">Portal</h2>
           {state.status === 'sent' ? (
             <span className="text-xs rounded-full border border-green-400/40 bg-green-400/10 text-green-300 px-2.5 py-0.5">
-              Advance sent{state.sentAt ? ` · ${new Date(state.sentAt).toLocaleDateString()}` : ''}
+              Invite sent{state.sentAt ? ` · ${new Date(state.sentAt).toLocaleDateString()}` : ''}
             </span>
           ) : state.status === 'draft' ? (
             <span className="text-xs rounded-full border border-[#E8E0D0]/30 text-[#E8E0D0]/60 px-2.5 py-0.5">
-              Draft
+              Invite drafted
             </span>
           ) : (
             <span className="text-xs rounded-full border border-[#E8E0D0]/20 text-[#E8E0D0]/40 px-2.5 py-0.5">
-              Not started
+              Not invited yet
             </span>
           )}
         </div>
@@ -341,8 +341,8 @@ export default function ShowAdvancePanel({
           })}
           {state.messages.length === 0 && (
             <li className="text-sm text-[#E8E0D0]/40">
-              No messages yet — the advance email and anything you or the bands send will
-              show up here and on the portal.
+              No messages yet — the portal invite and anything you or the bands send will
+              show up here and on the portal board.
             </li>
           )}
         </ul>
@@ -393,22 +393,24 @@ export default function ShowAdvancePanel({
         </div>
       </div>
 
-      {/* The advance email — now just a short pointer to the portal. Sending it
-          kicks off the thread; the substance (schedule, pay, logistics) lives on
-          the portal, edited in "Show info" below. */}
+      {/* The portal invite — the (short) advance email, whose whole job is to
+          point the lineup at the portal. Sending it kicks off the thread; the
+          substance (schedule, pay, logistics) lives on the portal, edited in
+          "Show info" below. */}
       <div className="border border-[#E8E0D0]/15 rounded-lg p-4 space-y-3">
         <div className="flex items-center justify-between flex-wrap gap-2">
-          <p className="text-xs uppercase tracking-wide text-[#E8E0D0]/60">The advance email</p>
+          <p className="text-xs uppercase tracking-wide text-[#E8E0D0]/60">Portal invite</p>
           <Link
             href="/admin/settings"
             className="text-xs text-[#E8E0D0]/50 hover:text-[#E8E0D0] underline"
           >
-            Edit boilerplate template →
+            Edit invite template →
           </Link>
         </div>
         <p className="text-xs text-[#E8E0D0]/40">
-          A short &ldquo;go advance the show&rdquo; email pointing the lineup at the portal.
-          Fill in Show info below first so the portal is ready when they click through.
+          A short email inviting the lineup to this portal — where the schedule, pay,
+          logistics, stage plots, and messages all live. Fill in Show info below first so
+          the portal is ready when they click through.
         </p>
         <div className="flex items-center gap-3 flex-wrap">
           <button
@@ -420,8 +422,8 @@ export default function ShowAdvancePanel({
             {sending
               ? 'Sending…'
               : state.status === 'sent'
-                ? 'Resend advance'
-                : 'Send advance to lineup'}
+                ? 'Resend invite'
+                : 'Send portal invite'}
           </button>
           <button
             type="button"
@@ -503,7 +505,7 @@ export default function ShowAdvancePanel({
                     type="email"
                     value={engineerEmail}
                     onChange={(e) => setEngineerEmail(e.target.value)}
-                    placeholder="email — they'll be added to the advance"
+                    placeholder="email — they'll be added to the invite + thread"
                     className={`${inputClass} flex-1 min-w-[14rem]`}
                     aria-label="Sound engineer email"
                   />
@@ -518,7 +520,7 @@ export default function ShowAdvancePanel({
                 </div>
                 {!engineerEmail.trim() && (
                   <p className="text-xs text-amber-300/80">
-                    Add an email so {state.soundEngineer.name} gets the advance and band replies.
+                    Add an email so {state.soundEngineer.name} gets the invite and band replies.
                   </p>
                 )}
               </>
@@ -569,8 +571,8 @@ export default function ShowAdvancePanel({
               + Add email
             </button>
             <p className="text-xs text-[#E8E0D0]/40">
-              Anyone here gets the advance and every emailed message. Saved with &ldquo;Save
-              changes&rdquo; below.
+              Anyone here gets the portal invite and every emailed message. Saved with
+              &ldquo;Save changes&rdquo; below.
             </p>
           </div>
         </div>
@@ -760,7 +762,7 @@ function RecipientRow({
           type="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          placeholder="contact email — they'll get the advance"
+          placeholder="contact email — they'll get the portal invite"
           className={`${inputClass} flex-1 min-w-[14rem]`}
           aria-label={`${recipient.name} contact email`}
         />

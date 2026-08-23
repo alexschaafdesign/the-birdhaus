@@ -449,16 +449,16 @@ export async function notifyAdvanceActivity({
   const from = process.env.RESEND_ADVANCE_FROM_EMAIL;
   if (!from) return; // Not configured (e.g. local) — silently skip.
   if (to.length === 0) return; // No watchers — nothing to notify.
-  const adminUrl = `${SITE_URL}/admin/shows/${showId}/advance`;
+  const adminUrl = `${SITE_URL}/admin/shows/${showId}/portal`;
   const detailLine = detail ? `<p>${escapeHtml(detail)}</p>` : '';
   await getResendClient().emails.send({
     from,
     to,
-    subject: `[Advance] ${summary} — ${showTitle}`,
+    subject: `[Portal] ${summary} — ${showTitle}`,
     html:
       `<p>${escapeHtml(summary)} for <strong>${escapeHtml(showTitle)}</strong>.</p>` +
       detailLine +
-      `<p><a href="${adminUrl}">Open the advance in the admin →</a></p>`,
+      `<p><a href="${adminUrl}">Open the show portal in the admin →</a></p>`,
   });
 }
 

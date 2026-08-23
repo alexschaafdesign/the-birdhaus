@@ -1,9 +1,9 @@
-import { notFound } from 'next/navigation';
-import { getShowAdvanceState } from '@/lib/advance';
-import ShowAdvancePanel from '@/components/admin/ShowAdvancePanel';
+import { notFound, redirect } from 'next/navigation';
 
 export const dynamic = 'force-dynamic';
 
+// The old Advance tab — merged into the Portal tab. Kept as a redirect so old
+// links (bookmarks, notification emails) keep working.
 export default async function ShowAdvancePage({
   params,
 }: {
@@ -13,8 +13,5 @@ export default async function ShowAdvancePage({
   const showId = Number(id);
   if (!Number.isInteger(showId)) notFound();
 
-  const state = await getShowAdvanceState(showId);
-  if (!state) notFound();
-
-  return <ShowAdvancePanel initial={state} />;
+  redirect(`/admin/shows/${showId}/portal`);
 }
