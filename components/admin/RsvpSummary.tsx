@@ -47,20 +47,6 @@ export default function RsvpSummary({
   purchasesByEmail?: Record<string, { totalCents: number; count: number; quantity: number }>;
   unmatchedBuyers?: { email: string; amountCents: number; quantity: number; purchasedAt: string }[];
 } & RsvpSummaryData) {
-  const [copiedDoorLink, setCopiedDoorLink] = useState(false);
-
-  async function copyDoorLink() {
-    if (!doorToken) return;
-    const url = `${window.location.origin}/door/${doorToken}`;
-    try {
-      await navigator.clipboard.writeText(url);
-      setCopiedDoorLink(true);
-      setTimeout(() => setCopiedDoorLink(false), 1500);
-    } catch {
-      // Clipboard blocked (e.g. insecure context) — fall back to opening it.
-      window.open(url, '_blank');
-    }
-  }
   const [rsvps, setRsvps] = useState<Rsvp[]>(initialRsvps);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -456,9 +442,9 @@ export default function RsvpSummary({
 
   return (
     <div className="border border-[#E8E0D0]/15 rounded-lg p-4">
-      <div className="flex items-center justify-between mb-3">
-        <h2 className="text-sm font-semibold text-[#E8E0D0]/80">RSVPs</h2>
-        <div className="flex items-center gap-3">
+      <div className="mb-4 space-y-2">
+        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+          <h2 className="text-sm font-semibold text-[#E8E0D0]/80">RSVPs</h2>
           <span className="text-xs text-[#E8E0D0]/50">
             {totalCount} RSVP{totalCount === 1 ? '' : 's'} · {totalGuests} guest{totalGuests === 1 ? '' : 's'}
             {arrivedCount > 0 && (
@@ -477,6 +463,8 @@ export default function RsvpSummary({
               </>
             )}
           </span>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
             onClick={() => openCompose('all')}
@@ -502,23 +490,14 @@ export default function RsvpSummary({
             Print door list
           </button>
           {doorToken && (
-            <>
-              <a
-                href={`/door/${doorToken}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="border border-[#c8a26a]/50 text-[#c8a26a] rounded px-3 py-1 text-xs hover:bg-[#c8a26a]/10 transition-colors"
-              >
-                Open door check-in ↗
-              </a>
-              <button
-                type="button"
-                onClick={copyDoorLink}
-                className="border border-[#E8E0D0]/40 rounded px-3 py-1 text-xs hover:bg-[#E8E0D0]/10 transition-colors"
-              >
-                {copiedDoorLink ? 'Copied!' : 'Copy iPad link'}
-              </button>
-            </>
+            <a
+              href={`/door/${doorToken}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="border border-[#c8a26a]/50 text-[#c8a26a] rounded px-3 py-1 text-xs hover:bg-[#c8a26a]/10 transition-colors"
+            >
+              Open door check-in ↗
+            </a>
           )}
         </div>
       </div>
