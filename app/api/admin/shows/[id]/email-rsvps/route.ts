@@ -39,7 +39,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   // Square purchase and exclude them.
   const paidEmails =
     audience === 'not-bought'
-      ? (await getShowPurchaseMatches(showId, rsvps.map((r) => r.email))).paidEmails
+      ? (await getShowPurchaseMatches(showId, rsvps.map((r) => ({ email: r.email, buyerEmail: r.buyer_email })))).paidEmails
       : new Set<string>();
 
   // Dedupe by lowercased email so someone who RSVPed twice only gets one copy,

@@ -27,7 +27,7 @@ export default async function ShowRsvpsPage({ params }: { params: Promise<{ id: 
   // Best-effort: returns empty matches if Square is off or the show was never synced.
   const { purchasesByEmail, unmatchedBuyers } = await getShowPurchaseMatches(
     showId,
-    rsvpSummary.rsvps.map((r) => r.email),
+    rsvpSummary.rsvps.map((r) => ({ email: r.email, buyerEmail: r.buyer_email })),
   );
 
   return (

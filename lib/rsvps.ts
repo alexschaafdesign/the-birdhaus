@@ -13,13 +13,14 @@ export interface Rsvp {
   paid: boolean;
   paid_at: string | null;
   confirmation_email_sent_at: string | null;
+  buyer_email: string | null;
   created_at: string;
 }
 
 // Shared column list so every read returns the full Rsvp shape.
 const RSVP_COLUMNS = sql`
   id, show_id, name, email, guests, email_list_opt_in,
-  arrived, arrived_at, arrived_count, paid, paid_at, confirmation_email_sent_at, created_at
+  arrived, arrived_at, arrived_count, paid, paid_at, confirmation_email_sent_at, buyer_email, created_at
 `;
 
 export interface RsvpSummary {
@@ -113,6 +114,18 @@ export async function bumpRsvpArrivedCount(
           else arrived_at
         end
     where id = ${id} and show_id = ${showId}
+    returning ${RSVP_COLUMNS}
+  `;
+  return row ?? null;
+}
+
+// Manual purchase match: credit Square purchases made with `buyerEmail` to this
+// RSVP (pass null to unlink). Stored lowercased so matching stays case-insensitive.
+export async function setRsvpBuyerEmail(id: number, buyerEmail: string | null): Promise<Rsvp | null> {
+  const [row] = await sql<Rsvp[]>`
+    update rsvps
+    set buyer_email = ${buyerEmail ? buyerEmail.toLowerCase() : null}
+    where id = ${id}
     returning ${RSVP_COLUMNS}
   `;
   return row ?? null;

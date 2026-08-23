@@ -384,6 +384,7 @@ export async function retrieveOrderLines(orderId: string): Promise<RetrievedOrde
 export type ShowPurchase = {
   email: string | null;
   amountCents: number;
+  quantity: number;
   variationId: string | null;
   orderId: string;
   purchasedAt: string;
@@ -437,7 +438,7 @@ export async function getShowPurchases(
 
     // 2) Retrieve those orders; note which ones contain one of this show's variations.
     const orderIds = [...new Set(payments.map((p) => p.orderId))];
-    const matchedVariationByOrder = new Map<string, string>();
+    const matchedLineByOrder = new Map<string, { variationId: string; quantity: number }>();
     for (let i = 0; i < orderIds.length; i += 100) {
       const res = await fetch(`${SQUARE_BASE}/v2/orders/batch-retrieve`, {
         method: 'POST',
@@ -445,11 +446,17 @@ export async function getShowPurchases(
         body: JSON.stringify({ location_id: locationId, order_ids: orderIds.slice(i, i + 100) }),
       });
       if (!res.ok) throw new Error(`batch-retrieve orders failed: ${res.status} ${await res.text()}`);
-      const data = (await res.json()) as { orders?: { id: string; line_items?: { catalog_object_id?: string }[] }[] };
+      const data = (await res.json()) as {
+        orders?: { id: string; line_items?: { catalog_object_id?: string; quantity?: string }[] }[];
+      };
       for (const o of data.orders ?? []) {
         for (const li of o.line_items ?? []) {
           if (li.catalog_object_id && wanted.has(li.catalog_object_id)) {
-            matchedVariationByOrder.set(o.id, li.catalog_object_id);
+            matchedLineByOrder.set(o.id, {
+              variationId: li.catalog_object_id,
+              // Square sends quantity as a string; clamp garbage to 1.
+              quantity: Math.max(1, Math.trunc(Number(li.quantity)) || 1),
+            });
             break;
           }
         }
@@ -458,11 +465,12 @@ export async function getShowPurchases(
 
     // 3) Emit the payments whose order matched this show.
     return payments
-      .filter((p) => matchedVariationByOrder.has(p.orderId))
+      .filter((p) => matchedLineByOrder.has(p.orderId))
       .map((p) => ({
         email: p.email,
         amountCents: p.amountCents,
-        variationId: matchedVariationByOrder.get(p.orderId) ?? null,
+        quantity: matchedLineByOrder.get(p.orderId)?.quantity ?? 1,
+        variationId: matchedLineByOrder.get(p.orderId)?.variationId ?? null,
         orderId: p.orderId,
         purchasedAt: p.createdAt,
       }));
@@ -473,13 +481,16 @@ export async function getShowPurchases(
 }
 
 export type ShowPurchaseMatches = {
-  // Keyed by lowercased email; only includes emails that match an RSVP.
-  purchasesByEmail: Record<string, { totalCents: number; count: number }>;
+  // Keyed by the RSVP's lowercased email; only includes RSVPs with a matching
+  // purchase (by their own email or their manually-linked buyer_email).
+  purchasesByEmail: Record<string, { totalCents: number; count: number; quantity: number }>;
   // Buyers whose email didn't match any RSVP (typo or different address).
-  unmatchedBuyers: { email: string; amountCents: number; purchasedAt: string }[];
+  unmatchedBuyers: { email: string; amountCents: number; quantity: number; purchasedAt: string }[];
   // Lowercased emails of RSVPs that have at least one matching purchase.
   paidEmails: Set<string>;
 };
+
+export type RsvpMatchInput = { email: string; buyerEmail?: string | null };
 
 // Matches this show's Square donation purchases to a set of RSVP emails. Extracted
 // from the RSVP admin page so the "email RSVPs who haven't bought" flow shares the
@@ -487,7 +498,7 @@ export type ShowPurchaseMatches = {
 // Best-effort: returns empty matches if Square is off or the show was never synced.
 export async function getShowPurchaseMatches(
   showId: number,
-  rsvpEmails: string[],
+  rsvps: RsvpMatchInput[],
 ): Promise<ShowPurchaseMatches> {
   const empty: ShowPurchaseMatches = {
     purchasesByEmail: {},
@@ -520,21 +531,35 @@ export async function getShowPurchaseMatches(
 
   const purchases = await getShowPurchases(variationIds, { since, until });
 
-  const rsvpEmailSet = new Set(rsvpEmails.map((e) => e.toLowerCase()));
-  const purchasesByEmail: Record<string, { totalCents: number; count: number }> = {};
-  const unmatchedBuyers: { email: string; amountCents: number; purchasedAt: string }[] = [];
+  // Map both the RSVP's own email and its manually-linked buyer_email to the
+  // RSVP's canonical (lowercased) email, so purchases land under the RSVP either way.
+  const canonicalByEmail = new Map<string, string>();
+  for (const r of rsvps) {
+    const canonical = r.email.trim().toLowerCase();
+    if (!canonical) continue;
+    canonicalByEmail.set(canonical, canonical);
+    const alt = r.buyerEmail?.trim().toLowerCase();
+    if (alt && !canonicalByEmail.has(alt)) canonicalByEmail.set(alt, canonical);
+  }
+  const purchasesByEmail: Record<string, { totalCents: number; count: number; quantity: number }> = {};
+  const unmatchedBuyers: { email: string; amountCents: number; quantity: number; purchasedAt: string }[] = [];
   const paidEmails = new Set<string>();
 
   for (const p of purchases) {
-    const email = p.email?.toLowerCase() ?? '';
-    if (email && rsvpEmailSet.has(email)) {
-      const cur = purchasesByEmail[email] ?? { totalCents: 0, count: 0 };
-      purchasesByEmail[email] = { totalCents: cur.totalCents + p.amountCents, count: cur.count + 1 };
-      paidEmails.add(email);
+    const canonical = canonicalByEmail.get(p.email?.toLowerCase() ?? '');
+    if (canonical) {
+      const cur = purchasesByEmail[canonical] ?? { totalCents: 0, count: 0, quantity: 0 };
+      purchasesByEmail[canonical] = {
+        totalCents: cur.totalCents + p.amountCents,
+        count: cur.count + 1,
+        quantity: cur.quantity + p.quantity,
+      };
+      paidEmails.add(canonical);
     } else {
       unmatchedBuyers.push({
         email: p.email ?? '(no email)',
         amountCents: p.amountCents,
+        quantity: p.quantity,
         purchasedAt: p.purchasedAt,
       });
     }

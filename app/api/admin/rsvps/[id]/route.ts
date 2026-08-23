@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { deleteRsvp, setRsvpArrived, setRsvpPaid, updateRsvp } from '@/lib/rsvps';
+import { deleteRsvp, setRsvpArrived, setRsvpBuyerEmail, setRsvpPaid, updateRsvp } from '@/lib/rsvps';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -34,6 +34,20 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   }
   if (typeof body?.paid === 'boolean') {
     const rsvp = await setRsvpPaid(rsvpId, body.paid);
+    if (!rsvp) {
+      return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    }
+    return NextResponse.json(rsvp);
+  }
+
+  // Manual purchase match: { buyerEmail } links a Square buyer address to this
+  // RSVP ({ buyerEmail: null } unlinks it) without touching the other fields.
+  if ('buyerEmail' in (body ?? {})) {
+    const buyerEmail = nullableTrim(body?.buyerEmail);
+    if (body?.buyerEmail !== null && (!buyerEmail || !EMAIL_REGEX.test(buyerEmail))) {
+      return NextResponse.json({ error: 'A valid buyer email is required' }, { status: 400 });
+    }
+    const rsvp = await setRsvpBuyerEmail(rsvpId, buyerEmail);
     if (!rsvp) {
       return NextResponse.json({ error: 'Not found' }, { status: 404 });
     }

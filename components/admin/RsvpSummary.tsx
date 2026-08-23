@@ -44,8 +44,8 @@ export default function RsvpSummary({
   showTitle: string;
   showDate: string;
   doorToken?: string | null;
-  purchasesByEmail?: Record<string, { totalCents: number; count: number }>;
-  unmatchedBuyers?: { email: string; amountCents: number; purchasedAt: string }[];
+  purchasesByEmail?: Record<string, { totalCents: number; count: number; quantity: number }>;
+  unmatchedBuyers?: { email: string; amountCents: number; quantity: number; purchasedAt: string }[];
 } & RsvpSummaryData) {
   const [copiedDoorLink, setCopiedDoorLink] = useState(false);
 
@@ -86,6 +86,15 @@ export default function RsvpSummary({
     audience: 'all' | 'not-bought';
   } | null>(null);
 
+  // Matched purchases and unmatched buyers live in state so the "match to RSVP" /
+  // "add as RSVP" actions can move a buyer between the two without a reload.
+  const [purchases, setPurchases] = useState(purchasesByEmail);
+  const [unmatched, setUnmatched] = useState(unmatchedBuyers);
+  const [buyerAction, setBuyerAction] = useState<{ email: string; mode: 'match' | 'add' } | null>(null);
+  const [matchRsvpId, setMatchRsvpId] = useState('');
+  const [buyerName, setBuyerName] = useState('');
+  const [buyerBusy, setBuyerBusy] = useState(false);
+
   const totalCount = rsvps.length;
   const totalGuests = rsvps.reduce((sum, r) => sum + r.guests, 0);
   const arrivedCount = rsvps.filter((r) => r.arrived).length;
@@ -94,14 +103,118 @@ export default function RsvpSummary({
     rsvps.map((r) => r.email.trim().toLowerCase()).filter(Boolean)
   );
   const uniqueEmailCount = uniqueEmails.size;
-  // purchasesByEmail is keyed by lowercased email and only contains matched RSVPs.
-  const notBoughtCount = [...uniqueEmails].filter((e) => !purchasesByEmail[e]).length;
+  // purchases is keyed by lowercased RSVP email and only contains matched RSVPs.
+  const notBoughtCount = [...uniqueEmails].filter((e) => !purchases[e]).length;
   const audienceCount = audience === 'not-bought' ? notBoughtCount : uniqueEmailCount;
-  const boughtCount = Object.keys(purchasesByEmail).length;
+  const boughtCount = Object.keys(purchases).length;
+  const ticketCount =
+    Object.values(purchases).reduce((sum, p) => sum + p.quantity, 0) +
+    unmatched.reduce((sum, b) => sum + b.quantity, 0);
   const revenueCents =
-    Object.values(purchasesByEmail).reduce((sum, p) => sum + p.totalCents, 0) +
-    unmatchedBuyers.reduce((sum, b) => sum + b.amountCents, 0);
-  const hasPurchases = boughtCount > 0 || unmatchedBuyers.length > 0;
+    Object.values(purchases).reduce((sum, p) => sum + p.totalCents, 0) +
+    unmatched.reduce((sum, b) => sum + b.amountCents, 0);
+  const hasPurchases = boughtCount > 0 || unmatched.length > 0;
+
+  // One row per buyer email (a buyer can have several separate purchases).
+  const unmatchedGroups: {
+    email: string;
+    totalCents: number;
+    quantity: number;
+    count: number;
+    latest: string;
+  }[] = [];
+  for (const b of unmatched) {
+    const group = unmatchedGroups.find((g) => g.email.toLowerCase() === b.email.toLowerCase());
+    if (group) {
+      group.totalCents += b.amountCents;
+      group.quantity += b.quantity;
+      group.count += 1;
+      if (b.purchasedAt > group.latest) group.latest = b.purchasedAt;
+    } else {
+      unmatchedGroups.push({
+        email: b.email,
+        totalCents: b.amountCents,
+        quantity: b.quantity,
+        count: 1,
+        latest: b.purchasedAt,
+      });
+    }
+  }
+
+  // Move a just-matched buyer's purchases under the given RSVP email.
+  function creditBuyer(group: (typeof unmatchedGroups)[number], rsvpEmail: string) {
+    const key = rsvpEmail.trim().toLowerCase();
+    setPurchases((prev) => {
+      const cur = prev[key] ?? { totalCents: 0, count: 0, quantity: 0 };
+      return {
+        ...prev,
+        [key]: {
+          totalCents: cur.totalCents + group.totalCents,
+          count: cur.count + group.count,
+          quantity: cur.quantity + group.quantity,
+        },
+      };
+    });
+    setUnmatched((prev) => prev.filter((b) => b.email.toLowerCase() !== group.email.toLowerCase()));
+    setBuyerAction(null);
+    setMatchRsvpId('');
+    setBuyerName('');
+  }
+
+  async function handleMatchBuyer(group: (typeof unmatchedGroups)[number]) {
+    const id = Number(matchRsvpId);
+    if (!id) {
+      setError('Pick an RSVP to match this buyer with.');
+      return;
+    }
+    setError(null);
+    setBuyerBusy(true);
+    try {
+      const res = await fetch(`/api/admin/rsvps/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ buyerEmail: group.email }),
+      });
+      const body = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(body?.error || 'Failed to match buyer');
+      const updated = body as Rsvp;
+      setRsvps((prev) => prev.map((r) => (r.id === updated.id ? updated : r)));
+      creditBuyer(group, updated.email);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to match buyer');
+    } finally {
+      setBuyerBusy(false);
+    }
+  }
+
+  async function handleAddBuyerAsRsvp(group: (typeof unmatchedGroups)[number]) {
+    if (!buyerName.trim()) {
+      setError('Enter a name for this buyer.');
+      return;
+    }
+    setError(null);
+    setBuyerBusy(true);
+    try {
+      const res = await fetch(`/api/admin/shows/${showId}/rsvps`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: buyerName,
+          email: group.email,
+          guests: group.quantity,
+          emailListOptIn: false,
+        }),
+      });
+      const body = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(body?.error || 'Failed to add RSVP');
+      setRsvps((prev) => [body as Rsvp, ...prev]);
+      creditBuyer(group, (body as Rsvp).email);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to add RSVP');
+    } finally {
+      setBuyerBusy(false);
+    }
+  }
 
   function handlePrint() {
     const sorted = [...rsvps].sort((a, b) =>
@@ -358,7 +471,8 @@ export default function RsvpSummary({
               <>
                 {' '}·{' '}
                 <span className="text-amber-300/80">
-                  {boughtCount} bought · {dollars(revenueCents)}
+                  {boughtCount} buyer{boughtCount === 1 ? '' : 's'} · {ticketCount} ticket
+                  {ticketCount === 1 ? '' : 's'} · {dollars(revenueCents)}
                 </span>
               </>
             )}
@@ -626,11 +740,11 @@ export default function RsvpSummary({
                   <span className="font-semibold break-words">{rsvp.name}</span>
                   <span className="text-sm text-[#E8E0D0]/50 break-all">{rsvp.email}</span>
                   {(() => {
-                    const purchase = purchasesByEmail[rsvp.email.toLowerCase()];
+                    const purchase = purchases[rsvp.email.toLowerCase()];
                     return purchase ? (
                       <span className="text-xs px-2 py-0.5 rounded-full border border-amber-400/40 text-amber-300 whitespace-nowrap">
                         ✓ Bought · {dollars(purchase.totalCents)}
-                        {purchase.count > 1 ? ` (${purchase.count})` : ''}
+                        {purchase.quantity > 1 ? ` · ${purchase.quantity} tickets` : ''}
                       </span>
                     ) : null;
                   })()}
@@ -685,27 +799,118 @@ export default function RsvpSummary({
         )}
       </div>
 
-      {unmatchedBuyers.length > 0 && (
+      {unmatchedGroups.length > 0 && (
         <div className="mt-4 pt-4 border-t border-[#E8E0D0]/10">
           <h3 className="text-xs uppercase tracking-wide text-[#E8E0D0]/40 mb-2">
-            Bought, no matching RSVP ({unmatchedBuyers.length})
+            Bought, no matching RSVP ({unmatchedGroups.length})
           </h3>
           <p className="text-xs text-[#E8E0D0]/40 mb-3">
-            Paid with an email that doesn&apos;t match any RSVP — likely a typo or a different address.
+            Paid with an email that doesn&apos;t match any RSVP — likely a typo or a different
+            address. Match them to an existing RSVP or add them to the list so they show up at the door.
           </p>
           <div className="space-y-1.5">
-            {unmatchedBuyers.map((b, i) => (
-              <div
-                key={`${b.email}-${i}`}
-                className="flex items-center justify-between gap-4 text-sm text-[#E8E0D0]/60"
-              >
-                <span className="truncate">{b.email}</span>
-                <span className="flex items-center gap-3 flex-shrink-0">
-                  <span className="text-amber-300/80">{dollars(b.amountCents)}</span>
-                  <span className="font-mono text-xs">{formatSubmittedAt(b.purchasedAt)}</span>
-                </span>
-              </div>
-            ))}
+            {unmatchedGroups.map((g) => {
+              const actionable = g.email.includes('@');
+              const active = buyerAction?.email === g.email ? buyerAction : null;
+              return (
+                <div key={g.email} className="space-y-2">
+                  <div className="flex items-center justify-between gap-4 text-sm text-[#E8E0D0]/60">
+                    <span className="truncate">{g.email}</span>
+                    <span className="flex items-center gap-3 flex-shrink-0">
+                      <span className="text-amber-300/80">
+                        {dollars(g.totalCents)}
+                        {g.quantity > 1 ? ` · ${g.quantity} tickets` : ''}
+                      </span>
+                      <span className="font-mono text-xs">{formatSubmittedAt(g.latest)}</span>
+                      {actionable && (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setBuyerAction(active?.mode === 'match' ? null : { email: g.email, mode: 'match' });
+                              setMatchRsvpId('');
+                            }}
+                            className="text-[#E8E0D0]/80 hover:text-[#E8E0D0] underline text-xs whitespace-nowrap"
+                          >
+                            Match to RSVP
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setBuyerAction(active?.mode === 'add' ? null : { email: g.email, mode: 'add' });
+                              setBuyerName('');
+                            }}
+                            className="text-[#E8E0D0]/80 hover:text-[#E8E0D0] underline text-xs whitespace-nowrap"
+                          >
+                            + Add as RSVP
+                          </button>
+                        </>
+                      )}
+                    </span>
+                  </div>
+                  {active?.mode === 'match' && (
+                    <div className="flex flex-wrap items-center gap-2 pl-3 border-l border-[#E8E0D0]/20">
+                      <select
+                        value={matchRsvpId}
+                        onChange={(e) => setMatchRsvpId(e.target.value)}
+                        className={`${inputClass} max-w-full`}
+                      >
+                        <option value="">Same person as…</option>
+                        {[...rsvps]
+                          .sort((a, b) => a.name.localeCompare(b.name, 'en-US', { sensitivity: 'base' }))
+                          .map((r) => (
+                            <option key={r.id} value={r.id}>
+                              {r.name} ({r.email})
+                            </option>
+                          ))}
+                      </select>
+                      <button
+                        type="button"
+                        onClick={() => handleMatchBuyer(g)}
+                        disabled={buyerBusy || !matchRsvpId}
+                        className="border border-[#E8E0D0]/40 rounded px-3 py-1.5 text-xs hover:bg-[#E8E0D0]/10 transition-colors disabled:opacity-50"
+                      >
+                        {buyerBusy ? 'Matching...' : 'Match'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setBuyerAction(null)}
+                        className="text-[#E8E0D0]/60 hover:text-[#E8E0D0] text-xs"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  )}
+                  {active?.mode === 'add' && (
+                    <div className="flex flex-wrap items-center gap-2 pl-3 border-l border-[#E8E0D0]/20">
+                      <input
+                        value={buyerName}
+                        onChange={(e) => setBuyerName(e.target.value)}
+                        placeholder="Name"
+                        className={inputClass}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleAddBuyerAsRsvp(g)}
+                        disabled={buyerBusy || !buyerName.trim()}
+                        className="border border-[#E8E0D0]/40 rounded px-3 py-1.5 text-xs hover:bg-[#E8E0D0]/10 transition-colors disabled:opacity-50"
+                      >
+                        {buyerBusy
+                          ? 'Adding...'
+                          : `Add RSVP (${g.quantity} guest${g.quantity === 1 ? '' : 's'})`}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setBuyerAction(null)}
+                        className="text-[#E8E0D0]/60 hover:text-[#E8E0D0] text-xs"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
