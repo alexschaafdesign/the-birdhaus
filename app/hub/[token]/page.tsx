@@ -61,6 +61,7 @@ export default async function ShowHubPage({
       <div className="max-w-2xl mx-auto space-y-8">
         {adminState && <HubAdminBar state={adminState} />}
         <Header data={data} />
+        <QuickFacts data={data} />
         <HubPortal
           token={token}
           bands={data.inputsByBand}
@@ -75,9 +76,9 @@ export default async function ShowHubPage({
         {(data.inputsTotal.length > 0 || data.inputsByBand.some((b) => b.items.length > 0)) && (
           <InputsSection data={data} />
         )}
-        <RsvpSection data={data} />
         <PaySection data={data} adminState={adminState} />
-        <InfoSection data={data} />
+        <RsvpSection data={data} />
+        <InfoSection data={data} isAdmin={isAdmin} />
         {adminState && <HubAdminRecipients state={adminState} />}
         <footer className="text-center text-xs text-[#E8E0D0]/40 pt-4">
           the BIRDHAUS · show details for the lineup &amp; crew
@@ -93,6 +94,89 @@ function Card({ title, children }: { title: string; children: React.ReactNode })
       <h2 className="text-xs uppercase tracking-[0.12em] text-[#c8a26a] font-semibold">{title}</h2>
       {children}
     </section>
+  );
+}
+
+// A collapsible row (pure HTML <details> — works with no JS) used for the
+// venue-info accordion, the pay fine print, and the per-band input lists.
+function Expandable({
+  summary,
+  children,
+  tone = 'row',
+}: {
+  summary: React.ReactNode;
+  children: React.ReactNode;
+  tone?: 'row' | 'inline';
+}) {
+  return (
+    <details className={`group ${tone === 'row' ? 'py-1' : ''}`}>
+      <summary className="cursor-pointer select-none list-none flex items-center justify-between gap-3 py-2 text-sm text-[#E8E0D0]/85 hover:text-[#E8E0D0]">
+        <span className="font-medium">{summary}</span>
+        <span
+          aria-hidden
+          className="text-[#c8a26a]/70 text-xs transition-transform group-open:rotate-90"
+        >
+          ▸
+        </span>
+      </summary>
+      <div className="pb-3">{children}</div>
+    </details>
+  );
+}
+
+// Day-of essentials, pinned right under the header so nobody digs through the
+// venue rundown for the address or WiFi. Parsed (best-effort) from the editable
+// info text — a chip whose fact wasn't found simply doesn't render.
+function QuickFacts({ data }: { data: ShowHubData }) {
+  const { address, phone, wifi } = data.quickFacts;
+  const facts: Array<{ label: string; value: string; href?: string }> = [];
+  if (address) {
+    facts.push({
+      label: 'Address',
+      value: address,
+      href: `https://maps.google.com/?q=${encodeURIComponent(address)}`,
+    });
+  }
+  if (phone) {
+    facts.push({
+      label: 'Day-of · text or call',
+      value: phone,
+      href: `sms:${phone.replace(/\D/g, '')}`,
+    });
+  }
+  if (wifi) facts.push({ label: 'WiFi', value: wifi });
+  if (facts.length === 0) return null;
+
+  return (
+    <div className="grid gap-2 sm:grid-cols-3">
+      {facts.map((f) => {
+        const inner = (
+          <>
+            <div className="text-[10px] uppercase tracking-[0.12em] text-[#c8a26a]/80 font-semibold">
+              {f.label}
+            </div>
+            <div className="text-sm text-[#E8E0D0]/90 leading-snug">{f.value}</div>
+          </>
+        );
+        const cls =
+          'rounded-lg border border-[#E8E0D0]/15 bg-[#E8E0D0]/[0.03] px-3.5 py-2.5 space-y-0.5';
+        return f.href ? (
+          <a
+            key={f.label}
+            href={f.href}
+            target={f.href.startsWith('http') ? '_blank' : undefined}
+            rel={f.href.startsWith('http') ? 'noopener noreferrer' : undefined}
+            className={`${cls} hover:border-[#c8a26a]/50 transition-colors`}
+          >
+            {inner}
+          </a>
+        ) : (
+          <div key={f.label} className={cls}>
+            {inner}
+          </div>
+        );
+      })}
+    </div>
   );
 }
 
@@ -195,11 +279,20 @@ function InputsSection({ data }: { data: ShowHubData }) {
         </div>
       )}
       {bandsWithItems.length > 0 && (
-        <div className="space-y-3">
+        <div className="divide-y divide-[#E8E0D0]/10">
           {bandsWithItems.map((band) => (
-            <div key={band.bandId}>
-              <p className="text-sm font-medium text-[#E8E0D0]">{band.name}</p>
-              <ul className="mt-1 space-y-0.5">
+            <Expandable
+              key={band.bandId}
+              summary={
+                <>
+                  {band.name}{' '}
+                  <span className="text-[#E8E0D0]/40 font-normal">
+                    · {band.items.length} item{band.items.length === 1 ? '' : 's'}
+                  </span>
+                </>
+              }
+            >
+              <ul className="space-y-0.5">
                 {band.items.map((item, i) => (
                   <li key={i} className="flex items-baseline gap-2 text-sm text-[#E8E0D0]/75">
                     <span className="w-7 text-right font-semibold tabular-nums">{item.quantity}×</span>
@@ -210,7 +303,7 @@ function InputsSection({ data }: { data: ShowHubData }) {
                   </li>
                 ))}
               </ul>
-            </div>
+            </Expandable>
           ))}
         </div>
       )}
@@ -222,18 +315,15 @@ function RsvpSection({ data }: { data: ShowHubData }) {
   const { count, expected } = data.rsvp;
   return (
     <Card title="RSVPs so far">
-      <div className="flex gap-8">
-        <div>
-          <div className="text-3xl font-bold">{count}</div>
-          <div className="text-xs text-[#E8E0D0]/50">RSVP{count === 1 ? '' : 's'}</div>
-        </div>
-        <div>
-          <div className="text-3xl font-bold">{expected}</div>
-          <div className="text-xs text-[#E8E0D0]/50">people expected</div>
-        </div>
+      <div className="flex items-baseline gap-2 flex-wrap">
+        <span className="text-2xl font-bold">{count}</span>
+        <span className="text-sm text-[#E8E0D0]/60">RSVP{count === 1 ? '' : 's'}</span>
+        <span className="text-[#E8E0D0]/25">·</span>
+        <span className="text-2xl font-bold">{expected}</span>
+        <span className="text-sm text-[#E8E0D0]/60">people expected</span>
       </div>
       <p className="text-xs text-[#E8E0D0]/40">
-        RSVPs are a soft headcount, not a guarantee — turnout often shifts at the door.
+        A soft headcount, not a guarantee — turnout often shifts at the door.
       </p>
     </Card>
   );
@@ -246,24 +336,65 @@ function PaySection({
   data: ShowHubData;
   adminState: ShowAdvanceState | null;
 }) {
+  const { introHtml, detailsHtml, askHtml } = data.pay;
   return (
     <Card title="Pay / door deal">
       <div
-        className="hub-prose text-sm text-[#E8E0D0]/80 leading-relaxed"
-        dangerouslySetInnerHTML={{ __html: data.payHtml }}
+        className="hub-prose text-sm text-[#E8E0D0]/85 leading-relaxed"
+        dangerouslySetInnerHTML={{ __html: introHtml }}
       />
+      {detailsHtml && (
+        <div className="border-t border-[#E8E0D0]/10">
+          <Expandable summary="Payout examples & the fine print">
+            <div
+              className="hub-prose text-sm text-[#E8E0D0]/75 leading-relaxed"
+              dangerouslySetInnerHTML={{ __html: detailsHtml }}
+            />
+          </Expandable>
+        </div>
+      )}
+      {askHtml && (
+        <div
+          className="hub-prose rounded-lg border-l-4 border-[#c8a26a] bg-[#c8a26a]/10 px-4 py-3 text-sm text-[#E8E0D0]/90 leading-relaxed"
+          dangerouslySetInnerHTML={{ __html: askHtml }}
+        />
+      )}
       {adminState && <HubAdminPayEdit state={adminState} />}
     </Card>
   );
 }
 
-function InfoSection({ data }: { data: ShowHubData }) {
+function InfoSection({ data, isAdmin }: { data: ShowHubData; isAdmin: boolean }) {
   return (
     <Card title="Venue & info">
-      <div
-        className="hub-prose text-sm text-[#E8E0D0]/80 leading-relaxed"
-        dangerouslySetInnerHTML={{ __html: data.infoHtml }}
-      />
+      {data.infoIntroHtml && (
+        <div
+          className="hub-prose text-sm text-[#E8E0D0]/80 leading-relaxed"
+          dangerouslySetInnerHTML={{ __html: data.infoIntroHtml }}
+        />
+      )}
+      {data.infoSections.length > 0 && (
+        <div className="divide-y divide-[#E8E0D0]/10">
+          {data.infoSections.map((s) => (
+            <Expandable key={s.title} summary={s.title}>
+              <div
+                className="hub-prose text-sm text-[#E8E0D0]/75 leading-relaxed"
+                dangerouslySetInnerHTML={{ __html: s.html }}
+              />
+            </Expandable>
+          ))}
+        </div>
+      )}
+      {isAdmin && (
+        <p className="text-xs pt-1">
+          <a
+            href="/admin/settings"
+            className="text-[#E8E0D0]/45 hover:text-[#E8E0D0] underline"
+          >
+            Edit this text (admin) →
+          </a>
+        </p>
+      )}
     </Card>
   );
 }
