@@ -80,7 +80,7 @@ export default function AlumsBox({
             <span className="min-w-0">
               <span className="font-mono font-bold text-base tracking-wide">BIRDHAUS ALUMS</span>
               <span className="ml-3 text-ink/50 text-sm">
-                {bands.length} bands · {setCount} sets and counting...
+                {bands.length} bands · {setCount} sets
               </span>
             </span>
             <span className="flex-shrink-0 font-mono text-xs uppercase tracking-widest text-vhs-red group-hover:underline">
