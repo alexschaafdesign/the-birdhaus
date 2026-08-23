@@ -2,7 +2,6 @@ import type { Metadata, Viewport } from "next";
 import { Instrument_Sans, IBM_Plex_Mono } from "next/font/google";
 import "./globals.css";
 import Header from "@/components/Header";
-import AdminBanner from "@/components/AdminBanner";
 import { isAdminSession } from "@/lib/admin-session";
 import { SITE_URL, SITE_NAME, SITE_DESCRIPTION } from "@/lib/site";
 
@@ -61,8 +60,7 @@ export default async function RootLayout({
   return (
     <html lang="en" style={{ backgroundColor: "#F2EEE3", color: "#1A1712" }}>
       <body className={`${instrumentSans.variable} ${plexMono.variable}`} style={{ backgroundColor: "#F2EEE3", color: "#1A1712" }}>
-        <AdminBanner isAdmin={isAdmin} />
-        <Header />
+        <Header isAdmin={isAdmin} />
         {children}
       </body>
     </html>

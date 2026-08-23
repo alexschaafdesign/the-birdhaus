@@ -35,7 +35,7 @@ const navItems: NavItem[] = [
   { type: 'link', href: '/contact', label: 'Contact' },
 ];
 
-export default function Header() {
+export default function Header({ isAdmin }: { isAdmin?: boolean }) {
   const pathname = usePathname();
   const [openDropdown, setOpenDropdown] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -161,6 +161,15 @@ export default function Header() {
             </span>
           );
         })}
+        {isAdmin && !pathname.startsWith('/admin') && (
+          <Link
+            href="/admin"
+            title="Admin view — showing drafts & available dates"
+            className="col-span-2 justify-self-center self-center bg-yellow-400 px-2 py-0.5 font-mono text-[10px] font-bold uppercase tracking-widest text-black hover:bg-yellow-300 md:col-auto"
+          >
+            Admin
+          </Link>
+        )}
       </nav>
     </header>
   );
