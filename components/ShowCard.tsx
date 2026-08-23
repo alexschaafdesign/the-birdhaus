@@ -12,10 +12,6 @@ function formatCardDate(dateStr: string) {
   };
 }
 
-function bandNames(show: Show) {
-  return show.bands.map((band) => (typeof band === 'string' ? band : band.name)).join(' · ');
-}
-
 export default function ShowCard({ show, draft }: { show: Show; draft?: boolean }) {
   const { day, weekday, month } = formatCardDate(show.date);
 
@@ -49,16 +45,15 @@ export default function ShowCard({ show, draft }: { show: Show; draft?: boolean 
           </span>
         )}
       </div>
-      <div className="flex items-baseline gap-2 border-t-2 border-ink px-4 pt-2.5 pb-1.5">
-        <span className="text-2xl font-black leading-none">
-          {day} {month}
+      <div className="flex items-baseline justify-between gap-3 border-t-2 border-ink px-4 py-2.5">
+        <span className="flex items-baseline gap-2 min-w-0">
+          <span className="text-2xl font-black leading-none">
+            {day} {month}
+          </span>
+          <span className="font-mono text-xs uppercase tracking-widest text-ink/60">
+            {weekday}
+          </span>
         </span>
-        <span className="font-mono text-xs uppercase tracking-widest text-ink/60">
-          {weekday}
-        </span>
-      </div>
-      <div className="flex items-center justify-between gap-3 px-4 pb-3 pt-1">
-        <p className="min-w-0 truncate text-sm text-ink/60">{bandNames(show)}</p>
         <span className="flex-shrink-0 font-mono text-xs uppercase tracking-wider text-vhs-red">
           {draft ? 'Edit →' : 'RSVP →'}
         </span>
