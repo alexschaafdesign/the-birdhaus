@@ -56,7 +56,7 @@ export default function ContactPage() {
       <div className="max-w-xl mx-auto px-8 pb-16">
         <div className="vhs-stripes h-1.5 w-24 mb-3" aria-hidden="true" />
         <h2 className="text-4xl font-bold mb-2 uppercase tracking-tight">Contact</h2>
-        <p className="text-ink/70 text-lg mb-6">
+        <p className="text-ink/70 text-base mb-6">
           Send us a message and we'll get back to you as soon as possible! note: I'm just one dude doing this as an unpaid labor of love so your patience is appreciated :D
         </p>
 
@@ -67,7 +67,7 @@ export default function ContactPage() {
         </div>
 
         {ctStatus === 'success' ? (
-          <p className="text-lg">Thanks for reaching out! We'll get back to you as soon as we can.</p>
+          <p className="text-base">Thanks for reaching out! We'll get back to you as soon as we can.</p>
         ) : (
           <form onSubmit={handleContact} className="space-y-5">
             <div>

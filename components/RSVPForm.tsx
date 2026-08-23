@@ -97,7 +97,7 @@ export default function RSVPForm({
 
   return (
     <div className="h-full overflow-y-auto border-2 border-ink bg-paper-deep p-4 shadow-hard">
-      <h2 className="text-lg font-bold mb-1.5">RSVP for this show</h2>
+      <h2 className="text-base font-bold mb-1.5">RSVP for this show</h2>
       <p className="text-sm text-ink/70 mb-4">
         RSVP below to get the venue address and show details emailed to you.
         {ticketUrl && (

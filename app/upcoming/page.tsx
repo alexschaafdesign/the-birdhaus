@@ -45,7 +45,7 @@ export default async function UpcomingShows() {
         <div className="mb-8">
           <div className="vhs-stripes h-1.5 w-24 mb-3" aria-hidden="true" />
           <h2 className="text-4xl font-bold mb-2 uppercase tracking-tight">Upcoming Shows</h2>
-          <p className="text-ink/70 text-lg">Click a show to RSVP and get details</p>
+          <p className="text-ink/70 text-base">Click a show to RSVP and get details</p>
         </div>
         <ShowsBrowser
           upcomingShows={upcomingShows}

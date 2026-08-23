@@ -63,7 +63,7 @@ function EventCard({ event, large = false }: { event: SongClubEvent; large?: boo
         {formatDate(event.event_date)}
         {timeLine ? ` · ${timeLine}` : ''}
       </div>
-      <div className="mt-1 text-lg font-medium text-ink">{event.title}</div>
+      <div className="mt-1 text-base font-medium text-ink">{event.title}</div>
       {event.venue_name && (
         <div className="mt-0.5 text-sm text-ink/60">{event.venue_name}</div>
       )}

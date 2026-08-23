@@ -101,7 +101,7 @@ export default async function TicketsPage({
           </div>
         ) : null}
 
-        <h2 className="text-xl font-bold mb-2">Choose your donation</h2>
+        <h2 className="text-lg font-bold mb-2">Choose your donation</h2>
         <p className="text-sm text-ink/70 mb-6 max-w-prose">
           No ticket is required for entry — donations go straight to the artists and keeping the
           venue running. Pick whatever works for you.
@@ -146,7 +146,7 @@ export default async function TicketsPage({
                   </label>
                   <button
                     type="submit"
-                    className="font-mono text-lg font-bold whitespace-nowrap hover:text-vhs-red transition-colors"
+                    className="font-mono text-base font-bold whitespace-nowrap hover:text-vhs-red transition-colors"
                   >
                     {dollars(tier.amountCents)} →
                   </button>

@@ -164,7 +164,7 @@ export default function FreshCutsIntro({
           {current.eyebrow}
         </p>
         <h1 className="text-5xl md:text-6xl font-bold mb-6 uppercase tracking-tight">{current.title}</h1>
-        <p className="text-xl md:text-2xl text-ink/80 leading-relaxed max-w-2xl">
+        <p className="text-lg md:text-xl text-ink/80 leading-relaxed max-w-2xl">
           {current.tagline}
         </p>
       </header>

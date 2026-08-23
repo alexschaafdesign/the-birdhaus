@@ -49,7 +49,7 @@ export default async function Home() {
     <main className="min-h-screen">
       {/* About */}
       <div className="max-w-4xl mx-auto px-8 mb-8">
-        <p className="text-lg md:text-xl text-ink/70 text-center">
+        <p className="text-base md:text-lg text-ink/70 text-center">
           the BIRDHAUS is a DIY house venue and record label located in Powderhorn, Minneapolis
         </p>
       </div>
@@ -114,7 +114,7 @@ export default async function Home() {
         <div className="mb-8">
           <div className="vhs-stripes h-1.5 w-24 mb-3" aria-hidden="true" />
           <h2 className="text-4xl font-bold mb-2 uppercase tracking-tight">Upcoming Shows</h2>
-          <p className="text-ink/60 text-lg">Click a show to RSVP and get details</p>
+          <p className="text-ink/60 text-base">Click a show to RSVP and get details</p>
         </div>
         <ShowsBrowser upcomingShows={upcomingShows} calendarShows={calendarShows} today={today} />
 

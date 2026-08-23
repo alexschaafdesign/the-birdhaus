@@ -168,7 +168,7 @@ export default async function ShowPage({ params }: { params: Promise<{ slug: str
             {/* External ticket link (e.g. promoter's ticket page) */}
             {!isPast && !show.rsvpForm && show.externalTicketUrl && (
               <div className="border-2 border-ink bg-paper-deep p-6 shadow-hard">
-                <h2 className="text-xl font-bold mb-2">Tickets</h2>
+                <h2 className="text-lg font-bold mb-2">Tickets</h2>
                 <p className="text-sm text-ink/70 mb-6">
                   Tickets for this show are handled by an external promoter.
                 </p>
@@ -187,7 +187,7 @@ export default async function ShowPage({ params }: { params: Promise<{ slug: str
 
         {/* Lineup */}
         <div className="mb-10">
-          <h2 className="text-xl font-bold mb-4">Lineup</h2>
+          <h2 className="text-lg font-bold mb-4">Lineup</h2>
           <div className="grid gap-4 grid-cols-1">
             {show.bands.map((band, index) => {
               const bandName = typeof band === 'string' ? band : band.name;
@@ -207,7 +207,7 @@ export default async function ShowPage({ params }: { params: Promise<{ slug: str
                     </div>
                   ) : (
                     <div className="w-16 h-16 bg-ink/5 flex items-center justify-center flex-shrink-0">
-                      <span className="text-lg font-bold text-ink/20">
+                      <span className="text-base font-bold text-ink/20">
                         {bandName.charAt(0).toUpperCase()}
                       </span>
                     </div>

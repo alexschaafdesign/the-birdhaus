@@ -142,7 +142,7 @@ export default function CalendarView({
           ←
         </button>
         <div className="flex items-center gap-3">
-          <h3 className="text-lg font-bold">
+          <h3 className="text-base font-bold">
             {firstOfMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
           </h3>
           {!isCurrentMonth && (

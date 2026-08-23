@@ -104,7 +104,7 @@ export default async function BandPage({ params }: { params: Promise<{ slug: str
         </div>
 
         {band.bio && (
-          <p className="text-lg text-ink/80 mb-10 max-w-2xl leading-relaxed whitespace-pre-line">
+          <p className="text-base text-ink/80 mb-10 max-w-2xl leading-relaxed whitespace-pre-line">
             {band.bio}
           </p>
         )}

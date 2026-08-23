@@ -113,7 +113,7 @@ export default function VideoArchive({ groups }: { groups: ArchiveShowGroup[] })
                   <p className="text-ink/50 text-xs font-mono uppercase tracking-widest mb-1">
                     {show.date}
                   </p>
-                  <h2 className="text-xl font-bold leading-tight truncate">{show.title}</h2>
+                  <h2 className="text-lg font-bold leading-tight truncate">{show.title}</h2>
                   {show.bands.length > 0 && (
                     <p className="text-ink/60 text-sm truncate mt-0.5">{show.bands.join(', ')}</p>
                   )}

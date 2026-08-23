@@ -81,7 +81,7 @@ export default async function SongClubEventPage({
 
       {isUpcoming ? (
         <section className="mt-8 border-2 border-ink bg-paper-deep p-5 shadow-hard">
-          <h2 className="text-lg font-medium">RSVP for this meetup</h2>
+          <h2 className="text-base font-medium">RSVP for this meetup</h2>
           <p className="mb-4 mt-1 text-sm text-ink/60">
             RSVP below to get the address and full details emailed to you.
           </p>
