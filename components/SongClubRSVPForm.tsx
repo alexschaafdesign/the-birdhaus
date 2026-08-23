@@ -38,8 +38,8 @@ function validateEmail(email: string): string | null {
 }
 
 const inputBase =
-  'w-full rounded-md border bg-[#E8E0D0]/[0.03] px-3 py-2 text-sm text-[#E8E0D0] placeholder:text-[#E8E0D0]/30 focus:outline-none transition';
-const labelClass = 'mb-1 block text-xs font-medium uppercase tracking-wide text-[#E8E0D0]/55';
+  'w-full border-2 bg-paper px-3 py-2 text-sm text-ink placeholder:text-ink/40 focus:outline-none transition';
+const labelClass = 'mb-1 block font-mono text-xs font-medium uppercase tracking-wide text-ink/55';
 
 // Public RSVP form for a Song Club event. Posts to /api/song-club/rsvp, which
 // re-fetches the event server-side and emails the address + details.
@@ -84,7 +84,7 @@ export default function SongClubRSVPForm({ eventId }: { eventId: number }) {
 
   if (status === 'success') {
     return (
-      <div className="rounded-lg border border-[#7bb98a]/40 bg-[#7bb98a]/10 p-4 text-sm text-[#bfe6c8]">
+      <div className="border-2 border-vhs-green p-4 text-sm text-vhs-green">
         Thanks for your RSVP! Check your email for the address and full details.
       </div>
     );
@@ -116,7 +116,7 @@ export default function SongClubRSVPForm({ eventId }: { eventId: number }) {
           required
           value={formData.name}
           onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-          className={`${inputBase} border-[#E8E0D0]/20 focus:border-[#E8E0D0]/50`}
+          className={`${inputBase} border-ink/40 focus:border-ink`}
         />
       </div>
 
@@ -138,10 +138,10 @@ export default function SongClubRSVPForm({ eventId }: { eventId: number }) {
           }}
           aria-invalid={emailError ? true : undefined}
           className={`${inputBase} ${
-            emailError ? 'border-[#F5A3A3] focus:border-[#F5A3A3]' : 'border-[#E8E0D0]/20 focus:border-[#E8E0D0]/50'
+            emailError ? 'border-vhs-red focus:border-vhs-red' : 'border-ink/40 focus:border-ink'
           }`}
         />
-        {emailError && <p className="mt-1 text-sm text-[#F5A3A3]">{emailError}</p>}
+        {emailError && <p className="mt-1 text-sm text-vhs-red">{emailError}</p>}
       </div>
 
       <div>
@@ -152,7 +152,7 @@ export default function SongClubRSVPForm({ eventId }: { eventId: number }) {
           id="rsvp-guests"
           value={formData.guests}
           onChange={(e) => setFormData({ ...formData, guests: e.target.value })}
-          className={`${inputBase} border-[#E8E0D0]/20 focus:border-[#E8E0D0]/50`}
+          className={`${inputBase} border-ink/40 focus:border-ink`}
         >
           <option value="1">1</option>
           <option value="2">2</option>
@@ -165,13 +165,13 @@ export default function SongClubRSVPForm({ eventId }: { eventId: number }) {
       <button
         type="submit"
         disabled={status === 'submitting'}
-        className="w-full rounded-md bg-[#E8E0D0] px-6 py-2.5 text-sm font-semibold text-[#2A2420] transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
+        className="w-full bg-ink px-6 py-2.5 text-sm font-semibold text-paper transition hover:bg-ink/85 disabled:cursor-not-allowed disabled:opacity-50"
       >
         {status === 'submitting' ? 'Submitting…' : 'Submit RSVP'}
       </button>
 
       {status === 'error' && (
-        <div className="rounded-lg border border-[#F5A3A3]/40 bg-[#F5A3A3]/10 p-4 text-sm text-[#F5A3A3]">
+        <div className="border-2 border-vhs-red p-4 text-sm text-vhs-red">
           Something went wrong. Please try again.
         </div>
       )}

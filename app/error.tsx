@@ -16,18 +16,19 @@ export default function Error({
   return (
     <main className="min-h-screen flex items-center justify-center px-8">
       <div className="max-w-md text-center">
-        <p className="text-xs uppercase tracking-widest text-[#E8E0D0]/50 mb-3">Something broke</p>
-        <h1 className="text-3xl font-bold mb-4">This page hit a snag</h1>
-        <p className="text-[#E8E0D0]/70 mb-8">
+        <div className="vhs-stripes h-1.5 w-24 mx-auto mb-3" aria-hidden="true" />
+        <p className="font-mono text-xs uppercase tracking-widest text-vhs-red mb-3">Something broke</p>
+        <h1 className="text-3xl font-bold mb-4 uppercase tracking-tight">This page hit a snag</h1>
+        <p className="text-ink/70 mb-8">
           Something went wrong on our end. Try again — if it keeps happening, email{' '}
-          <a href="mailto:alex@thebirdhaus.org" className="underline hover:text-[#E8E0D0]">
+          <a href="mailto:alex@thebirdhaus.org" className="underline hover:text-vhs-red">
             alex@thebirdhaus.org
           </a>
           .
         </p>
         <button
           onClick={reset}
-          className="inline-block border border-[#E8E0D0] rounded px-6 py-2 text-sm font-medium hover:bg-[#E8E0D0] hover:text-[#2A2420] transition-colors"
+          className="inline-block border-2 border-ink px-6 py-2 text-sm font-medium hover:bg-ink hover:text-paper transition-colors"
         >
           Try again
         </button>

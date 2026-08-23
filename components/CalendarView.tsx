@@ -29,6 +29,7 @@ export default function CalendarView({
   availableDates,
   isAdmin,
   showHref = (show) => `/shows/${show.slug}`,
+  dark,
 }: {
   shows: CalendarShow[];
   today: string;
@@ -38,7 +39,45 @@ export default function CalendarView({
   // Overridable so a management view (e.g. admin shows page) can point every
   // cell at the edit page instead of the public show page.
   showHref?: (show: CalendarShow) => string;
+  // The admin dashboard still uses the old dark shell; public pages get the
+  // light paper/ink styling.
+  dark?: boolean;
 }) {
+  const c = dark
+    ? {
+        frame: 'rounded-lg border border-[#E8E0D0]/20',
+        navBtn: 'rounded p-1.5 text-[#E8E0D0]/60 transition-colors hover:bg-[#E8E0D0]/10 hover:text-[#E8E0D0]',
+        todayBtn: 'font-mono text-xs uppercase tracking-widest text-[#E8E0D0]/50 hover:text-[#E8E0D0]',
+        weekdays: 'text-[#E8E0D0]/40',
+        emptyDay: 'text-[#E8E0D0]/30',
+        todayText: 'text-[#E8E0D0]',
+        todayDot: 'bg-yellow-400',
+        showCell: 'rounded border-[#E8E0D0]/30 hover:border-yellow-400',
+        pastCell: 'rounded border-[#E8E0D0]/10 opacity-40 grayscale hover:opacity-90 hover:grayscale-0',
+        cellFill: 'bg-[#E8E0D0]/10',
+        draftCell: 'rounded border-dashed border-yellow-500/50 hover:border-yellow-400',
+        draftFill: 'bg-yellow-500/10',
+        draftChip: 'rounded bg-yellow-500 text-black',
+        availCell: 'rounded border-dotted border-green-500/40 text-[#E8E0D0]/40 hover:border-green-400 hover:text-[#E8E0D0]',
+        availDot: 'bg-green-500',
+      }
+    : {
+        frame: 'border-2 border-ink',
+        navBtn: 'p-1.5 text-ink/60 transition-colors hover:bg-ink/10 hover:text-ink',
+        todayBtn: 'font-mono text-xs uppercase tracking-widest text-ink/50 hover:text-ink',
+        weekdays: 'font-mono text-ink/40',
+        emptyDay: 'text-ink/30',
+        todayText: 'text-ink font-bold',
+        todayDot: 'bg-vhs-red',
+        showCell: 'border-ink/40 hover:border-vhs-red',
+        pastCell: 'border-ink/15 opacity-40 grayscale hover:opacity-90 hover:grayscale-0',
+        cellFill: 'bg-ink/10',
+        draftCell: 'border-dashed border-ink/50 hover:border-ink',
+        draftFill: 'bg-ink/5',
+        draftChip: 'bg-ink text-paper',
+        availCell: 'border-dotted border-vhs-green/50 text-ink/40 hover:border-vhs-green hover:text-ink',
+        availDot: 'bg-vhs-green',
+      };
   const todayDate = parseLocalDate(today);
   const [cursor, setCursor] = useState({
     year: todayDate.getFullYear(),
@@ -93,12 +132,12 @@ export default function CalendarView({
   ];
 
   return (
-    <div className="max-w-md rounded-lg border border-[#E8E0D0]/20 p-4 sm:p-6">
+    <div className={`max-w-md p-4 sm:p-6 ${c.frame}`}>
       <div className="mb-4 flex items-center justify-between">
         <button
           onClick={() => goToMonth(-1)}
           aria-label="Previous month"
-          className="rounded p-1.5 text-[#E8E0D0]/60 transition-colors hover:bg-[#E8E0D0]/10 hover:text-[#E8E0D0]"
+          className={c.navBtn}
         >
           ←
         </button>
@@ -111,7 +150,7 @@ export default function CalendarView({
               onClick={() =>
                 setCursor({ year: todayDate.getFullYear(), month: todayDate.getMonth() })
               }
-              className="font-mono text-xs uppercase tracking-widest text-[#E8E0D0]/50 hover:text-[#E8E0D0]"
+              className={c.todayBtn}
             >
               Today
             </button>
@@ -120,13 +159,13 @@ export default function CalendarView({
         <button
           onClick={() => goToMonth(1)}
           aria-label="Next month"
-          className="rounded p-1.5 text-[#E8E0D0]/60 transition-colors hover:bg-[#E8E0D0]/10 hover:text-[#E8E0D0]"
+          className={c.navBtn}
         >
           →
         </button>
       </div>
 
-      <div className="mb-1 grid grid-cols-7 gap-1 text-center text-xs text-[#E8E0D0]/40">
+      <div className={`mb-1 grid grid-cols-7 gap-1 text-center text-xs ${c.weekdays}`}>
         {WEEKDAY_LABELS.map((label, i) => (
           <div key={i}>{label}</div>
         ))}
@@ -144,7 +183,7 @@ export default function CalendarView({
                   key={day}
                   href={`/admin/shows/${draftShow.id}`}
                   title={`${draftShow.title} (draft)`}
-                  className="group relative flex aspect-square items-center justify-center overflow-hidden rounded border border-dashed border-yellow-500/50 transition-all hover:border-yellow-400"
+                  className={`group relative flex aspect-square items-center justify-center overflow-hidden border transition-all ${c.draftCell}`}
                 >
                   {draftShow.flyer ? (
                     <Image
@@ -156,13 +195,13 @@ export default function CalendarView({
                       className="object-cover opacity-60"
                     />
                   ) : (
-                    <div className="h-full w-full bg-yellow-500/10" />
+                    <div className={`h-full w-full ${c.draftFill}`} />
                   )}
                   <span className="absolute left-1 top-0.5 flex items-center gap-1 text-[10px] font-bold text-white drop-shadow">
                     {day}
-                    {isToday(day) && <span className="h-1 w-1 rounded-full bg-yellow-300" />}
+                    {isToday(day) && <span className={`h-1 w-1 rounded-full ${c.todayDot}`} />}
                   </span>
-                  <span className="absolute bottom-0.5 right-0.5 rounded bg-yellow-500 px-1 text-[8px] font-bold uppercase tracking-wide text-black">
+                  <span className={`absolute bottom-0.5 right-0.5 px-1 text-[8px] font-bold uppercase tracking-wide ${c.draftChip}`}>
                     Draft
                   </span>
                 </Link>
@@ -176,11 +215,11 @@ export default function CalendarView({
                   key={day}
                   href={`/admin/shows/new?date=${dateStr}`}
                   title="Available date — click to draft a show"
-                  className="relative flex aspect-square flex-col items-center justify-center gap-0.5 rounded border border-dotted border-green-500/40 text-sm text-[#E8E0D0]/40 transition-all hover:border-green-400 hover:text-[#E8E0D0]"
+                  className={`relative flex aspect-square flex-col items-center justify-center gap-0.5 border text-sm transition-all ${c.availCell}`}
                 >
                   {day}
-                  {isToday(day) && <span className="h-1 w-1 rounded-full bg-yellow-400" />}
-                  <span className="absolute bottom-1 right-1 h-1.5 w-1.5 rounded-full bg-green-500" />
+                  {isToday(day) && <span className={`h-1 w-1 rounded-full ${c.todayDot}`} />}
+                  <span className={`absolute bottom-1 right-1 h-1.5 w-1.5 rounded-full ${c.availDot}`} />
                 </Link>
               );
             }
@@ -189,11 +228,11 @@ export default function CalendarView({
               <div
                 key={day}
                 className={`flex aspect-square flex-col items-center justify-center gap-0.5 text-sm ${
-                  isToday(day) ? 'text-[#E8E0D0]' : 'text-[#E8E0D0]/30'
+                  isToday(day) ? c.todayText : c.emptyDay
                 }`}
               >
                 {day}
-                {isToday(day) && <span className="h-1 w-1 rounded-full bg-yellow-400" />}
+                {isToday(day) && <span className={`h-1 w-1 rounded-full ${c.todayDot}`} />}
               </div>
             );
           }
@@ -205,10 +244,8 @@ export default function CalendarView({
               key={day}
               href={showHref(show)}
               title={show.title}
-              className={`group relative aspect-square overflow-hidden rounded border transition-all ${
-                isPast
-                  ? 'border-[#E8E0D0]/10 opacity-40 grayscale hover:opacity-90 hover:grayscale-0'
-                  : 'border-[#E8E0D0]/30 hover:border-yellow-400'
+              className={`group relative aspect-square overflow-hidden border transition-all ${
+                isPast ? c.pastCell : c.showCell
               }`}
             >
               {show.flyer ? (
@@ -221,11 +258,11 @@ export default function CalendarView({
                   className="object-cover"
                 />
               ) : (
-                <div className="h-full w-full bg-[#E8E0D0]/10" />
+                <div className={`h-full w-full ${c.cellFill}`} />
               )}
               <span className="absolute left-1 top-0.5 flex items-center gap-1 text-[10px] font-bold text-white drop-shadow">
                 {day}
-                {isToday(day) && <span className="h-1 w-1 rounded-full bg-yellow-300" />}
+                {isToday(day) && <span className={`h-1 w-1 rounded-full ${c.todayDot}`} />}
               </span>
             </Link>
           );

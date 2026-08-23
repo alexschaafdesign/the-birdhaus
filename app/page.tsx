@@ -49,7 +49,7 @@ export default async function Home() {
     <main className="min-h-screen">
       {/* About */}
       <div className="max-w-4xl mx-auto px-8 mb-8">
-        <p className="text-lg md:text-xl text-[#E8E0D0]/70 text-center">
+        <p className="text-lg md:text-xl text-ink/70 text-center">
           the BIRDHAUS is a DIY house venue and record label located in Powderhorn, Minneapolis
         </p>
       </div>
@@ -57,34 +57,34 @@ export default async function Home() {
       {/* Birdhaus Leaderboard */}
       {sortedBands.length > 0 && (
         <div className="max-w-4xl mx-auto px-8 mb-12">
-          <details className="rounded-xl group bg-gradient-to-b from-yellow-500/10 to-[#E8E0D0]/5 border border-yellow-500/30 shadow-lg shadow-yellow-500/5">
+          <details className="group border-2 border-ink bg-paper-deep shadow-hard">
             <summary className="px-5 py-4 cursor-pointer select-none list-none flex items-center justify-between">
               <div className="flex items-baseline gap-3">
-                <span className="font-bold text-base tracking-wide text-yellow-100">BIRDHAUS ALUMS</span>
-                <span className="text-[#E8E0D0]/50 text-sm">{sortedBands.length} bands · {setCount} sets and counting...</span>
+                <span className="font-mono font-bold text-base tracking-wide">BIRDHAUS ALUMS</span>
+                <span className="text-ink/50 text-sm">{sortedBands.length} bands · {setCount} sets and counting...</span>
               </div>
-              <span className="text-xs uppercase tracking-widest text-yellow-500/70 group-open:hidden">Show ▸</span>
-              <span className="text-xs uppercase tracking-widest text-yellow-500/70 hidden group-open:inline">Hide ▾</span>
+              <span className="font-mono text-xs uppercase tracking-widest text-vhs-red group-open:hidden">Show ▸</span>
+              <span className="font-mono text-xs uppercase tracking-widest text-vhs-red hidden group-open:inline">Hide ▾</span>
             </summary>
-            <div className="px-5 pb-5 pt-3 border-t border-yellow-500/20 columns-2 sm:columns-3 gap-x-6">
+            <div className="px-5 pb-5 pt-3 border-t-2 border-ink columns-2 sm:columns-3 gap-x-6">
               {sortedBands.map(([name, { count, bandId }], i) => {
                 const slug = bandId ? bandSlugs.get(bandId) : undefined;
                 return (
-                  <div key={name} className="flex justify-between items-baseline gap-2 py-1 border-b border-[#E8E0D0]/10 break-inside-avoid">
+                  <div key={name} className="flex justify-between items-baseline gap-2 py-1 border-b border-ink/15 break-inside-avoid">
                     <span className="flex items-baseline gap-2 min-w-0">
-                      <span className={`font-mono text-xs flex-shrink-0 w-6 text-right ${i < 3 ? 'text-yellow-500/80' : 'text-[#E8E0D0]/40'}`}>
+                      <span className={`font-mono text-xs flex-shrink-0 w-6 text-right ${i < 3 ? 'text-vhs-red' : 'text-ink/40'}`}>
                         {i + 1}
                       </span>
                       {slug ? (
-                        <Link href={`/bands/${slug}`} className={`text-sm truncate hover:text-[#E8E0D0] hover:underline ${i < 3 ? 'text-yellow-100 font-semibold' : 'text-[#E8E0D0]/90'}`}>
+                        <Link href={`/bands/${slug}`} className={`text-sm truncate hover:underline ${i < 3 ? 'font-semibold' : 'text-ink/80'}`}>
                           {name}
                         </Link>
                       ) : (
-                        <span className={`text-sm truncate ${i < 3 ? 'text-yellow-100 font-semibold' : 'text-[#E8E0D0]/90'}`}>{name}</span>
+                        <span className={`text-sm truncate ${i < 3 ? 'font-semibold' : 'text-ink/80'}`}>{name}</span>
                       )}
                     </span>
                     {count > 1 && (
-                      <span className="text-xs text-yellow-500/70 font-mono flex-shrink-0">×{count}</span>
+                      <span className="text-xs text-vhs-blue font-mono flex-shrink-0">×{count}</span>
                     )}
                   </div>
                 );
@@ -104,27 +104,28 @@ export default async function Home() {
           sizes="(max-width: 1152px) 100vw, 1088px"
           priority
           unoptimized
-          className="w-full h-auto rounded-lg mb-2"
+          className="w-full h-auto border-2 border-ink mb-2"
         />
-        <p className="text-xs text-[#E8E0D0]/40 text-right">Photo by Jeremy Nelson</p>
+        <p className="font-mono text-[11px] uppercase tracking-wider text-ink/50 text-right">Photo by Jeremy Nelson</p>
       </div>
 
       {/* Upcoming Shows */}
       <div id="upcoming-shows" className="max-w-4xl mx-auto px-8 pb-16">
         <div className="mb-8">
-          <h2 className="text-4xl font-bold mb-2">Upcoming Shows</h2>
-          <p className="text-[#E8E0D0]/70 text-lg">Click a show to RSVP and get details</p>
+          <div className="vhs-stripes h-1.5 w-24 mb-3" aria-hidden="true" />
+          <h2 className="text-4xl font-bold mb-2 uppercase tracking-tight">Upcoming Shows</h2>
+          <p className="text-ink/60 text-lg">Click a show to RSVP and get details</p>
         </div>
         <ShowsBrowser upcomingShows={upcomingShows} calendarShows={calendarShows} today={today} />
 
         <div className="mt-8">
-          <a href="/archive" className="block text-2xl hover:text-[#E8E0D0]/70">
+          <a href="/archive" className="block text-2xl hover:text-vhs-red">
             Archive →
           </a>
         </div>
 
         <div className="mt-16 text-center">
-          <Link href="/admin/login" className="text-xs uppercase tracking-widest text-[#E8E0D0]/40 hover:text-[#E8E0D0]/70">
+          <Link href="/admin/login" className="font-mono text-xs uppercase tracking-widest text-ink/40 hover:text-ink/70">
             Admin Login
           </Link>
         </div>

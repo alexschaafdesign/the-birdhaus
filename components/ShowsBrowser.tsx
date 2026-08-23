@@ -31,7 +31,7 @@ export default function ShowsBrowser({
   const hasAdminExtras = isAdmin && ((draftShows?.length ?? 0) > 0 || (availableDates?.length ?? 0) > 0);
 
   if (upcomingShows.length === 0 && calendarShows.length === 0 && !hasAdminExtras) {
-    return <p className="text-[#E8E0D0]/70">No upcoming shows scheduled.</p>;
+    return <p className="text-ink/60">No upcoming shows scheduled.</p>;
   }
 
   // Admin sees draft shows and open available dates woven into the same
@@ -51,10 +51,10 @@ export default function ShowsBrowser({
           <button
             key={option}
             onClick={() => setView(option)}
-            className={`rounded px-3 py-1.5 font-mono text-sm uppercase tracking-widest transition-colors ${
+            className={`border-2 px-3 py-1.5 font-mono text-sm uppercase tracking-widest transition-colors ${
               view === option
-                ? 'bg-[#E8E0D0] text-[#171412]'
-                : 'border border-[#E8E0D0]/30 text-[#E8E0D0]/60 hover:text-[#E8E0D0]'
+                ? 'border-ink bg-ink text-paper'
+                : 'border-ink/30 text-ink/50 hover:border-ink hover:text-ink'
             }`}
           >
             {option}
@@ -64,7 +64,7 @@ export default function ShowsBrowser({
 
       {view === 'list' ? (
         listEntries.length === 0 ? (
-          <p className="text-[#E8E0D0]/70">No upcoming shows scheduled.</p>
+          <p className="text-ink/60">No upcoming shows scheduled.</p>
         ) : (
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {listEntries.map((entry) =>

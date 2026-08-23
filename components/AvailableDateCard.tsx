@@ -16,21 +16,21 @@ export default function AvailableDateCard({ date }: { date: string }) {
   return (
     <Link
       href={`/admin/shows/new?date=${date}`}
-      className="group relative flex flex-col overflow-hidden rounded-lg border border-dotted border-green-500/40 bg-[#E8E0D0]/5 transition-colors hover:border-green-400"
+      className="group relative flex flex-col overflow-hidden border-2 border-dotted border-vhs-green/50 bg-paper transition-colors hover:border-vhs-green"
     >
-      <div className="relative flex aspect-[4/5] w-full items-center justify-center bg-[#E8E0D0]/5">
+      <div className="relative flex aspect-[4/5] w-full items-center justify-center bg-ink/5">
         <div className="flex items-baseline gap-2">
-          <span className="text-3xl font-black leading-none text-[#E8E0D0]/70">
+          <span className="text-3xl font-black leading-none text-ink/70">
             {day} {month}
           </span>
-          <span className="font-mono text-sm uppercase tracking-widest text-[#E8E0D0]/50">
+          <span className="font-mono text-sm uppercase tracking-widest text-ink/50">
             - {weekday}
           </span>
         </div>
       </div>
       <div className="flex items-center justify-between gap-3 px-4 py-3">
-        <p className="min-w-0 truncate text-sm text-green-500/80">Available</p>
-        <span className="flex-shrink-0 text-xs text-[#E8E0D0]/50 transition-colors group-hover:text-[#E8E0D0]">
+        <p className="min-w-0 truncate text-sm text-vhs-green">Available</p>
+        <span className="flex-shrink-0 font-mono text-xs uppercase tracking-wider text-ink/50 transition-colors group-hover:text-ink">
           + Add show
         </span>
       </div>

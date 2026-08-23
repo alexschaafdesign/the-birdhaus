@@ -25,24 +25,24 @@ export default function BandsGallery({ bands }: { bands: GalleryBand[] }) {
   return (
     <div>
       <div className="mb-10">
-        <p className="text-[#E8E0D0]/70">
+        <p className="text-ink/70">
           {showAll
             ? 'Every artist in the Twin Cities scene database.'
             : "Every artist that's played the Birdhaus."}
         </p>
-        <label className="flex items-center gap-2 text-sm text-[#E8E0D0]/70 select-none mt-2 w-fit">
+        <label className="flex items-center gap-2 text-sm text-ink/70 select-none mt-2 w-fit">
           <input type="checkbox" checked={showAll} onChange={(e) => setShowAll(e.target.checked)} />
           Show all Twin Cities bands (in-progress)
         </label>
       </div>
 
       {visible.length === 0 ? (
-        <p className="text-[#E8E0D0]/60">No bands yet.</p>
+        <p className="text-ink/60">No bands yet.</p>
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
           {visible.map((band) => (
             <Link key={band.id} href={`/bands/${band.slug}`} className="group block">
-              <div className="relative aspect-square rounded-lg overflow-hidden bg-[#E8E0D0]/5 border border-[#E8E0D0]/15 group-hover:border-[#E8E0D0]/50 transition-colors">
+              <div className="relative aspect-square overflow-hidden bg-ink/5 border-2 border-ink transition-all group-hover:-translate-x-0.5 group-hover:-translate-y-0.5 group-hover:shadow-hard">
                 {band.photo ? (
                   <Image
                     src={band.photo}
@@ -50,21 +50,21 @@ export default function BandsGallery({ bands }: { bands: GalleryBand[] }) {
                     fill
                     sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, (max-width: 1024px) 25vw, 20vw"
                     unoptimized
-                    className="object-cover group-hover:opacity-90 transition-opacity"
+                    className="object-cover"
                   />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center">
-                    <span className="text-4xl font-bold text-[#E8E0D0]/20">
+                    <span className="text-4xl font-bold text-ink/20">
                       {band.name.charAt(0).toUpperCase()}
                     </span>
                   </div>
                 )}
               </div>
-              <p className="mt-2 text-center font-medium truncate group-hover:text-[#E8E0D0]/70 transition-colors">
+              <p className="mt-2 text-center font-medium truncate group-hover:text-vhs-red transition-colors">
                 {band.name}
               </p>
               {band.isTouring && (
-                <p className="text-center text-xs text-[#E8E0D0]/40 truncate">
+                <p className="text-center font-mono text-xs text-ink/40 truncate">
                   Touring{band.hometown ? ` · ${band.hometown}` : ''}
                 </p>
               )}

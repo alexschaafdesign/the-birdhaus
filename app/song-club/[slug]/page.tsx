@@ -46,17 +46,18 @@ export default async function SongClubEventPage({
   const isUpcoming = event.event_date >= getTodayCentral();
 
   return (
-    <main className="mx-auto w-full max-w-2xl px-5 py-6 text-[#E8E0D0] sm:px-8 sm:py-8">
-      <Link href="/song-club" className="text-sm text-[#E8E0D0]/50 transition hover:text-[#E8E0D0]">
+    <main className="mx-auto w-full max-w-2xl px-5 py-6 text-ink sm:px-8 sm:py-8">
+      <Link href="/song-club" className="text-sm text-ink/50 transition hover:text-ink">
         ← Song Club
       </Link>
 
       <header className="mt-4">
-        <div className="text-xs font-medium uppercase tracking-wide text-[#E8E0D0]/50">
+        <div className="vhs-stripes h-1.5 w-24 mb-3" aria-hidden="true" />
+        <div className="font-mono text-xs font-medium uppercase tracking-wide text-vhs-red">
           {formatDate(event.event_date)}
           {timeLine ? ` · ${timeLine}` : ''}
         </div>
-        <h1 className="mt-1 text-2xl font-semibold sm:text-3xl">{event.title}</h1>
+        <h1 className="mt-1 text-2xl font-semibold uppercase tracking-tight sm:text-3xl">{event.title}</h1>
       </header>
 
       {event.flyer_url && (
@@ -64,30 +65,30 @@ export default async function SongClubEventPage({
         <img
           src={event.flyer_url}
           alt={event.title}
-          className="mt-5 w-full max-w-md rounded-lg border border-[#E8E0D0]/15"
+          className="mt-5 w-full max-w-md border-2 border-ink"
         />
       )}
 
       {event.venue_name && (
-        <p className="mt-5 text-[15px] text-[#E8E0D0]/80">{event.venue_name}</p>
+        <p className="mt-5 text-[15px] text-ink/80">{event.venue_name}</p>
       )}
 
       {event.description && (
-        <div className="mt-4 whitespace-pre-wrap text-[15px] leading-relaxed text-[#E8E0D0]/80">
+        <div className="mt-4 whitespace-pre-wrap text-[15px] leading-relaxed text-ink/80">
           {event.description}
         </div>
       )}
 
       {isUpcoming ? (
-        <section className="mt-8 rounded-lg border border-[#E8E0D0]/15 bg-[#E8E0D0]/[0.03] p-5">
+        <section className="mt-8 border-2 border-ink bg-paper-deep p-5 shadow-hard">
           <h2 className="text-lg font-medium">RSVP for this meetup</h2>
-          <p className="mb-4 mt-1 text-sm text-[#E8E0D0]/60">
+          <p className="mb-4 mt-1 text-sm text-ink/60">
             RSVP below to get the address and full details emailed to you.
           </p>
           <SongClubRSVPForm eventId={event.id} />
         </section>
       ) : (
-        <p className="mt-8 rounded-lg border border-[#E8E0D0]/15 bg-[#E8E0D0]/[0.03] p-4 text-sm text-[#E8E0D0]/50">
+        <p className="mt-8 border-2 border-ink/40 bg-paper-deep p-4 text-sm text-ink/60">
           This meetup has already happened.
         </p>
       )}

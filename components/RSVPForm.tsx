@@ -96,9 +96,9 @@ export default function RSVPForm({
   };
 
   return (
-    <div className="h-full overflow-y-auto border-2 border-[#E8E0D0]/20 rounded-lg p-4 bg-[#E8E0D0]/5">
+    <div className="h-full overflow-y-auto border-2 border-ink bg-paper-deep p-4 shadow-hard">
       <h2 className="text-lg font-bold mb-1.5">RSVP for this show</h2>
-      <p className="text-sm text-[#E8E0D0]/70 mb-4">
+      <p className="text-sm text-ink/70 mb-4">
         RSVP below to get the venue address and show details emailed to you.
         {ticketUrl && (
           <> After submitting, you'll have the option to <strong>buy an advance ticket</strong> to guarantee your spot.</>
@@ -107,20 +107,20 @@ export default function RSVPForm({
 
       {status === 'success' ? (
         <div className="space-y-4">
-          <div className="bg-green-900/30 border-2 border-green-500 rounded-lg p-4 text-green-300">
+          <div className="border-2 border-vhs-green bg-paper p-4 text-vhs-green">
             Thanks for your RSVP! Check your email for the full details.
           </div>
           {ticketUrl && (
-            <div className="bg-[#E8E0D0] text-[#2A2420] rounded-lg p-5">
+            <div className="bg-ink text-paper p-5">
               <p className="font-bold mb-1">🎟 Want to guarantee your spot?</p>
-              <p className="text-[#2A2420]/70 text-sm mb-4">
+              <p className="text-paper/70 text-sm mb-4">
                 RSVPs are first-come, first-served and the venue is small. Buying an advance ticket means you're in — no matter how packed it gets.
               </p>
               <a
                 href={ticketUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-block bg-[#2A2420] text-[#E8E0D0] font-bold py-2.5 px-5 rounded-lg hover:bg-[#2A2420]/80 transition-colors text-sm"
+                className="inline-block bg-paper text-ink font-bold py-2.5 px-5 hover:bg-paper/80 transition-colors text-sm"
               >
                 Buy a Ticket →
               </a>
@@ -144,7 +144,7 @@ export default function RSVPForm({
           </div>
 
           <div>
-            <label htmlFor="name" className="block text-sm font-medium mb-1 text-[#E8E0D0]/80">
+            <label htmlFor="name" className="block text-sm font-medium mb-1 text-ink/80">
               Name
             </label>
             <input
@@ -153,12 +153,12 @@ export default function RSVPForm({
               required
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              className="w-full bg-[#2A2420] border-2 border-[#E8E0D0]/30 rounded-lg px-3 py-1.5 text-[#E8E0D0] focus:border-[#E8E0D0] focus:outline-none transition-colors"
+              className="w-full bg-paper border-2 border-ink/40 px-3 py-1.5 placeholder:text-ink/40 focus:border-ink focus:outline-none transition-colors"
             />
           </div>
 
           <div>
-            <label htmlFor="email" className="block text-sm font-medium mb-1 text-[#E8E0D0]/80">
+            <label htmlFor="email" className="block text-sm font-medium mb-1 text-ink/80">
               Email
             </label>
             <input
@@ -174,24 +174,24 @@ export default function RSVPForm({
                 if (e.target.value.trim()) setEmailError(validateEmail(e.target.value));
               }}
               aria-invalid={emailError ? true : undefined}
-              className={`w-full bg-[#2A2420] border-2 rounded-lg px-3 py-1.5 text-[#E8E0D0] focus:outline-none transition-colors ${
-                emailError ? 'border-red-500 focus:border-red-500' : 'border-[#E8E0D0]/30 focus:border-[#E8E0D0]'
+              className={`w-full bg-paper border-2 px-3 py-1.5 placeholder:text-ink/40 focus:outline-none transition-colors ${
+                emailError ? 'border-vhs-red focus:border-vhs-red' : 'border-ink/40 focus:border-ink'
               }`}
             />
             {emailError && (
-              <p className="mt-1.5 text-sm text-red-400">{emailError}</p>
+              <p className="mt-1.5 text-sm text-vhs-red">{emailError}</p>
             )}
           </div>
 
           <div>
-            <label htmlFor="guests" className="block text-sm font-medium mb-1 text-[#E8E0D0]/80">
+            <label htmlFor="guests" className="block text-sm font-medium mb-1 text-ink/80">
               Number of guests (including you)
             </label>
             <select
               id="guests"
               value={formData.guests}
               onChange={(e) => setFormData({ ...formData, guests: e.target.value })}
-              className="w-full bg-[#2A2420] border-2 border-[#E8E0D0]/30 rounded-lg px-3 py-1.5 text-[#E8E0D0] focus:border-[#E8E0D0] focus:outline-none transition-colors"
+              className="w-full bg-paper border-2 border-ink/40 px-3 py-1.5 focus:border-ink focus:outline-none transition-colors"
             >
               <option value="1">1</option>
               <option value="2">2</option>
@@ -207,9 +207,9 @@ export default function RSVPForm({
               id="emailList"
               checked={formData.emailList}
               onChange={(e) => setFormData({ ...formData, emailList: e.target.checked })}
-              className="w-4 h-4 rounded border-2 border-[#E8E0D0]/30 text-[#E8E0D0] focus:ring-[#E8E0D0]"
+              className="w-4 h-4 border-2 border-ink/40 accent-ink focus:ring-ink"
             />
-            <label htmlFor="emailList" className="text-sm text-[#E8E0D0]/80">
+            <label htmlFor="emailList" className="text-sm text-ink/80">
               Add me to the email list for future shows
             </label>
           </div>
@@ -217,13 +217,13 @@ export default function RSVPForm({
           <button
             type="submit"
             disabled={status === 'submitting'}
-            className="w-full bg-[#E8E0D0] text-[#2A2420] font-bold py-2.5 px-6 rounded-lg hover:bg-[#E8E0D0]/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="w-full bg-ink text-paper font-bold py-2.5 px-6 hover:bg-ink/85 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             {status === 'submitting' ? 'Submitting...' : 'Submit RSVP'}
           </button>
 
           {status === 'error' && (
-            <div className="bg-red-900/30 border-2 border-red-500 rounded-lg p-4 text-red-300">
+            <div className="border-2 border-vhs-red bg-paper p-4 text-vhs-red">
               Something went wrong. Please try again.
             </div>
           )}

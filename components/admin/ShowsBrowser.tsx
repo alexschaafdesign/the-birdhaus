@@ -52,6 +52,7 @@ export default function AdminShowsBrowser({
           draftShows={draftShows}
           today={today}
           isAdmin
+          dark
           showHref={(show) => `/admin/shows/${show.id}`}
         />
       )}

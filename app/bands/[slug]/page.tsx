@@ -56,13 +56,13 @@ export default async function BandPage({ params }: { params: Promise<{ slug: str
       <div className="max-w-3xl mx-auto px-6 py-12">
         <Link
           href="/"
-          className="text-[#E8E0D0]/70 hover:text-[#E8E0D0] mb-8 inline-block text-sm uppercase tracking-wide"
+          className="text-ink/70 hover:text-vhs-red mb-8 inline-block font-mono text-sm uppercase tracking-wide"
         >
           ← Back to home
         </Link>
 
         {band.photo && (
-          <div className="relative w-full max-w-md aspect-square rounded-lg shadow-lg mb-6 overflow-hidden">
+          <div className="relative w-full max-w-md aspect-square border-2 border-ink shadow-hard mb-6 overflow-hidden">
             <Image
               src={band.photo}
               alt={band.name}
@@ -76,8 +76,9 @@ export default async function BandPage({ params }: { params: Promise<{ slug: str
         )}
 
         <div className="mb-6">
-          <h1 className="text-4xl font-bold leading-tight">{band.name}</h1>
-          <p className="text-[#E8E0D0]/50 text-sm mt-1">
+          <div className="vhs-stripes h-1.5 w-24 mb-3" aria-hidden="true" />
+          <h1 className="text-4xl font-bold leading-tight uppercase tracking-tight">{band.name}</h1>
+          <p className="font-mono text-ink/50 text-sm mt-1">
             {band.isTouring ? (band.hometown ? `Touring · ${band.hometown}` : 'Touring') : 'Local'}
           </p>
           {band.instagram && (
@@ -85,7 +86,7 @@ export default async function BandPage({ params }: { params: Promise<{ slug: str
               href={band.instagram}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-[#E8E0D0]/60 hover:text-[#E8E0D0] underline text-sm"
+              className="text-ink/60 hover:text-vhs-red underline text-sm"
             >
               Instagram ↗
             </a>
@@ -95,7 +96,7 @@ export default async function BandPage({ params }: { params: Promise<{ slug: str
               href={`https://www.twinscene.org/bands/${band.twinsceneSlug}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-[#E8E0D0]/60 hover:text-[#E8E0D0] underline text-sm ml-3"
+              className="text-ink/60 hover:text-vhs-red underline text-sm ml-3"
             >
               Twin Scene ↗
             </a>
@@ -103,24 +104,24 @@ export default async function BandPage({ params }: { params: Promise<{ slug: str
         </div>
 
         {band.bio && (
-          <p className="text-lg text-[#E8E0D0]/80 mb-10 max-w-2xl leading-relaxed whitespace-pre-line">
+          <p className="text-lg text-ink/80 mb-10 max-w-2xl leading-relaxed whitespace-pre-line">
             {band.bio}
           </p>
         )}
 
-        <div className="border-t border-[#E8E0D0]/15 pt-8">
-          <h2 className="text-2xl font-bold mb-4">Played at the Birdhaus</h2>
+        <div className="border-t border-ink/15 pt-8">
+          <h2 className="text-2xl font-bold mb-4 uppercase tracking-tight">Played at the Birdhaus</h2>
           {shows.length === 0 ? (
-            <p className="text-[#E8E0D0]/50">Hasn&rsquo;t played a Birdhaus show yet.</p>
+            <p className="text-ink/50">Hasn&rsquo;t played a Birdhaus show yet.</p>
           ) : (
             <div className="space-y-3">
               {shows.map((show) => (
                 <Link
                   key={show.id}
                   href={`/shows/${show.slug}`}
-                  className="block border border-[#E8E0D0]/20 rounded p-4 hover:border-[#E8E0D0]/50 transition-colors"
+                  className="block border-2 border-ink bg-paper p-4 transition-all hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-hard"
                 >
-                  <p className="text-[#E8E0D0]/50 text-sm mb-0.5">{show.date}</p>
+                  <p className="font-mono text-ink/50 text-sm mb-0.5">{show.date}</p>
                   <p className="font-semibold">{show.title}</p>
                 </Link>
               ))}
@@ -129,18 +130,18 @@ export default async function BandPage({ params }: { params: Promise<{ slug: str
         </div>
 
         {videos.length > 0 && (
-          <div className="border-t border-[#E8E0D0]/15 pt-8 mt-8">
-            <h2 className="text-2xl font-bold mb-4">Videos</h2>
+          <div className="border-t border-ink/15 pt-8 mt-8">
+            <h2 className="text-2xl font-bold mb-4 uppercase tracking-tight">Videos</h2>
             <div className="space-y-8">
               {videos.map((video, index) => (
                 <div key={index}>
                   <Link
                     href={`/shows/${video.showSlug}`}
-                    className="text-sm text-[#E8E0D0]/50 hover:text-[#E8E0D0] mb-2 inline-block"
+                    className="text-sm text-ink/50 hover:text-vhs-red mb-2 inline-block"
                   >
                     {video.showTitle}
                   </Link>
-                  <div className="aspect-video rounded-lg overflow-hidden shadow-lg">
+                  <div className="aspect-video overflow-hidden border-2 border-ink">
                     <iframe
                       width="100%"
                       height="100%"

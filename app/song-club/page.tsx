@@ -32,7 +32,7 @@ function EventCard({ event, large = false }: { event: SongClubEvent; large?: boo
     return (
       <Link
         href={`/song-club/${event.slug}`}
-        className="flex flex-col overflow-hidden rounded-xl border border-[#E8E0D0]/15 bg-[#E8E0D0]/[0.03] transition hover:border-[#E8E0D0]/35 hover:bg-[#E8E0D0]/[0.06] sm:flex-row"
+        className="flex flex-col overflow-hidden border-2 border-ink bg-paper shadow-hard transition hover:-translate-x-0.5 hover:-translate-y-0.5 sm:flex-row"
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
@@ -41,13 +41,13 @@ function EventCard({ event, large = false }: { event: SongClubEvent; large?: boo
           className="aspect-[4/3] w-full object-cover sm:aspect-auto sm:w-64 sm:shrink-0"
         />
         <div className="flex flex-col justify-center p-5 sm:p-6">
-          <div className="text-xs font-medium uppercase tracking-wide text-[#E8E0D0]/50">
+          <div className="font-mono text-xs font-medium uppercase tracking-wide text-vhs-red">
             {formatDate(event.event_date)}
             {timeLine ? ` · ${timeLine}` : ''}
           </div>
-          <div className="mt-1 text-2xl font-semibold text-[#E8E0D0]">{event.title}</div>
+          <div className="mt-1 text-2xl font-semibold text-ink">{event.title}</div>
           {event.venue_name && (
-            <div className="mt-1 text-sm text-[#E8E0D0]/60">{event.venue_name}</div>
+            <div className="mt-1 text-sm text-ink/60">{event.venue_name}</div>
           )}
         </div>
       </Link>
@@ -57,15 +57,15 @@ function EventCard({ event, large = false }: { event: SongClubEvent; large?: boo
   return (
     <Link
       href={`/song-club/${event.slug}`}
-      className="block rounded-lg border border-[#E8E0D0]/15 bg-[#E8E0D0]/[0.03] p-4 transition hover:border-[#E8E0D0]/35 hover:bg-[#E8E0D0]/[0.06]"
+      className="block border-2 border-ink bg-paper p-4 transition hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-hard"
     >
-      <div className="text-xs font-medium uppercase tracking-wide text-[#E8E0D0]/50">
+      <div className="font-mono text-xs font-medium uppercase tracking-wide text-vhs-red">
         {formatDate(event.event_date)}
         {timeLine ? ` · ${timeLine}` : ''}
       </div>
-      <div className="mt-1 text-lg font-medium text-[#E8E0D0]">{event.title}</div>
+      <div className="mt-1 text-lg font-medium text-ink">{event.title}</div>
       {event.venue_name && (
-        <div className="mt-0.5 text-sm text-[#E8E0D0]/60">{event.venue_name}</div>
+        <div className="mt-0.5 text-sm text-ink/60">{event.venue_name}</div>
       )}
     </Link>
   );
@@ -80,19 +80,20 @@ export default async function SongClubPage() {
   return (
     <main className="mx-auto w-full max-w-3xl px-5 py-6 sm:px-8 sm:py-8">
       <header className="mb-6">
-        <h1 className="text-3xl font-semibold text-[#E8E0D0] sm:text-4xl">Song Club</h1>
-        <p className="mt-1 max-w-xl text-[15px] text-[#E8E0D0]/60">
+        <div className="vhs-stripes h-1.5 w-24 mb-3" aria-hidden="true" />
+        <h1 className="text-3xl font-semibold text-ink uppercase tracking-tight sm:text-4xl">Song Club</h1>
+        <p className="mt-1 max-w-xl text-[15px] text-ink/60">
           Song-a-days, monthly songwriter meetups, and more.
         </p>
       </header>
 
       {events.length === 0 ? (
-        <p className="text-sm text-[#E8E0D0]/50">No meetups scheduled yet — check back soon.</p>
+        <p className="text-sm text-ink/50">No meetups scheduled yet — check back soon.</p>
       ) : (
         <div className="space-y-8">
           {upcoming.length > 0 && (
             <section>
-              <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-[#E8E0D0]/45">
+              <h2 className="mb-3 font-mono text-xs font-semibold uppercase tracking-wide text-ink/45">
                 Upcoming
               </h2>
               <div className="space-y-3">
@@ -104,7 +105,7 @@ export default async function SongClubPage() {
           )}
           {past.length > 0 && (
             <section>
-              <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-[#E8E0D0]/45">
+              <h2 className="mb-3 font-mono text-xs font-semibold uppercase tracking-wide text-ink/45">
                 Past
               </h2>
               <div className="space-y-3">

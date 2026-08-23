@@ -80,21 +80,21 @@ export default async function TicketsPage({
       <div className="max-w-2xl mx-auto px-6 py-12">
         <Link
           href={`/shows/${show.slug}`}
-          className="text-[#E8E0D0]/70 hover:text-[#E8E0D0] mb-8 inline-block text-sm uppercase tracking-wide"
+          className="text-ink/70 hover:text-vhs-red mb-8 inline-block font-mono text-sm uppercase tracking-wide"
         >
           ← Back to show
         </Link>
 
         <h1 className="text-3xl md:text-4xl font-bold mb-2 leading-tight">{show.title}</h1>
-        <p className="text-sm text-[#E8E0D0]/70 mb-8">{formattedDate}</p>
+        <p className="font-mono text-sm text-ink/70 mb-8">{formattedDate}</p>
 
         {checkoutError ? (
           <div
             role="alert"
-            className="mb-6 border-2 border-amber-400/40 bg-amber-400/10 rounded-lg px-5 py-4 text-sm"
+            className="mb-6 border-2 border-vhs-red bg-paper px-5 py-4 text-sm"
           >
-            <p className="font-bold mb-1">Sorry — we couldn&apos;t start checkout just now.</p>
-            <p className="text-[#E8E0D0]/80">
+            <p className="font-bold mb-1 text-vhs-red">Sorry — we couldn&apos;t start checkout just now.</p>
+            <p className="text-ink/80">
               It&apos;s not you. Please try again in a minute, or just pay at the door — cash,
               Venmo, and card all work. We&apos;ve been notified and are on it.
             </p>
@@ -102,13 +102,13 @@ export default async function TicketsPage({
         ) : null}
 
         <h2 className="text-xl font-bold mb-2">Choose your donation</h2>
-        <p className="text-sm text-[#E8E0D0]/70 mb-6 max-w-prose">
+        <p className="text-sm text-ink/70 mb-6 max-w-prose">
           No ticket is required for entry — donations go straight to the artists and keeping the
           venue running. Pick whatever works for you.
         </p>
 
         {tiers.length === 0 ? (
-          <p className="text-sm text-[#E8E0D0]/50">
+          <p className="text-sm text-ink/50">
             Donation links aren&apos;t available for this show yet — check back soon.
           </p>
         ) : (
@@ -124,18 +124,18 @@ export default async function TicketsPage({
                 method="GET"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center justify-between gap-4 border-2 border-[#E8E0D0]/20 rounded-lg px-6 py-4 bg-[#E8E0D0]/5 hover:bg-[#E8E0D0]/10 transition-colors"
+                className="flex items-center justify-between gap-4 border-2 border-ink bg-paper-deep px-6 py-4 hover:bg-ink/10 transition-colors"
               >
                 <input type="hidden" name="tier" value={tier.amountCents} />
                 <span className="font-bold">{tierName(tier.tierLabel)}</span>
                 <div className="flex items-center gap-3">
-                  <label className="flex items-center gap-1.5 text-sm text-[#E8E0D0]/70">
-                    <span className="uppercase tracking-wide">Qty</span>
+                  <label className="flex items-center gap-1.5 text-sm text-ink/70">
+                    <span className="font-mono uppercase tracking-wide">Qty</span>
                     <select
                       name="qty"
                       defaultValue="1"
                       aria-label={`Quantity for ${tierName(tier.tierLabel)}`}
-                      className="rounded-md border-2 border-[#E8E0D0]/20 bg-[#1a1a1a] text-[#E8E0D0] px-2 py-1 font-bold"
+                      className="border-2 border-ink/40 bg-paper px-2 py-1 font-bold focus:outline-none focus:border-ink"
                     >
                       {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
                         <option key={n} value={n}>
@@ -146,7 +146,7 @@ export default async function TicketsPage({
                   </label>
                   <button
                     type="submit"
-                    className="text-lg font-bold whitespace-nowrap hover:text-white transition-colors"
+                    className="font-mono text-lg font-bold whitespace-nowrap hover:text-vhs-red transition-colors"
                   >
                     {dollars(tier.amountCents)} →
                   </button>

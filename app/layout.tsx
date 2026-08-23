@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Instrument_Sans } from "next/font/google";
+import { Instrument_Sans, IBM_Plex_Mono } from "next/font/google";
 import "./globals.css";
 import Header from "@/components/Header";
 import AdminBanner from "@/components/AdminBanner";
@@ -8,6 +8,12 @@ import { SITE_URL, SITE_NAME, SITE_DESCRIPTION } from "@/lib/site";
 
 const instrumentSans = Instrument_Sans({
   subsets: ["latin"],
+});
+
+const plexMono = IBM_Plex_Mono({
+  subsets: ["latin"],
+  weight: ["400", "500", "700"],
+  variable: "--font-plex-mono",
 });
 
 export const metadata: Metadata = {
@@ -39,8 +45,9 @@ export const metadata: Metadata = {
   },
 };
 
+// Ink, matching the dark logo band at the top of every page.
 export const viewport: Viewport = {
-  themeColor: "#2A2420",
+  themeColor: "#1A1712",
 };
 
 export default async function RootLayout({
@@ -51,8 +58,8 @@ export default async function RootLayout({
   const isAdmin = await isAdminSession();
 
   return (
-    <html lang="en" style={{ backgroundColor: "#2A2420", color: "#E8E0D0" }}>
-      <body className={instrumentSans.className} style={{ backgroundColor: "#2A2420", color: "#E8E0D0" }}>
+    <html lang="en" style={{ backgroundColor: "#F2EEE3", color: "#1A1712" }}>
+      <body className={`${instrumentSans.className} ${plexMono.variable}`} style={{ backgroundColor: "#F2EEE3", color: "#1A1712" }}>
         <AdminBanner isAdmin={isAdmin} />
         <Header />
         {children}

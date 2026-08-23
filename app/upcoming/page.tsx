@@ -43,8 +43,9 @@ export default async function UpcomingShows() {
       {/* Upcoming Shows */}
       <div id="upcoming-shows" className="max-w-4xl mx-auto px-8 pb-16 pt-4">
         <div className="mb-8">
-          <h2 className="text-4xl font-bold mb-2">Upcoming Shows</h2>
-          <p className="text-[#E8E0D0]/70 text-lg">Click a show to RSVP and get details</p>
+          <div className="vhs-stripes h-1.5 w-24 mb-3" aria-hidden="true" />
+          <h2 className="text-4xl font-bold mb-2 uppercase tracking-tight">Upcoming Shows</h2>
+          <p className="text-ink/70 text-lg">Click a show to RSVP and get details</p>
         </div>
         <ShowsBrowser
           upcomingShows={upcomingShows}
@@ -56,7 +57,7 @@ export default async function UpcomingShows() {
         />
 
         <div className="mt-8">
-          <a href="/archive" className="block text-2xl hover:text-[#E8E0D0]/70">
+          <a href="/archive" className="block text-2xl hover:text-vhs-red">
             Archive →
           </a>
         </div>

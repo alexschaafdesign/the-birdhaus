@@ -55,12 +55,13 @@ export default function Header() {
   if (pathname.startsWith('/door')) return null;
 
   const linkClass = (isActive: boolean) =>
-    `block w-full text-center rounded border border-[#E8E0D0]/30 px-4 py-3 transition-colors hover:border-[#E8E0D0] hover:bg-[#E8E0D0]/5 md:w-auto md:rounded-none md:border-0 md:p-0 md:hover:bg-transparent md:hover:underline${isActive ? ' bg-[#E8E0D0]/10 font-semibold md:bg-transparent' : ''}`;
+    `block w-full text-center border-2 border-ink/40 px-4 py-3 font-mono text-xs uppercase tracking-widest transition-colors hover:border-ink hover:bg-ink hover:text-paper md:w-auto md:border-0 md:p-0 md:font-sans md:text-sm md:normal-case md:tracking-normal md:hover:bg-transparent md:hover:text-ink md:hover:underline md:decoration-vhs-red md:decoration-2 md:underline-offset-4${isActive ? ' bg-ink text-paper font-bold md:bg-transparent md:text-ink md:underline md:decoration-vhs-red md:decoration-2 md:underline-offset-4' : ''}`;
 
   return (
-    <header className="pt-12 pb-8 px-8">
-      <div className="flex flex-col items-center justify-center gap-4 mb-4">
-        <Link href="/">
+    <header className="pb-8">
+      {/* Ink band behind the cream logo — the "tape shell" above the paper label. */}
+      <div className="bg-[#1A1712] px-8 pt-12 pb-8">
+        <Link href="/" className="mx-auto block w-full max-w-sm">
           <Image
             src={LOGO_URL}
             alt="The Birdhaus"
@@ -69,11 +70,12 @@ export default function Header() {
             sizes="384px"
             priority
             unoptimized
-            className="w-full max-w-sm h-auto"
+            className="w-full h-auto"
           />
         </Link>
       </div>
-      <nav className="grid grid-cols-2 gap-2 md:flex md:flex-row md:items-center md:justify-center md:gap-6 text-sm max-w-sm md:max-w-none mx-auto">
+      <div className="vhs-stripes h-1.5 w-full" aria-hidden="true" />
+      <nav className="mt-8 px-8 grid grid-cols-2 gap-2 md:flex md:flex-row md:items-center md:justify-center md:gap-6 text-sm max-w-sm md:max-w-none mx-auto">
         {navItems.map((item, i) => {
           const isLast = i === navItems.length - 1;
           const wrapperClass = `flex items-center md:gap-6${isLast && navItems.length % 2 === 1 ? ' col-span-2 md:col-auto' : ''}`;
@@ -108,10 +110,10 @@ export default function Header() {
                   </button>
                   {openDropdown && (
                     <div className="absolute left-0 top-full z-40 pt-2.5">
-                      <div className="whitespace-nowrap rounded-lg border border-[#E8E0D0]/20 bg-[#3A322B] py-1.5 shadow-[0_12px_24px_-8px_rgba(0,0,0,0.7)]">
+                      <div className="whitespace-nowrap border-2 border-ink bg-paper py-1.5 shadow-hard">
                         {item.children.map((child) => {
                           const childClass =
-                            'block px-6 py-2.5 text-left hover:bg-[#E8E0D0]/10';
+                            'block px-6 py-2.5 text-left hover:bg-ink hover:text-paper';
                           return child.external ? (
                             <a
                               key={child.href}
@@ -138,7 +140,7 @@ export default function Header() {
                     </div>
                   )}
                 </div>
-                {!isLast && <span className="hidden h-4 w-px bg-[#E8E0D0]/15 md:inline-block" aria-hidden="true" />}
+                {!isLast && <span className="hidden h-4 w-px bg-ink/20 md:inline-block" aria-hidden="true" />}
               </span>
             );
           }
@@ -155,7 +157,7 @@ export default function Header() {
                   {item.label}
                 </Link>
               )}
-              {!isLast && <span className="hidden h-4 w-px bg-[#E8E0D0]/15 md:inline-block" aria-hidden="true" />}
+              {!isLast && <span className="hidden h-4 w-px bg-ink/20 md:inline-block" aria-hidden="true" />}
             </span>
           );
         })}

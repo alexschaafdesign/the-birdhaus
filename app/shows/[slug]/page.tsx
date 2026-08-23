@@ -96,7 +96,7 @@ export default async function ShowPage({ params }: { params: Promise<{ slug: str
         {/* Back link */}
         <a
           href={isPast ? "/archive" : "/"}
-          className="text-[#E8E0D0]/70 hover:text-[#E8E0D0] mb-8 inline-block text-sm uppercase tracking-wide"
+          className="text-ink/70 hover:text-vhs-red mb-8 inline-block font-mono text-sm uppercase tracking-wide"
         >
           ← {isPast ? "Back to archive" : "Back to home"}
         </a>
@@ -105,7 +105,7 @@ export default async function ShowPage({ params }: { params: Promise<{ slug: str
         <div className="mb-10">
           <h1 className="text-3xl md:text-4xl font-bold mb-3 leading-tight">{show.title}</h1>
 
-          <div className="flex flex-wrap gap-3 text-sm text-[#E8E0D0]/70">
+          <div className="flex flex-wrap gap-3 font-mono text-sm text-ink/70">
             <div className="flex items-center gap-2">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -135,7 +135,7 @@ export default async function ShowPage({ params }: { params: Promise<{ slug: str
 
         {/* Description */}
         {show.description && (
-          <p className="text-base text-[#E8E0D0]/80 mb-10 max-w-3xl leading-relaxed whitespace-pre-line">
+          <p className="text-base text-ink/80 mb-10 max-w-3xl leading-relaxed whitespace-pre-line">
             {show.description}
           </p>
         )}
@@ -152,7 +152,7 @@ export default async function ShowPage({ params }: { params: Promise<{ slug: str
                 sizes="(max-width: 768px) 100vw, 512px"
                 priority
                 unoptimized
-                className="w-full max-w-lg mx-auto h-auto rounded-lg shadow-lg"
+                className="w-full max-w-lg mx-auto h-auto border-2 border-ink"
               />
             )}
 
@@ -167,16 +167,16 @@ export default async function ShowPage({ params }: { params: Promise<{ slug: str
 
             {/* External ticket link (e.g. promoter's ticket page) */}
             {!isPast && !show.rsvpForm && show.externalTicketUrl && (
-              <div className="border-2 border-[#E8E0D0]/20 rounded-lg p-6 bg-[#E8E0D0]/5">
+              <div className="border-2 border-ink bg-paper-deep p-6 shadow-hard">
                 <h2 className="text-xl font-bold mb-2">Tickets</h2>
-                <p className="text-sm text-[#E8E0D0]/70 mb-6">
+                <p className="text-sm text-ink/70 mb-6">
                   Tickets for this show are handled by an external promoter.
                 </p>
                 <a
                   href={show.externalTicketUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-block bg-[#E8E0D0] text-[#2A2420] font-bold py-3 px-6 rounded-lg hover:bg-[#E8E0D0]/80 transition-colors"
+                  className="inline-block bg-ink text-paper font-bold py-3 px-6 hover:bg-ink/85 transition-colors"
                 >
                   Get Tickets →
                 </a>
@@ -200,24 +200,24 @@ export default async function ShowPage({ params }: { params: Promise<{ slug: str
               const bandSlug = centralBand?.slug;
 
               const cardBody = (
-                <div className="flex gap-4 border border-[#E8E0D0]/20 rounded-lg p-4 h-full group-hover:border-[#E8E0D0]/50 transition-colors">
+                <div className="flex gap-4 border-2 border-ink/30 bg-paper p-4 h-full group-hover:border-ink transition-colors">
                   {photo ? (
-                    <div className="relative w-16 h-16 rounded-lg overflow-hidden flex-shrink-0">
+                    <div className="relative w-16 h-16 overflow-hidden flex-shrink-0 border border-ink/15">
                       <Image src={photo} alt={bandName} fill sizes="64px" unoptimized className="object-cover" />
                     </div>
                   ) : (
-                    <div className="w-16 h-16 rounded-lg bg-[#E8E0D0]/5 flex items-center justify-center flex-shrink-0">
-                      <span className="text-lg font-bold text-[#E8E0D0]/20">
+                    <div className="w-16 h-16 bg-ink/5 flex items-center justify-center flex-shrink-0">
+                      <span className="text-lg font-bold text-ink/20">
                         {bandName.charAt(0).toUpperCase()}
                       </span>
                     </div>
                   )}
                   <div className="min-w-0 flex-1">
-                    <p className="font-semibold text-base group-hover:text-[#E8E0D0]/70 transition-colors">
+                    <p className="font-semibold text-base group-hover:text-vhs-red transition-colors">
                       {bandName}
                     </p>
                     {bio && (
-                      <p className="text-sm text-[#E8E0D0]/70 mt-1 leading-relaxed whitespace-pre-line line-clamp-4">
+                      <p className="text-sm text-ink/70 mt-1 leading-relaxed whitespace-pre-line line-clamp-4">
                         {bio}
                       </p>
                     )}
@@ -226,7 +226,7 @@ export default async function ShowPage({ params }: { params: Promise<{ slug: str
                         href={instagram}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-xs text-[#E8E0D0]/50 hover:text-[#E8E0D0]/80 underline mt-2 inline-block"
+                        className="text-xs text-ink/50 hover:text-ink/80 underline mt-2 inline-block"
                       >
                         Instagram ↗
                       </a>
@@ -254,7 +254,7 @@ export default async function ShowPage({ params }: { params: Promise<{ slug: str
               {show.videos.map((video, index) => (
                 <div key={index}>
                   <h3 className="text-base mb-3 font-medium">{video.title}</h3>
-                  <div className="aspect-video rounded-lg overflow-hidden shadow-lg">
+                  <div className="aspect-video overflow-hidden border-2 border-ink">
                     <iframe
                       width="100%"
                       height="100%"
@@ -282,7 +282,6 @@ export default async function ShowPage({ params }: { params: Promise<{ slug: str
                     style={{ border: 0, width: '100%', height: '120px' }}
                     src={audio.bandcamp}
                     seamless
-                    className="rounded-lg"
                   ></iframe>
                 </div>
               ))}
@@ -295,7 +294,7 @@ export default async function ShowPage({ params }: { params: Promise<{ slug: str
           <div className="mb-12">
             <h2 className="text-2xl font-bold mb-2">Photos</h2>
             {show.photographer && (
-              <p className="text-sm text-[#E8E0D0]/70 mb-6">
+              <p className="text-sm text-ink/70 mb-6">
                 Photos by{' '}
                 {typeof show.photographer === 'string' ? (
                   show.photographer
@@ -304,7 +303,7 @@ export default async function ShowPage({ params }: { params: Promise<{ slug: str
                     href={show.photographer.instagram}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="hover:text-[#E8E0D0] underline"
+                    className="hover:text-vhs-red underline"
                   >
                     {show.photographer.name}
                   </a>
@@ -323,7 +322,7 @@ export default async function ShowPage({ params }: { params: Promise<{ slug: str
             <div className="flex flex-wrap items-baseline gap-x-3 mb-6">
               <h2 className="text-2xl font-bold">Gallery</h2>
               {show.photoCredit && (
-                <span className="text-sm text-[#E8E0D0]/50">Photos by {show.photoCredit}</span>
+                <span className="text-sm text-ink/50">Photos by {show.photoCredit}</span>
               )}
             </div>
             <CloudinaryGallery photos={galleryPhotos} showTitle={show.title} />

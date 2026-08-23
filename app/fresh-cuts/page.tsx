@@ -62,7 +62,7 @@ export default async function FreshCutsPage() {
           <section>
             <div className="flex items-baseline justify-between mb-6">
               <h2 className="text-2xl font-bold">Past Installments</h2>
-              <span className="font-mono text-sm text-[#E8E0D0]/50">
+              <span className="font-mono text-sm text-ink/50">
                 {past.length} nights
               </span>
             </div>
@@ -75,7 +75,7 @@ export default async function FreshCutsPage() {
         )}
 
         {upcoming.length === 0 && past.length === 0 && (
-          <p className="text-[#E8E0D0]/60">
+          <p className="text-ink/60">
             No Fresh Cuts shows on the books yet — check back soon.
           </p>
         )}

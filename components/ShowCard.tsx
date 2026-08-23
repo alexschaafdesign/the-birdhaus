@@ -22,13 +22,13 @@ export default function ShowCard({ show, draft }: { show: Show; draft?: boolean 
   return (
     <Link
       href={draft ? `/admin/shows/${show.id}` : `/shows/${show.slug}`}
-      className={`group relative flex flex-col overflow-hidden rounded-lg border bg-[#E8E0D0]/5 transition-colors ${
+      className={`group relative flex flex-col overflow-hidden border-2 bg-paper transition-all ${
         draft
-          ? 'border-dashed border-yellow-500/50 hover:border-yellow-400'
-          : 'border-[#E8E0D0]/20 hover:border-[#E8E0D0]/60'
+          ? 'border-dashed border-ink/50 hover:border-ink'
+          : 'border-ink hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-hard'
       }`}
     >
-      <div className="relative aspect-[4/5] w-full overflow-hidden bg-[#E8E0D0]/10">
+      <div className="relative aspect-[4/5] w-full overflow-hidden bg-ink/10">
         {show.flyer ? (
           <Image
             src={show.flyer}
@@ -36,30 +36,30 @@ export default function ShowCard({ show, draft }: { show: Show; draft?: boolean 
             fill
             sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 300px"
             unoptimized
-            className={`object-cover transition-transform duration-300 group-hover:scale-105 ${draft ? 'opacity-60' : ''}`}
+            className={`object-cover ${draft ? 'opacity-60' : ''}`}
           />
         ) : (
-          <div className="flex h-full w-full items-center justify-center px-4 text-center text-sm text-[#E8E0D0]/40">
+          <div className="flex h-full w-full items-center justify-center px-4 text-center text-sm text-ink/40">
             {show.title}
           </div>
         )}
         {draft && (
-          <span className="absolute right-2 top-2 rounded bg-yellow-500 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-black">
+          <span className="absolute right-2 top-2 bg-ink px-1.5 py-0.5 font-mono text-[10px] font-bold uppercase tracking-wide text-paper">
             Draft
           </span>
         )}
-        <div className="absolute inset-x-0 bottom-0 flex items-baseline gap-2 bg-gradient-to-t from-black via-black/85 via-40% to-transparent px-4 pb-3 pt-16 [text-shadow:0_1px_4px_rgba(0,0,0,0.8)]">
-          <span className="text-3xl font-black leading-none text-[#E8E0D0]">
-            {day} {month}
-          </span>
-          <span className="font-mono text-sm uppercase tracking-widest text-[#E8E0D0]/80">
-            - {weekday}
-          </span>
-        </div>
       </div>
-      <div className="flex items-center justify-between gap-3 px-4 py-3">
-        <p className="min-w-0 truncate text-sm text-[#E8E0D0]/60">{bandNames(show)}</p>
-        <span className="flex-shrink-0 text-xs text-[#E8E0D0]/50 transition-colors group-hover:text-[#E8E0D0]">
+      <div className="flex items-baseline gap-2 border-t-2 border-ink px-4 pt-2.5 pb-1.5">
+        <span className="text-2xl font-black leading-none">
+          {day} {month}
+        </span>
+        <span className="font-mono text-xs uppercase tracking-widest text-ink/60">
+          {weekday}
+        </span>
+      </div>
+      <div className="flex items-center justify-between gap-3 px-4 pb-3 pt-1">
+        <p className="min-w-0 truncate text-sm text-ink/60">{bandNames(show)}</p>
+        <span className="flex-shrink-0 font-mono text-xs uppercase tracking-wider text-vhs-red">
           {draft ? 'Edit →' : 'RSVP →'}
         </span>
       </div>
