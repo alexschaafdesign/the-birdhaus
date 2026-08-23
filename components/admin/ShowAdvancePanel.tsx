@@ -38,16 +38,20 @@ export default function ShowAdvancePanel({
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  const [replyBody, setReplyBody] = useState('');
-  const [replying, setReplying] = useState(false);
+  const [messageBody, setMessageBody] = useState('');
+  // Whether the composed message also goes out as an email (vs. a portal-board-
+  // only note). Email is the norm, so it defaults on.
+  const [emailToo, setEmailToo] = useState(true);
+  const [posting, setPosting] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   // Local editor for the confirmed engineer's email; kept in sync with server
   // state on refresh. Saved separately (it lives on the engineer, not the vars).
   const [engineerEmail, setEngineerEmail] = useState(initial.soundEngineer?.email ?? '');
   const [savingEngineer, setSavingEngineer] = useState(false);
-  // The rendered email is long, so once it's already been sent, collapse it by
-  // default — the thread up top is the point at that stage. Still expandable.
-  const [showPreview, setShowPreview] = useState(initial.status !== 'sent');
+  // The rendered email preview is the biggest block on the page, and the email
+  // is just a short portal pointer now — keep it tucked away unless asked for.
+  const [showPreview, setShowPreview] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
 
   const engineerDirty = engineerEmail !== (state.soundEngineer?.email ?? '');
 
@@ -156,26 +160,40 @@ export default function ShowAdvancePanel({
     }
   }
 
-  async function sendReply() {
-    if (!replyBody.trim()) return;
-    setReplying(true);
+  async function sendMessage() {
+    if (!messageBody.trim()) return;
+    setPosting(true);
     setError(null);
     setNotice(null);
     try {
-      const res = await fetch(`/api/admin/shows/${state.showId}/advance/reply`, {
+      const res = await fetch(`/api/admin/shows/${state.showId}/advance/message`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ body: replyBody }),
+        body: JSON.stringify({ body: messageBody, email: emailToo }),
       });
       const d = await res.json().catch(() => null);
-      if (!res.ok) throw new Error(d?.error ?? `Reply failed (${res.status})`);
+      if (!res.ok) throw new Error(d?.error ?? `Message failed (${res.status})`);
       if (d.state) setState(d.state as ShowAdvanceState);
-      setReplyBody('');
-      setNotice(`Reply sent to ${d.sentCount} band${d.sentCount === 1 ? '' : 's'}.`);
+      setMessageBody('');
+      setNotice(
+        d.emailed
+          ? `Message emailed to ${d.sentCount} recipient${d.sentCount === 1 ? '' : 's'} and posted to the portal.`
+          : 'Posted to the portal message board (no email sent).'
+      );
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Reply failed');
+      setError(e instanceof Error ? e.message : 'Message failed');
     } finally {
-      setReplying(false);
+      setPosting(false);
+    }
+  }
+
+  async function copyPortalLink() {
+    try {
+      await navigator.clipboard.writeText(state.hubUrl);
+      setLinkCopied(true);
+      setTimeout(() => setLinkCopied(false), 1500);
+    } catch {
+      setError('Could not copy — open the portal and copy the URL.');
     }
   }
 
@@ -231,15 +249,22 @@ export default function ShowAdvancePanel({
     }
   }
 
+  const emailRecipientCount =
+    withEmail.length +
+    (state.soundEngineer?.email?.trim() ? 1 : 0) +
+    validExtraEmails.length;
+
   return (
     <div className="space-y-6">
-      {/* Status */}
+      {/* Header: status + portal link. The portal is the single source of what
+          bands see; the email and the thread both point at it, so it stays one
+          click/copy away up here. */}
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div className="flex items-center gap-3">
-          <h2 className="text-lg font-semibold">Advance email</h2>
+          <h2 className="text-lg font-semibold">Advance &amp; messages</h2>
           {state.status === 'sent' ? (
             <span className="text-xs rounded-full border border-green-400/40 bg-green-400/10 text-green-300 px-2.5 py-0.5">
-              Sent{state.sentAt ? ` · ${new Date(state.sentAt).toLocaleDateString()}` : ''}
+              Advance sent{state.sentAt ? ` · ${new Date(state.sentAt).toLocaleDateString()}` : ''}
             </span>
           ) : state.status === 'draft' ? (
             <span className="text-xs rounded-full border border-[#E8E0D0]/30 text-[#E8E0D0]/60 px-2.5 py-0.5">
@@ -251,12 +276,25 @@ export default function ShowAdvancePanel({
             </span>
           )}
         </div>
-        <Link
-          href="/admin/settings"
-          className="text-xs text-[#E8E0D0]/50 hover:text-[#E8E0D0] underline"
-        >
-          Edit boilerplate template →
-        </Link>
+        {state.hubUrl && (
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={copyPortalLink}
+              className="border border-[#E8E0D0]/40 rounded px-3 py-1.5 text-xs hover:bg-[#E8E0D0]/10 transition-colors"
+            >
+              {linkCopied ? 'Copied!' : 'Copy portal link'}
+            </button>
+            <a
+              href={state.hubUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs text-[#E8E0D0]/50 hover:text-[#E8E0D0] underline"
+            >
+              Open portal ↗
+            </a>
+          </div>
+        )}
       </div>
 
       {error && (
@@ -270,270 +308,381 @@ export default function ShowAdvancePanel({
         </div>
       )}
 
-      {/* Thread — surfaced at the top once the advance is sent, since the
-          replies are the main thing you're here for after sending. */}
-      {state.status === 'sent' && (
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <p className="text-xs uppercase tracking-wide text-[#E8E0D0]/60">
-              Thread ({state.messages.length})
-            </p>
-            <button
-              type="button"
-              onClick={refresh}
-              disabled={refreshing}
-              className="text-xs text-[#E8E0D0]/50 hover:text-[#E8E0D0] underline disabled:opacity-40"
-            >
-              {refreshing ? 'Refreshing…' : 'Refresh for new replies'}
-            </button>
-          </div>
-
-          <ul className="space-y-3">
-            {state.messages.map((m) => {
-              const recipient = state.recipients.find((r) => r.bandId === m.bandId);
-              const who =
-                m.direction === 'outbound'
-                  ? 'You → lineup'
-                  : recipient
-                    ? `${recipient.name} replied`
-                    : m.fromEmail ?? 'Reply';
-              return <ThreadMessageItem key={m.id} message={m} who={who} />;
-            })}
-            {state.messages.length === 0 && (
-              <li className="text-sm text-[#E8E0D0]/40">No messages yet.</li>
-            )}
-          </ul>
-
-          {/* Reply on the thread */}
-          <div className="space-y-2 border-t border-[#E8E0D0]/10 pt-3">
-            <label className="block text-xs uppercase tracking-wide text-[#E8E0D0]/60">
-              Reply to the lineup
-            </label>
-            <textarea
-              value={replyBody}
-              onChange={(e) => setReplyBody(e.target.value)}
-              rows={4}
-              placeholder="Sounds good — see you Saturday!"
-              className={`${inputClass} w-full resize-y`}
-            />
-            <button
-              type="button"
-              onClick={sendReply}
-              disabled={replying || !replyBody.trim()}
-              className="border border-[#E8E0D0]/40 rounded px-4 py-2 text-sm hover:bg-[#E8E0D0]/10 transition-colors disabled:opacity-40"
-            >
-              {replying ? 'Sending…' : 'Send reply'}
-            </button>
-          </div>
+      {/* Messages — the show's channel, front and center. Everything here also
+          shows on the portal message board; band replies (email or portal) land
+          here too. Available before the advance is sent. */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <p className="text-xs uppercase tracking-wide text-[#E8E0D0]/60">
+            Messages ({state.messages.length})
+          </p>
+          <button
+            type="button"
+            onClick={refresh}
+            disabled={refreshing}
+            className="text-xs text-[#E8E0D0]/50 hover:text-[#E8E0D0] underline disabled:opacity-40"
+          >
+            {refreshing ? 'Refreshing…' : 'Refresh for new replies'}
+          </button>
         </div>
-      )}
 
-      {/* Recipients */}
-      <div className="border border-[#E8E0D0]/15 rounded-lg p-4 space-y-3">
-        <p className="text-xs uppercase tracking-wide text-[#E8E0D0]/60">
-          Recipients ({withEmail.length} of {state.recipients.length} with an email)
-        </p>
-        <ul className="space-y-3 text-sm">
-          {state.recipients.map((r) => (
-            // Key on the saved values so a successful inline save (which changes
-            // them via refresh) remounts the row with fresh, un-dirty state.
-            <RecipientRow
-              key={`${r.bandId}:${r.email ?? ''}:${r.paymentMethod ?? ''}`}
-              recipient={r}
-              showId={state.showId}
-              onSaved={async (msg) => {
-                await refresh();
-                setNotice(msg);
-                setError(null);
-              }}
-              onError={(msg) => {
-                setError(msg);
-                setNotice(null);
-              }}
-            />
-          ))}
-          {state.recipients.length === 0 && (
-            <li className="text-[#E8E0D0]/40">No bands on this show yet.</li>
+        <ul className="space-y-3">
+          {state.messages.map((m) => {
+            const recipient = state.recipients.find((r) => r.bandId === m.bandId);
+            const who =
+              m.direction === 'outbound'
+                ? m.toEmails.length > 0
+                  ? 'You → lineup (emailed)'
+                  : 'You → portal board'
+                : recipient
+                  ? `${recipient.name} replied`
+                  : m.fromEmail ?? 'Reply';
+            return <ThreadMessageItem key={m.id} message={m} who={who} />;
+          })}
+          {state.messages.length === 0 && (
+            <li className="text-sm text-[#E8E0D0]/40">
+              No messages yet — the advance email and anything you or the bands send will
+              show up here and on the portal.
+            </li>
           )}
         </ul>
-      </div>
 
-      {/* Sound engineer — looped onto the advance as a recipient (and forwarded
-          band replies), so they need a contact email. */}
-      <div className="border border-[#E8E0D0]/15 rounded-lg p-4 space-y-2">
-        <p className="text-xs uppercase tracking-wide text-[#E8E0D0]/60">Sound engineer</p>
-        {state.soundEngineer ? (
-          <>
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-[#E8E0D0]">{state.soundEngineer.name}</span>
+        {/* Compose */}
+        <div className="space-y-2 border-t border-[#E8E0D0]/10 pt-3">
+          <label className="block text-xs uppercase tracking-wide text-[#E8E0D0]/60">
+            Message the lineup
+          </label>
+          <textarea
+            value={messageBody}
+            onChange={(e) => setMessageBody(e.target.value)}
+            rows={4}
+            placeholder="Sounds good — see you Saturday!"
+            className={`${inputClass} w-full resize-y`}
+          />
+          <div className="flex items-center gap-3 flex-wrap">
+            <button
+              type="button"
+              onClick={sendMessage}
+              disabled={posting || !messageBody.trim() || (emailToo && emailRecipientCount === 0)}
+              className="border border-[#E8E0D0]/40 rounded px-4 py-2 text-sm hover:bg-[#E8E0D0]/10 transition-colors disabled:opacity-40"
+            >
+              {posting ? 'Sending…' : 'Send message'}
+            </button>
+            <label className="flex items-center gap-1.5 text-xs text-[#E8E0D0]/60 cursor-pointer">
               <input
-                type="email"
-                value={engineerEmail}
-                onChange={(e) => setEngineerEmail(e.target.value)}
-                placeholder="email — they'll be added to the advance"
-                className={`${inputClass} flex-1 min-w-[14rem]`}
-                aria-label="Sound engineer email"
+                type="checkbox"
+                checked={emailToo}
+                onChange={(e) => setEmailToo(e.target.checked)}
+                className="accent-[#E8E0D0]"
               />
-              <button
-                type="button"
-                onClick={saveEngineerEmail}
-                disabled={savingEngineer || !engineerDirty}
-                className="border border-[#E8E0D0]/40 rounded px-4 py-1.5 text-sm hover:bg-[#E8E0D0]/10 transition-colors disabled:opacity-40"
-              >
-                {savingEngineer ? 'Saving…' : 'Save'}
-              </button>
-            </div>
-            {!engineerEmail.trim() && (
-              <p className="text-xs text-amber-300/80">
-                Add an email so {state.soundEngineer.name} gets the advance and band replies.
-              </p>
+              Also send as email ({emailRecipientCount} recipient
+              {emailRecipientCount === 1 ? '' : 's'})
+            </label>
+            {emailToo && emailRecipientCount === 0 && (
+              <span className="text-xs text-amber-300/80">
+                No one has an email yet — add contacts below, or uncheck to post to the
+                portal only.
+              </span>
             )}
-          </>
-        ) : (
-          <p className="text-sm text-[#E8E0D0]/40">
-            No confirmed sound engineer on this show — confirm one on the show form to loop them in.
-          </p>
-        )}
-      </div>
-
-      {/* Additional recipients — ad-hoc emails not tied to a band or the
-          engineer (promoter, venue, tour manager, …). Saved with the draft and
-          included on every send / reply. */}
-      <div className="border border-[#E8E0D0]/15 rounded-lg p-4 space-y-3">
-        <p className="text-xs uppercase tracking-wide text-[#E8E0D0]/60">
-          Additional recipients
-        </p>
-        {extraEmails.length > 0 && (
-          <ul className="space-y-2">
-            {extraEmails.map((email, i) => (
-              <li key={i} className="flex items-center gap-2">
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setExtraEmail(i, e.target.value)}
-                  placeholder="name@example.com"
-                  className={`${inputClass} flex-1 min-w-[14rem]`}
-                  aria-label={`Additional recipient ${i + 1}`}
-                />
-                <button
-                  type="button"
-                  onClick={() => removeExtraEmail(i)}
-                  className="border border-[#E8E0D0]/40 rounded px-3 py-1.5 text-sm hover:bg-[#E8E0D0]/10 transition-colors"
-                  aria-label={`Remove additional recipient ${i + 1}`}
-                >
-                  Remove
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-        <button
-          type="button"
-          onClick={addExtraEmail}
-          className="border border-[#E8E0D0]/40 rounded px-4 py-1.5 text-sm hover:bg-[#E8E0D0]/10 transition-colors"
-        >
-          + Add email
-        </button>
-        <p className="text-xs text-[#E8E0D0]/40">
-          Anyone here gets the advance and any thread replies. Saved with the draft below.
-        </p>
-      </div>
-
-      {/* Per-show fields */}
-      <div className="space-y-4">
-        <Field
-          label="Sound engineer"
-          hint={
-            state.show.soundEngineerName
-              ? `Defaults to ${state.show.soundEngineerName} (confirmed on this show)`
-              : 'No confirmed engineer on this show yet'
-          }
-        >
-          <input
-            value={vars.sound_engineer}
-            onChange={(e) => setVar('sound_engineer', e.target.value)}
-            placeholder={state.show.soundEngineerName || 'Name'}
-            className={`${inputClass} w-full`}
-          />
-        </Field>
-
-        <Field
-          label="Schedule"
-          hint="One row per moment: a time (or range, e.g. 8–8:30pm) and what's happening. Renders as the highlighted schedule box."
-        >
-          <ScheduleEditor
-            rows={vars.schedule}
-            bandNames={state.recipients.map((r) => r.name)}
-            onChange={setSchedule}
-          />
-        </Field>
-
-        <Field
-          label="Soundcheck notes"
-          hint="Optional — the extra note about linechecks / order (was highlighted in blue)."
-        >
-          <textarea
-            value={vars.soundcheck_notes}
-            onChange={(e) => setVar('soundcheck_notes', e.target.value)}
-            rows={3}
-            className={`${inputClass} w-full resize-y`}
-          />
-        </Field>
-
-        <Field
-          label="Pay (this show only)"
-          hint="Shown on the band portal's Pay card (the advance email itself just links to the portal). Leave blank for the standard door deal; fill this in to override the pay text for this show only. Markdown is supported."
-        >
-          <textarea
-            value={vars.pay}
-            onChange={(e) => setVar('pay', e.target.value)}
-            rows={5}
-            placeholder="Blank = standard door deal."
-            className={`${inputClass} w-full resize-y`}
-          />
-          <div className="mt-1.5 flex items-center gap-3 flex-wrap">
-            {!vars.pay.trim() && state.standardPay && (
-              <button
-                type="button"
-                onClick={() => setVar('pay', state.standardPay)}
-                className="text-xs text-[#E8E0D0]/60 hover:text-[#E8E0D0] underline"
-              >
-                Start from the standard text
-              </button>
-            )}
-            {vars.pay.trim() && (
-              <>
-                <span className="text-xs text-amber-300/80">
-                  Overriding the standard pay text for this show.
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setVar('pay', '')}
-                  className="text-xs text-[#E8E0D0]/60 hover:text-[#E8E0D0] underline"
-                >
-                  Reset to standard
-                </button>
-              </>
+            {!emailToo && (
+              <span className="text-xs text-[#E8E0D0]/40">
+                Portal board only — bands won&apos;t be notified.
+              </span>
             )}
           </div>
-        </Field>
-
-        <div className="text-xs text-[#E8E0D0]/40 border border-[#E8E0D0]/10 rounded p-3 space-y-0.5">
-          <p>Auto-filled from the show:</p>
-          <p>
-            <span className="text-[#E8E0D0]/60">Lineup:</span>{' '}
-            {state.recipients.map((r) => r.name).join(', ') || '—'}
-          </p>
-          <p>
-            <span className="text-[#E8E0D0]/60">Date:</span> {state.show.date ?? '—'}
-          </p>
-          <p>
-            <span className="text-[#E8E0D0]/60">Show link:</span> /shows/{state.show.slug}
-          </p>
         </div>
       </div>
 
-      {/* Actions */}
+      {/* The advance email — now just a short pointer to the portal. Sending it
+          kicks off the thread; the substance (schedule, pay, logistics) lives on
+          the portal, edited in "Show info" below. */}
+      <div className="border border-[#E8E0D0]/15 rounded-lg p-4 space-y-3">
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <p className="text-xs uppercase tracking-wide text-[#E8E0D0]/60">The advance email</p>
+          <Link
+            href="/admin/settings"
+            className="text-xs text-[#E8E0D0]/50 hover:text-[#E8E0D0] underline"
+          >
+            Edit boilerplate template →
+          </Link>
+        </div>
+        <p className="text-xs text-[#E8E0D0]/40">
+          A short &ldquo;go advance the show&rdquo; email pointing the lineup at the portal.
+          Fill in Show info below first so the portal is ready when they click through.
+        </p>
+        <div className="flex items-center gap-3 flex-wrap">
+          <button
+            type="button"
+            onClick={send}
+            disabled={sending || !canSend}
+            className="bg-[#E8E0D0] text-[#2A2420] border border-[#E8E0D0] rounded px-6 py-2 text-sm font-medium hover:bg-[#E8E0D0]/90 transition-colors disabled:opacity-50"
+          >
+            {sending
+              ? 'Sending…'
+              : state.status === 'sent'
+                ? 'Resend advance'
+                : 'Send advance to lineup'}
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowPreview((v) => !v)}
+            className="text-xs text-[#E8E0D0]/50 hover:text-[#E8E0D0] underline"
+          >
+            {showPreview ? 'Hide email preview' : 'Preview email'}
+          </button>
+          {!canSend && (
+            <span className="text-xs text-amber-300/80">
+              Add a contact email to at least one band — or an additional recipient — to send.
+            </span>
+          )}
+        </div>
+        {showPreview && (
+          <div className="rounded-lg border border-[#E8E0D0]/15 overflow-hidden">
+            <div className="border-b border-[#E8E0D0]/10 px-4 py-2 text-sm text-[#E8E0D0]/70">
+              <span className="text-[#E8E0D0]/40">Subject:</span> {state.preview.subject}
+              {dirty && (
+                <span className="text-[#E8E0D0]/40"> (reflects last saved draft)</span>
+              )}
+            </div>
+            <div
+              className="bg-[#f6f2e9] text-[#2A2420] px-6 py-5 text-sm leading-relaxed advance-preview"
+              dangerouslySetInnerHTML={{ __html: state.preview.html }}
+            />
+          </div>
+        )}
+      </div>
+
+      {/* Recipients — who's on the channel. Collapsed once the advance is out;
+          the conversation above is the point at that stage. */}
+      <details
+        className="border border-[#E8E0D0]/15 rounded-lg group"
+        {...(state.status !== 'sent' ? { open: true } : {})}
+      >
+        <summary className="cursor-pointer select-none list-none px-4 py-3 flex items-center justify-between text-xs uppercase tracking-wide text-[#E8E0D0]/60 hover:text-[#E8E0D0]">
+          <span>
+            Recipients ({withEmail.length} of {state.recipients.length} bands with an email)
+          </span>
+          <span aria-hidden className="text-[#E8E0D0]/40 transition-transform group-open:rotate-90">
+            ▸
+          </span>
+        </summary>
+        <div className="px-4 pb-4 space-y-5">
+          <ul className="space-y-3 text-sm">
+            {state.recipients.map((r) => (
+              // Key on the saved values so a successful inline save (which
+              // changes them via refresh) remounts the row with fresh, un-dirty
+              // state.
+              <RecipientRow
+                key={`${r.bandId}:${r.email ?? ''}:${r.paymentMethod ?? ''}`}
+                recipient={r}
+                onSaved={async (msg) => {
+                  await refresh();
+                  setNotice(msg);
+                  setError(null);
+                }}
+                onError={(msg) => {
+                  setError(msg);
+                  setNotice(null);
+                }}
+              />
+            ))}
+            {state.recipients.length === 0 && (
+              <li className="text-[#E8E0D0]/40">No bands on this show yet.</li>
+            )}
+          </ul>
+
+          {/* Sound engineer — looped onto the advance as a recipient (and
+              band replies), so they need a contact email. */}
+          <div className="space-y-2 border-t border-[#E8E0D0]/10 pt-4">
+            <p className="text-xs uppercase tracking-wide text-[#E8E0D0]/60">Sound engineer</p>
+            {state.soundEngineer ? (
+              <>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-[#E8E0D0]">{state.soundEngineer.name}</span>
+                  <input
+                    type="email"
+                    value={engineerEmail}
+                    onChange={(e) => setEngineerEmail(e.target.value)}
+                    placeholder="email — they'll be added to the advance"
+                    className={`${inputClass} flex-1 min-w-[14rem]`}
+                    aria-label="Sound engineer email"
+                  />
+                  <button
+                    type="button"
+                    onClick={saveEngineerEmail}
+                    disabled={savingEngineer || !engineerDirty}
+                    className="border border-[#E8E0D0]/40 rounded px-4 py-1.5 text-sm hover:bg-[#E8E0D0]/10 transition-colors disabled:opacity-40"
+                  >
+                    {savingEngineer ? 'Saving…' : 'Save'}
+                  </button>
+                </div>
+                {!engineerEmail.trim() && (
+                  <p className="text-xs text-amber-300/80">
+                    Add an email so {state.soundEngineer.name} gets the advance and band replies.
+                  </p>
+                )}
+              </>
+            ) : (
+              <p className="text-sm text-[#E8E0D0]/40">
+                No confirmed sound engineer on this show — confirm one on the show form to loop
+                them in.
+              </p>
+            )}
+          </div>
+
+          {/* Additional recipients — ad-hoc emails not tied to a band or the
+              engineer (promoter, venue, tour manager, …). Saved with the draft
+              and included on every send / message. */}
+          <div className="space-y-3 border-t border-[#E8E0D0]/10 pt-4">
+            <p className="text-xs uppercase tracking-wide text-[#E8E0D0]/60">
+              Additional recipients
+            </p>
+            {extraEmails.length > 0 && (
+              <ul className="space-y-2">
+                {extraEmails.map((email, i) => (
+                  <li key={i} className="flex items-center gap-2">
+                    <input
+                      type="email"
+                      value={email}
+                      onChange={(e) => setExtraEmail(i, e.target.value)}
+                      placeholder="name@example.com"
+                      className={`${inputClass} flex-1 min-w-[14rem]`}
+                      aria-label={`Additional recipient ${i + 1}`}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeExtraEmail(i)}
+                      className="border border-[#E8E0D0]/40 rounded px-3 py-1.5 text-sm hover:bg-[#E8E0D0]/10 transition-colors"
+                      aria-label={`Remove additional recipient ${i + 1}`}
+                    >
+                      Remove
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <button
+              type="button"
+              onClick={addExtraEmail}
+              className="border border-[#E8E0D0]/40 rounded px-4 py-1.5 text-sm hover:bg-[#E8E0D0]/10 transition-colors"
+            >
+              + Add email
+            </button>
+            <p className="text-xs text-[#E8E0D0]/40">
+              Anyone here gets the advance and every emailed message. Saved with &ldquo;Save
+              changes&rdquo; below.
+            </p>
+          </div>
+        </div>
+      </details>
+
+      {/* Show info — the per-show content bands see on the portal (schedule,
+          soundcheck notes, pay, engineer name). Edited here, displayed there. */}
+      <details
+        className="border border-[#E8E0D0]/15 rounded-lg group"
+        {...(state.status !== 'sent' ? { open: true } : {})}
+      >
+        <summary className="cursor-pointer select-none list-none px-4 py-3 flex items-center justify-between text-xs uppercase tracking-wide text-[#E8E0D0]/60 hover:text-[#E8E0D0]">
+          <span>Show info — what bands see on the portal</span>
+          <span aria-hidden className="text-[#E8E0D0]/40 transition-transform group-open:rotate-90">
+            ▸
+          </span>
+        </summary>
+        <div className="px-4 pb-4 space-y-4">
+          <Field
+            label="Sound engineer"
+            hint={
+              state.show.soundEngineerName
+                ? `Defaults to ${state.show.soundEngineerName} (confirmed on this show)`
+                : 'No confirmed engineer on this show yet'
+            }
+          >
+            <input
+              value={vars.sound_engineer}
+              onChange={(e) => setVar('sound_engineer', e.target.value)}
+              placeholder={state.show.soundEngineerName || 'Name'}
+              className={`${inputClass} w-full`}
+            />
+          </Field>
+
+          <Field
+            label="Schedule"
+            hint="One row per moment: a time (or range, e.g. 8–8:30pm) and what's happening. Shown on the portal's Schedule card."
+          >
+            <ScheduleEditor
+              rows={vars.schedule}
+              bandNames={state.recipients.map((r) => r.name)}
+              onChange={setSchedule}
+            />
+          </Field>
+
+          <Field
+            label="Soundcheck notes"
+            hint="Optional — the extra note about linechecks / order. Shown with the schedule on the portal and highlighted in the advance email."
+          >
+            <textarea
+              value={vars.soundcheck_notes}
+              onChange={(e) => setVar('soundcheck_notes', e.target.value)}
+              rows={3}
+              className={`${inputClass} w-full resize-y`}
+            />
+          </Field>
+
+          <Field
+            label="Pay (this show only)"
+            hint="Shown on the portal's Pay card. Leave blank for the standard door deal; fill this in to override the pay text for this show only. Markdown is supported."
+          >
+            <textarea
+              value={vars.pay}
+              onChange={(e) => setVar('pay', e.target.value)}
+              rows={5}
+              placeholder="Blank = standard door deal."
+              className={`${inputClass} w-full resize-y`}
+            />
+            <div className="mt-1.5 flex items-center gap-3 flex-wrap">
+              {!vars.pay.trim() && state.standardPay && (
+                <button
+                  type="button"
+                  onClick={() => setVar('pay', state.standardPay)}
+                  className="text-xs text-[#E8E0D0]/60 hover:text-[#E8E0D0] underline"
+                >
+                  Start from the standard text
+                </button>
+              )}
+              {vars.pay.trim() && (
+                <>
+                  <span className="text-xs text-amber-300/80">
+                    Overriding the standard pay text for this show.
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setVar('pay', '')}
+                    className="text-xs text-[#E8E0D0]/60 hover:text-[#E8E0D0] underline"
+                  >
+                    Reset to standard
+                  </button>
+                </>
+              )}
+            </div>
+          </Field>
+
+          <div className="text-xs text-[#E8E0D0]/40 border border-[#E8E0D0]/10 rounded p-3 space-y-0.5">
+            <p>Auto-filled from the show:</p>
+            <p>
+              <span className="text-[#E8E0D0]/60">Lineup:</span>{' '}
+              {state.recipients.map((r) => r.name).join(', ') || '—'}
+            </p>
+            <p>
+              <span className="text-[#E8E0D0]/60">Date:</span> {state.show.date ?? '—'}
+            </p>
+            <p>
+              <span className="text-[#E8E0D0]/60">Show link:</span> /shows/{state.show.slug}
+            </p>
+          </div>
+        </div>
+      </details>
+
+      {/* Save — covers Show info + additional recipients (the draft vars). */}
       <div className="flex items-center gap-3 flex-wrap">
         <button
           type="button"
@@ -541,58 +690,16 @@ export default function ShowAdvancePanel({
           disabled={saving || !dirty}
           className="border border-[#E8E0D0]/40 rounded px-4 py-2 text-sm hover:bg-[#E8E0D0]/10 transition-colors disabled:opacity-40"
         >
-          {saving ? 'Saving…' : 'Save draft & refresh preview'}
+          {saving ? 'Saving…' : 'Save changes'}
         </button>
-        <button
-          type="button"
-          onClick={send}
-          disabled={sending || !canSend}
-          className="bg-[#E8E0D0] text-[#2A2420] border border-[#E8E0D0] rounded px-6 py-2 text-sm font-medium hover:bg-[#E8E0D0]/90 transition-colors disabled:opacity-50"
-        >
-          {sending
-            ? 'Sending…'
-            : state.status === 'sent'
-              ? 'Resend to lineup'
-              : 'Send to lineup'}
-        </button>
-        {!canSend && (
+        {dirty ? (
           <span className="text-xs text-amber-300/80">
-            Add a contact email to at least one band — or an additional recipient — to send.
+            Unsaved edits to Show info / additional recipients — save to update the portal.
           </span>
-        )}
-        {dirty && (
+        ) : (
           <span className="text-xs text-[#E8E0D0]/40">
-            Unsaved edits — save to update the preview below.
+            Show info changes appear on the portal as soon as they&apos;re saved.
           </span>
-        )}
-      </div>
-
-      {/* Preview — collapsible; the rendered email is long, so it can be tucked
-          away (and starts collapsed once the advance has been sent). */}
-      <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <p className="text-xs uppercase tracking-wide text-[#E8E0D0]/60">
-            {state.status === 'sent' ? 'Sent email' : 'Preview'}
-            {dirty ? ' (reflects last saved draft)' : ''}
-          </p>
-          <button
-            type="button"
-            onClick={() => setShowPreview((v) => !v)}
-            className="text-xs text-[#E8E0D0]/50 hover:text-[#E8E0D0] underline"
-          >
-            {showPreview ? 'Hide' : 'Show'}
-          </button>
-        </div>
-        {showPreview && (
-          <div className="rounded-lg border border-[#E8E0D0]/15 overflow-hidden">
-            <div className="border-b border-[#E8E0D0]/10 px-4 py-2 text-sm text-[#E8E0D0]/70">
-              <span className="text-[#E8E0D0]/40">Subject:</span> {state.preview.subject}
-            </div>
-            <div
-              className="bg-[#f6f2e9] text-[#2A2420] px-6 py-5 text-sm leading-relaxed advance-preview"
-              dangerouslySetInnerHTML={{ __html: state.preview.html }}
-            />
-          </div>
         )}
       </div>
     </div>
@@ -606,12 +713,10 @@ export default function ShowAdvancePanel({
 // never leaves the Birdhaus admin.
 function RecipientRow({
   recipient,
-  showId,
   onSaved,
   onError,
 }: {
   recipient: AdvanceRecipient;
-  showId: number;
   onSaved: (notice: string) => void | Promise<void>;
   onError: (error: string) => void;
 }) {

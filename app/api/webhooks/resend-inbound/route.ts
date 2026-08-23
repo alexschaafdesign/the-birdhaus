@@ -4,9 +4,9 @@ import {
   getResendClient,
   parseReplyToken,
   extractEmailAddress,
-  ADVANCE_NOTIFY_EMAIL,
 } from '@/lib/advance-email';
 import { recordInboundReply, type InboundAttachmentInput } from '@/lib/advance';
+import { getAdvanceWatchers } from '@/lib/advance-watchers';
 
 // Resend inbound webhook (email.received). NOT under /api/admin, so proxy.ts
 // does not gate it — Resend reaches it unauthenticated, so we verify the Svix
@@ -92,14 +92,15 @@ async function fetchInboundAttachments(
   return out;
 }
 
-// Makes sure a reply reaches Alex even when a band forgets to reply-all. He's a
-// real recipient (CC), so a reply-all lands in his inbox directly — but a plain
-// reply goes only to the group address. So we forward to him, but ONLY when he
-// wasn't already on the message: reply-all → already copied → nothing forwarded
-// (no duplicate); plain reply → gap filled. Deliberately forwards to Alex ONLY,
-// never the sound engineer — a band's plain reply may be private info they think
-// is going just to Alex, so we don't fan it out. Best-effort: failures are
-// logged, not thrown. Called once per reply (not on webhook retries).
+// Makes sure a reply reaches the watchers even when a band forgets to reply-all.
+// Watchers are real recipients (CC'd on every outbound), so a reply-all lands in
+// their inboxes directly — but a plain reply goes only to the group address. So
+// we forward it, but only to watchers who weren't already on the message:
+// reply-all → already copied → nothing forwarded (no duplicate); plain reply →
+// gap filled. Deliberately forwards to watchers ONLY, never the sound engineer
+// or bands — a band's plain reply may be private info they think is going just
+// to the venue, so we don't fan it out. Best-effort: failures are logged, not
+// thrown. Called once per reply (not on webhook retries).
 async function forwardReplyIfMissed(
   resend: Resend,
   emailId: string,
@@ -112,19 +113,23 @@ async function forwardReplyIfMissed(
   }
 
   // Addresses already on this reply (reply-all copies them). extractEmailAddress
-  // lowercases + unwraps "Name <addr>", matching ADVANCE_NOTIFY_EMAIL's casing.
+  // lowercases + unwraps "Name <addr>" so casing never blocks a match.
   const alreadyOn = new Set(
     [...(data.to ?? []), ...(data.cc ?? []), ...(data.bcc ?? [])].map(extractEmailAddress)
   );
-  if (alreadyOn.has(ADVANCE_NOTIFY_EMAIL.toLowerCase())) return;
+  const missed = (await getAdvanceWatchers()).filter(
+    (w) => !alreadyOn.has(w.toLowerCase())
+  );
 
-  try {
-    const res = await resend.emails.receiving.forward({ emailId, to: ADVANCE_NOTIFY_EMAIL, from });
-    if (res.error) {
-      console.error('[resend-inbound] forward to inbox returned an error', JSON.stringify(res.error));
+  for (const to of missed) {
+    try {
+      const res = await resend.emails.receiving.forward({ emailId, to, from });
+      if (res.error) {
+        console.error('[resend-inbound] forward to inbox returned an error', JSON.stringify(res.error));
+      }
+    } catch (e) {
+      console.error('[resend-inbound] error forwarding reply to inbox', e);
     }
-  } catch (e) {
-    console.error('[resend-inbound] error forwarding reply to inbox', e);
   }
 }
 

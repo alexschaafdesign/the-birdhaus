@@ -29,6 +29,9 @@ export interface ShowHubData {
   lineup: string[];
   soundEngineerName: string | null;
   schedule: ScheduleRow[];
+  // Optional per-show soundcheck/linecheck note (show_advances.vars) — shown
+  // with the schedule so the portal carries it, not just the advance email.
+  soundcheckNotes: string;
   inputsTotal: InputTotalLine[];
   inputsByBand: Array<{
     bandId: number;
@@ -90,6 +93,7 @@ export async function getShowHubData(token: string): Promise<ShowHubData | null>
     // The advance's per-show engineer name override wins, then the confirmed one.
     soundEngineerName: vars.sound_engineer.trim() || engineer?.name || null,
     schedule: vars.schedule,
+    soundcheckNotes: vars.soundcheck_notes.trim(),
     inputsTotal: inputs?.total ?? [],
     inputsByBand:
       inputs?.bands.map((b) => ({

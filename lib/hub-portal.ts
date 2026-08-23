@@ -1,6 +1,7 @@
 import { sql } from './db';
 import { uploadFileToR2, ADVANCE_ATTACHMENTS_FOLDER } from './r2';
 import { notifyAdvanceActivity } from './advance-email';
+import { getAdvanceWatchers } from './advance-watchers';
 import { htmlToText } from './reply-text';
 
 // One message as the public portal shows it. Deliberately PII-free: no
@@ -243,13 +244,15 @@ export async function recordPortalDetails(input: {
   return true;
 }
 
-// Fire the "band did something in the portal" email to Alex. Swallows errors so a
-// Resend outage never turns a saved submission into a user-facing failure.
+// Fire the "band did something in the portal" email to the watchers. Swallows
+// errors so a Resend outage never turns a saved submission into a user-facing
+// failure.
 async function notifyPortalActivity(showId: number, summary: string, detail: string): Promise<void> {
   try {
     const title = await getShowTitle(showId);
     if (title === null) return;
-    await notifyAdvanceActivity({ showId, showTitle: title, summary, detail });
+    const watchers = await getAdvanceWatchers();
+    await notifyAdvanceActivity({ showId, showTitle: title, summary, detail, to: watchers });
   } catch (e) {
     console.error('[hub-portal] activity notification failed', e);
   }

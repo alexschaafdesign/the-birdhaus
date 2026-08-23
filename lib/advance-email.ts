@@ -3,13 +3,13 @@ import { remark } from 'remark';
 import html from 'remark-html';
 import { SITE_URL } from './site';
 
-// Alex's own address, CC'd on every outbound advance and admin reply so he's a
-// real recipient on the thread — a band's reply-all lands in his inbox directly,
-// and he can reply from email or from the admin, like the bands and sound
-// engineer. When a band forgets to reply-all, the resend-inbound webhook
-// gap-forwards that reply to this address (Alex only, never the engineer — a
-// private reply shouldn't be fanned out) so he never misses one.
-export const ADVANCE_NOTIFY_EMAIL = 'alex@thebirdhaus.org';
+// Seed for the editable watcher list (lib/advance-watchers.ts). Watchers are
+// CC'd on every outbound advance / thread message so they're real recipients — a
+// band's reply-all lands in their inboxes directly — and they get the portal
+// activity notifications. When a band forgets to reply-all, the resend-inbound
+// webhook gap-forwards that reply to the watchers (never the engineer or bands —
+// a private reply shouldn't be fanned out).
+export const DEFAULT_ADVANCE_WATCHER = 'alex@thebirdhaus.org';
 
 // Instantiate lazily rather than at module load: Resend's constructor throws
 // when the API key is missing, and Next imports this module during `next build`,
@@ -61,6 +61,27 @@ export const ADVANCE_PLACEHOLDERS: ReadonlyArray<{
   { key: 'schedule', label: 'Load-in / soundcheck / doors / set-times block' },
   { key: 'soundcheck_notes', label: 'Optional per-show soundcheck note (was highlighted in blue)' },
 ];
+
+// Cleans a list of email addresses (watchers, ad-hoc advance recipients, …):
+// trims, drops blanks / anything without a plausible address shape, and de-dupes
+// case-insensitively while preserving the first-seen casing.
+export function normalizeEmailList(input: unknown): string[] {
+  const list = Array.isArray(input) ? input : [];
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const raw of list) {
+    if (typeof raw !== 'string') continue;
+    const email = raw.trim();
+    // Deliberately loose — a real address just needs an @ with something on
+    // each side and no spaces; Resend rejects anything truly malformed.
+    if (!/^[^\s@]+@[^\s@]+$/.test(email)) continue;
+    const key = email.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(email);
+  }
+  return out;
+}
 
 // Build the public show URL bands are pointed at for RSVPs, from the slug.
 export function showAdvanceUrl(slug: string): string {
@@ -373,11 +394,16 @@ export function parseReplyToken(toAddress: string): string | null {
 // mirroring how lib/rsvp-email.ts stays send-only.
 export async function sendAdvanceEmail({
   toEmails,
+  ccEmails,
   subject,
   html,
   replyToken,
 }: {
   toEmails: string[];
+  // The watcher list (lib/advance-watchers.ts), CC'd — not BCC'd — so watchers
+  // are real, visible recipients: a band's reply-all reaches their inboxes
+  // directly, no forwarding needed. Anyone already in `to` is dropped from CC.
+  ccEmails: string[];
   subject: string;
   html: string;
   replyToken: string;
@@ -386,12 +412,13 @@ export async function sendAdvanceEmail({
   if (!from) throw new Error('RESEND_ADVANCE_FROM_EMAIL is not set');
   if (toEmails.length === 0) throw new Error('No recipient emails for advance');
 
+  const toSet = new Set(toEmails.map((e) => e.toLowerCase()));
+  const cc = ccEmails.filter((e) => !toSet.has(e.toLowerCase()));
+
   const { data, error } = await getResendClient().emails.send({
     from,
     to: toEmails,
-    // CC (not BCC) so Alex is a real, visible recipient — a band's reply-all
-    // reaches his inbox directly, no forwarding needed.
-    cc: ADVANCE_NOTIFY_EMAIL,
+    ...(cc.length > 0 ? { cc } : {}),
     replyTo: replyToAddress(replyToken),
     subject,
     html,
@@ -400,28 +427,33 @@ export async function sendAdvanceEmail({
   return { id: data?.id ?? '' };
 }
 
-// Pings Alex when a band does something in the /hub advance portal (uploads a
-// stage plot, posts a message) so he doesn't have to sit watching the admin.
-// Best-effort by design: the caller wraps this so a Resend hiccup never fails
-// the band's submission — the data is already saved and visible in the admin.
+// Pings the watchers when a band does something in the /hub advance portal
+// (uploads a stage plot, posts a message) so nobody has to sit watching the
+// admin. The caller passes the watcher list (lib/advance-watchers.ts) — this
+// module stays DB-free. Best-effort by design: the caller wraps this so a
+// Resend hiccup never fails the band's submission — the data is already saved
+// and visible in the admin.
 export async function notifyAdvanceActivity({
   showId,
   showTitle,
   summary,
   detail,
+  to,
 }: {
   showId: number;
   showTitle: string;
   summary: string;
   detail?: string;
+  to: string[];
 }): Promise<void> {
   const from = process.env.RESEND_ADVANCE_FROM_EMAIL;
   if (!from) return; // Not configured (e.g. local) — silently skip.
+  if (to.length === 0) return; // No watchers — nothing to notify.
   const adminUrl = `${SITE_URL}/admin/shows/${showId}/advance`;
   const detailLine = detail ? `<p>${escapeHtml(detail)}</p>` : '';
   await getResendClient().emails.send({
     from,
-    to: ADVANCE_NOTIFY_EMAIL,
+    to,
     subject: `[Advance] ${summary} — ${showTitle}`,
     html:
       `<p>${escapeHtml(summary)} for <strong>${escapeHtml(showTitle)}</strong>.</p>` +

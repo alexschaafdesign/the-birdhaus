@@ -18,8 +18,10 @@ import {
   renderReplyHtml,
   extractEmailAddress,
   DEFAULT_PAY_MARKDOWN,
+  normalizeEmailList,
   type ScheduleRow,
 } from './advance-email';
+import { getAdvanceWatchers } from './advance-watchers';
 
 export type { ScheduleRow } from './advance-email';
 
@@ -159,26 +161,10 @@ export function normalizeAdvanceVars(input: unknown): SavedAdvanceVars {
 }
 
 // Ad-hoc recipient emails on an advance that aren't tied to a band or the
-// confirmed sound engineer (promoter, venue, tour manager, …). Trims, drops
-// blanks / anything without a plausible address shape, and de-dupes
-// case-insensitively while preserving the first-seen casing.
-export function normalizeExtraEmails(input: unknown): string[] {
-  const list = Array.isArray(input) ? input : [];
-  const out: string[] = [];
-  const seen = new Set<string>();
-  for (const raw of list) {
-    if (typeof raw !== 'string') continue;
-    const email = raw.trim();
-    // Deliberately loose — a real address just needs an @ with something on
-    // each side and no spaces; Resend rejects anything truly malformed.
-    if (!/^[^\s@]+@[^\s@]+$/.test(email)) continue;
-    const key = email.toLowerCase();
-    if (seen.has(key)) continue;
-    seen.add(key);
-    out.push(email);
-  }
-  return out;
-}
+// confirmed sound engineer (promoter, venue, tour manager, …). Same cleaning as
+// any other email list (the impl moved to advance-email.ts so the watchers lib
+// can share it without a circular import).
+export const normalizeExtraEmails = normalizeEmailList;
 
 export interface AdvanceRecipient {
   bandId: number;
@@ -231,6 +217,9 @@ export interface ShowAdvanceState {
   sentAt: string | null;
   preview: { subject: string; html: string };
   messages: AdvanceThreadMessage[];
+  // The band/crew portal URL (/hub/<token>) — surfaced in the panel header so
+  // the portal is one click/copy away while advancing. Empty if the show is gone.
+  hubUrl: string;
 }
 
 interface ShowForAdvanceRow {
@@ -408,7 +397,8 @@ export async function getShowAdvanceState(showId: number): Promise<ShowAdvanceSt
   const saved = advanceRow
     ? { ...EMPTY_VARS, ...normalizeAdvanceVars(advanceRow.vars) }
     : { ...EMPTY_VARS };
-  const templateVars = buildTemplateVars(show, recipients, saved, await hubUrlFor(showId));
+  const hubUrl = await hubUrlFor(showId);
+  const templateVars = buildTemplateVars(show, recipients, saved, hubUrl);
   const preview = await renderAdvanceEmail(
     { subject: template.subject, body: ensureHubPlaceholder(template.body) },
     templateVars
@@ -430,6 +420,7 @@ export async function getShowAdvanceState(showId: number): Promise<ShowAdvanceSt
     status: advanceRow ? advanceRow.status : 'none',
     sentAt: advanceRow?.sent_at ?? null,
     preview: { subject: preview.subject, html: preview.html },
+    hubUrl,
     messages: messageRows.map((m) => ({
       id: Number(m.id),
       bandId: m.band_id === null ? null : Number(m.band_id),
@@ -548,6 +539,7 @@ export async function sendShowAdvance(
   const replyToken = await upsertShowAdvance(showId, rendered, saved, extraEmails);
   const { id: resendId } = await sendAdvanceEmail({
     toEmails,
+    ccEmails: await getAdvanceWatchers(),
     subject: rendered.subject,
     html: rendered.html,
     replyToken,
@@ -714,23 +706,50 @@ export async function recordInboundReply(input: {
   return { matched: true, deduped: false };
 }
 
-// Sends an admin reply on an existing advance thread — to the same lineup, with
-// the same Reply-To token so bands' replies keep threading back. Requires the
-// advance to have been sent already.
-export async function sendShowAdvanceReply(
+// Sends an admin message on the show's channel: it lands on the thread (admin
+// tab + portal message board), and — when viaEmail — also goes out to the whole
+// lineup + engineer + extras, CC'ing the watchers, with the show's Reply-To
+// token so replies keep threading back. Unlike the old "reply" this doesn't
+// require the advance to have been sent: messaging the bands works at any point
+// (the show_advances row + reply token are created on first use).
+export async function sendShowMessage(
   showId: number,
-  bodyMarkdown: string
-): Promise<{ sentCount: number }> {
+  bodyMarkdown: string,
+  { viaEmail }: { viaEmail: boolean }
+): Promise<{ sentCount: number; emailed: boolean }> {
   const text = bodyMarkdown.trim();
-  if (!text) throw new Error('Reply body is empty.');
+  if (!text) throw new Error('Message is empty.');
 
-  const [advance] = await sql<
+  if (!viaEmail) {
+    // Board-only note: on the thread and the portal, but nobody is emailed.
+    await sql`
+      insert into advance_messages
+        (show_id, direction, from_email, to_emails, subject, body_text)
+      values
+        (${showId}, 'outbound', null, '[]'::jsonb, null, ${text.slice(0, 5000)})
+    `;
+    return { sentCount: 0, emailed: false };
+  }
+
+  let [advance] = await sql<
     Array<{ reply_token: string; subject: string; status: string; extra_emails: unknown }>
   >`
     select reply_token, subject, status, extra_emails from show_advances where show_id = ${showId}
   `;
-  if (!advance) throw new Error('No advance has been started for this show.');
-  if (advance.status !== 'sent') throw new Error('Send the advance before replying on the thread.');
+  if (!advance) {
+    // First contact before any draft exists — create the row (and its reply
+    // token) from the current template + empty vars so the thread can start.
+    const show = await loadShowForAdvance(showId);
+    if (!show) throw new Error('Show not found');
+    const recipients = await loadRecipients(showId);
+    const rendered = await renderForShow(show, recipients, { ...EMPTY_VARS }, await hubUrlFor(showId));
+    await upsertShowAdvance(showId, rendered, { ...EMPTY_VARS }, []);
+    [advance] = await sql<
+      Array<{ reply_token: string; subject: string; status: string; extra_emails: unknown }>
+    >`
+      select reply_token, subject, status, extra_emails from show_advances where show_id = ${showId}
+    `;
+  }
 
   const recipients = await loadRecipients(showId);
   const engineer = await getConfirmedSoundEngineer(showId);
@@ -744,10 +763,19 @@ export async function sendShowAdvanceReply(
   if (toEmails.length === 0) throw new Error('No recipients have an email set.');
 
   const html = await renderReplyHtml(text);
-  const subject = advance.subject.startsWith('Re:') ? advance.subject : `Re: ${advance.subject}`;
+  // "Re:" only once the thread already has an emailed message (the advance send
+  // or a prior message) — a first message shouldn't pretend to be a reply.
+  const [priorEmail] = await sql<Array<{ id: number }>>`
+    select id from advance_messages
+    where show_id = ${showId} and resend_id is not null
+    limit 1
+  `;
+  const subject =
+    priorEmail && !advance.subject.startsWith('Re:') ? `Re: ${advance.subject}` : advance.subject;
 
   const { id: resendId } = await sendAdvanceEmail({
     toEmails,
+    ccEmails: await getAdvanceWatchers(),
     subject,
     html,
     replyToken: advance.reply_token,
@@ -761,5 +789,5 @@ export async function sendShowAdvanceReply(
        ${sql.json(toEmails)}, ${subject}, ${html}, ${text}, ${resendId || null})
   `;
 
-  return { sentCount: toEmails.length };
+  return { sentCount: toEmails.length, emailed: true };
 }

@@ -48,7 +48,7 @@ export default async function ShowHubPage({
           initialMessages={data.messages}
           isAdmin={isAdmin}
         />
-        {data.schedule.length > 0 && <ScheduleSection data={data} />}
+        {(data.schedule.length > 0 || data.soundcheckNotes) && <ScheduleSection data={data} />}
         {(data.inputsTotal.length > 0 || data.inputsByBand.some((b) => b.items.length > 0)) && (
           <InputsSection data={data} />
         )}
@@ -129,6 +129,11 @@ function ScheduleSection({ data }: { data: ShowHubData }) {
           );
         })}
       </ul>
+      {data.soundcheckNotes && (
+        <div className="rounded-lg border-l-4 border-[#7ea6d9] bg-[#7ea6d9]/10 px-4 py-3 text-sm text-[#E8E0D0]/85 whitespace-pre-wrap">
+          {data.soundcheckNotes}
+        </div>
+      )}
     </Card>
   );
 }

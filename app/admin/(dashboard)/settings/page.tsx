@@ -1,15 +1,18 @@
 import { getDefaultAdvanceTemplate } from '@/lib/advance';
+import { getAdvanceWatchers } from '@/lib/advance-watchers';
 import { getPortalInfo } from '@/lib/portal-content';
 import { getMailchimpConfigStatus } from '@/lib/mailchimp';
 import { sql } from '@/lib/db';
 import AdvanceTemplateEditor from '@/components/admin/AdvanceTemplateEditor';
+import AdvanceWatchersEditor from '@/components/admin/AdvanceWatchersEditor';
 import PortalInfoEditor from '@/components/admin/PortalInfoEditor';
 
 export const dynamic = 'force-dynamic';
 
 export default async function SettingsPage() {
-  const [template, portalInfo, optInRows] = await Promise.all([
+  const [template, watchers, portalInfo, optInRows] = await Promise.all([
     getDefaultAdvanceTemplate(),
+    getAdvanceWatchers(),
     getPortalInfo(),
     sql<{ n: number }[]>`select count(*)::int as n from rsvps where email_list_opt_in = true`,
   ]);
@@ -68,6 +71,19 @@ export default async function SettingsPage() {
           </p>
         </div>
         <AdvanceTemplateEditor initial={template} />
+      </section>
+
+      <section className="space-y-6 border-t border-[#E8E0D0]/10 pt-10">
+        <div className="space-y-1">
+          <h2 className="text-xl font-bold">Advance watchers</h2>
+          <p className="text-sm text-[#E8E0D0]/55">
+            Who&apos;s CC&apos;d on every advance and thread message, and notified
+            when a band replies or does something in the show portal (stage plot,
+            message, schedule response). Replies-all from bands reach these
+            inboxes directly.
+          </p>
+        </div>
+        <AdvanceWatchersEditor initial={watchers} />
       </section>
 
       <section className="space-y-6 border-t border-[#E8E0D0]/10 pt-10">
