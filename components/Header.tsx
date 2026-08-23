@@ -55,7 +55,7 @@ export default function Header() {
   if (pathname.startsWith('/door')) return null;
 
   const linkClass = (isActive: boolean) =>
-    `block w-full text-center border-2 border-ink/40 px-4 py-3 font-mono text-xs uppercase tracking-widest transition-colors hover:border-ink hover:bg-ink hover:text-paper md:w-auto md:border-0 md:p-0 md:font-sans md:text-sm md:normal-case md:tracking-normal md:hover:bg-transparent md:hover:text-ink md:hover:underline md:decoration-vhs-red md:decoration-2 md:underline-offset-4${isActive ? ' bg-ink text-paper font-bold md:bg-transparent md:text-ink md:underline md:decoration-vhs-red md:decoration-2 md:underline-offset-4' : ''}`;
+    `block w-full text-center border-2 border-ink/40 px-4 py-3 font-mono text-xs uppercase tracking-widest transition-colors hover:border-ink hover:bg-ink hover:text-paper md:w-auto md:border-0 md:p-0 md:text-sm md:tracking-wider md:hover:bg-transparent md:hover:text-ink md:hover:underline md:decoration-vhs-red md:decoration-2 md:underline-offset-4${isActive ? ' bg-ink text-paper font-bold md:bg-transparent md:text-ink md:underline md:decoration-vhs-red md:decoration-2 md:underline-offset-4' : ''}`;
 
   return (
     <header className="pb-8">

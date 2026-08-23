@@ -52,7 +52,14 @@ html, body {
 }
 
 body {
-  font-family: Arial, Helvetica, sans-serif;
+  /* Courier typewriter face site-wide, matching Twin Scene's paper theme.
+     Revert to the sans by restoring:
+     font-family: var(--font-instrument-sans), system-ui, sans-serif; */
+  font-family: "Courier New", Courier, var(--font-plex-mono), monospace;
+  /* Courier New is a thin face on this cream background; a hair of text-stroke
+     adds continuous weight back (same trick as Twin Scene). Tune this one
+     value: lower = lighter, higher = bolder. */
+  -webkit-text-stroke: 0.3px currentColor;
 }
 
 /* Restores basic prose formatting inside the admin advance-email preview,

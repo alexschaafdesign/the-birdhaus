@@ -8,6 +8,7 @@ import { SITE_URL, SITE_NAME, SITE_DESCRIPTION } from "@/lib/site";
 
 const instrumentSans = Instrument_Sans({
   subsets: ["latin"],
+  variable: "--font-instrument-sans",
 });
 
 const plexMono = IBM_Plex_Mono({
@@ -59,7 +60,7 @@ export default async function RootLayout({
 
   return (
     <html lang="en" style={{ backgroundColor: "#F2EEE3", color: "#1A1712" }}>
-      <body className={`${instrumentSans.className} ${plexMono.variable}`} style={{ backgroundColor: "#F2EEE3", color: "#1A1712" }}>
+      <body className={`${instrumentSans.variable} ${plexMono.variable}`} style={{ backgroundColor: "#F2EEE3", color: "#1A1712" }}>
         <AdminBanner isAdmin={isAdmin} />
         <Header />
         {children}
