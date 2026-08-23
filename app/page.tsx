@@ -3,6 +3,7 @@ import { getAllBandSlugs } from '@/lib/bands';
 import Link from 'next/link';
 import Image from 'next/image';
 import ShowsBrowser from '@/components/ShowsBrowser';
+import ShowCard from '@/components/ShowCard';
 
 // Evaluate the upcoming/past split per request so it reflects the current date,
 // not the date the site was last built/deployed.
@@ -46,16 +47,6 @@ export default async function Home() {
   const setCount = Array.from(bandCounts.values()).reduce((sum, b) => sum + b.count, 0);
 
   const nextShow = upcomingShows[0] ?? null;
-  let nextShowDate: { day: number; weekday: string; month: string } | null = null;
-  if (nextShow) {
-    const [year, month, day] = nextShow.date.split('-').map(Number);
-    const date = new Date(year, month - 1, day);
-    nextShowDate = {
-      day: date.getDate(),
-      weekday: date.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase(),
-      month: date.toLocaleDateString('en-US', { month: 'short' }).toUpperCase(),
-    };
-  }
 
   return (
     <main className="min-h-screen">
@@ -110,42 +101,10 @@ export default async function Home() {
           height; the next-show flyer crops via object-cover to match it. */}
       <div className="w-full max-w-6xl mx-auto px-8 mb-12 grid gap-6 md:grid-cols-2 md:items-stretch">
         {nextShow && (
-          <Link
-            href={`/shows/${nextShow.slug}`}
-            className="group flex flex-col border-2 border-ink bg-paper shadow-hard md:h-full"
-          >
-            <div className="flex items-baseline justify-between gap-3 border-b-2 border-ink px-4 py-2.5">
-              <span className="font-mono text-xs uppercase tracking-widest text-vhs-red">Next show</span>
-              <span className="font-mono text-xs uppercase tracking-widest text-ink/60">
-                {nextShowDate!.weekday} {nextShowDate!.day} {nextShowDate!.month}
-              </span>
-            </div>
-            <div className="relative aspect-[4/5] md:aspect-auto md:flex-1 bg-ink/10">
-              {nextShow.flyer ? (
-                <Image
-                  src={nextShow.flyer}
-                  alt={`${nextShow.title} flyer`}
-                  fill
-                  sizes="(max-width: 768px) 100vw, 544px"
-                  priority
-                  unoptimized
-                  className="object-cover"
-                />
-              ) : (
-                <div className="flex h-full w-full items-center justify-center px-4 text-center text-sm text-ink/40">
-                  {nextShow.title}
-                </div>
-              )}
-            </div>
-            <div className="flex items-center justify-between gap-3 border-t-2 border-ink px-4 py-2.5">
-              <p className="min-w-0 truncate text-sm text-ink/70">
-                {nextShow.bands.map((band) => (typeof band === 'string' ? band : band.name)).join(' · ')}
-              </p>
-              <span className="flex-shrink-0 font-mono text-xs uppercase tracking-wider text-vhs-red group-hover:underline">
-                RSVP →
-              </span>
-            </div>
-          </Link>
+          <div className="flex flex-col">
+            <p className="mb-2 font-mono text-xs uppercase tracking-widest text-vhs-red">Next show</p>
+            <ShowCard show={nextShow} />
+          </div>
         )}
         <div className="flex flex-col">
           <div className="relative aspect-[4/3] md:aspect-auto md:flex-1 border-2 border-ink">
