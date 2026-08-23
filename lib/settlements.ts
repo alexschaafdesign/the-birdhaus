@@ -44,6 +44,8 @@ export type SettlementValues = {
   dealType: DealType;
   extraLineItems: ExtraLineItem[];
   notes: string | null;
+  // Official attendance for the night. Null = not recorded (distinct from 0).
+  attendance: number | null;
   photographerName: string | null;
   soundEngineerName: string | null;
   soundPaid: boolean;
@@ -73,6 +75,7 @@ export const DEFAULT_SETTLEMENT_VALUES: SettlementValues = {
   beverageIncomeCash: 0,
   extraLineItems: [],
   notes: null,
+  attendance: null,
   photographerName: null,
   soundEngineerName: null,
   soundPaid: false,
@@ -313,6 +316,7 @@ export interface SettlementDbRow {
   beverage_income_cash: string;
   extra_line_items: ExtraLineItem[];
   notes: string | null;
+  attendance: number | null;
   photographer_name: string | null;
   sound_engineer_name: string | null;
   sound_paid: boolean;
@@ -343,6 +347,7 @@ export function settlementValuesFromRow(row: SettlementDbRow): SettlementValues 
     beverageIncomeCash: Number(row.beverage_income_cash),
     extraLineItems: row.extra_line_items ?? [],
     notes: row.notes,
+    attendance: row.attendance,
     photographerName: row.photographer_name,
     soundEngineerName: row.sound_engineer_name,
     soundPaid: row.sound_paid,

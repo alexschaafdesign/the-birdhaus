@@ -446,6 +446,8 @@ interface SettlementFormProps {
 type FormState = {
   dealType: DealType;
   notes: string;
+  // Official attendance as typed; empty = not recorded.
+  attendance: string;
   photographerName: string;
   soundEngineerName: string;
   soundPaid: boolean;
@@ -464,6 +466,7 @@ function toFormState(values: SettlementValues): FormState {
     ...numeric,
     dealType: values.dealType,
     notes: values.notes ?? '',
+    attendance: values.attendance === null ? '' : String(values.attendance),
     photographerName: values.photographerName ?? '',
     soundEngineerName: values.soundEngineerName ?? '',
     soundPaid: values.soundPaid,
@@ -472,6 +475,14 @@ function toFormState(values: SettlementValues): FormState {
     photographerPaidMethod: values.photographerPaidMethod,
     extraLineItems: values.extraLineItems.map((item) => ({ ...item, amount: String(item.amount) })),
   };
+}
+
+// Parse the attendance input: empty or unparseable = not recorded (null).
+function parseAttendance(raw: string): number | null {
+  const trimmed = raw.trim();
+  if (trimmed === '') return null;
+  const num = Number(trimmed);
+  return Number.isFinite(num) ? Math.max(0, Math.round(num)) : null;
 }
 
 export default function SettlementForm({
@@ -653,6 +664,7 @@ export default function SettlementForm({
       ...numericValues,
       dealType: form.dealType,
       notes: form.notes,
+      attendance: parseAttendance(form.attendance),
       photographerName: form.photographerName,
       soundEngineerName: form.soundEngineerName,
       soundPaid: form.soundPaid,
@@ -689,6 +701,7 @@ export default function SettlementForm({
     const payload: Record<string, unknown> = {
       dealType: form.dealType,
       notes: form.notes,
+      attendance: parseAttendance(form.attendance),
       photographerName: form.photographerName.trim() || null,
       soundEngineerName: form.soundEngineerName.trim() || null,
       soundPaid: form.soundPaid,
@@ -871,6 +884,28 @@ export default function SettlementForm({
               />
             );
           })}
+          {/* Official attendance — a headcount, not money, but it's recorded at
+              the same moment as the night's income so it lives alongside it. */}
+          <div className="rounded-lg bg-black/10 p-3">
+            <div className="flex items-center gap-2">
+              <span className="flex min-w-0 flex-1 items-center gap-1.5 text-sm text-[#E8E0D0]/80">
+                <span className="truncate">Official attendance</span>
+              </span>
+            </div>
+            <div className="mt-2 w-32">
+              <input
+                type="number"
+                step="1"
+                min="0"
+                inputMode="numeric"
+                aria-label="Official attendance"
+                value={form.attendance}
+                onChange={(e) => set('attendance', e.target.value)}
+                placeholder="—"
+                className={`${numberInputClass} w-full px-3 text-right`}
+              />
+            </div>
+          </div>
         </div>
       </SectionCard>
 
