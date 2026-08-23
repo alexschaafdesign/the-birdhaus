@@ -55,19 +55,17 @@ export default async function Home() {
         </p>
       </div>
 
-      {/* Alums leaderboard + hero photo, side by side. The alums box (collapsed)
-          sets the row height; the photo crops via object-cover to match it. */}
-      <div className="w-full max-w-6xl mx-auto px-8 mb-12 grid gap-6 md:grid-cols-2 md:items-stretch">
-        {sortedBands.length > 0 && (
-          <AlumsBox
-            bands={sortedBands.map(([name, { count, bandId }]) => ({
-              name,
-              count,
-              slug: bandId ? bandSlugs.get(bandId) : undefined,
-            }))}
-            setCount={setCount}
-          />
-        )}
+      {/* Alums leaderboard + hero photo, side by side. Collapsed, the photo
+          column sets the row height and the box preview clips to match; the
+          box's "Show all" expands it to full width and hides the photo. */}
+      <AlumsBox
+        bands={sortedBands.map(([name, { count, bandId }]) => ({
+          name,
+          count,
+          slug: bandId ? bandSlugs.get(bandId) : undefined,
+        }))}
+        setCount={setCount}
+      >
         <div className="flex flex-col">
           <div className="relative aspect-[4/3] md:aspect-auto md:flex-1 border-2 border-ink">
             <Image
@@ -82,7 +80,7 @@ export default async function Home() {
           </div>
           <p className="mt-2 font-mono text-[11px] uppercase tracking-wider text-ink/50 text-right">Photo by Jeremy Nelson</p>
         </div>
-      </div>
+      </AlumsBox>
 
       {/* Upcoming Shows */}
       <div id="upcoming-shows" className="max-w-4xl mx-auto px-8 pb-16">
