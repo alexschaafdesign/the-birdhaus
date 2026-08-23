@@ -26,12 +26,16 @@ export default function HubPortal({
   schedule,
   initialMessages,
   isAdmin,
+  adminShowId = null,
 }: {
   token: string;
   bands: ShowHubData['inputsByBand'];
   schedule: ShowHubData['schedule'];
   initialMessages: PortalMessage[];
   isAdmin: boolean;
+  // Set when the visitor is an admin — unlocks the message board's "also email
+  // the lineup" option (see HubMessages).
+  adminShowId?: number | null;
 }) {
   // Deterministic first render so SSR and the first client render match: the
   // Birdhaus identity for an admin, else the first band (or "other" if none).
@@ -134,6 +138,7 @@ export default function HubPortal({
           initialMessages={initialMessages}
           bandId={bandIdForMessages}
           asAdmin={isAdminPosting}
+          adminShowId={isAdminPosting ? adminShowId : null}
         />
       </Card>
     </div>

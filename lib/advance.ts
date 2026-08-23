@@ -477,7 +477,26 @@ async function upsertShowAdvance(
   return row.reply_token;
 }
 
+// The currently-saved per-show vars + extras, or null if no advance row yet.
+// Backs the partial-update semantics below.
+async function loadSavedAdvance(
+  showId: number
+): Promise<{ vars: SavedAdvanceVars; extraEmails: string[] } | null> {
+  const [row] = await sql<Array<{ vars: unknown; extra_emails: unknown }>>`
+    select vars, extra_emails from show_advances where show_id = ${showId}
+  `;
+  if (!row) return null;
+  return {
+    vars: { ...EMPTY_VARS, ...normalizeAdvanceVars(row.vars) },
+    extraEmails: normalizeExtraEmails(row.extra_emails),
+  };
+}
+
 // Saves the advance as a draft (no email sent). Returns the refreshed state.
+// varsInput / extraEmailsInput are each OPTIONAL: undefined means "keep what's
+// saved" — so the hub's inline editors can update just the schedule (or just
+// the extras) without clobbering the other, and the invite button can send
+// without re-submitting anything.
 export async function saveShowAdvanceDraft(
   showId: number,
   varsInput: unknown,
@@ -486,8 +505,11 @@ export async function saveShowAdvanceDraft(
   const show = await loadShowForAdvance(showId);
   if (!show) return null;
   const recipients = await loadRecipients(showId);
-  const saved = normalizeAdvanceVars(varsInput);
-  const extraEmails = normalizeExtraEmails(extraEmailsInput);
+  const existing = await loadSavedAdvance(showId);
+  const saved =
+    varsInput === undefined ? (existing?.vars ?? { ...EMPTY_VARS }) : normalizeAdvanceVars(varsInput);
+  const extraEmails =
+    extraEmailsInput === undefined ? (existing?.extraEmails ?? []) : normalizeExtraEmails(extraEmailsInput);
   const rendered = await renderForShow(show, recipients, saved, await hubUrlFor(showId));
   await upsertShowAdvance(showId, rendered, saved, extraEmails);
   return getShowAdvanceState(showId);
@@ -508,10 +530,14 @@ export async function sendShowAdvance(
   const show = await loadShowForAdvance(showId);
   if (!show) throw new Error('Show not found');
   const recipients = await loadRecipients(showId);
+  const existing = await loadSavedAdvance(showId);
 
   const withEmail = recipients.filter((r) => r.email);
   const skipped = recipients.filter((r) => !r.email).map((r) => r.name);
-  const extraEmails = normalizeExtraEmails(extraEmailsInput);
+  // undefined = keep what's saved (same partial-update semantics as the draft
+  // save) — the hub's invite button sends with no body at all.
+  const extraEmails =
+    extraEmailsInput === undefined ? (existing?.extraEmails ?? []) : normalizeExtraEmails(extraEmailsInput);
   const engineer = await getConfirmedSoundEngineer(showId);
 
   // Full recipient set: band contacts + the confirmed engineer + any ad-hoc
@@ -532,7 +558,8 @@ export async function sendShowAdvance(
     throw new Error('No recipients have an email set — add a band contact or an additional email.');
   }
 
-  const saved = normalizeAdvanceVars(varsInput);
+  const saved =
+    varsInput === undefined ? (existing?.vars ?? { ...EMPTY_VARS }) : normalizeAdvanceVars(varsInput);
   const rendered = await renderForShow(show, recipients, saved, await hubUrlFor(showId));
   // Ensure the row (and its reply token) exists before sending, since the
   // Reply-To carries the token.

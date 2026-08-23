@@ -4,7 +4,15 @@ import { getShowHubData, type ShowHubData } from '@/lib/show-hub';
 import { inputCatalogItem, OTHER_INPUT_KEY } from '@/lib/input-catalog';
 import type { InputItem } from '@/lib/inputs';
 import { isAdminSession } from '@/lib/admin-session';
+import { getShowIdByShareToken } from '@/lib/share-token';
+import { getShowAdvanceState, type ShowAdvanceState } from '@/lib/advance';
 import HubPortal from '@/components/hub/HubPortal';
+import {
+  HubAdminBar,
+  HubAdminScheduleEdit,
+  HubAdminPayEdit,
+  HubAdminRecipients,
+} from '@/components/hub/HubAdmin';
 
 export const dynamic = 'force-dynamic';
 
@@ -37,9 +45,21 @@ export default async function ShowHubPage({
   const [data, isAdmin] = await Promise.all([getShowHubData(token), isAdminSession()]);
   if (!data) notFound();
 
+  // Admin visitors get the same page plus inline controls: the portal IS the
+  // admin surface for advancing a show. adminState (recipient emails, Venmo
+  // handles, invite status) is only fetched — and its components only rendered —
+  // behind the server-side session check; every write it makes goes through the
+  // proxy-gated /api/admin routes.
+  let adminState: ShowAdvanceState | null = null;
+  if (isAdmin) {
+    const showId = await getShowIdByShareToken(token);
+    if (showId !== null) adminState = await getShowAdvanceState(showId);
+  }
+
   return (
     <main className="min-h-screen bg-[#2A2420] text-[#E8E0D0] px-5 py-10">
       <div className="max-w-2xl mx-auto space-y-8">
+        {adminState && <HubAdminBar state={adminState} />}
         <Header data={data} />
         <HubPortal
           token={token}
@@ -47,14 +67,18 @@ export default async function ShowHubPage({
           schedule={data.schedule}
           initialMessages={data.messages}
           isAdmin={isAdmin}
+          adminShowId={adminState?.showId ?? null}
         />
-        {(data.schedule.length > 0 || data.soundcheckNotes) && <ScheduleSection data={data} />}
+        {(data.schedule.length > 0 || data.soundcheckNotes || adminState) && (
+          <ScheduleSection data={data} adminState={adminState} />
+        )}
         {(data.inputsTotal.length > 0 || data.inputsByBand.some((b) => b.items.length > 0)) && (
           <InputsSection data={data} />
         )}
         <RsvpSection data={data} />
-        <PaySection data={data} />
+        <PaySection data={data} adminState={adminState} />
         <InfoSection data={data} />
+        {adminState && <HubAdminRecipients state={adminState} />}
         <footer className="text-center text-xs text-[#E8E0D0]/40 pt-4">
           the BIRDHAUS · show details for the lineup &amp; crew
         </footer>
@@ -112,7 +136,13 @@ function Header({ data }: { data: ShowHubData }) {
   );
 }
 
-function ScheduleSection({ data }: { data: ShowHubData }) {
+function ScheduleSection({
+  data,
+  adminState,
+}: {
+  data: ShowHubData;
+  adminState: ShowAdvanceState | null;
+}) {
   return (
     <Card title="Schedule">
       <ul className="space-y-1.5">
@@ -134,6 +164,10 @@ function ScheduleSection({ data }: { data: ShowHubData }) {
           {data.soundcheckNotes}
         </div>
       )}
+      {data.schedule.length === 0 && !data.soundcheckNotes && adminState && (
+        <p className="text-sm text-[#E8E0D0]/40">No schedule yet.</p>
+      )}
+      {adminState && <HubAdminScheduleEdit state={adminState} />}
     </Card>
   );
 }
@@ -205,13 +239,20 @@ function RsvpSection({ data }: { data: ShowHubData }) {
   );
 }
 
-function PaySection({ data }: { data: ShowHubData }) {
+function PaySection({
+  data,
+  adminState,
+}: {
+  data: ShowHubData;
+  adminState: ShowAdvanceState | null;
+}) {
   return (
     <Card title="Pay / door deal">
       <div
         className="hub-prose text-sm text-[#E8E0D0]/80 leading-relaxed"
         dangerouslySetInnerHTML={{ __html: data.payHtml }}
       />
+      {adminState && <HubAdminPayEdit state={adminState} />}
     </Card>
   );
 }
