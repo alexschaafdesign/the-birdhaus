@@ -99,20 +99,23 @@ export default async function Home() {
 
       {/* Next show + hero photo, side by side. The photo column sets the row
           height; the next-show flyer crops via object-cover to match it. */}
-      <div className="w-full max-w-6xl mx-auto px-8 mb-12 grid gap-6 md:grid-cols-2 md:items-stretch">
+      {/* Same container + grid as the Upcoming Shows list below, so the
+          next-show card matches those cards exactly; the photo fills the
+          remaining columns and crops to the card's height. */}
+      <div className="w-full max-w-4xl mx-auto px-8 mb-12 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 sm:items-stretch">
         {nextShow && (
           <div className="flex flex-col">
             <p className="mb-2 font-mono text-xs uppercase tracking-widest text-vhs-red">Next show</p>
             <ShowCard show={nextShow} />
           </div>
         )}
-        <div className="flex flex-col">
-          <div className="relative aspect-[4/3] md:aspect-auto md:flex-1 border-2 border-ink">
+        <div className="flex flex-col lg:col-span-2">
+          <div className="relative aspect-[4/3] sm:aspect-auto sm:flex-1 border-2 border-ink">
             <Image
               src="https://images.thebirdhaus.org/misc/2016-01-16%20by%20Jeremy%20Nelson%205.jpg"
               alt="The Birdhaus venue"
               fill
-              sizes="(max-width: 768px) 100vw, 544px"
+              sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 600px"
               priority
               unoptimized
               className="object-cover"
