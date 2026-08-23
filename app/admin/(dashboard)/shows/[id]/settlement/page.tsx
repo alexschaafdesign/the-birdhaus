@@ -20,10 +20,21 @@ export default async function SettlementPage({ params }: { params: Promise<{ id:
   const showId = Number(id);
   if (!Number.isInteger(showId)) notFound();
 
-  const [show] = await sql<{ id: number; title: string; date: string; sound_engineer_name: string | null }[]>`
-    select id, title, date::text as date, sound_engineer_name from shows where id = ${showId}
+  const [show] = await sql<
+    { id: number; title: string; date: string; sound_engineer_name: string | null; walkin_count: number }[]
+  >`
+    select id, title, date::text as date, sound_engineer_name, walkin_count from shows where id = ${showId}
   `;
   if (!show) notFound();
+
+  // The night's door headcount: per-person RSVP check-ins from the door kiosk
+  // plus anonymous walk-ins. Used to pre-fill official attendance and offered
+  // as an "apply" hint in the form (mirroring the advance-sales pre-fill).
+  const [{ arrived }] = await sql<{ arrived: number }[]>`
+    select coalesce(sum(arrived_count), 0)::int as arrived from rsvps where show_id = ${showId}
+  `;
+  const doorCount = arrived + show.walkin_count;
+  const doorAttendance = doorCount > 0 ? doorCount : null;
 
   const [settlementRow] = await sql<SettlementDbRow[]>`select * from settlements where show_id = ${showId}`;
   const bands = await getShowBandsPaidStatus(showId);
@@ -84,6 +95,7 @@ export default async function SettlementPage({ params }: { params: Promise<{ id:
     : {
         ...DEFAULT_SETTLEMENT_VALUES,
         soundEngineerName: show.sound_engineer_name,
+        attendance: doorAttendance,
         incomeSquare: advanceTicketSalesDollars ?? DEFAULT_SETTLEMENT_VALUES.incomeSquare,
         expSquareFees: advanceTicketSalesDollars
           ? Number((advanceTicketSalesDollars * squareFeeRate).toFixed(2))
@@ -131,6 +143,7 @@ export default async function SettlementPage({ params }: { params: Promise<{ id:
         bands={bands}
         initialValues={initialValues}
         advanceTicketSalesDollars={advanceTicketSalesDollars}
+        doorAttendance={doorAttendance}
         soundEngineerPhotos={soundEngineerPhotos}
         soundEngineers={soundEngineers}
         photographerPhotos={photographerPhotos}

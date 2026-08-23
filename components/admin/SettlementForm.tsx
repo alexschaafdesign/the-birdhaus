@@ -433,6 +433,9 @@ interface SettlementFormProps {
   // Live advance ticket-sales total (dollars) from Square, or null when there are
   // none. Used to pre-fill Square income and offer a one-click "apply" re-sync.
   advanceTicketSalesDollars?: number | null;
+  // The night's door headcount (RSVP check-ins + walk-ins), or null when nobody
+  // was checked in. Pre-fills official attendance with the same "apply" hint.
+  doorAttendance?: number | null;
   // Sound-engineer photo URLs keyed by lowercased name, so the engineer payee
   // field can show an avatar for whichever registered engineer is entered.
   soundEngineerPhotos?: Record<string, string>;
@@ -490,6 +493,7 @@ export default function SettlementForm({
   bands: initialBands,
   initialValues,
   advanceTicketSalesDollars = null,
+  doorAttendance = null,
   soundEngineerPhotos = {},
   soundEngineers = [],
   photographerPhotos = {},
@@ -905,6 +909,22 @@ export default function SettlementForm({
                 className={`${numberInputClass} w-full px-3 text-right`}
               />
             </div>
+            {doorAttendance != null && (
+              <p className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px] text-[#E8E0D0]/40">
+                <span>Door check-ins: {doorAttendance}</span>
+                {parseAttendance(form.attendance) === doorAttendance ? (
+                  <span className="text-emerald-400/70">✓</span>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => set('attendance', String(doorAttendance))}
+                    className="text-[#E8E0D0]/70 underline decoration-dotted underline-offset-2 hover:text-[#E8E0D0]"
+                  >
+                    apply
+                  </button>
+                )}
+              </p>
+            )}
           </div>
         </div>
       </SectionCard>
