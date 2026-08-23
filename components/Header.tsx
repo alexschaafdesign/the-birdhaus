@@ -85,7 +85,9 @@ export default function Header({ isAdmin }: { isAdmin?: boolean }) {
               <span key={item.label} className={wrapperClass}>
                 <div
                   ref={dropdownRef}
-                  className="relative w-full md:w-auto"
+                  // `flex` so the button is a flex item, not an inline box on a
+                  // text baseline — otherwise it sits a few px off the sibling links.
+                  className="relative flex w-full md:w-auto"
                   onPointerEnter={(e) => {
                     if (e.pointerType === 'mouse') setOpenDropdown(true);
                   }}
