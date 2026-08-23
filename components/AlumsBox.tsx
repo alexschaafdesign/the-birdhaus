@@ -71,21 +71,22 @@ export default function AlumsBox({
             expanded ? 'md:col-span-2' : 'md:h-full'
           }`}
         >
-          <div className="flex items-baseline justify-between gap-3 border-b-2 border-ink px-5 py-3">
-            <div className="min-w-0">
+          <button
+            type="button"
+            onClick={() => setShowAll((open) => !open)}
+            aria-expanded={expanded}
+            className="group flex w-full items-baseline justify-between gap-3 border-b-2 border-ink px-5 py-3 text-left transition-colors hover:bg-ink/5"
+          >
+            <span className="min-w-0">
               <span className="font-mono font-bold text-base tracking-wide">BIRDHAUS ALUMS</span>
               <span className="ml-3 text-ink/50 text-sm">
                 {bands.length} bands · {setCount} sets and counting...
               </span>
-            </div>
-            <button
-              type="button"
-              onClick={() => setShowAll((open) => !open)}
-              className="flex-shrink-0 font-mono text-xs uppercase tracking-widest text-vhs-red hover:underline"
-            >
+            </span>
+            <span className="flex-shrink-0 font-mono text-xs uppercase tracking-widest text-vhs-red group-hover:underline">
               {expanded ? 'Hide ▾' : `Show all ${bands.length} →`}
-            </button>
-          </div>
+            </span>
+          </button>
           {expanded ? (
             <div className="px-5 py-3 columns-2 sm:columns-3 gap-x-6">
               {bands.map((band, i) => (
