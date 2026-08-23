@@ -28,7 +28,7 @@ export default function ShowCard({ show, draft }: { show: Show; draft?: boolean 
           : 'border-ink hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-hard'
       }`}
     >
-      <div className="relative aspect-[4/5] w-full overflow-hidden bg-ink/10">
+      <div className="relative aspect-square w-full overflow-hidden bg-ink/10">
         {show.flyer ? (
           <Image
             src={show.flyer}

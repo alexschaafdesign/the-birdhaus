@@ -18,7 +18,7 @@ export default function AvailableDateCard({ date }: { date: string }) {
       href={`/admin/shows/new?date=${date}`}
       className="group relative flex flex-col overflow-hidden border-2 border-dotted border-vhs-green/50 bg-paper transition-colors hover:border-vhs-green"
     >
-      <div className="relative flex aspect-[4/5] w-full items-center justify-center bg-ink/5">
+      <div className="relative flex aspect-square w-full items-center justify-center bg-ink/5">
         <div className="flex items-baseline gap-2">
           <span className="text-3xl font-black leading-none text-ink/70">
             {day} {month}
