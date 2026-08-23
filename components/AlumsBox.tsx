@@ -78,17 +78,17 @@ export default function AlumsBox({
             className="group flex w-full items-baseline justify-between gap-3 border-b-2 border-ink px-5 py-3 text-left transition-colors hover:bg-ink/5"
           >
             <span className="min-w-0">
-              <span className="font-mono font-bold text-base tracking-wide">BIRDHAUS ALUMS</span>
-              <span className="ml-3 text-ink/50 text-sm">
+              <span className="block font-mono font-bold text-base tracking-wide sm:inline">BIRDHAUS ALUMS</span>
+              <span className="block text-ink/50 text-sm sm:ml-3 sm:inline">
                 {bands.length} bands · {setCount} sets
               </span>
             </span>
-            <span className="flex-shrink-0 font-mono text-xs uppercase tracking-widest text-vhs-red group-hover:underline">
+            <span className="flex-shrink-0 whitespace-nowrap font-mono text-xs uppercase tracking-widest text-vhs-red group-hover:underline">
               {expanded ? 'Hide ▾' : `Show all ${bands.length} →`}
             </span>
           </button>
           {expanded ? (
-            <div className="px-5 py-3 columns-2 sm:columns-3 gap-x-6">
+            <div className="px-5 py-3 max-h-[60vh] overflow-y-auto sm:max-h-none sm:overflow-visible sm:columns-2 md:columns-3 gap-x-6">
               {bands.map((band, i) => (
                 <AlumRow key={band.name} band={band} rank={i} wide />
               ))}
