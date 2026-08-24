@@ -22,7 +22,8 @@ export default async function ClubUploadPage({
   const admin = member ? false : await isAdminSession();
   if (!member && !admin) redirect('/song-club/login');
 
-  const playlists = await listPlaylists();
+  // Members can only upload to open rounds; the admin can upload to any.
+  const playlists = (await listPlaylists()).filter((p) => admin || !p.locked);
   const requested = Number((await searchParams).playlist);
   const defaultPlaylistId = playlists.some((p) => p.id === requested) ? requested : undefined;
 

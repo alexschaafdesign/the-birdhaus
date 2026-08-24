@@ -15,6 +15,7 @@ import ClubBoard from '@/components/club/ClubBoard';
 import ParticipateButton from '@/components/club/ParticipateButton';
 import CreateRoundForEvent from '@/components/club/CreateRoundForEvent';
 import AutoJoin from '@/components/club/AutoJoin';
+import RoundLockToggle from '@/components/club/RoundLockToggle';
 
 export const dynamic = 'force-dynamic';
 
@@ -100,23 +101,40 @@ export default async function SongClubEventPage({
         <h1 className="mt-1 text-2xl font-semibold sm:text-3xl">{event.title}</h1>
       </header>
 
-      {/* The round leads once you're in — plays inline, above the flyer. */}
+      {/* The round — its own distinct, gold-accented card, above the flyer. */}
       {unlocked && round && (
-        <section className="mt-6">
-          <div className="mb-3 flex items-center justify-between gap-3">
+        <section className="mt-6 rounded-xl border border-[#c8a26a]/40 bg-[#c8a26a]/[0.06] p-4 sm:p-5">
+          <div className="mb-3 flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <div className="text-xs font-medium uppercase tracking-wide text-[#c8a26a]/80">
+              <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-[#c8a26a]/90">
                 The round
+                {round.locked && (
+                  <span className="rounded bg-[#c8a26a]/20 px-1.5 py-0.5 text-[10px] normal-case tracking-normal">
+                    🔒 Locked
+                  </span>
+                )}
               </div>
-              <div className="truncate font-medium text-[#E8E0D0]">{round.title}</div>
+              <div className="mt-0.5 truncate text-lg font-semibold text-[#E8E0D0]">
+                {round.title}
+              </div>
             </div>
-            <Link
-              href={`/song-club/upload?playlist=${round.id}`}
-              className="shrink-0 rounded-md bg-[#E8E0D0] px-3.5 py-1.5 text-sm font-semibold text-[#2A2420] transition hover:bg-white"
-            >
-              + Upload your track
-            </Link>
+            <div className="flex shrink-0 flex-col items-end gap-2">
+              {admin && <RoundLockToggle playlistId={round.id} locked={round.locked} />}
+              {(!round.locked || admin) && (
+                <Link
+                  href={`/song-club/upload?playlist=${round.id}`}
+                  className="rounded-md bg-[#E8E0D0] px-3.5 py-1.5 text-sm font-semibold text-[#2A2420] transition hover:bg-white"
+                >
+                  + Upload your track
+                </Link>
+              )}
+            </div>
           </div>
+          {round.locked && !admin && (
+            <p className="mb-3 text-sm text-[#E8E0D0]/60">
+              Uploads open when the round starts — you&apos;ll be able to add your track then.
+            </p>
+          )}
           <PlaylistTracks
             playlistId={round.id}
             initialTracks={roundTracks}
@@ -129,6 +147,21 @@ export default async function SongClubEventPage({
 
       {unlocked && !round && admin && (
         <CreateRoundForEvent eventId={event.id} defaultTitle={event.title} />
+      )}
+
+      {/* Event chat — above the flyer. */}
+      {unlocked && (
+        <section className="mt-8">
+          <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-[#E8E0D0]/45">
+            Event chat
+          </h2>
+          <ClubBoard
+            initialPosts={posts}
+            viewerMemberId={member?.id ?? null}
+            isAdmin={admin}
+            eventId={event.id}
+          />
+        </section>
       )}
 
       {event.flyer_url && (
@@ -204,31 +237,17 @@ export default async function SongClubEventPage({
         ))}
 
       {unlocked && (
-        <>
-          <section className="mt-8">
-            <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-[#E8E0D0]/45">
-              Who came
-            </h2>
-            <EventAttendees
-              eventId={event.id}
-              initialAttendees={attendees}
-              addableMembers={addable}
-              isAdmin={admin}
-            />
-          </section>
-
-          <section className="mt-8">
-            <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-[#E8E0D0]/45">
-              Event chat
-            </h2>
-            <ClubBoard
-              initialPosts={posts}
-              viewerMemberId={member?.id ?? null}
-              isAdmin={admin}
-              eventId={event.id}
-            />
-          </section>
-        </>
+        <section className="mt-8">
+          <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-[#E8E0D0]/45">
+            {isUpcoming ? 'Who is signed up' : 'Who came'}
+          </h2>
+          <EventAttendees
+            eventId={event.id}
+            initialAttendees={attendees}
+            addableMembers={addable}
+            isAdmin={admin}
+          />
+        </section>
       )}
     </main>
   );

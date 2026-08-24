@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getClubActor } from '@/lib/club-members';
-import { createTrack } from '@/lib/club-music';
+import { createTrack, getPlaylist } from '@/lib/club-music';
 import { SONG_CLUB_TRACKS_FOLDER } from '@/lib/r2';
 
 // Step 2 of a track upload: after the browser PUT the audio to R2 (see
@@ -19,15 +19,24 @@ export async function POST(request: Request) {
   const notes = typeof body?.notes === 'string' ? body.notes : null;
   const contentType = typeof body?.contentType === 'string' ? body.contentType : null;
   const sizeBytes = typeof body?.sizeBytes === 'number' ? body.sizeBytes : null;
-  const playlistId =
-    typeof body?.playlistId === 'number' && Number.isInteger(body.playlistId)
-      ? body.playlistId
-      : null;
+  const playlistIdNum = Number(body?.playlistId);
+  const playlistId = Number.isInteger(playlistIdNum) && playlistIdNum > 0 ? playlistIdNum : null;
   const peaks = Array.isArray(body?.peaks) ? (body.peaks as number[]) : null;
   const durationSeconds = typeof body?.durationSeconds === 'number' ? body.durationSeconds : null;
 
   if (!KEY_RE.test(key)) {
     return NextResponse.json({ error: 'Invalid upload key' }, { status: 400 });
+  }
+
+  // A locked round accepts no uploads until the admin opens it (admin exempt).
+  if (playlistId && !('admin' in actor)) {
+    const pl = await getPlaylist(playlistId);
+    if (pl?.locked) {
+      return NextResponse.json(
+        { error: 'This round is locked — uploads open when it starts.' },
+        { status: 403 }
+      );
+    }
   }
   const publicBase = process.env.R2_PUBLIC_URL_BASE;
   if (!publicBase) {

@@ -4,6 +4,7 @@ import {
   deletePlaylist,
   removeTrackFromPlaylist,
   reorderPlaylist,
+  setPlaylistLocked,
   updatePlaylist,
 } from '@/lib/club-music';
 
@@ -13,6 +14,7 @@ import {
 //   { title?, description? }        rename / re-describe
 //   { reorder: number[] }           full track-id order
 //   { removeTrackId: number }       drop a track from the round (track survives)
+//   { locked: boolean }             lock/open the round's uploads
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -36,6 +38,13 @@ export async function PATCH(
   if (typeof body?.removeTrackId === 'number') {
     if (!(await removeTrackFromPlaylist(id, body.removeTrackId))) {
       return NextResponse.json({ error: 'Not in this playlist' }, { status: 404 });
+    }
+    return NextResponse.json({ ok: true });
+  }
+
+  if (typeof body?.locked === 'boolean') {
+    if (!(await setPlaylistLocked(id, body.locked))) {
+      return NextResponse.json({ error: 'Not found' }, { status: 404 });
     }
     return NextResponse.json({ ok: true });
   }

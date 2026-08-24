@@ -19,7 +19,9 @@ export async function POST(request: Request) {
   const eventIdNum = Number(body?.eventId);
   const eventId = Number.isInteger(eventIdNum) && eventIdNum > 0 ? eventIdNum : null;
 
-  const playlist = await createPlaylist({ title, description, imageUrl });
+  // Event rounds start locked (no uploads until the admin opens them);
+  // standalone rounds start open.
+  const playlist = await createPlaylist({ title, description, imageUrl, locked: eventId !== null });
   if (!playlist) return NextResponse.json({ error: 'A title is required' }, { status: 400 });
   if (eventId) await setEventRound(eventId, playlist.id);
   return NextResponse.json({ playlist });

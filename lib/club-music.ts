@@ -26,6 +26,7 @@ export interface ClubPlaylist {
   title: string;
   description: string | null;
   imageUrl: string | null;
+  locked: boolean;
   trackCount: number;
   createdAt: string;
 }
@@ -90,12 +91,13 @@ interface PlaylistRow {
   title: string;
   description: string | null;
   image_url: string | null;
+  locked: boolean;
   track_count: number;
   created_at: string;
 }
 
 const PLAYLIST_SELECT = sql`
-  select p.id, p.title, p.description, p.image_url,
+  select p.id, p.title, p.description, p.image_url, p.locked,
          (select count(*)::int from song_club_playlist_tracks pt
            where pt.playlist_id = p.id) as track_count,
          p.created_at::text as created_at
@@ -108,6 +110,7 @@ function mapPlaylist(r: PlaylistRow): ClubPlaylist {
     title: r.title,
     description: r.description,
     imageUrl: r.image_url,
+    locked: r.locked,
     trackCount: Number(r.track_count),
     createdAt: r.created_at,
   };
@@ -154,15 +157,23 @@ export async function createPlaylist(input: {
   title: string;
   description?: string | null;
   imageUrl?: string | null;
+  locked?: boolean;
 }): Promise<ClubPlaylist | null> {
   const title = input.title.trim().slice(0, 200);
   if (!title) return null;
   const description = input.description?.trim().slice(0, 2000) || null;
   const [row] = await sql<Array<{ id: number }>>`
-    insert into song_club_playlists (title, description, image_url)
-    values (${title}, ${description}, ${input.imageUrl?.trim() || null}) returning id
+    insert into song_club_playlists (title, description, image_url, locked)
+    values (${title}, ${description}, ${input.imageUrl?.trim() || null}, ${input.locked === true})
+    returning id
   `;
   return getPlaylist(Number(row.id));
+}
+
+// Admin-only (routes enforce it): open/lock a round's uploads.
+export async function setPlaylistLocked(id: number, locked: boolean): Promise<boolean> {
+  const result = await sql`update song_club_playlists set locked = ${locked} where id = ${id}`;
+  return result.count > 0;
 }
 
 // Deleting a playlist only removes the grouping — its tracks live on (they

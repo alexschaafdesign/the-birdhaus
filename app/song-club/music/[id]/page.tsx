@@ -9,6 +9,7 @@ import PlaylistTracks from '@/components/club/PlaylistTracks';
 import DeletePlaylistButton from '@/components/club/DeletePlaylistButton';
 import RoundCover from '@/components/club/RoundCover';
 import ClubTopBar from '@/components/club/ClubTopBar';
+import RoundLockToggle from '@/components/club/RoundLockToggle';
 
 export const metadata: Metadata = {
   title: 'Song Club — round',
@@ -63,18 +64,26 @@ export default async function ClubPlaylistPage({
       <header className="mt-4 mb-6">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <div className="text-xs font-medium uppercase tracking-wide text-[#c8a26a]/80">
+            <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-[#c8a26a]/80">
               Round · {playlist.trackCount} track{playlist.trackCount === 1 ? '' : 's'}
+              {playlist.locked && (
+                <span className="rounded bg-[#c8a26a]/20 px-1.5 py-0.5 text-[10px] normal-case tracking-normal">
+                  🔒 Locked
+                </span>
+              )}
             </div>
             <h1 className="mt-1 text-2xl font-semibold sm:text-3xl">{playlist.title}</h1>
           </div>
           <div className="flex shrink-0 flex-col items-end gap-2">
-            <Link
-              href={`/song-club/upload?playlist=${playlist.id}`}
-              className="rounded-md bg-[#E8E0D0] px-3.5 py-1.5 text-sm font-semibold text-[#2A2420] transition hover:bg-white"
-            >
-              + Upload to this round
-            </Link>
+            {(!playlist.locked || admin) && (
+              <Link
+                href={`/song-club/upload?playlist=${playlist.id}`}
+                className="rounded-md bg-[#E8E0D0] px-3.5 py-1.5 text-sm font-semibold text-[#2A2420] transition hover:bg-white"
+              >
+                + Upload to this round
+              </Link>
+            )}
+            {admin && <RoundLockToggle playlistId={playlist.id} locked={playlist.locked} />}
             {admin && <DeletePlaylistButton playlistId={playlist.id} />}
           </div>
         </div>
