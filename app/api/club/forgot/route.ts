@@ -26,7 +26,7 @@ export async function POST(request: Request) {
   }
 
   const [member] = await sql<Array<{ id: number; name: string }>>`
-    select id, name from song_club_members
+    select id, name from users
     where email = ${email} and status <> 'disabled'
   `;
   if (member) {

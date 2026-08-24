@@ -1,11 +1,7 @@
 import { NextResponse } from 'next/server';
-import {
-  CLUB_SESSION_COOKIE,
-  CLUB_SESSION_MAX_AGE_SECONDS,
-  createClubSessionToken,
-  verifyPassword,
-} from '@/lib/club-auth';
+import { verifyPassword } from '@/lib/club-auth';
 import { getLoginRow, touchLastSeen } from '@/lib/club-members';
+import { grantSessionCookies } from '@/lib/club-session';
 import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
 
 // One deliberately vague error for every failure mode, so the form can't be
@@ -36,12 +32,6 @@ export async function POST(request: Request) {
 
   await touchLastSeen(row.id);
   const response = NextResponse.json({ ok: true });
-  response.cookies.set(CLUB_SESSION_COOKIE, createClubSessionToken(row.id), {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    path: '/',
-    maxAge: CLUB_SESSION_MAX_AGE_SECONDS,
-  });
+  await grantSessionCookies(response, row.id, row.roles);
   return response;
 }

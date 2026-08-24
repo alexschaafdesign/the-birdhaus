@@ -1,6 +1,7 @@
-// Song Club member accounts — data layer. Invite-only: the admin creates a
-// member row (status 'invited') and emails a set-password link; accepting it
-// activates the account. The same token machinery doubles as password reset.
+// Site-wide user accounts (the `users` table — Song Club members, crew,
+// admin assistants). Invite-only: the admin creates a row with roles and
+// emails a set-password link; accepting it activates the account. The same
+// token machinery doubles as password reset.
 
 import { cookies } from 'next/headers';
 import { sql } from './db';
@@ -11,9 +12,16 @@ import {
   hashPassword,
   hashSetupToken,
   verifyClubSessionToken,
+  verifyPassword,
 } from './club-auth';
 
 export type ClubMemberStatus = 'invited' | 'active' | 'disabled';
+
+// What a login can reach: song_club = /club portal; crew = future
+// engineer/photographer pages; staff = the full admin dashboard. Constants
+// live in club-roles.ts (client-safe) and are re-exported here.
+export { ALL_ROLES, type ClubRole } from './club-roles';
+import { ALL_ROLES, type ClubRole } from './club-roles';
 
 export interface ClubMember {
   id: number;
@@ -21,6 +29,12 @@ export interface ClubMember {
   name: string;
   status: ClubMemberStatus;
   has_password: boolean;
+  avatar_url: string | null;
+  bio: string | null;
+  notify_track_comments: boolean;
+  notify_announcements: boolean;
+  notify_events: boolean;
+  roles: ClubRole[];
   invited_at: string;
   joined_at: string | null;
   last_seen_at: string | null;
@@ -31,6 +45,9 @@ const RESET_TOKEN_TTL_SECONDS = 60 * 60 * 2; // resets are short-lived
 
 const COLUMNS = sql`
   id, email, name, status, (password_hash is not null) as has_password,
+  avatar_url, bio, notify_track_comments, notify_announcements, notify_events,
+  (select coalesce(array_agg(r.role order by r.role), '{}')
+     from user_roles r where r.user_id = users.id) as roles,
   invited_at::text as invited_at, joined_at::text as joined_at,
   last_seen_at::text as last_seen_at
 `;
@@ -39,35 +56,43 @@ export function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
 }
 
+function sanitizeRoles(roles: unknown): ClubRole[] {
+  if (!Array.isArray(roles)) return ['song_club'];
+  const valid = roles.filter((r): r is ClubRole => ALL_ROLES.includes(r as ClubRole));
+  return valid.length > 0 ? [...new Set(valid)] : ['song_club'];
+}
+
 export async function listMembers(): Promise<ClubMember[]> {
   return sql<ClubMember[]>`
-    select ${COLUMNS} from song_club_members order by name asc, id asc
+    select ${COLUMNS} from users order by name asc, id asc
   `;
 }
 
 export async function getMemberById(id: number): Promise<ClubMember | null> {
   const [row] = await sql<ClubMember[]>`
-    select ${COLUMNS} from song_club_members where id = ${id}
+    select ${COLUMNS} from users where id = ${id}
   `;
   return row ?? null;
 }
 
-// Creates (or re-invites) a member and returns the raw setup token for the
-// invite email.
+// Creates (or re-invites) a user with the given roles and returns the raw
+// setup token for the invite email.
 export async function inviteMember(input: {
   email: string;
   name: string;
+  roles?: unknown;
 }): Promise<{ member: ClubMember; token: string } | { error: string }> {
   const email = normalizeEmail(input.email);
   const name = input.name.trim();
   if (!email || !name) return { error: 'Name and email are required' };
+  const roles = sanitizeRoles(input.roles);
 
   const { token, tokenHash } = createSetupToken();
-  // Re-inviting an existing address refreshes their token (never wiping an
-  // already-set password); the conflict-update's WHERE makes inviting a
-  // disabled member a no-op (returns no row) instead of quietly re-arming it.
-  const [row] = await sql<ClubMember[]>`
-    insert into song_club_members (email, name, setup_token_hash, setup_token_expires_at)
+  // Re-inviting an existing address refreshes their token and roles (never
+  // wiping an already-set password); the conflict-update's WHERE makes
+  // inviting a disabled user a no-op instead of quietly re-arming it.
+  const [row] = await sql<Array<{ id: number }>>`
+    insert into users (email, name, setup_token_hash, setup_token_expires_at)
     values (${email}, ${name}, ${tokenHash},
             now() + make_interval(secs => ${INVITE_TOKEN_TTL_SECONDS}))
     on conflict (email) do update set
@@ -75,37 +100,53 @@ export async function inviteMember(input: {
       setup_token_hash = excluded.setup_token_hash,
       setup_token_expires_at = excluded.setup_token_expires_at,
       invited_at = now()
-    where song_club_members.status <> 'disabled'
-    returning ${COLUMNS}
+    where users.status <> 'disabled'
+    returning id
   `;
   if (!row) return { error: 'That member is disabled — re-enable them first' };
-  return { member: row, token };
+
+  await setRoles(Number(row.id), roles);
+  const member = await getMemberById(Number(row.id));
+  if (!member) return { error: 'Invite failed' };
+  return { member, token };
 }
 
-// Refreshes the setup token for an existing (non-disabled) member — used by
-// both "resend invite" and "forgot password". Returns null if no such member.
+export async function setRoles(userId: number, roles: unknown): Promise<void> {
+  const clean = sanitizeRoles(roles);
+  await sql.begin(async (tx) => {
+    await tx`delete from user_roles where user_id = ${userId}`;
+    for (const role of clean) {
+      await tx`insert into user_roles (user_id, role) values (${userId}, ${role})`;
+    }
+  });
+}
+
+// Refreshes the setup token for an existing (non-disabled) user — used by
+// both "resend invite" and "forgot password". Returns null if no such user.
 export async function refreshSetupToken(
   memberId: number,
   purpose: 'invite' | 'reset'
 ): Promise<{ member: ClubMember; token: string } | null> {
   const ttl = purpose === 'invite' ? INVITE_TOKEN_TTL_SECONDS : RESET_TOKEN_TTL_SECONDS;
   const { token, tokenHash } = createSetupToken();
-  const [row] = await sql<ClubMember[]>`
-    update song_club_members set
+  const [row] = await sql<Array<{ id: number }>>`
+    update users set
       setup_token_hash = ${tokenHash},
       setup_token_expires_at = now() + make_interval(secs => ${ttl})
     where id = ${memberId} and status <> 'disabled'
-    returning ${COLUMNS}
+    returning id
   `;
-  return row ? { member: row, token } : null;
+  if (!row) return null;
+  const member = await getMemberById(Number(row.id));
+  return member ? { member, token } : null;
 }
 
-// Resolves a raw setup token from an emailed link to its member. null =
+// Resolves a raw setup token from an emailed link to its user. null =
 // unknown, already used, or expired.
 export async function getMemberBySetupToken(token: string): Promise<ClubMember | null> {
   if (!/^[0-9a-f]{64}$/.test(token)) return null;
   const [row] = await sql<ClubMember[]>`
-    select ${COLUMNS} from song_club_members
+    select ${COLUMNS} from users
     where setup_token_hash = ${hashSetupToken(token)}
       and setup_token_expires_at > now()
       and status <> 'disabled'
@@ -113,8 +154,8 @@ export async function getMemberBySetupToken(token: string): Promise<ClubMember |
   return row ?? null;
 }
 
-// Consumes a setup token: sets the password, activates the account, clears the
-// token (single-use). Returns the member, or null if the token was invalid.
+// Consumes a setup token: sets the password, activates the account, clears
+// the token (single-use). Returns the user, or null if the token was invalid.
 export async function acceptSetupToken(
   token: string,
   password: string
@@ -123,28 +164,39 @@ export async function acceptSetupToken(
   if (!member) return null;
 
   const passwordHash = await hashPassword(password);
-  const [row] = await sql<ClubMember[]>`
-    update song_club_members set
+  const [row] = await sql<Array<{ id: number }>>`
+    update users set
       password_hash = ${passwordHash},
       status = 'active',
       joined_at = coalesce(joined_at, now()),
       setup_token_hash = null,
       setup_token_expires_at = null
     where id = ${member.id} and setup_token_hash = ${hashSetupToken(token)}
-    returning ${COLUMNS}
+    returning id
   `;
-  return row ?? null;
+  return row ? getMemberById(Number(row.id)) : null;
 }
 
-// For login: the one query that needs the password hash.
-export async function getLoginRow(
-  email: string
-): Promise<{ id: number; password_hash: string | null; status: ClubMemberStatus } | null> {
+// For login: the one query that needs the password hash. Roles ride along so
+// the login route can decide whether to also grant the admin cookie (staff).
+export async function getLoginRow(email: string): Promise<{
+  id: number;
+  password_hash: string | null;
+  status: ClubMemberStatus;
+  roles: ClubRole[];
+} | null> {
   const [row] = await sql<
-    Array<{ id: number; password_hash: string | null; status: ClubMemberStatus }>
+    Array<{
+      id: number;
+      password_hash: string | null;
+      status: ClubMemberStatus;
+      roles: ClubRole[];
+    }>
   >`
-    select id, password_hash, status from song_club_members
-    where email = ${normalizeEmail(email)}
+    select id, password_hash, status,
+           (select coalesce(array_agg(r.role order by r.role), '{}')
+              from user_roles r where r.user_id = users.id) as roles
+    from users where email = ${normalizeEmail(email)}
   `;
   return row ?? null;
 }
@@ -155,29 +207,78 @@ export async function setMemberStatus(
 ): Promise<ClubMember | null> {
   // Enabling someone who never accepted their invite returns them to
   // 'invited' (they still have no password to log in with).
-  const [row] = await sql<ClubMember[]>`
-    update song_club_members set
+  const [row] = await sql<Array<{ id: number }>>`
+    update users set
       status = case
         when ${status} = 'active' and password_hash is null then 'invited'
         else ${status}
       end
     where id = ${id}
-    returning ${COLUMNS}
+    returning id
   `;
-  return row ?? null;
+  return row ? getMemberById(Number(row.id)) : null;
 }
 
 export async function deleteMember(id: number): Promise<boolean> {
-  const result = await sql`delete from song_club_members where id = ${id}`;
+  const result = await sql`delete from users where id = ${id}`;
   return result.count > 0;
 }
 
 export async function touchLastSeen(id: number): Promise<void> {
-  await sql`update song_club_members set last_seen_at = now() where id = ${id}`;
+  await sql`update users set last_seen_at = now() where id = ${id}`;
 }
 
-// The logged-in member for the current request, from the session cookie.
-// Re-loads the row so a disabled/deleted member is locked out immediately,
+// --- self-service account settings (/account) ---
+
+export async function updateProfile(
+  id: number,
+  input: {
+    name?: string;
+    bio?: string | null;
+    notifyTrackComments?: boolean;
+    notifyAnnouncements?: boolean;
+    notifyEvents?: boolean;
+  }
+): Promise<ClubMember | null> {
+  const name = typeof input.name === 'string' ? input.name.trim().slice(0, 120) || null : null;
+  const hasBio = input.bio !== undefined;
+  const bio = input.bio?.trim().slice(0, 1000) || null;
+  const [row] = await sql<Array<{ id: number }>>`
+    update users set
+      name = coalesce(${name}, name),
+      bio = ${hasBio ? bio : sql`bio`},
+      notify_track_comments = coalesce(${input.notifyTrackComments ?? null}, notify_track_comments),
+      notify_announcements = coalesce(${input.notifyAnnouncements ?? null}, notify_announcements),
+      notify_events = coalesce(${input.notifyEvents ?? null}, notify_events)
+    where id = ${id}
+    returning id
+  `;
+  return row ? getMemberById(id) : null;
+}
+
+export async function setAvatar(id: number, url: string): Promise<void> {
+  await sql`update users set avatar_url = ${url} where id = ${id}`;
+}
+
+// Change password with current-password verification. Returns false when the
+// current password doesn't match (or the user is gone).
+export async function changePassword(
+  id: number,
+  currentPassword: string,
+  newPassword: string
+): Promise<boolean> {
+  const [row] = await sql<Array<{ password_hash: string | null }>>`
+    select password_hash from users where id = ${id} and status = 'active'
+  `;
+  if (!row?.password_hash) return false;
+  if (!(await verifyPassword(currentPassword, row.password_hash))) return false;
+  const hash = await hashPassword(newPassword);
+  await sql`update users set password_hash = ${hash} where id = ${id}`;
+  return true;
+}
+
+// The logged-in user for the current request, from the session cookie.
+// Re-loads the row so a disabled/deleted user is locked out immediately,
 // signed cookie or not.
 export async function getClubMember(): Promise<ClubMember | null> {
   const token = (await cookies()).get(CLUB_SESSION_COOKIE)?.value;
@@ -185,6 +286,14 @@ export async function getClubMember(): Promise<ClubMember | null> {
   if (memberId === null) return null;
   const member = await getMemberById(memberId);
   return member && member.status === 'active' ? member : null;
+}
+
+// The current user only if they can access the Song Club portal. A crew- or
+// staff-only login has a valid session but no 'song_club' role, so it isn't
+// admitted to /club.
+export async function getClubPortalMember(): Promise<ClubMember | null> {
+  const member = await getClubMember();
+  return member?.roles.includes('song_club') ? member : null;
 }
 
 // Whoever is acting on the portal right now: a member, the admin session

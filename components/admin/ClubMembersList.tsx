@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import type { ClubMember } from '@/lib/club-members';
+import { ALL_ROLES, type ClubRole } from '@/lib/club-roles';
 
 const inputBase =
   'w-full rounded-md border border-[#E8E0D0]/20 bg-[#E8E0D0]/[0.03] px-3 py-2 text-sm text-[#E8E0D0] placeholder:text-[#E8E0D0]/30 focus:border-[#E8E0D0]/50 focus:outline-none transition';
@@ -12,6 +13,12 @@ const STATUS_LABEL: Record<ClubMember['status'], string> = {
   disabled: 'Disabled',
 };
 
+const ROLE_LABEL: Record<ClubRole, string> = {
+  song_club: 'Song Club',
+  crew: 'Crew',
+  staff: 'Staff (admin)',
+};
+
 // Invite + manage Song Club portal members. Inviting sends the set-password
 // email immediately; "Resend invite" re-keys the link (also works as a manual
 // password reset for a locked-out member).
@@ -19,10 +26,17 @@ export default function ClubMembersList({ initialMembers }: { initialMembers: Cl
   const [members, setMembers] = useState<ClubMember[]>(initialMembers);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [roles, setRoles] = useState<ClubRole[]>(['song_club']);
   const [busy, setBusy] = useState(false);
   const [rowBusy, setRowBusy] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+
+  function toggleInviteRole(role: ClubRole) {
+    setRoles((prev) =>
+      prev.includes(role) ? prev.filter((r) => r !== role) : [...prev, role]
+    );
+  }
 
   async function invite(e: React.FormEvent) {
     e.preventDefault();
@@ -33,7 +47,7 @@ export default function ClubMembersList({ initialMembers }: { initialMembers: Cl
       const res = await fetch('/api/admin/song-club/members', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email }),
+        body: JSON.stringify({ name, email, roles: roles.length ? roles : ['song_club'] }),
       });
       const data = await res.json().catch(() => null);
       if (!res.ok) throw new Error(data?.error ?? `Invite failed (${res.status})`);
@@ -45,6 +59,29 @@ export default function ClubMembersList({ initialMembers }: { initialMembers: Cl
       setError(err instanceof Error ? err.message : 'Invite failed');
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function toggleRole(member: ClubMember, role: ClubRole) {
+    const next = member.roles.includes(role)
+      ? member.roles.filter((r) => r !== role)
+      : [...member.roles, role];
+    setRowBusy(member.id);
+    setError(null);
+    setNotice(null);
+    try {
+      const res = await fetch(`/api/admin/song-club/members/${member.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'roles', roles: next }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(data?.error ?? `Couldn't update roles (${res.status})`);
+      setMembers(data.members ?? []);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Couldn't update roles");
+    } finally {
+      setRowBusy(null);
     }
   }
 
@@ -90,39 +127,57 @@ export default function ClubMembersList({ initialMembers }: { initialMembers: Cl
     <div className="space-y-6">
       <form
         onSubmit={invite}
-        className="flex flex-col gap-3 rounded-lg border border-[#E8E0D0]/15 bg-[#E8E0D0]/[0.03] p-4 sm:flex-row sm:items-end"
+        className="space-y-3 rounded-lg border border-[#E8E0D0]/15 bg-[#E8E0D0]/[0.03] p-4"
       >
-        <div className="flex-1">
-          <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-[#E8E0D0]/55">
-            Name
-          </label>
-          <input
-            type="text"
-            required
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className={inputBase}
-          />
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+          <div className="flex-1">
+            <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-[#E8E0D0]/55">
+              Name
+            </label>
+            <input
+              type="text"
+              required
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className={inputBase}
+            />
+          </div>
+          <div className="flex-1">
+            <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-[#E8E0D0]/55">
+              Email
+            </label>
+            <input
+              type="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className={inputBase}
+            />
+          </div>
+          <button
+            type="submit"
+            disabled={busy}
+            className="rounded-md bg-[#E8E0D0] px-4 py-2 text-sm font-semibold text-[#2A2420] transition hover:bg-white disabled:opacity-50"
+          >
+            {busy ? 'Sending…' : 'Send invite'}
+          </button>
         </div>
-        <div className="flex-1">
-          <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-[#E8E0D0]/55">
-            Email
-          </label>
-          <input
-            type="email"
-            required
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className={inputBase}
-          />
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+          <span className="text-xs font-medium uppercase tracking-wide text-[#E8E0D0]/55">
+            Access:
+          </span>
+          {ALL_ROLES.map((role) => (
+            <label key={role} className="flex cursor-pointer items-center gap-1.5 text-sm text-[#E8E0D0]/80">
+              <input
+                type="checkbox"
+                checked={roles.includes(role)}
+                onChange={() => toggleInviteRole(role)}
+                className="accent-[#c8a26a]"
+              />
+              {ROLE_LABEL[role]}
+            </label>
+          ))}
         </div>
-        <button
-          type="submit"
-          disabled={busy}
-          className="rounded-md bg-[#E8E0D0] px-4 py-2 text-sm font-semibold text-[#2A2420] transition hover:bg-white disabled:opacity-50"
-        >
-          {busy ? 'Sending…' : 'Send invite'}
-        </button>
       </form>
 
       {error && (
@@ -160,6 +215,23 @@ export default function ClubMembersList({ initialMembers }: { initialMembers: Cl
                 <div className="mt-0.5 truncate text-xs text-[#E8E0D0]/50">
                   {m.email}
                   {m.last_seen_at ? ` · last seen ${formatDate(m.last_seen_at)}` : ''}
+                </div>
+                <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1">
+                  {ALL_ROLES.map((role) => (
+                    <label
+                      key={role}
+                      className="flex cursor-pointer items-center gap-1 text-[11px] text-[#E8E0D0]/60"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={m.roles.includes(role)}
+                        disabled={rowBusy === m.id}
+                        onChange={() => toggleRole(m, role)}
+                        className="accent-[#c8a26a]"
+                      />
+                      {ROLE_LABEL[role]}
+                    </label>
+                  ))}
                 </div>
               </div>
               <div className="flex shrink-0 items-center gap-3 text-sm">

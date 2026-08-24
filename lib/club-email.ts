@@ -70,6 +70,61 @@ export async function sendClubInviteEmail({
   if (error) throw new Error(`Resend send failed: ${JSON.stringify(error)}`);
 }
 
+// Notifies a track's uploader that someone commented. Best-effort: the caller
+// swallows failures so a Resend outage never breaks posting a comment.
+export async function sendTrackCommentEmail({
+  to,
+  uploaderName,
+  commenterName,
+  trackTitle,
+  trackUrl,
+  comment,
+}: {
+  to: string;
+  uploaderName: string;
+  commenterName: string;
+  trackTitle: string;
+  trackUrl: string; // absolute /club/track/<id> link
+  comment: string;
+}): Promise<void> {
+  const from = process.env.RESEND_FROM_EMAIL;
+  if (!from) throw new Error('RESEND_FROM_EMAIL is not set');
+
+  const firstName = splitName(uploaderName).firstName;
+  const greeting = firstName ? `hi ${firstName}!` : 'hi there!';
+  const snippet = comment.length > 300 ? `${comment.slice(0, 300)}…` : comment;
+
+  const text = [
+    greeting,
+    '',
+    `${commenterName} commented on your track "${trackTitle}":`,
+    '',
+    snippet,
+    '',
+    `Reply on the portal: ${trackUrl}`,
+    '',
+    'To stop these, turn off track-comment emails in your account settings.',
+    '',
+    '— the BIRDHAUS',
+  ].join('\n');
+
+  const html = `<p>${esc(greeting)}</p>
+<p><strong>${esc(commenterName)}</strong> commented on your track <strong>${esc(trackTitle)}</strong>:</p>
+<blockquote style="border-left: 3px solid #c8a26a; margin: 12px 0; padding: 4px 0 4px 12px; color: #444; white-space: pre-wrap;">${esc(snippet)}</blockquote>
+<p><a href="${esc(trackUrl)}" style="display: inline-block; background: #2A2420; color: #E8E0D0; padding: 8px 16px; border-radius: 6px; text-decoration: none; font-weight: 600;">Reply on the portal</a></p>
+<p style="font-size: 12px; color: #999;">To stop these, turn off track-comment emails in your account settings.</p>
+<p>— the BIRDHAUS</p>`;
+
+  const { error } = await getResendClient().emails.send({
+    from,
+    to,
+    subject: `${commenterName} commented on "${trackTitle}"`,
+    html,
+    text,
+  });
+  if (error) throw new Error(`Resend send failed: ${JSON.stringify(error)}`);
+}
+
 export async function sendClubPasswordResetEmail({
   name,
   email,

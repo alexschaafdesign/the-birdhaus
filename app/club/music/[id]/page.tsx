@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
-import { getClubMember } from '@/lib/club-members';
+import { getClubPortalMember } from '@/lib/club-members';
 import { isAdminSession } from '@/lib/admin-session';
 import { getPlaylist, playlistComments, playlistTracks } from '@/lib/club-music';
 import PlaylistTracks from '@/components/club/PlaylistTracks';
@@ -20,7 +20,7 @@ export default async function ClubPlaylistPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const member = await getClubMember();
+  const member = await getClubPortalMember();
   const admin = member ? false : await isAdminSession();
   if (!member && !admin) redirect('/club/login');
 

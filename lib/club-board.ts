@@ -48,7 +48,7 @@ export async function getPosts(): Promise<ClubPost[]> {
     select p.id, p.member_id, p.from_admin, m.name as member_name, p.body,
            p.created_at::text as created_at
     from song_club_posts p
-    left join song_club_members m on m.id = p.member_id
+    left join users m on m.id = p.member_id
     order by p.created_at asc, p.id asc
   `;
   return rows.map((r) => ({
@@ -107,7 +107,7 @@ export async function getPins(): Promise<ClubPin[]> {
            p.title, p.url, p.content_type, p.size_bytes, p.featured,
            p.created_at::text as created_at
     from song_club_pins p
-    left join song_club_members m on m.id = p.member_id
+    left join users m on m.id = p.member_id
     order by p.featured desc, p.created_at desc, p.id desc
   `;
   return rows.map((r) => ({

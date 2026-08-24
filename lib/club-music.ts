@@ -58,7 +58,7 @@ const TRACK_SELECT = sql`
          (select count(*)::int from song_club_track_comments c where c.track_id = t.id)
            as comment_count
   from song_club_tracks t
-  left join song_club_members m on m.id = t.member_id
+  left join users m on m.id = t.member_id
 `;
 
 function mapTrack(r: TrackRow): ClubTrack {
@@ -275,7 +275,7 @@ export async function trackComments(trackId: number): Promise<ClubTrackComment[]
     select c.id, c.track_id, c.member_id, c.from_admin, m.name as member_name,
            c.body, c.timestamp_seconds, c.created_at::text as created_at
     from song_club_track_comments c
-    left join song_club_members m on m.id = c.member_id
+    left join users m on m.id = c.member_id
     where c.track_id = ${trackId}
     order by c.created_at asc, c.id asc
   `;
@@ -312,7 +312,7 @@ export async function playlistComments(
            c.body, c.timestamp_seconds, c.created_at::text as created_at
     from song_club_track_comments c
     join song_club_playlist_tracks pt on pt.track_id = c.track_id
-    left join song_club_members m on m.id = c.member_id
+    left join users m on m.id = c.member_id
     where pt.playlist_id = ${playlistId}
     order by c.created_at asc, c.id asc
   `;
@@ -356,6 +356,30 @@ export async function createComment(input: {
             ${fromAdmin}, ${body}, ${timestamp})
   `;
   return true;
+}
+
+// The uploader to notify about a new comment on their track: their email,
+// name, and whether they want these emails. null when the track has no member
+// uploader (an admin upload), the account is inactive, or it's gone.
+export async function getTrackCommentNotifyTarget(
+  trackId: number
+): Promise<{ memberId: number; email: string; name: string; title: string; notify: boolean } | null> {
+  const [row] = await sql<
+    Array<{ member_id: number; email: string; name: string; title: string; notify: boolean }>
+  >`
+    select t.member_id, u.email, u.name, t.title, u.notify_track_comments as notify
+    from song_club_tracks t
+    join users u on u.id = t.member_id
+    where t.id = ${trackId} and u.status = 'active'
+  `;
+  if (!row) return null;
+  return {
+    memberId: Number(row.member_id),
+    email: row.email,
+    name: row.name,
+    title: row.title,
+    notify: row.notify,
+  };
 }
 
 export async function deleteComment(id: number, by: ClubActor): Promise<number | null> {

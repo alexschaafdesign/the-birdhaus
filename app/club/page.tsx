@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { getClubMember } from '@/lib/club-members';
+import { getClubPortalMember } from '@/lib/club-members';
 import { isAdminSession } from '@/lib/admin-session';
 import { getPins, getPosts } from '@/lib/club-board';
 import { listPlaylists, standaloneTracks } from '@/lib/club-music';
@@ -20,7 +20,7 @@ export const dynamic = 'force-dynamic';
 // thread below. Visible to logged-in members and to the admin session (Alex
 // posts as "the Birdhaus").
 export default async function ClubPage() {
-  const member = await getClubMember();
+  const member = await getClubPortalMember();
   const admin = member ? false : await isAdminSession();
   if (!member && !admin) redirect('/club/login');
 
@@ -45,14 +45,22 @@ export default async function ClubPage() {
             {member ? member.name : 'the Birdhaus (admin)'}
           </span>
           {member ? (
-            <form action="/api/club/logout" method="post">
-              <button
-                type="submit"
+            <div className="flex items-center gap-3">
+              <Link
+                href="/club/account"
                 className="text-xs text-[#E8E0D0]/45 underline-offset-2 transition hover:text-[#E8E0D0] hover:underline"
               >
-                Log out
-              </button>
-            </form>
+                Account
+              </Link>
+              <form action="/api/club/logout" method="post">
+                <button
+                  type="submit"
+                  className="text-xs text-[#E8E0D0]/45 underline-offset-2 transition hover:text-[#E8E0D0] hover:underline"
+                >
+                  Log out
+                </button>
+              </form>
+            </div>
           ) : (
             <Link
               href="/admin/song-club/members"

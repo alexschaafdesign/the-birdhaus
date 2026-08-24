@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
-import { getClubMember } from '@/lib/club-members';
+import { getClubPortalMember } from '@/lib/club-members';
 import ClubLoginForm from '@/components/club/ClubLoginForm';
 
 export const metadata: Metadata = {
@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 export const dynamic = 'force-dynamic';
 
 export default async function ClubLoginPage() {
-  if (await getClubMember()) redirect('/club');
+  if (await getClubPortalMember()) redirect('/club');
 
   return (
     <main className="mx-auto w-full max-w-sm px-5 py-10 text-[#E8E0D0] sm:py-14">

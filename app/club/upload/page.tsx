@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { getClubMember } from '@/lib/club-members';
+import { getClubPortalMember } from '@/lib/club-members';
 import { isAdminSession } from '@/lib/admin-session';
 import { listPlaylists } from '@/lib/club-music';
 import UploadTrackForm from '@/components/club/UploadTrackForm';
@@ -18,7 +18,7 @@ export default async function ClubUploadPage({
 }: {
   searchParams: Promise<{ playlist?: string }>;
 }) {
-  const member = await getClubMember();
+  const member = await getClubPortalMember();
   const admin = member ? false : await isAdminSession();
   if (!member && !admin) redirect('/club/login');
 

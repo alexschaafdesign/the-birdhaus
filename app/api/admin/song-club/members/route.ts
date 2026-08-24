@@ -14,8 +14,9 @@ export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
   const email = typeof body?.email === 'string' ? body.email : '';
   const name = typeof body?.name === 'string' ? body.name : '';
+  const roles = Array.isArray(body?.roles) ? body.roles : undefined;
 
-  const result = await inviteMember({ email, name });
+  const result = await inviteMember({ email, name, roles });
   if ('error' in result) {
     return NextResponse.json({ error: result.error }, { status: 400 });
   }

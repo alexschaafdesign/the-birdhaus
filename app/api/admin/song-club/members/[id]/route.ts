@@ -5,6 +5,7 @@ import {
   listMembers,
   refreshSetupToken,
   setMemberStatus,
+  setRoles,
 } from '@/lib/club-members';
 import { sendClubInviteEmail, sendClubPasswordResetEmail } from '@/lib/club-email';
 
@@ -26,6 +27,13 @@ export async function PATCH(
   if (action === 'disable' || action === 'enable') {
     const member = await setMemberStatus(id, action === 'disable' ? 'disabled' : 'active');
     if (!member) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    return NextResponse.json({ members: await listMembers() });
+  }
+
+  if (action === 'roles') {
+    const existing = await getMemberById(id);
+    if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    await setRoles(id, body?.roles);
     return NextResponse.json({ members: await listMembers() });
   }
 

@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
-import { getClubMember } from '@/lib/club-members';
+import { getClubPortalMember } from '@/lib/club-members';
 import { isAdminSession } from '@/lib/admin-session';
 import { getTrack, trackComments } from '@/lib/club-music';
 import SingleTrackView from '@/components/club/SingleTrackView';
@@ -18,7 +18,7 @@ export default async function ClubTrackPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const member = await getClubMember();
+  const member = await getClubPortalMember();
   const admin = member ? false : await isAdminSession();
   if (!member && !admin) redirect('/club/login');
 

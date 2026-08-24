@@ -1,12 +1,8 @@
 import { NextResponse } from 'next/server';
-import {
-  CLUB_SESSION_COOKIE,
-  CLUB_SESSION_MAX_AGE_SECONDS,
-  MIN_PASSWORD_LENGTH,
-  createClubSessionToken,
-} from '@/lib/club-auth';
+import { MIN_PASSWORD_LENGTH } from '@/lib/club-auth';
 import { acceptSetupToken, touchLastSeen } from '@/lib/club-members';
 import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
+import { grantSessionCookies } from '@/lib/club-session';
 
 // Consumes an emailed set-password link (invite or reset): sets the password,
 // activates the account, and logs the member straight in.
@@ -41,12 +37,6 @@ export async function POST(
 
   await touchLastSeen(member.id);
   const response = NextResponse.json({ ok: true });
-  response.cookies.set(CLUB_SESSION_COOKIE, createClubSessionToken(member.id), {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    path: '/',
-    maxAge: CLUB_SESSION_MAX_AGE_SECONDS,
-  });
+  await grantSessionCookies(response, member.id, member.roles);
   return response;
 }
