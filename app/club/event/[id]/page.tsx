@@ -6,9 +6,10 @@ import { isAdminSession } from '@/lib/admin-session';
 import { getEventById } from '@/lib/song-club';
 import { getPlaylist } from '@/lib/club-music';
 import { getPosts } from '@/lib/club-board';
-import { getAddableMembers, getEventAttendees } from '@/lib/club-events';
+import { getAddableMembers, getEventAttendees, isEventAttendee } from '@/lib/club-events';
 import EventAttendees from '@/components/club/EventAttendees';
 import ClubBoard from '@/components/club/ClubBoard';
+import ParticipateButton from '@/components/club/ParticipateButton';
 
 export const metadata: Metadata = {
   title: 'Song Club — event',
@@ -43,12 +44,19 @@ export default async function ClubEventPage({
   // Members only see published events; admin sees drafts too.
   if (!event || (!event.published && !admin)) notFound();
 
-  const [round, attendees, addable, posts] = await Promise.all([
-    event.playlist_id ? getPlaylist(event.playlist_id) : Promise.resolve(null),
-    getEventAttendees(id),
-    admin ? getAddableMembers(id) : Promise.resolve([]),
-    getPosts(id),
-  ]);
+  // Event content (round, attendees, chat) is gated: the admin sees everything;
+  // a member must have marked participation. Anyone signed-up sees the flyer +
+  // description teaser and the unlock button.
+  const unlocked = admin || (member ? await isEventAttendee(id, member.id) : false);
+
+  const [round, attendees, addable, posts] = unlocked
+    ? await Promise.all([
+        event.playlist_id ? getPlaylist(event.playlist_id) : Promise.resolve(null),
+        getEventAttendees(id),
+        admin ? getAddableMembers(id) : Promise.resolve([]),
+        getPosts(id),
+      ])
+    : [null, [], [], []];
 
   return (
     <main className="mx-auto w-full max-w-2xl px-5 py-6 text-[#E8E0D0] sm:px-8 sm:py-8">
@@ -79,46 +87,59 @@ export default async function ClubEventPage({
         </div>
       )}
 
-      {round && (
-        <Link
-          href={`/club/music/${round.id}`}
-          className="mt-6 flex items-center justify-between gap-4 rounded-lg border border-[#c8a26a]/30 bg-[#c8a26a]/[0.06] p-4 transition hover:border-[#c8a26a]/60 hover:bg-[#c8a26a]/[0.1]"
-        >
-          <div className="min-w-0">
-            <div className="text-xs font-medium uppercase tracking-wide text-[#c8a26a]/80">
-              The round
-            </div>
-            <div className="truncate font-medium text-[#E8E0D0]">{round.title}</div>
-          </div>
-          <span className="shrink-0 text-sm text-[#E8E0D0]/55">
-            {round.trackCount} track{round.trackCount === 1 ? '' : 's'} →
-          </span>
-        </Link>
+      {!unlocked ? (
+        <section className="mt-6 rounded-lg border border-[#c8a26a]/30 bg-[#c8a26a]/[0.06] p-5">
+          <h2 className="text-lg font-medium">Were you part of this?</h2>
+          <p className="mb-4 mt-1 text-sm text-[#E8E0D0]/60">
+            Unlock the round and the conversation to listen, share your track, and
+            comment with everyone who took part.
+          </p>
+          <ParticipateButton eventId={id} />
+        </section>
+      ) : (
+        <>
+          {round && (
+            <Link
+              href={`/club/music/${round.id}`}
+              className="mt-6 flex items-center justify-between gap-4 rounded-lg border border-[#c8a26a]/30 bg-[#c8a26a]/[0.06] p-4 transition hover:border-[#c8a26a]/60 hover:bg-[#c8a26a]/[0.1]"
+            >
+              <div className="min-w-0">
+                <div className="text-xs font-medium uppercase tracking-wide text-[#c8a26a]/80">
+                  The round
+                </div>
+                <div className="truncate font-medium text-[#E8E0D0]">{round.title}</div>
+              </div>
+              <span className="shrink-0 text-sm text-[#E8E0D0]/55">
+                {round.trackCount} track{round.trackCount === 1 ? '' : 's'} →
+              </span>
+            </Link>
+          )}
+
+          <section className="mt-8">
+            <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-[#E8E0D0]/45">
+              Who came
+            </h2>
+            <EventAttendees
+              eventId={id}
+              initialAttendees={attendees}
+              addableMembers={addable}
+              isAdmin={admin}
+            />
+          </section>
+
+          <section className="mt-8">
+            <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-[#E8E0D0]/45">
+              Event chat
+            </h2>
+            <ClubBoard
+              initialPosts={posts}
+              viewerMemberId={member?.id ?? null}
+              isAdmin={admin}
+              eventId={id}
+            />
+          </section>
+        </>
       )}
-
-      <section className="mt-8">
-        <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-[#E8E0D0]/45">
-          Who came
-        </h2>
-        <EventAttendees
-          eventId={id}
-          initialAttendees={attendees}
-          addableMembers={addable}
-          isAdmin={admin}
-        />
-      </section>
-
-      <section className="mt-8">
-        <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-[#E8E0D0]/45">
-          Event chat
-        </h2>
-        <ClubBoard
-          initialPosts={posts}
-          viewerMemberId={member?.id ?? null}
-          isAdmin={admin}
-          eventId={id}
-        />
-      </section>
     </main>
   );
 }

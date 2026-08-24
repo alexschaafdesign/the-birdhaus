@@ -224,6 +224,53 @@ export async function sendClubEventEmail({
   if (error) throw new Error(`Resend send failed: ${JSON.stringify(error)}`);
 }
 
+// Self-signup: confirm your email + set a password. Same link target as an
+// invite, worded for someone who came to the site on their own.
+export async function sendClubSignupEmail({
+  name,
+  email,
+  token,
+}: {
+  name: string;
+  email: string;
+  token: string;
+}): Promise<void> {
+  const from = process.env.RESEND_FROM_EMAIL;
+  if (!from) throw new Error('RESEND_FROM_EMAIL is not set');
+
+  const firstName = splitName(name).firstName;
+  const greeting = firstName ? `hi ${firstName}!` : 'hi there!';
+  const link = setupLinkFor(token);
+
+  const text = [
+    greeting,
+    '',
+    'Confirm your email and set a password to join the Song Club portal:',
+    link,
+    '',
+    "If you didn't request this, you can ignore this email.",
+    '',
+    '— the BIRDHAUS',
+  ].join('\n');
+
+  const html = `<p>${esc(greeting)}</p>
+<p>Confirm your email and set a password to join the <strong>Song Club portal</strong>:</p>
+<p><a href="${esc(link)}" style="display: inline-block; background: #2A2420; color: #E8E0D0; padding: 10px 18px; border-radius: 6px; text-decoration: none; font-weight: 600;">Confirm &amp; set password</a></p>
+<p style="font-size: 13px; color: #777;">Or paste this link into your browser:<br>${esc(link)}</p>
+<p style="font-size: 13px; color: #777;">If you didn't request this, you can ignore this email.</p>
+<p>— the BIRDHAUS</p>`;
+
+  const { error } = await getResendClient().emails.send({
+    from,
+    to: email,
+    bcc: BCC_EMAIL,
+    subject: 'Confirm your email to join Song Club',
+    html,
+    text,
+  });
+  if (error) throw new Error(`Resend send failed: ${JSON.stringify(error)}`);
+}
+
 export async function sendClubPasswordResetEmail({
   name,
   email,

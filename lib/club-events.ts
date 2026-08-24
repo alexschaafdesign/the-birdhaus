@@ -101,6 +101,14 @@ export async function getAddableMembers(
   `;
 }
 
+export async function isEventAttendee(eventId: number, userId: number): Promise<boolean> {
+  const [row] = await sql<Array<{ one: number }>>`
+    select 1 as one from song_club_event_attendees
+    where event_id = ${eventId} and user_id = ${userId}
+  `;
+  return !!row;
+}
+
 export async function addAttendee(eventId: number, userId: number): Promise<boolean> {
   const result = await sql`
     insert into song_club_event_attendees (event_id, user_id)

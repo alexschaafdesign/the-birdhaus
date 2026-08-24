@@ -4,6 +4,7 @@ import { notFound, redirect } from 'next/navigation';
 import { getClubPortalMember } from '@/lib/club-members';
 import { isAdminSession } from '@/lib/admin-session';
 import { getPlaylist, getRoundEvent, playlistComments, playlistTracks } from '@/lib/club-music';
+import { isEventAttendee } from '@/lib/club-events';
 import PlaylistTracks from '@/components/club/PlaylistTracks';
 import DeletePlaylistButton from '@/components/club/DeletePlaylistButton';
 import RoundCover from '@/components/club/RoundCover';
@@ -30,11 +31,15 @@ export default async function ClubPlaylistPage({
   const playlist = await getPlaylist(id);
   if (!playlist) notFound();
 
-  const [tracks, comments, roundEvent] = await Promise.all([
-    playlistTracks(id),
-    playlistComments(id),
-    getRoundEvent(id),
-  ]);
+  const roundEvent = await getRoundEvent(id);
+  // A round tied to an event inherits that event's participation gate: a member
+  // who hasn't marked participation is sent to the event to unlock it. The
+  // admin and standalone rounds are always open.
+  if (roundEvent && member && !(await isEventAttendee(roundEvent.id, member.id))) {
+    redirect(`/club/event/${roundEvent.id}`);
+  }
+
+  const [tracks, comments] = await Promise.all([playlistTracks(id), playlistComments(id)]);
   // Event-linked rounds take their cover from the event flyer; standalone
   // rounds fall back to their own uploaded image.
   const coverUrl = roundEvent?.flyerUrl ?? playlist.imageUrl;

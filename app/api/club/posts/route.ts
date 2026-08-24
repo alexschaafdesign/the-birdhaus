@@ -3,6 +3,7 @@ import { getClubMember } from '@/lib/club-members';
 import { isAdminSession } from '@/lib/admin-session';
 import { createPost, getPosts } from '@/lib/club-board';
 import { notifyAnnouncement } from '@/lib/club-notify';
+import { isEventAttendee } from '@/lib/club-events';
 
 // Post to the club board as the logged-in member, or as "the Birdhaus" when
 // the visitor holds the admin session instead. Returns the refreshed thread
@@ -19,6 +20,15 @@ export async function POST(request: Request) {
   const text = typeof body?.body === 'string' ? body.body : '';
   const eventId =
     typeof body?.eventId === 'number' && Number.isInteger(body.eventId) ? body.eventId : null;
+
+  // Posting to an event board requires participation (the admin is exempt) —
+  // matches the page-level gate.
+  if (eventId !== null && author !== 'admin') {
+    if (!(await isEventAttendee(eventId, author))) {
+      return NextResponse.json({ error: 'Unlock this event first' }, { status: 403 });
+    }
+  }
+
   if (!(await createPost(author, text, eventId))) {
     return NextResponse.json({ error: 'Message is empty' }, { status: 400 });
   }
