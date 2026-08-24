@@ -334,7 +334,7 @@ function AddPinForm({
 // short because extra height just shows blank space.
 function embedHeight(src: string, large: boolean): string {
   if (isVideoEmbed(src)) return 'aspect-video';
-  if (isSamplyEmbed(src)) return large ? 'h-[75vh] min-h-[28rem]' : 'h-96';
+  if (isSamplyEmbed(src)) return large ? 'h-[150vh] min-h-[56rem]' : 'h-96';
   return large ? 'h-64 sm:h-80' : 'h-40';
 }
 
