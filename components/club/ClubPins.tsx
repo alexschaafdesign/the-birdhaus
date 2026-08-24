@@ -100,17 +100,26 @@ export default function ClubPins({
 
         {embedSrc ? (
           <>
-            <iframe
-              src={embedSrc}
-              title={pin.title}
-              loading="lazy"
-              allow="autoplay; encrypted-media; fullscreen"
-              sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
-              className={`mt-2 w-full rounded border-0 bg-[#E8E0D0]/[0.02] ${embedHeight(
+            {/* The iframe sits inside an overflow-hidden box; Samply pages get
+                shifted up so their empty header band (dead space + share icon)
+                is cropped out of view — we can't restyle a cross-origin page. */}
+            <div
+              className={`mt-2 overflow-hidden rounded bg-[#E8E0D0]/[0.02] ${embedHeight(
                 embedSrc,
                 large
               )}`}
-            />
+            >
+              <iframe
+                src={embedSrc}
+                title={pin.title}
+                loading="lazy"
+                allow="autoplay; encrypted-media; fullscreen"
+                sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
+                className={`w-full border-0 ${
+                  isSamplyEmbed(embedSrc) ? '-mt-24 h-[calc(100%+6rem)]' : 'h-full'
+                }`}
+              />
+            </div>
             <a
               href={pin.url}
               target="_blank"
