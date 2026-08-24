@@ -1,4 +1,5 @@
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import crypto from 'crypto';
 import sharp from 'sharp';
 
@@ -46,6 +47,12 @@ export const RECEIPTS_FOLDER = 'receipts';
 // Files members pin on the Song Club portal (lyric sheets, PDFs, images) —
 // arbitrary types via uploadFileToR2, same as advance attachments.
 export const SONG_CLUB_FILES_FOLDER = 'song-club-files';
+
+// Song Club member track uploads (audio). These go DIRECT to R2 via presigned
+// PUT URLs — audio blows past Vercel's ~4.5 MB request-body cap, so the file
+// never touches a route handler. Requires a CORS rule on the bucket allowing
+// PUT from the site origins.
+export const SONG_CLUB_TRACKS_FOLDER = 'song-club-tracks';
 
 const EXTENSION_FOR_TYPE: Record<string, string> = {
   'image/jpeg': 'jpg',
@@ -163,6 +170,34 @@ function extensionFor(filename: string | null | undefined, contentType: string):
 // content type — used for inbound band advance attachments, which can be any
 // format. The folder is a plain string (not the image UploadFolder whitelist),
 // so callers must pass a controlled constant, never user input.
+// Mints a short-lived presigned PUT URL so the browser can upload straight to
+// R2. The key (and therefore folder) is server-generated exactly like the
+// other upload paths — the client only chooses the file. Callers validate the
+// content type BEFORE calling this; the signed URL locks it in (a PUT with a
+// different Content-Type fails the signature).
+export async function createPresignedUploadUrl(
+  folder: string,
+  contentType: string,
+  filename?: string | null
+): Promise<{ key: string; uploadUrl: string; publicUrl: string }> {
+  const bucket = process.env.R2_BUCKET_NAME;
+  const publicBase = process.env.R2_PUBLIC_URL_BASE;
+  if (!bucket || !publicBase) {
+    throw new Error('R2_BUCKET_NAME / R2_PUBLIC_URL_BASE are not set. See .env.example.');
+  }
+
+  const extension = extensionFor(filename, contentType);
+  const key = `${folder}/${Date.now()}-${crypto.randomBytes(4).toString('hex')}.${extension}`;
+
+  const uploadUrl = await getSignedUrl(
+    getClient(),
+    new PutObjectCommand({ Bucket: bucket, Key: key, ContentType: contentType }),
+    { expiresIn: 600 }
+  );
+
+  return { key, uploadUrl, publicUrl: `${publicBase.replace(/\/$/, '')}/${key}` };
+}
+
 export async function uploadFileToR2(
   folder: string,
   body: Buffer,

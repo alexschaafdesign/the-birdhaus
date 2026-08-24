@@ -4,8 +4,10 @@ import { redirect } from 'next/navigation';
 import { getClubMember } from '@/lib/club-members';
 import { isAdminSession } from '@/lib/admin-session';
 import { getPins, getPosts } from '@/lib/club-board';
+import { listPlaylists, standaloneTracks } from '@/lib/club-music';
 import ClubPins from '@/components/club/ClubPins';
 import ClubBoard from '@/components/club/ClubBoard';
+import NewPlaylistForm from '@/components/club/NewPlaylistForm';
 
 export const metadata: Metadata = {
   title: 'Song Club portal',
@@ -22,7 +24,12 @@ export default async function ClubPage() {
   const admin = member ? false : await isAdminSession();
   if (!member && !admin) redirect('/club/login');
 
-  const [pins, posts] = await Promise.all([getPins(), getPosts()]);
+  const [pins, posts, playlists, singles] = await Promise.all([
+    getPins(),
+    getPosts(),
+    listPlaylists(),
+    standaloneTracks(),
+  ]);
 
   return (
     <main className="mx-auto w-full max-w-3xl px-5 py-6 text-[#E8E0D0] sm:px-8 sm:py-8">
@@ -56,6 +63,78 @@ export default async function ClubPage() {
           )}
         </div>
       </header>
+
+      <section className="mb-8">
+        <div className="mb-3 flex items-baseline justify-between">
+          <h2 className="text-xs font-semibold uppercase tracking-wide text-[#E8E0D0]/45">
+            Music
+          </h2>
+          <Link
+            href="/club/upload"
+            className="rounded-md bg-[#E8E0D0] px-3.5 py-1.5 text-sm font-semibold text-[#2A2420] transition hover:bg-white"
+          >
+            + Upload a track
+          </Link>
+        </div>
+
+        {playlists.length === 0 && singles.length === 0 && (
+          <p className="text-sm text-[#E8E0D0]/40">
+            Nothing here yet — upload the first track.
+          </p>
+        )}
+
+        {playlists.length > 0 && (
+          <div className="space-y-2">
+            {playlists.map((p) => (
+              <Link
+                key={p.id}
+                href={`/club/music/${p.id}`}
+                className="block rounded-lg border border-[#E8E0D0]/15 bg-[#E8E0D0]/[0.03] p-4 transition hover:border-[#E8E0D0]/35 hover:bg-[#E8E0D0]/[0.06]"
+              >
+                <div className="flex items-baseline justify-between gap-3">
+                  <span className="min-w-0 truncate font-medium text-[#E8E0D0]">{p.title}</span>
+                  <span className="shrink-0 text-xs text-[#E8E0D0]/50">
+                    {p.trackCount} track{p.trackCount === 1 ? '' : 's'}
+                  </span>
+                </div>
+                {p.description && (
+                  <p className="mt-1 truncate text-sm text-[#E8E0D0]/55">{p.description}</p>
+                )}
+              </Link>
+            ))}
+          </div>
+        )}
+
+        {singles.length > 0 && (
+          <div className="mt-4">
+            <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-[#E8E0D0]/35">
+              Singles
+            </h3>
+            <ul className="divide-y divide-[#E8E0D0]/10 rounded-lg border border-[#E8E0D0]/15 bg-[#E8E0D0]/[0.03]">
+              {singles.map((t) => (
+                <li key={t.id}>
+                  <Link
+                    href={`/club/track/${t.id}`}
+                    className="flex items-baseline justify-between gap-3 px-4 py-2.5 transition hover:bg-[#E8E0D0]/[0.05]"
+                  >
+                    <span className="min-w-0 truncate text-sm text-[#E8E0D0]">{t.title}</span>
+                    <span className="shrink-0 text-xs text-[#E8E0D0]/45">
+                      {t.uploaderName}
+                      {t.commentCount > 0 ? ` · ${t.commentCount} 💬` : ''}
+                    </span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {admin && (
+          <div className="mt-3">
+            <NewPlaylistForm />
+          </div>
+        )}
+      </section>
 
       <ClubPins
         initialPins={pins}

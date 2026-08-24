@@ -4,6 +4,7 @@
 
 import { cookies } from 'next/headers';
 import { sql } from './db';
+import { isAdminSession } from './admin-session';
 import {
   CLUB_SESSION_COOKIE,
   createSetupToken,
@@ -184,4 +185,15 @@ export async function getClubMember(): Promise<ClubMember | null> {
   if (memberId === null) return null;
   const member = await getMemberById(memberId);
   return member && member.status === 'active' ? member : null;
+}
+
+// Whoever is acting on the portal right now: a member, the admin session
+// (Alex, acting as "the Birdhaus"), or nobody. The shape doubles as the
+// `by` argument the club data layers take for ownership checks.
+export type ClubActor = { memberId: number } | { admin: true };
+
+export async function getClubActor(): Promise<ClubActor | null> {
+  const member = await getClubMember();
+  if (member) return { memberId: member.id };
+  return (await isAdminSession()) ? { admin: true } : null;
 }
