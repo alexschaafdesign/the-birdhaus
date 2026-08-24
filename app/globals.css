@@ -46,8 +46,13 @@
   );
 }
 
-html, body {
+/* Paper lives on <html> only: body must stay background-free so fixed
+   negative-z backdrops (the home page's full-page photo) can paint above the
+   canvas instead of being hidden behind body's background layer. */
+html {
   background-color: var(--paper);
+}
+html, body {
   color: var(--ink);
 }
 

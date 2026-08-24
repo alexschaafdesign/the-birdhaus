@@ -62,7 +62,7 @@ export default async function Home() {
           unoptimized
           className="object-cover"
         />
-        <div className="absolute inset-0 bg-[#1A1712]/80" />
+        <div className="absolute inset-0 bg-[#1A1712]/70" />
       </div>
 
       {/* Birdhaus Leaderboard */}

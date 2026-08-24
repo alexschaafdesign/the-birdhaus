@@ -59,7 +59,7 @@ export default async function RootLayout({
 
   return (
     <html lang="en" style={{ backgroundColor: "#F2EEE3", color: "#1A1712" }}>
-      <body className={`${instrumentSans.variable} ${plexMono.variable}`} style={{ backgroundColor: "#F2EEE3", color: "#1A1712" }}>
+      <body className={`${instrumentSans.variable} ${plexMono.variable}`} style={{ color: "#1A1712" }}>
         <Header isAdmin={isAdmin} />
         {children}
       </body>
