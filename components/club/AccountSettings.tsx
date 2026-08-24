@@ -6,6 +6,10 @@ import type { ClubMember, ProfileLink } from '@/lib/club-members';
 
 const inputBase =
   'w-full rounded-md border border-[#E8E0D0]/20 bg-[#E8E0D0]/[0.03] px-3 py-2 text-sm text-[#E8E0D0] placeholder:text-[#E8E0D0]/30 focus:border-[#E8E0D0]/50 focus:outline-none transition';
+// Same look as inputBase but without w-full, so the label/url pair can size
+// via flex instead of both fighting to be 100% wide.
+const linkInput =
+  'rounded-md border border-[#E8E0D0]/20 bg-[#E8E0D0]/[0.03] px-3 py-2 text-sm text-[#E8E0D0] placeholder:text-[#E8E0D0]/30 focus:border-[#E8E0D0]/50 focus:outline-none transition';
 const labelClass = 'mb-1 block text-xs font-medium uppercase tracking-wide text-[#E8E0D0]/55';
 
 // Self-service profile, avatar, notification prefs, and password change.
@@ -163,15 +167,15 @@ export default function AccountSettings({ member }: { member: ClubMember }) {
           </p>
           <div className="space-y-2">
             {links.map((l, i) => (
-              <div key={i} className="flex gap-2">
+              <div key={i} className="flex items-center gap-2">
                 <input
                   type="text"
-                  placeholder="Label (e.g. Bandcamp)"
+                  placeholder="Label"
                   value={l.label}
                   onChange={(e) =>
                     setLinks(links.map((x, j) => (j === i ? { ...x, label: e.target.value } : x)))
                   }
-                  className={`${inputBase} w-1/3`}
+                  className={`${linkInput} w-28 shrink-0`}
                 />
                 <input
                   type="text"
@@ -180,13 +184,13 @@ export default function AccountSettings({ member }: { member: ClubMember }) {
                   onChange={(e) =>
                     setLinks(links.map((x, j) => (j === i ? { ...x, url: e.target.value } : x)))
                   }
-                  className={`${inputBase} flex-1`}
+                  className={`${linkInput} min-w-0 flex-1`}
                 />
                 <button
                   type="button"
                   onClick={() => setLinks(links.filter((_, j) => j !== i))}
                   aria-label="Remove link"
-                  className="shrink-0 px-2 text-[#E8E0D0]/40 transition hover:text-[#F5A3A3]"
+                  className="shrink-0 px-2 text-lg text-[#E8E0D0]/40 transition hover:text-[#F5A3A3]"
                 >
                   ✕
                 </button>

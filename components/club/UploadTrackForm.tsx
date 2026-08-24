@@ -29,6 +29,42 @@ export default function UploadTrackForm({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Decode the audio in-browser and downsample to a compact peak array (+
+  // duration) so the player can draw the waveform without re-downloading and
+  // decoding the file on every view. Best-effort: returns nulls if decode
+  // fails (unsupported codec, etc.) and the player falls back to a plain bar.
+  async function computeWaveform(
+    f: File
+  ): Promise<{ peaks: number[] | null; durationSeconds: number | null }> {
+    try {
+      const AudioCtx =
+        window.AudioContext ||
+        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      const ctx = new AudioCtx();
+      const buf = await ctx.decodeAudioData(await f.arrayBuffer());
+      const channel = buf.getChannelData(0);
+      const samples = 800;
+      const block = Math.floor(channel.length / samples) || 1;
+      const peaks: number[] = [];
+      for (let i = 0; i < samples; i++) {
+        let max = 0;
+        const start = i * block;
+        for (let j = 0; j < block; j++) {
+          const v = Math.abs(channel[start + j] || 0);
+          if (v > max) max = v;
+        }
+        peaks.push(Math.round(max * 1000) / 1000);
+      }
+      const duration = buf.duration;
+      await ctx.close();
+      // Normalize so the loudest peak fills the height.
+      const peak = Math.max(...peaks, 0.01);
+      return { peaks: peaks.map((p) => Math.round((p / peak) * 1000) / 1000), durationSeconds: duration };
+    } catch {
+      return { peaks: null, durationSeconds: null };
+    }
+  }
+
   function putWithProgress(url: string, body: File, contentType: string): Promise<void> {
     return new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest();
@@ -53,6 +89,10 @@ export default function UploadTrackForm({
     setError(null);
     setProgress(0);
     try {
+      // Compute the waveform before uploading (cheap, and the file's already
+      // in memory).
+      const { peaks, durationSeconds } = await computeWaveform(file);
+
       const urlRes = await fetch('/api/club/tracks/upload-url', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -73,6 +113,8 @@ export default function UploadTrackForm({
           contentType: urlData.contentType,
           sizeBytes: file.size,
           playlistId: playlistId ? Number(playlistId) : null,
+          peaks,
+          durationSeconds,
         }),
       });
       const trackData = await trackRes.json().catch(() => null);

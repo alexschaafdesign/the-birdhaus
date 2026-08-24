@@ -4,6 +4,7 @@ import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { ClubTrack, ClubTrackComment } from '@/lib/club-music';
 import TrackCard from './TrackCard';
+import type { TrackControls } from './WaveformPlayer';
 
 // A round's track list. Plays like a record: starting one track pauses the
 // others, and when a track ends the next one starts. Admin gets reorder
@@ -24,23 +25,23 @@ export default function PlaylistTracks({
   const router = useRouter();
   const [tracks, setTracks] = useState<ClubTrack[]>(initialTracks);
   const [error, setError] = useState<string | null>(null);
-  const audioRefs = useRef<Map<number, HTMLAudioElement>>(new Map());
+  const controlsRef = useRef<Map<number, TrackControls>>(new Map());
 
-  function setAudioRef(trackId: number, el: HTMLAudioElement | null) {
-    if (el) audioRefs.current.set(trackId, el);
-    else audioRefs.current.delete(trackId);
+  function setControls(trackId: number, controls: TrackControls | null) {
+    if (controls) controlsRef.current.set(trackId, controls);
+    else controlsRef.current.delete(trackId);
   }
 
   function pauseOthers(trackId: number) {
-    for (const [id, el] of audioRefs.current) {
-      if (id !== trackId && !el.paused) el.pause();
+    for (const [id, c] of controlsRef.current) {
+      if (id !== trackId) c.pause();
     }
   }
 
   function playNext(trackId: number) {
     const index = tracks.findIndex((t) => t.id === trackId);
     const next = index >= 0 ? tracks[index + 1] : undefined;
-    if (next) audioRefs.current.get(next.id)?.play().catch(() => {});
+    if (next) controlsRef.current.get(next.id)?.play();
   }
 
   async function patch(payload: Record<string, unknown>) {
@@ -121,7 +122,7 @@ export default function PlaylistTracks({
             initialComments={commentsByTrack[track.id] ?? []}
             viewerMemberId={viewerMemberId}
             isAdmin={isAdmin}
-            onAudioRef={(el) => setAudioRef(track.id, el)}
+            registerControls={(c) => setControls(track.id, c)}
             onPlay={() => pauseOthers(track.id)}
             onEnded={() => playNext(track.id)}
             onTrackDeleted={() => {

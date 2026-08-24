@@ -31,6 +31,7 @@
     "remark-html": "^16.0.1",
     "resend": "^6.17.2",
     "sharp": "^0.34.5",
+    "wavesurfer.js": "^7.12.11",
     "yet-another-react-lightbox": "^3.29.1"
   },
   "devDependencies": {

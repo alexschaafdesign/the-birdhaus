@@ -23,6 +23,8 @@ export async function POST(request: Request) {
     typeof body?.playlistId === 'number' && Number.isInteger(body.playlistId)
       ? body.playlistId
       : null;
+  const peaks = Array.isArray(body?.peaks) ? (body.peaks as number[]) : null;
+  const durationSeconds = typeof body?.durationSeconds === 'number' ? body.durationSeconds : null;
 
   if (!KEY_RE.test(key)) {
     return NextResponse.json({ error: 'Invalid upload key' }, { status: 400 });
@@ -40,6 +42,8 @@ export async function POST(request: Request) {
     contentType,
     sizeBytes,
     playlistId,
+    peaks,
+    durationSeconds,
   });
   if (!track) return NextResponse.json({ error: 'A title is required' }, { status: 400 });
 

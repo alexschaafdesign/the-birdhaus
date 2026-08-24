@@ -15,6 +15,8 @@ export interface ClubTrack {
   title: string;
   notes: string | null;
   url: string;
+  peaks: number[] | null;
+  durationSeconds: number | null;
   createdAt: string;
   commentCount: number;
 }
@@ -34,6 +36,7 @@ export interface ClubTrackComment {
   memberId: number | null;
   fromAdmin: boolean;
   authorName: string;
+  avatarUrl: string | null;
   body: string;
   timestampSeconds: number | null;
   createdAt: string;
@@ -49,13 +52,15 @@ interface TrackRow {
   title: string;
   notes: string | null;
   url: string;
+  peaks: number[] | null;
+  duration_seconds: number | null;
   created_at: string;
   comment_count: number;
 }
 
 const TRACK_SELECT = sql`
   select t.id, t.member_id, t.from_admin, m.name as member_name, t.title,
-         t.notes, t.url, t.created_at::text as created_at,
+         t.notes, t.url, t.peaks, t.duration_seconds, t.created_at::text as created_at,
          (select count(*)::int from song_club_track_comments c where c.track_id = t.id)
            as comment_count
   from song_club_tracks t
@@ -71,6 +76,8 @@ function mapTrack(r: TrackRow): ClubTrack {
     title: r.title,
     notes: r.notes,
     url: r.url,
+    peaks: Array.isArray(r.peaks) ? r.peaks : null,
+    durationSeconds: r.duration_seconds === null ? null : Number(r.duration_seconds),
     createdAt: r.created_at,
     commentCount: Number(r.comment_count),
   };
@@ -221,17 +228,26 @@ export async function createTrack(input: {
   contentType?: string | null;
   sizeBytes?: number | null;
   playlistId?: number | null;
+  peaks?: number[] | null;
+  durationSeconds?: number | null;
 }): Promise<ClubTrack | null> {
   const title = input.title.trim().slice(0, 200);
   if (!title) return null;
   const notes = input.notes?.trim().slice(0, 2000) || null;
   const fromAdmin = 'admin' in input.actor;
+  // Clamp the peak array so a bad client can't store something huge.
+  const peaks =
+    Array.isArray(input.peaks) && input.peaks.length > 0 && input.peaks.length <= 4000
+      ? (sql.json(input.peaks.map((n) => (Number.isFinite(n) ? Math.max(0, Math.min(1, n)) : 0)) as unknown as Parameters<typeof sql.json>[0]))
+      : null;
 
   const [row] = await sql<Array<{ id: number }>>`
-    insert into song_club_tracks (member_id, from_admin, title, notes, url, content_type, size_bytes)
+    insert into song_club_tracks
+      (member_id, from_admin, title, notes, url, content_type, size_bytes, peaks, duration_seconds)
     values (${fromAdmin ? null : (input.actor as { memberId: number }).memberId}, ${fromAdmin},
             ${title}, ${notes}, ${input.url},
-            ${input.contentType ?? null}, ${input.sizeBytes ?? null})
+            ${input.contentType ?? null}, ${input.sizeBytes ?? null}, ${peaks},
+            ${typeof input.durationSeconds === 'number' && input.durationSeconds > 0 ? input.durationSeconds : null})
     returning id
   `;
   const trackId = Number(row.id);
@@ -297,13 +313,14 @@ export async function trackComments(trackId: number): Promise<ClubTrackComment[]
       member_id: number | null;
       from_admin: boolean;
       member_name: string | null;
+      avatar_url: string | null;
       body: string;
       timestamp_seconds: number | null;
       created_at: string;
     }>
   >`
     select c.id, c.track_id, c.member_id, c.from_admin, m.name as member_name,
-           c.body, c.timestamp_seconds, c.created_at::text as created_at
+           m.avatar_url, c.body, c.timestamp_seconds, c.created_at::text as created_at
     from song_club_track_comments c
     left join users m on m.id = c.member_id
     where c.track_id = ${trackId}
@@ -315,6 +332,7 @@ export async function trackComments(trackId: number): Promise<ClubTrackComment[]
     memberId: r.member_id === null ? null : Number(r.member_id),
     fromAdmin: r.from_admin,
     authorName: r.from_admin ? 'the Birdhaus' : r.member_name ?? 'Former member',
+    avatarUrl: r.avatar_url,
     body: r.body,
     timestampSeconds: r.timestamp_seconds === null ? null : Number(r.timestamp_seconds),
     createdAt: r.created_at,
@@ -333,13 +351,14 @@ export async function playlistComments(
       member_id: number | null;
       from_admin: boolean;
       member_name: string | null;
+      avatar_url: string | null;
       body: string;
       timestamp_seconds: number | null;
       created_at: string;
     }>
   >`
     select c.id, c.track_id, c.member_id, c.from_admin, m.name as member_name,
-           c.body, c.timestamp_seconds, c.created_at::text as created_at
+           m.avatar_url, c.body, c.timestamp_seconds, c.created_at::text as created_at
     from song_club_track_comments c
     join song_club_playlist_tracks pt on pt.track_id = c.track_id
     left join users m on m.id = c.member_id
@@ -354,6 +373,7 @@ export async function playlistComments(
       memberId: r.member_id === null ? null : Number(r.member_id),
       fromAdmin: r.from_admin,
       authorName: r.from_admin ? 'the Birdhaus' : r.member_name ?? 'Former member',
+      avatarUrl: r.avatar_url,
       body: r.body,
       timestampSeconds: r.timestamp_seconds === null ? null : Number(r.timestamp_seconds),
       createdAt: r.created_at,

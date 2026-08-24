@@ -10,6 +10,7 @@ import ClubPins from '@/components/club/ClubPins';
 import ClubBoard from '@/components/club/ClubBoard';
 import NewPlaylistForm from '@/components/club/NewPlaylistForm';
 import SongClubLogo from '@/components/club/SongClubLogo';
+import ClubUserMenu from '@/components/club/ClubUserMenu';
 
 export const metadata: Metadata = {
   title: 'Song Club portal',
@@ -46,34 +47,19 @@ export default async function ClubPage() {
             <h1 className="mt-0.5 text-2xl font-semibold sm:text-3xl">Song Club portal</h1>
           </div>
         </div>
-        <div className="flex shrink-0 flex-col items-end gap-1 text-right">
-          <span className="text-sm text-[#E8E0D0]/70">
-            {member ? member.name : 'the Birdhaus (admin)'}
-          </span>
+        <div className="flex shrink-0 flex-col items-end gap-1">
           {member ? (
-            <div className="flex items-center gap-3">
+            <ClubUserMenu name={member.name} avatarUrl={member.avatar_url} />
+          ) : (
+            <>
+              <span className="text-sm text-[#E8E0D0]/70">the Birdhaus (admin)</span>
               <Link
-                href="/club/account"
+                href="/admin/song-club/members"
                 className="text-xs text-[#E8E0D0]/45 underline-offset-2 transition hover:text-[#E8E0D0] hover:underline"
               >
-                Account
+                Manage members
               </Link>
-              <form action="/api/club/logout" method="post">
-                <button
-                  type="submit"
-                  className="text-xs text-[#E8E0D0]/45 underline-offset-2 transition hover:text-[#E8E0D0] hover:underline"
-                >
-                  Log out
-                </button>
-              </form>
-            </div>
-          ) : (
-            <Link
-              href="/admin/song-club/members"
-              className="text-xs text-[#E8E0D0]/45 underline-offset-2 transition hover:text-[#E8E0D0] hover:underline"
-            >
-              Manage members
-            </Link>
+            </>
           )}
         </div>
       </header>
@@ -116,7 +102,7 @@ export default async function ClubPage() {
                       e.attendeeCount ? `${e.attendeeCount} came` : null,
                     ]
                       .filter(Boolean)
-                      .join(' · ') || 'Open the hub →'}
+                      .join(' · ') || 'Chat, upload your song, listen to others'}
                   </div>
                 </div>
               </Link>
