@@ -10,6 +10,7 @@ export interface PortalEvent {
   slug: string;
   title: string;
   eventDate: string;
+  endDate: string | null;
   flyerUrl: string | null;
   published: boolean;
   playlistId: number | null;
@@ -33,6 +34,7 @@ export async function listPortalEvents(includeDrafts: boolean): Promise<PortalEv
       slug: string;
       title: string;
       event_date: string;
+      end_date: string | null;
       flyer_url: string | null;
       published: boolean;
       playlist_id: number | null;
@@ -40,7 +42,8 @@ export async function listPortalEvents(includeDrafts: boolean): Promise<PortalEv
       attendee_count: number;
     }>
   >`
-    select e.id, e.slug, e.title, e.event_date::text as event_date, e.flyer_url,
+    select e.id, e.slug, e.title, e.event_date::text as event_date,
+           e.end_date::text as end_date, e.flyer_url,
            e.published, e.playlist_id,
            coalesce((select count(*)::int from song_club_playlist_tracks pt
              where pt.playlist_id = e.playlist_id), 0) as track_count,
@@ -55,6 +58,7 @@ export async function listPortalEvents(includeDrafts: boolean): Promise<PortalEv
     slug: r.slug,
     title: r.title,
     eventDate: r.event_date,
+    endDate: r.end_date,
     flyerUrl: r.flyer_url,
     published: r.published,
     playlistId: r.playlist_id === null ? null : Number(r.playlist_id),

@@ -10,7 +10,8 @@ export interface SongClubEvent {
   id: number;
   slug: string;
   title: string;
-  event_date: string; // "YYYY-MM-DD"
+  event_date: string; // "YYYY-MM-DD" — start date
+  end_date: string | null; // "YYYY-MM-DD" — optional end (multi-day events)
   start_time: string | null;
   end_time: string | null;
   venue_name: string | null;
@@ -30,7 +31,8 @@ export interface SongClubEvent {
 // supplied.
 export interface SongClubEventInput {
   title: string;
-  eventDate: string; // "YYYY-MM-DD"
+  eventDate: string; // "YYYY-MM-DD" — start
+  endDate: string | null; // "YYYY-MM-DD" — optional end
   startTime: string | null;
   endTime: string | null;
   venueName: string | null;
@@ -44,9 +46,10 @@ export interface SongClubEventInput {
 }
 
 const COLUMNS = sql`
-  id, slug, title, event_date::text as event_date, start_time, end_time,
-  venue_name, address, arrival_notes, description, flyer_url, published,
-  playlist_id, format, notified_at::text as notified_at, created_at, updated_at
+  id, slug, title, event_date::text as event_date, end_date::text as end_date,
+  start_time, end_time, venue_name, address, arrival_notes, description,
+  flyer_url, published, playlist_id, format,
+  notified_at::text as notified_at, created_at, updated_at
 `;
 
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -55,6 +58,7 @@ const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 export interface SongClubEventBody {
   title?: unknown;
   eventDate?: unknown;
+  endDate?: unknown;
   startTime?: unknown;
   endTime?: unknown;
   venueName?: unknown;
@@ -85,9 +89,19 @@ export function buildEventInput(
   const eventDate = typeof body.eventDate === 'string' ? body.eventDate.trim() : '';
   if (!ISO_DATE_RE.test(eventDate)) return { error: 'A valid event date is required' };
 
+  // Optional end date for multi-day events; must be a valid date on/after start.
+  const endRaw = typeof body.endDate === 'string' ? body.endDate.trim() : '';
+  let endDate: string | null = null;
+  if (endRaw) {
+    if (!ISO_DATE_RE.test(endRaw)) return { error: 'The end date is invalid' };
+    if (endRaw < eventDate) return { error: 'The end date must be on or after the start date' };
+    endDate = endRaw === eventDate ? null : endRaw; // same day => single-day event
+  }
+
   return {
     title,
     eventDate,
+    endDate,
     startTime: optionalTrim(body.startTime),
     endTime: optionalTrim(body.endTime),
     venueName: optionalTrim(body.venueName),
@@ -166,10 +180,10 @@ export async function createEvent(input: SongClubEventInput): Promise<SongClubEv
   const slug = await uniqueSlug(slugify(`${input.eventDate}-${input.title}`));
   const [row] = await sql<SongClubEvent[]>`
     insert into song_club_events
-      (slug, title, event_date, start_time, end_time, venue_name, address,
+      (slug, title, event_date, end_date, start_time, end_time, venue_name, address,
        arrival_notes, description, flyer_url, published, playlist_id, format)
     values
-      (${slug}, ${input.title}, ${input.eventDate}, ${input.startTime},
+      (${slug}, ${input.title}, ${input.eventDate}, ${input.endDate}, ${input.startTime},
        ${input.endTime}, ${input.venueName}, ${input.address},
        ${input.arrivalNotes}, ${input.description}, ${input.flyerUrl},
        ${input.published}, ${input.playlistId}, ${input.format})
@@ -188,6 +202,7 @@ export async function updateEvent(
       slug = ${slug},
       title = ${input.title},
       event_date = ${input.eventDate},
+      end_date = ${input.endDate},
       start_time = ${input.startTime},
       end_time = ${input.endTime},
       venue_name = ${input.venueName},

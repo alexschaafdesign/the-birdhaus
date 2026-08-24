@@ -32,6 +32,7 @@ export default async function EditSongClubEventPage({
           id: event.id,
           title: event.title,
           eventDate: event.event_date,
+          endDate: event.end_date ?? '',
           startTime: event.start_time ?? '',
           endTime: event.end_time ?? '',
           venueName: event.venue_name ?? '',

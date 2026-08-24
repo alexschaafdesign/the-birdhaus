@@ -15,7 +15,8 @@ const ALLOWED_FLYER_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'i
 export interface SongClubEventFormValues {
   id?: number;
   title: string;
-  eventDate: string; // yyyy-mm-dd
+  eventDate: string; // yyyy-mm-dd (start)
+  endDate: string; // yyyy-mm-dd, optional
   startTime: string;
   endTime: string;
   venueName: string;
@@ -55,6 +56,7 @@ export default function SongClubEventForm({
   const [v, setV] = useState<SongClubEventFormValues>({
     title: initial?.title ?? '',
     eventDate: initial?.eventDate ?? '',
+    endDate: initial?.endDate ?? '',
     startTime: initial?.startTime ?? '',
     endTime: initial?.endTime ?? '',
     venueName: initial?.venueName ?? '',
@@ -133,6 +135,7 @@ export default function SongClubEventForm({
       const payload = {
         title: v.title,
         eventDate: v.eventDate,
+        endDate: v.endDate,
         startTime: v.startTime,
         endTime: v.endTime,
         venueName: v.venueName,
@@ -208,10 +211,16 @@ export default function SongClubEventForm({
         </div>
       </Field>
 
-      <div className="grid gap-4 sm:grid-cols-3">
-        <Field label="Date">
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field label="Start date">
           <input type="date" className={inputClass} value={v.eventDate} onChange={set('eventDate')} required />
         </Field>
+        <Field label="End date" hint="Optional — for multi-day events like a 10-day Song-a-day">
+          <input type="date" className={inputClass} value={v.endDate} onChange={set('endDate')} min={v.eventDate || undefined} />
+        </Field>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Start time" hint='e.g. "7:00 PM"'>
           <input className={inputClass} value={v.startTime} onChange={set('startTime')} placeholder="7:00 PM" />
         </Field>

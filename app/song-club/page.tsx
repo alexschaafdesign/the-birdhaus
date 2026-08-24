@@ -98,7 +98,7 @@ export default async function SongClubPage() {
                         </span>
                       )}
                     </span>
-                    <span className="shrink-0 text-xs text-[#E8E0D0]/50">{formatShortDate(e.eventDate)}</span>
+                    <span className="shrink-0 text-xs text-[#E8E0D0]/50">{formatShortRange(e.eventDate, e.endDate)}</span>
                   </div>
                   <div className="mt-1 text-sm text-[#E8E0D0]/55">
                     {[
@@ -217,11 +217,25 @@ export default async function SongClubPage() {
   );
 }
 
-// "2026-08-15" -> "Aug 15, 2026"
+// "2026-08-15" -> "Aug 15, 2026"; with an end date -> "Sep 16 – 25" etc.
 function formatShortDate(isoDate: string): string {
   return new Date(isoDate + 'T00:00:00').toLocaleDateString('en-US', {
     month: 'short',
     day: 'numeric',
     year: 'numeric',
   });
+}
+
+function formatShortRange(start: string, end: string | null): string {
+  if (!end || end === start) return formatShortDate(start);
+  const s = new Date(start + 'T00:00:00');
+  const e = new Date(end + 'T00:00:00');
+  const mon = (d: Date) => d.toLocaleDateString('en-US', { month: 'short' });
+  if (s.getFullYear() === e.getFullYear() && s.getMonth() === e.getMonth()) {
+    return `${mon(s)} ${s.getDate()}–${e.getDate()}, ${e.getFullYear()}`;
+  }
+  if (s.getFullYear() === e.getFullYear()) {
+    return `${mon(s)} ${s.getDate()} – ${mon(e)} ${e.getDate()}, ${e.getFullYear()}`;
+  }
+  return `${mon(s)} ${s.getDate()}, ${s.getFullYear()} – ${mon(e)} ${e.getDate()}, ${e.getFullYear()}`;
 }

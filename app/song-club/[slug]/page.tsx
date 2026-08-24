@@ -28,6 +28,22 @@ function formatDate(isoDate: string): string {
   });
 }
 
+// "Sep 16 – 25, 2026" / "Sep 16 – Oct 2, 2026" for multi-day events; the full
+// weekday form for single-day.
+function formatDateRange(start: string, end: string | null): string {
+  if (!end || end === start) return formatDate(start);
+  const s = new Date(start + 'T00:00:00');
+  const e = new Date(end + 'T00:00:00');
+  const mon = (d: Date) => d.toLocaleDateString('en-US', { month: 'short' });
+  if (s.getFullYear() === e.getFullYear() && s.getMonth() === e.getMonth()) {
+    return `${mon(s)} ${s.getDate()} – ${e.getDate()}, ${e.getFullYear()}`;
+  }
+  if (s.getFullYear() === e.getFullYear()) {
+    return `${mon(s)} ${s.getDate()} – ${mon(e)} ${e.getDate()}, ${e.getFullYear()}`;
+  }
+  return `${mon(s)} ${s.getDate()}, ${s.getFullYear()} – ${mon(e)} ${e.getDate()}, ${e.getFullYear()}`;
+}
+
 export async function generateMetadata({
   params,
 }: {
@@ -67,7 +83,8 @@ export default async function SongClubEventPage({
   )}`;
 
   const online = event.format === 'online';
-  const isUpcoming = event.event_date >= getTodayCentral();
+  // A multi-day event counts as upcoming/ongoing until its END date passes.
+  const isUpcoming = (event.end_date ?? event.event_date) >= getTodayCentral();
   const timeLine =
     event.start_time && event.end_time
       ? `${event.start_time}–${event.end_time}`
@@ -93,7 +110,7 @@ export default async function SongClubEventPage({
 
       <header className="mt-2">
         <div className="text-xs font-medium uppercase tracking-wide text-[#E8E0D0]/50">
-          {formatDate(event.event_date)}
+          {formatDateRange(event.event_date, event.end_date)}
           {timeLine ? ` · ${timeLine}` : ''}
           {online ? ' · Online' : ''}
           {!event.published && ' · Draft'}

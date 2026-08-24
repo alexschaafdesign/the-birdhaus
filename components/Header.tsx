@@ -22,13 +22,13 @@ type NavItem = NavLink | NavDropdown;
 const navItems: NavItem[] = [
   { type: 'link', href: '/upcoming', label: 'Upcoming Shows' },
   { type: 'link', href: '/archive', label: 'Archive' },
+  { type: 'link', href: '/song-club', label: 'Song Club' },
   {
     type: 'dropdown',
     label: 'Projects',
     children: [
       { href: 'https://birdhausrecords.bandcamp.com', label: 'Birdhaus Records', external: true },
       { href: 'https://twinscene.org', label: 'Twin Scene', external: true },
-      { href: '/song-club', label: 'Song Club' },
       { href: '/fresh-cuts', label: 'Fresh Cuts' },
     ],
   },
