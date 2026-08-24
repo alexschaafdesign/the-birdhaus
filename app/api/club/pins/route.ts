@@ -58,6 +58,7 @@ export async function POST(request: Request) {
       url,
       contentType: file.type || null,
       sizeBytes: file.size,
+      featured: form?.get('featured') === 'true',
     });
     return NextResponse.json({ pins: await getPins() });
   }
@@ -70,6 +71,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'A title and a valid link are required' }, { status: 400 });
   }
 
-  await createPin({ author, kind, title, url });
+  await createPin({ author, kind, title, url, featured: body?.featured === true });
   return NextResponse.json({ pins: await getPins() });
 }

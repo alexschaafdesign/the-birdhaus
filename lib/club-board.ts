@@ -27,6 +27,7 @@ export interface ClubPin {
   url: string;
   contentType: string | null;
   sizeBytes: number | null;
+  featured: boolean;
   createdAt: string;
 }
 
@@ -98,15 +99,16 @@ export async function getPins(): Promise<ClubPin[]> {
       url: string;
       content_type: string | null;
       size_bytes: number | null;
+      featured: boolean;
       created_at: string;
     }>
   >`
     select p.id, p.member_id, p.from_admin, m.name as member_name, p.kind,
-           p.title, p.url, p.content_type, p.size_bytes,
+           p.title, p.url, p.content_type, p.size_bytes, p.featured,
            p.created_at::text as created_at
     from song_club_pins p
     left join song_club_members m on m.id = p.member_id
-    order by p.created_at desc, p.id desc
+    order by p.featured desc, p.created_at desc, p.id desc
   `;
   return rows.map((r) => ({
     id: Number(r.id),
@@ -118,6 +120,7 @@ export async function getPins(): Promise<ClubPin[]> {
     url: r.url,
     contentType: r.content_type,
     sizeBytes: r.size_bytes === null ? null : Number(r.size_bytes),
+    featured: r.featured,
     createdAt: r.created_at,
   }));
 }
@@ -129,16 +132,29 @@ export async function createPin(input: {
   url: string;
   contentType?: string | null;
   sizeBytes?: number | null;
+  featured?: boolean;
 }): Promise<boolean> {
   const title = input.title.trim().slice(0, 200);
   if (!title || !isValidHttpUrl(input.url)) return false;
+  // Only the admin curates the featured slot at the top of the portal.
+  const featured = input.author === 'admin' && input.featured === true;
   await sql`
-    insert into song_club_pins (member_id, from_admin, kind, title, url, content_type, size_bytes)
+    insert into song_club_pins
+      (member_id, from_admin, kind, title, url, content_type, size_bytes, featured)
     values (${input.author === 'admin' ? null : input.author}, ${input.author === 'admin'},
             ${input.kind}, ${title}, ${input.url},
-            ${input.contentType ?? null}, ${input.sizeBytes ?? null})
+            ${input.contentType ?? null}, ${input.sizeBytes ?? null}, ${featured})
   `;
   return true;
+}
+
+// Admin-only (the routes enforce it): promote a pin to the featured block at
+// the top of the portal, or demote it back into the regular pinned list.
+export async function setPinFeatured(id: number, featured: boolean): Promise<boolean> {
+  const result = await sql`
+    update song_club_pins set featured = ${featured} where id = ${id}
+  `;
+  return result.count > 0;
 }
 
 export async function deletePin(
