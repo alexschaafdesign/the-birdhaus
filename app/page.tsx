@@ -112,20 +112,34 @@ export default async function Home() {
             <ShowCard show={nextShow} />
           </div>
         )}
-        <div className="relative">
-          <div className="relative aspect-[4/3] sm:aspect-auto sm:h-full border-2 border-ink">
-            <Image
-              src="https://images.thebirdhaus.org/misc/2016-01-16%20by%20Jeremy%20Nelson%205.jpg"
-              alt="The Birdhaus venue"
-              fill
-              sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 600px"
-              priority
-              unoptimized
-              className="object-cover"
-            />
-          </div>
-          {/* Credit hangs below the image, outside the height calculation. */}
-          <p className="absolute -bottom-6 right-0 font-mono text-[11px] uppercase tracking-wider text-ink/50">Photo by Jeremy Nelson</p>
+        {/* Hero photo as a paused camcorder still: scanlines + mono OSD text.
+            The photo credit lives in the OSD, bottom-right. */}
+        <div className="relative aspect-[4/3] sm:aspect-auto sm:h-full border-2 border-ink overflow-hidden">
+          <Image
+            src="https://images.thebirdhaus.org/misc/2016-01-16%20by%20Jeremy%20Nelson%205.jpg"
+            alt="The Birdhaus venue"
+            fill
+            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 600px"
+            priority
+            unoptimized
+            className="object-cover"
+          />
+          <div className="vhs-scanlines absolute inset-0" aria-hidden="true" />
+          <span
+            aria-hidden="true"
+            className="absolute left-3 top-2.5 font-mono text-xs font-bold uppercase tracking-widest text-white [text-shadow:1px_0_rgba(224,52,44,0.9),-1px_0_rgba(33,64,199,0.9)]"
+          >
+            Play ▶
+          </span>
+          <span
+            aria-hidden="true"
+            className="absolute bottom-2.5 left-3 font-mono text-[11px] uppercase tracking-widest text-white/90 [text-shadow:0_1px_3px_rgba(0,0,0,0.8)]"
+          >
+            Jan 16 2016
+          </span>
+          <span className="absolute bottom-2.5 right-3 font-mono text-[11px] uppercase tracking-widest text-white/80 [text-shadow:0_1px_3px_rgba(0,0,0,0.8)]">
+            Photo: Jeremy Nelson
+          </span>
         </div>
       </div>
 
