@@ -50,13 +50,6 @@ export default async function Home() {
 
   return (
     <main className="min-h-screen">
-      {/* About */}
-      <div className="max-w-4xl mx-auto px-8 mb-8">
-        <p className="text-base md:text-lg text-ink/70 text-center">
-          the BIRDHAUS is a DIY house venue and record label located in Powderhorn, Minneapolis
-        </p>
-      </div>
-
       {/* Birdhaus Leaderboard */}
       {sortedBands.length > 0 && (
         <div className="max-w-4xl mx-auto px-8 mb-12">
@@ -112,6 +105,8 @@ export default async function Home() {
             unoptimized
             className="object-cover"
           />
+          {/* Darkening scrim so the card and about text read clearly. */}
+          <div className="absolute inset-0 bg-[#1A1712]/60" aria-hidden="true" />
         </div>
         <span className="absolute bottom-2.5 right-3 z-10 font-mono text-[11px] uppercase tracking-widest text-white/80 [text-shadow:0_1px_3px_rgba(0,0,0,0.8)]">
           Photo: Jeremy Nelson
@@ -125,6 +120,12 @@ export default async function Home() {
               <ShowCard show={nextShow} />
             </div>
           )}
+          {/* About */}
+          <div className="mt-8 flex items-center sm:mt-0 sm:pl-8 lg:pl-12">
+            <p className="text-base md:text-lg text-paper/90 [text-shadow:0_1px_3px_rgba(0,0,0,0.6)]">
+              the BIRDHAUS is a DIY house venue and record label located in Powderhorn, Minneapolis
+            </p>
+          </div>
         </div>
       </section>
 
