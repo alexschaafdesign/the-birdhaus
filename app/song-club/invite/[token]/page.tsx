@@ -14,10 +14,14 @@ export const dynamic = 'force-dynamic';
 // resets (same single-use token machinery).
 export default async function ClubInvitePage({
   params,
+  searchParams,
 }: {
   params: Promise<{ token: string }>;
+  searchParams: Promise<{ next?: string }>;
 }) {
   const { token } = await params;
+  const rawNext = (await searchParams).next;
+  const next = rawNext && rawNext.startsWith('/song-club/') ? rawNext : undefined;
   const member = await getMemberBySetupToken(token);
 
   if (!member) {
@@ -51,7 +55,7 @@ export default async function ClubInvitePage({
           : `Pick a password for ${member.email} to join the Song Club portal.`}
       </p>
       <div className="mt-6">
-        <ClubSetPasswordForm token={token} />
+        <ClubSetPasswordForm token={token} next={next} />
       </div>
     </main>
   );

@@ -11,8 +11,9 @@ const labelClass = 'mb-1 block text-xs font-medium uppercase tracking-wide text-
 
 // Sets the password for an invite/reset token and drops the member straight
 // into the portal (the API logs them in on success).
-export default function ClubSetPasswordForm({ token }: { token: string }) {
+export default function ClubSetPasswordForm({ token, next }: { token: string; next?: string }) {
   const router = useRouter();
+  const dest = next && next.startsWith('/song-club/') ? next : '/song-club';
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [busy, setBusy] = useState(false);
@@ -38,7 +39,7 @@ export default function ClubSetPasswordForm({ token }: { token: string }) {
       });
       const data = await res.json().catch(() => null);
       if (!res.ok) throw new Error(data?.error ?? `Something went wrong (${res.status})`);
-      router.push('/song-club');
+      router.push(dest);
       router.refresh();
       return;
     } catch (err) {

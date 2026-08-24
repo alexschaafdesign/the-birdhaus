@@ -23,6 +23,10 @@ export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
   const email = typeof body?.email === 'string' ? normalizeEmail(body.email) : '';
   const name = typeof body?.name === 'string' ? body.name.trim() : '';
+  // Where to send the member after they set their password. Only same-site
+  // Song Club paths are allowed (no open redirects).
+  const next =
+    typeof body?.next === 'string' && body.next.startsWith('/song-club/') ? body.next : undefined;
   if (!email || !name) {
     return NextResponse.json({ error: 'Name and email are required' }, { status: 400 });
   }
@@ -38,7 +42,7 @@ export async function POST(request: Request) {
       // Brand-new account (song_club role by default).
       const result = await inviteMember({ email, name, roles: ['song_club'] });
       if (!('error' in result)) {
-        await sendClubSignupEmail({ name: result.member.name, email, token: result.token });
+        await sendClubSignupEmail({ name: result.member.name, email, token: result.token, next });
       }
     } else if (existing.status === 'active') {
       // Already has an account — send a reset/login link instead of a new one.
@@ -51,7 +55,7 @@ export async function POST(request: Request) {
       // any roles an admin already assigned are preserved).
       const refreshed = await refreshSetupToken(existing.id, 'invite');
       if (refreshed) {
-        await sendClubSignupEmail({ name: refreshed.member.name, email, token: refreshed.token });
+        await sendClubSignupEmail({ name: refreshed.member.name, email, token: refreshed.token, next });
       }
     }
     // disabled: send nothing.

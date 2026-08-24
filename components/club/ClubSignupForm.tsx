@@ -7,7 +7,7 @@ const inputBase =
 const labelClass = 'mb-1 block text-xs font-medium uppercase tracking-wide text-[#E8E0D0]/55';
 
 // Open self-signup: name + email -> we email a set-password link.
-export default function ClubSignupForm() {
+export default function ClubSignupForm({ next }: { next?: string }) {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [busy, setBusy] = useState(false);
@@ -22,7 +22,7 @@ export default function ClubSignupForm() {
       const res = await fetch('/api/club/signup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email }),
+        body: JSON.stringify({ name, email, next }),
       });
       const data = await res.json().catch(() => null);
       if (!res.ok) throw new Error(data?.error ?? `Something went wrong (${res.status})`);

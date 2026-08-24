@@ -14,6 +14,7 @@ import EventAttendees from '@/components/club/EventAttendees';
 import ClubBoard from '@/components/club/ClubBoard';
 import ParticipateButton from '@/components/club/ParticipateButton';
 import CreateRoundForEvent from '@/components/club/CreateRoundForEvent';
+import AutoJoin from '@/components/club/AutoJoin';
 
 export const dynamic = 'force-dynamic';
 
@@ -45,14 +46,24 @@ export async function generateMetadata({
 // (played inline) + who came + the event chat. Guests glimpse it read-only.
 export default async function SongClubEventPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ slug: string }>;
+  searchParams: Promise<{ join?: string }>;
 }) {
   const event = await getEventBySlug((await params).slug);
   const member = await getClubPortalMember();
   const admin = member ? false : await isAdminSession();
   // Drafts are admin-only; everything else is publicly glimpsable.
   if (!event || (!event.published && !admin)) notFound();
+
+  // Post-auth auto-join: a member who arrived from "sign up to join" (?join=1)
+  // and isn't yet enrolled gets signed up automatically (client-side).
+  const wantsJoin = (await searchParams).join === '1';
+  // Guests: sign up / log in, come back here, and auto-join.
+  const signUpToJoinHref = `/song-club/login?next=${encodeURIComponent(
+    `/song-club/${event.slug}?join=1`
+  )}`;
 
   const online = event.format === 'online';
   const isUpcoming = event.event_date >= getTodayCentral();
@@ -140,57 +151,57 @@ export default async function SongClubEventPage({
       )}
 
       {/* Join actions (only when not already in) */}
-      {!unlocked && (
-        <>
-          {online ? (
-            <section className="mt-8 rounded-lg border border-[#c8a26a]/30 bg-[#c8a26a]/[0.06] p-5">
-              <h2 className="text-lg font-medium">Join this Song-a-day</h2>
+      {!unlocked &&
+        (member && wantsJoin ? (
+          // Returned from login/signup with intent to join — enroll automatically.
+          <AutoJoin eventId={Number(event.id)} slug={event.slug} />
+        ) : online ? (
+          <section className="mt-8 rounded-lg border border-[#c8a26a]/30 bg-[#c8a26a]/[0.06] p-5">
+            <h2 className="text-lg font-medium">Join this Song-a-day</h2>
+            <p className="mb-4 mt-1 text-sm text-[#E8E0D0]/60">
+              Sign up to share your tracks and hear everyone else&apos;s.
+            </p>
+            {member ? (
+              <ParticipateButton eventId={event.id} label="Sign me up" />
+            ) : (
+              <Link
+                href={signUpToJoinHref}
+                className="inline-block rounded-md bg-[#E8E0D0] px-5 py-2.5 text-sm font-semibold text-[#2A2420] transition hover:bg-white"
+              >
+                Sign up to join
+              </Link>
+            )}
+          </section>
+        ) : (
+          <>
+            {isUpcoming && event.published && (
+              <section className="mt-8 rounded-lg border border-[#E8E0D0]/15 bg-[#E8E0D0]/[0.03] p-5">
+                <h2 className="text-lg font-medium">RSVP for this meetup</h2>
+                <p className="mb-4 mt-1 text-sm text-[#E8E0D0]/60">
+                  RSVP to get the address and full details emailed to you.
+                </p>
+                <SongClubRSVPForm eventId={event.id} />
+              </section>
+            )}
+            <section className="mt-6 rounded-lg border border-[#c8a26a]/30 bg-[#c8a26a]/[0.06] p-5">
+              <h2 className="text-lg font-medium">Were you part of this?</h2>
               <p className="mb-4 mt-1 text-sm text-[#E8E0D0]/60">
-                Sign up to share your tracks and hear everyone else&apos;s.
+                Unlock the round and the conversation to listen, share your track,
+                and comment with everyone who took part.
               </p>
               {member ? (
-                <ParticipateButton eventId={event.id} label="Sign me up" />
+                <ParticipateButton eventId={event.id} />
               ) : (
                 <Link
-                  href="/song-club/login"
+                  href={signUpToJoinHref}
                   className="inline-block rounded-md bg-[#E8E0D0] px-5 py-2.5 text-sm font-semibold text-[#2A2420] transition hover:bg-white"
                 >
-                  Log in to sign up
+                  Log in to join
                 </Link>
               )}
             </section>
-          ) : (
-            <>
-              {isUpcoming && event.published && (
-                <section className="mt-8 rounded-lg border border-[#E8E0D0]/15 bg-[#E8E0D0]/[0.03] p-5">
-                  <h2 className="text-lg font-medium">RSVP for this meetup</h2>
-                  <p className="mb-4 mt-1 text-sm text-[#E8E0D0]/60">
-                    RSVP to get the address and full details emailed to you.
-                  </p>
-                  <SongClubRSVPForm eventId={event.id} />
-                </section>
-              )}
-              <section className="mt-6 rounded-lg border border-[#c8a26a]/30 bg-[#c8a26a]/[0.06] p-5">
-                <h2 className="text-lg font-medium">Were you part of this?</h2>
-                <p className="mb-4 mt-1 text-sm text-[#E8E0D0]/60">
-                  Unlock the round and the conversation to listen, share your track,
-                  and comment with everyone who took part.
-                </p>
-                {member ? (
-                  <ParticipateButton eventId={event.id} />
-                ) : (
-                  <Link
-                    href="/song-club/login"
-                    className="inline-block rounded-md bg-[#E8E0D0] px-5 py-2.5 text-sm font-semibold text-[#2A2420] transition hover:bg-white"
-                  >
-                    Log in to join
-                  </Link>
-                )}
-              </section>
-            </>
-          )}
-        </>
-      )}
+          </>
+        ))}
 
       {unlocked && (
         <>

@@ -13,8 +13,15 @@ export const metadata: Metadata = {
 
 export const dynamic = 'force-dynamic';
 
-export default async function ClubSignupPage() {
+export default async function ClubSignupPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ next?: string }>;
+}) {
   if ((await isAdminSession()) || (await getClubPortalMember())) redirect('/song-club');
+  const rawNext = (await searchParams).next;
+  const next = rawNext && rawNext.startsWith('/song-club/') ? rawNext : undefined;
+  const loginHref = next ? `/song-club/login?next=${encodeURIComponent(next)}` : '/song-club/login';
 
   return (
     <main className="mx-auto w-full max-w-sm px-5 py-10 text-[#E8E0D0] sm:py-14">
@@ -26,11 +33,11 @@ export default async function ClubSignupPage() {
         Sign up to see the club, then unlock the events you took part in.
       </p>
       <div className="mt-6">
-        <ClubSignupForm />
+        <ClubSignupForm next={next} />
       </div>
       <p className="mt-4 text-sm text-[#E8E0D0]/50">
         Already a member?{' '}
-        <Link href="/song-club/login" className="underline underline-offset-2 hover:text-[#E8E0D0]">
+        <Link href={loginHref} className="underline underline-offset-2 hover:text-[#E8E0D0]">
           Log in
         </Link>
       </p>

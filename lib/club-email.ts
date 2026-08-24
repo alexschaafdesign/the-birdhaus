@@ -18,8 +18,11 @@ function esc(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
-export function setupLinkFor(token: string): string {
-  return `${SITE_URL}/song-club/invite/${token}`;
+export function setupLinkFor(token: string, next?: string): string {
+  const base = `${SITE_URL}/song-club/invite/${token}`;
+  // `next` is a safe relative path (validated by the caller) to send the member
+  // to after they set their password — e.g. back to an event to auto-join.
+  return next ? `${base}?next=${encodeURIComponent(next)}` : base;
 }
 
 export async function sendClubInviteEmail({
@@ -230,17 +233,19 @@ export async function sendClubSignupEmail({
   name,
   email,
   token,
+  next,
 }: {
   name: string;
   email: string;
   token: string;
+  next?: string;
 }): Promise<void> {
   const from = process.env.RESEND_FROM_EMAIL;
   if (!from) throw new Error('RESEND_FROM_EMAIL is not set');
 
   const firstName = splitName(name).firstName;
   const greeting = firstName ? `hi ${firstName}!` : 'hi there!';
-  const link = setupLinkFor(token);
+  const link = setupLinkFor(token, next);
 
   const text = [
     greeting,

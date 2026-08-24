@@ -9,8 +9,9 @@ const labelClass = 'mb-1 block text-xs font-medium uppercase tracking-wide text-
 
 // Member login for the Song Club portal, with an inline "forgot password"
 // mode that swaps the password field for a send-reset-email action.
-export default function ClubLoginForm() {
+export default function ClubLoginForm({ next }: { next?: string }) {
   const router = useRouter();
+  const dest = next && next.startsWith('/song-club/') ? next : '/song-club';
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [mode, setMode] = useState<'login' | 'forgot'>('login');
@@ -41,7 +42,7 @@ export default function ClubLoginForm() {
         });
         const data = await res.json().catch(() => null);
         if (!res.ok) throw new Error(data?.error ?? `Something went wrong (${res.status})`);
-        router.push('/song-club');
+        router.push(dest);
         router.refresh();
         return; // keep the button disabled through the redirect
       }
