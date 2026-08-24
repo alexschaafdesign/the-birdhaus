@@ -108,6 +108,14 @@ export default function ClubBoard({
         </ul>
       )}
 
+      {!(isAdmin || viewerMemberId !== null) ? (
+        <a
+          href="/song-club/login"
+          className="inline-block rounded border border-[#E8E0D0]/30 px-4 py-2 text-sm text-[#E8E0D0]/80 transition hover:border-[#E8E0D0]/60 hover:text-[#E8E0D0]"
+        >
+          Log in to post
+        </a>
+      ) : (
       <div className="space-y-2">
         <textarea
           value={draft}
@@ -148,6 +156,7 @@ export default function ClubBoard({
           )}
         </div>
       </div>
+      )}
     </div>
   );
 }

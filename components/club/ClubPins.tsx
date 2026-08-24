@@ -155,13 +155,22 @@ export default function ClubPins({
         <h2 className="text-xs font-semibold uppercase tracking-wide text-[#E8E0D0]/45">
           Pinned
         </h2>
-        <button
-          type="button"
-          onClick={() => setAdding((v) => !v)}
-          className="text-xs text-[#E8E0D0]/55 underline-offset-2 transition hover:text-[#E8E0D0] hover:underline"
-        >
-          {adding ? 'Close' : '+ Pin something'}
-        </button>
+        {isAdmin || viewerMemberId !== null ? (
+          <button
+            type="button"
+            onClick={() => setAdding((v) => !v)}
+            className="text-xs text-[#E8E0D0]/55 underline-offset-2 transition hover:text-[#E8E0D0] hover:underline"
+          >
+            {adding ? 'Close' : '+ Pin something'}
+          </button>
+        ) : (
+          <a
+            href="/song-club/login"
+            className="text-xs text-[#E8E0D0]/45 underline-offset-2 transition hover:text-[#E8E0D0] hover:underline"
+          >
+            Log in to pin
+          </a>
+        )}
       </div>
 
       {adding && (

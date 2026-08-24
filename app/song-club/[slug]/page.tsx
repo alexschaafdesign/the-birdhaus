@@ -1,13 +1,22 @@
-import Link from 'next/link';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
+import Link from 'next/link';
 import { getEventBySlug, getTodayCentral } from '@/lib/song-club';
-import { getPlaylist } from '@/lib/club-music';
+import { getClubPortalMember } from '@/lib/club-members';
+import { isAdminSession } from '@/lib/admin-session';
+import { getPlaylist, playlistComments, playlistTracks } from '@/lib/club-music';
+import { getPosts } from '@/lib/club-board';
+import { getAddableMembers, getEventAttendees, isEventAttendee } from '@/lib/club-events';
 import SongClubRSVPForm from '@/components/SongClubRSVPForm';
+import ClubTopBar from '@/components/club/ClubTopBar';
+import PlaylistTracks from '@/components/club/PlaylistTracks';
+import EventAttendees from '@/components/club/EventAttendees';
+import ClubBoard from '@/components/club/ClubBoard';
+import ParticipateButton from '@/components/club/ParticipateButton';
+import CreateRoundForEvent from '@/components/club/CreateRoundForEvent';
 
 export const dynamic = 'force-dynamic';
 
-// "2026-08-15" -> "Saturday, August 15, 2026"
 function formatDate(isoDate: string): string {
   return new Date(isoDate + 'T00:00:00').toLocaleDateString('en-US', {
     weekday: 'long',
@@ -26,51 +35,101 @@ export async function generateMetadata({
   if (!event || !event.published) return { title: 'Song Club' };
   return {
     title: `${event.title} — Song Club`,
-    description: event.description?.slice(0, 200) ?? 'A Birdhaus songwriter meetup. RSVP to join.',
+    description: event.description?.slice(0, 200) ?? 'A Birdhaus Song Club event.',
     openGraph: event.flyer_url ? { images: [event.flyer_url] } : undefined,
   };
 }
 
+// One page per Song Club event: details + the right join action (RSVP for
+// in-person, "Sign me up" for online), and — once you're in — the round
+// (played inline) + who came + the event chat. Guests glimpse it read-only.
 export default async function SongClubEventPage({
   params,
 }: {
   params: Promise<{ slug: string }>;
 }) {
   const event = await getEventBySlug((await params).slug);
-  // Drafts 404 to the public — same as any unpublished content.
-  if (!event || !event.published) notFound();
+  const member = await getClubPortalMember();
+  const admin = member ? false : await isAdminSession();
+  // Drafts are admin-only; everything else is publicly glimpsable.
+  if (!event || (!event.published && !admin)) notFound();
 
+  const online = event.format === 'online';
+  const isUpcoming = event.event_date >= getTodayCentral();
   const timeLine =
     event.start_time && event.end_time
       ? `${event.start_time}–${event.end_time}`
       : event.start_time || event.end_time || null;
-  const isUpcoming = event.event_date >= getTodayCentral();
-  const round = event.playlist_id ? await getPlaylist(event.playlist_id) : null;
+
+  const unlocked = admin || (member ? await isEventAttendee(event.id, member.id) : false);
+
+  const [round, attendees, addable, posts] = unlocked
+    ? await Promise.all([
+        event.playlist_id ? getPlaylist(event.playlist_id) : Promise.resolve(null),
+        getEventAttendees(event.id),
+        admin ? getAddableMembers(event.id) : Promise.resolve([]),
+        getPosts(event.id),
+      ])
+    : [null, [], [], []];
+  const [roundTracks, roundComments] = round
+    ? await Promise.all([playlistTracks(round.id), playlistComments(round.id)])
+    : [[], {}];
 
   return (
-    <main className="mx-auto w-full max-w-2xl px-5 py-6 text-[#E8E0D0] sm:px-8 sm:py-8">
-      <Link href="/song-club" className="text-sm text-[#E8E0D0]/50 transition hover:text-[#E8E0D0]">
-        ← Song Club
-      </Link>
+    <main className="mx-auto w-full max-w-3xl px-5 py-6 text-[#E8E0D0] sm:px-8 sm:py-8">
+      <ClubTopBar />
 
-      <header className="mt-4">
+      <header className="mt-2">
         <div className="text-xs font-medium uppercase tracking-wide text-[#E8E0D0]/50">
           {formatDate(event.event_date)}
           {timeLine ? ` · ${timeLine}` : ''}
+          {online ? ' · Online' : ''}
+          {!event.published && ' · Draft'}
         </div>
         <h1 className="mt-1 text-2xl font-semibold sm:text-3xl">{event.title}</h1>
       </header>
+
+      {/* The round leads once you're in — plays inline, above the flyer. */}
+      {unlocked && round && (
+        <section className="mt-6">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <div className="text-xs font-medium uppercase tracking-wide text-[#c8a26a]/80">
+                The round
+              </div>
+              <div className="truncate font-medium text-[#E8E0D0]">{round.title}</div>
+            </div>
+            <Link
+              href={`/song-club/upload?playlist=${round.id}`}
+              className="shrink-0 rounded-md bg-[#E8E0D0] px-3.5 py-1.5 text-sm font-semibold text-[#2A2420] transition hover:bg-white"
+            >
+              + Upload your track
+            </Link>
+          </div>
+          <PlaylistTracks
+            playlistId={round.id}
+            initialTracks={roundTracks}
+            commentsByTrack={roundComments}
+            viewerMemberId={member?.id ?? null}
+            isAdmin={admin}
+          />
+        </section>
+      )}
+
+      {unlocked && !round && admin && (
+        <CreateRoundForEvent eventId={event.id} defaultTitle={event.title} />
+      )}
 
       {event.flyer_url && (
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src={event.flyer_url}
           alt={event.title}
-          className="mt-5 w-full max-w-md rounded-lg border border-[#E8E0D0]/15"
+          className="mt-6 w-full max-w-md rounded-lg border border-[#E8E0D0]/15"
         />
       )}
 
-      {event.venue_name && (
+      {!online && event.venue_name && (
         <p className="mt-5 text-[15px] text-[#E8E0D0]/80">{event.venue_name}</p>
       )}
 
@@ -80,43 +139,85 @@ export default async function SongClubEventPage({
         </div>
       )}
 
-      {round && (
-        <Link
-          href={`/club/music/${round.id}`}
-          className="mt-6 flex items-center gap-4 rounded-lg border border-[#c8a26a]/30 bg-[#c8a26a]/[0.06] p-4 transition hover:border-[#c8a26a]/60 hover:bg-[#c8a26a]/[0.1]"
-        >
-          {round.imageUrl && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={round.imageUrl}
-              alt=""
-              className="h-14 w-14 shrink-0 rounded object-cover"
-            />
+      {/* Join actions (only when not already in) */}
+      {!unlocked && (
+        <>
+          {online ? (
+            <section className="mt-8 rounded-lg border border-[#c8a26a]/30 bg-[#c8a26a]/[0.06] p-5">
+              <h2 className="text-lg font-medium">Join this Song-a-day</h2>
+              <p className="mb-4 mt-1 text-sm text-[#E8E0D0]/60">
+                Sign up to share your tracks and hear everyone else&apos;s.
+              </p>
+              {member ? (
+                <ParticipateButton eventId={event.id} label="Sign me up" />
+              ) : (
+                <Link
+                  href="/song-club/login"
+                  className="inline-block rounded-md bg-[#E8E0D0] px-5 py-2.5 text-sm font-semibold text-[#2A2420] transition hover:bg-white"
+                >
+                  Log in to sign up
+                </Link>
+              )}
+            </section>
+          ) : (
+            <>
+              {isUpcoming && event.published && (
+                <section className="mt-8 rounded-lg border border-[#E8E0D0]/15 bg-[#E8E0D0]/[0.03] p-5">
+                  <h2 className="text-lg font-medium">RSVP for this meetup</h2>
+                  <p className="mb-4 mt-1 text-sm text-[#E8E0D0]/60">
+                    RSVP to get the address and full details emailed to you.
+                  </p>
+                  <SongClubRSVPForm eventId={event.id} />
+                </section>
+              )}
+              <section className="mt-6 rounded-lg border border-[#c8a26a]/30 bg-[#c8a26a]/[0.06] p-5">
+                <h2 className="text-lg font-medium">Were you part of this?</h2>
+                <p className="mb-4 mt-1 text-sm text-[#E8E0D0]/60">
+                  Unlock the round and the conversation to listen, share your track,
+                  and comment with everyone who took part.
+                </p>
+                {member ? (
+                  <ParticipateButton eventId={event.id} />
+                ) : (
+                  <Link
+                    href="/song-club/login"
+                    className="inline-block rounded-md bg-[#E8E0D0] px-5 py-2.5 text-sm font-semibold text-[#2A2420] transition hover:bg-white"
+                  >
+                    Log in to join
+                  </Link>
+                )}
+              </section>
+            </>
           )}
-          <div className="min-w-0">
-            <div className="text-xs font-medium uppercase tracking-wide text-[#c8a26a]/80">
-              Song Club round
-            </div>
-            <div className="truncate font-medium text-[#E8E0D0]">{round.title}</div>
-            <div className="text-sm text-[#E8E0D0]/55">
-              Listen &amp; share your track in the members&rsquo; portal →
-            </div>
-          </div>
-        </Link>
+        </>
       )}
 
-      {isUpcoming ? (
-        <section className="mt-8 rounded-lg border border-[#E8E0D0]/15 bg-[#E8E0D0]/[0.03] p-5">
-          <h2 className="text-lg font-medium">RSVP for this meetup</h2>
-          <p className="mb-4 mt-1 text-sm text-[#E8E0D0]/60">
-            RSVP below to get the address and full details emailed to you.
-          </p>
-          <SongClubRSVPForm eventId={event.id} />
-        </section>
-      ) : (
-        <p className="mt-8 rounded-lg border border-[#E8E0D0]/15 bg-[#E8E0D0]/[0.03] p-4 text-sm text-[#E8E0D0]/50">
-          This meetup has already happened.
-        </p>
+      {unlocked && (
+        <>
+          <section className="mt-8">
+            <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-[#E8E0D0]/45">
+              Who came
+            </h2>
+            <EventAttendees
+              eventId={event.id}
+              initialAttendees={attendees}
+              addableMembers={addable}
+              isAdmin={admin}
+            />
+          </section>
+
+          <section className="mt-8">
+            <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-[#E8E0D0]/45">
+              Event chat
+            </h2>
+            <ClubBoard
+              initialPosts={posts}
+              viewerMemberId={member?.id ?? null}
+              isAdmin={admin}
+              eventId={event.id}
+            />
+          </section>
+        </>
       )}
     </main>
   );

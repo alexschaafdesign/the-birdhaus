@@ -38,7 +38,7 @@ export default function ClubSetPasswordForm({ token }: { token: string }) {
       });
       const data = await res.json().catch(() => null);
       if (!res.ok) throw new Error(data?.error ?? `Something went wrong (${res.status})`);
-      router.push('/club');
+      router.push('/song-club');
       router.refresh();
       return;
     } catch (err) {

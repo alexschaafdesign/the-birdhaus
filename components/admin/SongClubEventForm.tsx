@@ -25,6 +25,7 @@ export interface SongClubEventFormValues {
   flyerUrl: string;
   published: boolean;
   playlistId: number | null;
+  format: 'in_person' | 'online';
 }
 
 const inputClass =
@@ -63,6 +64,7 @@ export default function SongClubEventForm({
     flyerUrl: initial?.flyerUrl ?? '',
     published: initial?.published ?? false,
     playlistId: initial?.playlistId ?? null,
+    format: initial?.format ?? 'in_person',
   });
   const [status, setStatus] = useState<'idle' | 'saving' | 'error'>('idle');
   const [error, setError] = useState('');
@@ -140,6 +142,7 @@ export default function SongClubEventForm({
         flyerUrl,
         published: v.published,
         playlistId: v.playlistId,
+        format: v.format,
       };
 
       const res =
@@ -176,6 +179,35 @@ export default function SongClubEventForm({
         <input className={inputClass} value={v.title} onChange={set('title')} required />
       </Field>
 
+      <Field
+        label="Format"
+        hint={
+          v.format === 'online'
+            ? 'Online / Song-a-day: no RSVP — members "Sign me up" to join in the portal.'
+            : 'In-person: public RSVP form + "I participated" to unlock the round.'
+        }
+      >
+        <div className="inline-flex rounded-lg border border-[#E8E0D0]/20 p-1">
+          {([
+            ['in_person', 'In-person'],
+            ['online', 'Online / Song-a-day'],
+          ] as const).map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => setV((prev) => ({ ...prev, format: value }))}
+              className={`rounded-md px-4 py-1.5 text-sm font-medium transition ${
+                v.format === value
+                  ? 'bg-[#E8E0D0] text-[#2A2420]'
+                  : 'text-[#E8E0D0]/60 hover:text-[#E8E0D0]'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </Field>
+
       <div className="grid gap-4 sm:grid-cols-3">
         <Field label="Date">
           <input type="date" className={inputClass} value={v.eventDate} onChange={set('eventDate')} required />
@@ -188,15 +220,19 @@ export default function SongClubEventForm({
         </Field>
       </div>
 
-      <Field label="Venue name">
-        <input className={inputClass} value={v.venueName} onChange={set('venueName')} />
-      </Field>
-      <Field label="Address" hint="Emailed to attendees who RSVP">
-        <input className={inputClass} value={v.address} onChange={set('address')} placeholder="123 Main St, Minneapolis MN 55407" />
-      </Field>
-      <Field label="Arrival notes" hint="Parking, how to find the door, etc. — included in the email">
-        <textarea className={`${inputClass} min-h-16`} value={v.arrivalNotes} onChange={set('arrivalNotes')} />
-      </Field>
+      {v.format === 'in_person' && (
+        <>
+          <Field label="Venue name">
+            <input className={inputClass} value={v.venueName} onChange={set('venueName')} />
+          </Field>
+          <Field label="Address" hint="Emailed to attendees who RSVP">
+            <input className={inputClass} value={v.address} onChange={set('address')} placeholder="123 Main St, Minneapolis MN 55407" />
+          </Field>
+          <Field label="Arrival notes" hint="Parking, how to find the door, etc. — included in the email">
+            <textarea className={`${inputClass} min-h-16`} value={v.arrivalNotes} onChange={set('arrivalNotes')} />
+          </Field>
+        </>
+      )}
       <Field label="Description / theme" hint="Shown on the event page and included in the confirmation email">
         <textarea className={`${inputClass} min-h-24`} value={v.description} onChange={set('description')} />
       </Field>

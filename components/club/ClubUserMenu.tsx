@@ -60,7 +60,7 @@ export default function ClubUserMenu({
           className="absolute right-0 z-20 mt-2 w-44 overflow-hidden rounded-lg border border-[#E8E0D0]/15 bg-[#2A2420] shadow-xl"
         >
           <Link
-            href="/club/account"
+            href="/song-club/account"
             role="menuitem"
             onClick={() => setOpen(false)}
             className="block px-4 py-2.5 text-sm text-[#E8E0D0]/85 transition hover:bg-[#E8E0D0]/[0.06]"

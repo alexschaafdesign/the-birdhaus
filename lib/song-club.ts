@@ -20,6 +20,7 @@ export interface SongClubEvent {
   flyer_url: string | null;
   published: boolean;
   playlist_id: number | null;
+  format: 'in_person' | 'online';
   notified_at: string | null;
   created_at: string;
   updated_at: string;
@@ -39,12 +40,13 @@ export interface SongClubEventInput {
   flyerUrl: string | null;
   published: boolean;
   playlistId: number | null;
+  format: 'in_person' | 'online';
 }
 
 const COLUMNS = sql`
   id, slug, title, event_date::text as event_date, start_time, end_time,
   venue_name, address, arrival_notes, description, flyer_url, published,
-  playlist_id, notified_at::text as notified_at, created_at, updated_at
+  playlist_id, format, notified_at::text as notified_at, created_at, updated_at
 `;
 
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -62,6 +64,7 @@ export interface SongClubEventBody {
   flyerUrl?: unknown;
   published?: unknown;
   playlistId?: unknown;
+  format?: unknown;
 }
 
 function optionalTrim(value: unknown): string | null {
@@ -97,6 +100,7 @@ export function buildEventInput(
       typeof body.playlistId === 'number' && Number.isInteger(body.playlistId)
         ? body.playlistId
         : null,
+    format: body.format === 'online' ? 'online' : 'in_person',
   };
 }
 
@@ -163,12 +167,12 @@ export async function createEvent(input: SongClubEventInput): Promise<SongClubEv
   const [row] = await sql<SongClubEvent[]>`
     insert into song_club_events
       (slug, title, event_date, start_time, end_time, venue_name, address,
-       arrival_notes, description, flyer_url, published, playlist_id)
+       arrival_notes, description, flyer_url, published, playlist_id, format)
     values
       (${slug}, ${input.title}, ${input.eventDate}, ${input.startTime},
        ${input.endTime}, ${input.venueName}, ${input.address},
        ${input.arrivalNotes}, ${input.description}, ${input.flyerUrl},
-       ${input.published}, ${input.playlistId})
+       ${input.published}, ${input.playlistId}, ${input.format})
     returning ${COLUMNS}
   `;
   return row;
@@ -193,6 +197,7 @@ export async function updateEvent(
       flyer_url = ${input.flyerUrl},
       published = ${input.published},
       playlist_id = ${input.playlistId},
+      format = ${input.format},
       updated_at = now()
     where id = ${id}
     returning ${COLUMNS}

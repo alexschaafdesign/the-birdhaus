@@ -8,6 +8,7 @@ import { isEventAttendee } from '@/lib/club-events';
 import PlaylistTracks from '@/components/club/PlaylistTracks';
 import DeletePlaylistButton from '@/components/club/DeletePlaylistButton';
 import RoundCover from '@/components/club/RoundCover';
+import ClubTopBar from '@/components/club/ClubTopBar';
 
 export const metadata: Metadata = {
   title: 'Song Club — round',
@@ -24,7 +25,8 @@ export default async function ClubPlaylistPage({
 }) {
   const member = await getClubPortalMember();
   const admin = member ? false : await isAdminSession();
-  if (!member && !admin) redirect('/club/login');
+  // Guests may glimpse a standalone round read-only; event-linked rounds stay
+  // behind their event's participation gate (below).
 
   const id = Number((await params).id);
   if (!Number.isInteger(id)) notFound();
@@ -32,11 +34,15 @@ export default async function ClubPlaylistPage({
   if (!playlist) notFound();
 
   const roundEvent = await getRoundEvent(id);
-  // A round tied to an event inherits that event's participation gate: a member
-  // who hasn't marked participation is sent to the event to unlock it. The
-  // admin and standalone rounds are always open.
-  if (roundEvent && member && !(await isEventAttendee(roundEvent.id, member.id))) {
-    redirect(`/club/event/${roundEvent.id}`);
+  // A round tied to an event inherits that event's participation gate: anyone
+  // who isn't the admin or a marked participant (a member who hasn't joined,
+  // or a logged-out guest) is sent to the event to unlock it.
+  if (
+    roundEvent &&
+    !admin &&
+    !(member && (await isEventAttendee(roundEvent.id, member.id)))
+  ) {
+    redirect(`/song-club/${roundEvent.slug}`);
   }
 
   const [tracks, comments] = await Promise.all([playlistTracks(id), playlistComments(id)]);
@@ -46,11 +52,12 @@ export default async function ClubPlaylistPage({
 
   return (
     <main className="mx-auto w-full max-w-3xl px-5 py-6 text-[#E8E0D0] sm:px-8 sm:py-8">
+      <ClubTopBar />
       <Link
-        href={roundEvent ? `/club/event/${roundEvent.id}` : '/club'}
+        href={roundEvent ? `/song-club/${roundEvent.slug}` : '/song-club'}
         className="text-sm text-[#E8E0D0]/50 transition hover:text-[#E8E0D0]"
       >
-        ← {roundEvent ? roundEvent.title : 'Song Club portal'}
+        ← {roundEvent ? roundEvent.title : 'Song Club'}
       </Link>
 
       <header className="mt-4 mb-6">
@@ -63,7 +70,7 @@ export default async function ClubPlaylistPage({
           </div>
           <div className="flex shrink-0 flex-col items-end gap-2">
             <Link
-              href={`/club/upload?playlist=${playlist.id}`}
+              href={`/song-club/upload?playlist=${playlist.id}`}
               className="rounded-md bg-[#E8E0D0] px-3.5 py-1.5 text-sm font-semibold text-[#2A2420] transition hover:bg-white"
             >
               + Upload to this round

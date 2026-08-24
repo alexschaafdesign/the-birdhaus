@@ -53,7 +53,7 @@ async function notifyUploader(
       uploaderName: target.name,
       commenterName,
       trackTitle: target.title,
-      trackUrl: `${SITE_URL}/club/track/${trackId}`,
+      trackUrl: `${SITE_URL}/song-club/track/${trackId}`,
       comment,
     });
   } catch (e) {

@@ -25,7 +25,7 @@ export default function SingleTrackView({
       viewerMemberId={viewerMemberId}
       isAdmin={isAdmin}
       onTrackDeleted={() => {
-        router.push('/club');
+        router.push('/song-club');
         router.refresh();
       }}
     />

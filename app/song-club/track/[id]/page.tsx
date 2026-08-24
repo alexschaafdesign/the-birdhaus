@@ -1,10 +1,10 @@
 import type { Metadata } from 'next';
-import Link from 'next/link';
-import { notFound, redirect } from 'next/navigation';
+import { notFound } from 'next/navigation';
 import { getClubPortalMember } from '@/lib/club-members';
 import { isAdminSession } from '@/lib/admin-session';
 import { getTrack, trackComments } from '@/lib/club-music';
 import SingleTrackView from '@/components/club/SingleTrackView';
+import ClubTopBar from '@/components/club/ClubTopBar';
 
 export const metadata: Metadata = {
   title: 'Song Club — track',
@@ -20,7 +20,7 @@ export default async function ClubTrackPage({
 }) {
   const member = await getClubPortalMember();
   const admin = member ? false : await isAdminSession();
-  if (!member && !admin) redirect('/club/login');
+  // Guests may view a track read-only; commenting prompts login (in TrackCard).
 
   const id = Number((await params).id);
   if (!Number.isInteger(id)) notFound();
@@ -31,9 +31,7 @@ export default async function ClubTrackPage({
 
   return (
     <main className="mx-auto w-full max-w-2xl px-5 py-6 text-[#E8E0D0] sm:px-8 sm:py-8">
-      <Link href="/club" className="text-sm text-[#E8E0D0]/50 transition hover:text-[#E8E0D0]">
-        ← Song Club portal
-      </Link>
+      <ClubTopBar />
       <div className="mt-4">
         <SingleTrackView
           track={track}

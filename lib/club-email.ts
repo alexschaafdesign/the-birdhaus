@@ -1,6 +1,6 @@
 // Invite + password-reset emails for Song Club portal members, sent through
 // Resend (same lazy-client pattern as lib/song-club-email.ts). Both carry a
-// single-use set-password link to /club/invite/<token>.
+// single-use set-password link to /song-club/invite/<token>.
 
 import { Resend } from 'resend';
 import { SITE_URL } from './site';
@@ -19,7 +19,7 @@ function esc(s: string): string {
 }
 
 export function setupLinkFor(token: string): string {
-  return `${SITE_URL}/club/invite/${token}`;
+  return `${SITE_URL}/song-club/invite/${token}`;
 }
 
 export async function sendClubInviteEmail({
@@ -84,7 +84,7 @@ export async function sendTrackCommentEmail({
   uploaderName: string;
   commenterName: string;
   trackTitle: string;
-  trackUrl: string; // absolute /club/track/<id> link
+  trackUrl: string; // absolute /song-club/track/<id> link
   comment: string;
 }): Promise<void> {
   const from = process.env.RESEND_FROM_EMAIL;

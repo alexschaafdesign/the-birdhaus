@@ -29,7 +29,7 @@ export default async function ClubInvitePage({
         </p>
         <p className="mt-2 text-sm text-[#E8E0D0]/70">
           If you already picked a password,{' '}
-          <Link href="/club/login" className="underline underline-offset-2 hover:text-white">
+          <Link href="/song-club/login" className="underline underline-offset-2 hover:text-white">
             log in here
           </Link>
           . Otherwise use “Forgot password?” on that page, or ask Alex for a

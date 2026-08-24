@@ -14,7 +14,7 @@ export const metadata: Metadata = {
 export const dynamic = 'force-dynamic';
 
 export default async function ClubSignupPage() {
-  if ((await isAdminSession()) || (await getClubPortalMember())) redirect('/club');
+  if ((await isAdminSession()) || (await getClubPortalMember())) redirect('/song-club');
 
   return (
     <main className="mx-auto w-full max-w-sm px-5 py-10 text-[#E8E0D0] sm:py-14">
@@ -30,7 +30,7 @@ export default async function ClubSignupPage() {
       </div>
       <p className="mt-4 text-sm text-[#E8E0D0]/50">
         Already a member?{' '}
-        <Link href="/club/login" className="underline underline-offset-2 hover:text-[#E8E0D0]">
+        <Link href="/song-club/login" className="underline underline-offset-2 hover:text-[#E8E0D0]">
           Log in
         </Link>
       </p>

@@ -41,7 +41,7 @@ export default function ClubLoginForm() {
         });
         const data = await res.json().catch(() => null);
         if (!res.ok) throw new Error(data?.error ?? `Something went wrong (${res.status})`);
-        router.push('/club');
+        router.push('/song-club');
         router.refresh();
         return; // keep the button disabled through the redirect
       }

@@ -120,7 +120,7 @@ export default function UploadTrackForm({
       const trackData = await trackRes.json().catch(() => null);
       if (!trackRes.ok) throw new Error(trackData?.error ?? `Couldn't save (${trackRes.status})`);
 
-      router.push(playlistId ? `/club/music/${playlistId}` : `/club/track/${trackData.track.id}`);
+      router.push(playlistId ? `/song-club/music/${playlistId}` : `/song-club/track/${trackData.track.id}`);
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Upload failed');

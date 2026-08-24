@@ -24,7 +24,7 @@ export default function NewPlaylistForm() {
       });
       const data = await res.json().catch(() => null);
       if (!res.ok) throw new Error(data?.error ?? `Couldn't create (${res.status})`);
-      router.push(`/club/music/${data.playlist.id}`);
+      router.push(`/song-club/music/${data.playlist.id}`);
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Couldn't create");

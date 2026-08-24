@@ -34,6 +34,7 @@ export default function TrackCard({
   // "Pin to the current spot in the track" toggle for the composer.
   const [pinTime, setPinTime] = useState(false);
   const [playhead, setPlayhead] = useState(0);
+  const canAct = isAdmin || viewerMemberId !== null;
   const canDeleteTrack =
     isAdmin || (viewerMemberId !== null && track.memberId === viewerMemberId);
 
@@ -195,6 +196,14 @@ export default function TrackCard({
           </div>
         )}
 
+        {!canAct ? (
+          <a
+            href="/song-club/login"
+            className="inline-block text-xs text-[#E8E0D0]/45 underline-offset-2 transition hover:text-[#E8E0D0] hover:underline"
+          >
+            Log in to comment
+          </a>
+        ) : (
         <div className="flex items-center gap-2 pt-1">
           {track.peaks && track.peaks.length > 0 && (
             <button
@@ -239,6 +248,7 @@ export default function TrackCard({
             {busy ? '…' : 'Comment'}
           </button>
         </div>
+        )}
       </div>
     </div>
   );

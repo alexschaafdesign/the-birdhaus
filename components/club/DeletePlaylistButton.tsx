@@ -13,7 +13,7 @@ export default function DeletePlaylistButton({ playlistId }: { playlistId: numbe
     setBusy(true);
     const res = await fetch(`/api/club/playlists/${playlistId}`, { method: 'DELETE' });
     if (res.ok) {
-      router.push('/club');
+      router.push('/song-club');
       router.refresh();
     } else {
       setBusy(false);

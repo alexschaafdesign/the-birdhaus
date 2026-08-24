@@ -9,7 +9,7 @@ import { getNotificationRecipients } from './club-members';
 import { sendAnnouncementEmail, sendClubEventEmail } from './club-email';
 import { claimEventNotification, type SongClubEvent } from './song-club';
 
-const PORTAL_URL = `${SITE_URL}/club`;
+const PORTAL_URL = `${SITE_URL}/song-club`;
 
 // "2026-08-15" -> "Saturday, August 15" for the event email.
 function formatEventDate(isoDate: string): string {
