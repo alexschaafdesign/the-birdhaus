@@ -17,7 +17,9 @@ export async function POST(request: Request) {
 
   const body = await request.json().catch(() => null);
   const text = typeof body?.body === 'string' ? body.body : '';
-  if (!(await createPost(author, text))) {
+  const eventId =
+    typeof body?.eventId === 'number' && Number.isInteger(body.eventId) ? body.eventId : null;
+  if (!(await createPost(author, text, eventId))) {
     return NextResponse.json({ error: 'Message is empty' }, { status: 400 });
   }
 
@@ -31,5 +33,5 @@ export async function POST(request: Request) {
     }
   }
 
-  return NextResponse.json({ posts: await getPosts(), emailedCount });
+  return NextResponse.json({ posts: await getPosts(eventId), emailedCount });
 }

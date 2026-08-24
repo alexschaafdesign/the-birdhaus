@@ -2,6 +2,7 @@ import Link from 'next/link';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { getEventBySlug, getTodayCentral } from '@/lib/song-club';
+import { getPlaylist } from '@/lib/club-music';
 import SongClubRSVPForm from '@/components/SongClubRSVPForm';
 
 export const dynamic = 'force-dynamic';
@@ -44,6 +45,7 @@ export default async function SongClubEventPage({
       ? `${event.start_time}–${event.end_time}`
       : event.start_time || event.end_time || null;
   const isUpcoming = event.event_date >= getTodayCentral();
+  const round = event.playlist_id ? await getPlaylist(event.playlist_id) : null;
 
   return (
     <main className="mx-auto w-full max-w-2xl px-5 py-6 text-[#E8E0D0] sm:px-8 sm:py-8">
@@ -76,6 +78,31 @@ export default async function SongClubEventPage({
         <div className="mt-4 whitespace-pre-wrap text-[15px] leading-relaxed text-[#E8E0D0]/80">
           {event.description}
         </div>
+      )}
+
+      {round && (
+        <Link
+          href={`/club/music/${round.id}`}
+          className="mt-6 flex items-center gap-4 rounded-lg border border-[#c8a26a]/30 bg-[#c8a26a]/[0.06] p-4 transition hover:border-[#c8a26a]/60 hover:bg-[#c8a26a]/[0.1]"
+        >
+          {round.imageUrl && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={round.imageUrl}
+              alt=""
+              className="h-14 w-14 shrink-0 rounded object-cover"
+            />
+          )}
+          <div className="min-w-0">
+            <div className="text-xs font-medium uppercase tracking-wide text-[#c8a26a]/80">
+              Song Club round
+            </div>
+            <div className="truncate font-medium text-[#E8E0D0]">{round.title}</div>
+            <div className="text-sm text-[#E8E0D0]/55">
+              Listen &amp; share your track in the members&rsquo; portal →
+            </div>
+          </div>
+        </Link>
       )}
 
       {isUpcoming ? (

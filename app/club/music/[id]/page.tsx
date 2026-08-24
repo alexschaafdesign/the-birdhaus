@@ -3,9 +3,10 @@ import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { getClubPortalMember } from '@/lib/club-members';
 import { isAdminSession } from '@/lib/admin-session';
-import { getPlaylist, playlistComments, playlistTracks } from '@/lib/club-music';
+import { getPlaylist, getRoundEvent, playlistComments, playlistTracks } from '@/lib/club-music';
 import PlaylistTracks from '@/components/club/PlaylistTracks';
 import DeletePlaylistButton from '@/components/club/DeletePlaylistButton';
+import RoundCover from '@/components/club/RoundCover';
 
 export const metadata: Metadata = {
   title: 'Song Club — round',
@@ -29,12 +30,22 @@ export default async function ClubPlaylistPage({
   const playlist = await getPlaylist(id);
   if (!playlist) notFound();
 
-  const [tracks, comments] = await Promise.all([playlistTracks(id), playlistComments(id)]);
+  const [tracks, comments, roundEvent] = await Promise.all([
+    playlistTracks(id),
+    playlistComments(id),
+    getRoundEvent(id),
+  ]);
+  // Event-linked rounds take their cover from the event flyer; standalone
+  // rounds fall back to their own uploaded image.
+  const coverUrl = roundEvent?.flyerUrl ?? playlist.imageUrl;
 
   return (
     <main className="mx-auto w-full max-w-3xl px-5 py-6 text-[#E8E0D0] sm:px-8 sm:py-8">
-      <Link href="/club" className="text-sm text-[#E8E0D0]/50 transition hover:text-[#E8E0D0]">
-        ← Song Club portal
+      <Link
+        href={roundEvent ? `/club/event/${roundEvent.id}` : '/club'}
+        className="text-sm text-[#E8E0D0]/50 transition hover:text-[#E8E0D0]"
+      >
+        ← {roundEvent ? roundEvent.title : 'Song Club portal'}
       </Link>
 
       <header className="mt-4 mb-6">
@@ -61,6 +72,20 @@ export default async function ClubPlaylistPage({
           </p>
         )}
       </header>
+
+      {roundEvent ? (
+        // Cover comes from the event; no per-round upload control here.
+        coverUrl && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={coverUrl}
+            alt=""
+            className="mb-4 w-full max-w-sm rounded-lg border border-[#E8E0D0]/15 object-cover"
+          />
+        )
+      ) : (
+        <RoundCover playlistId={playlist.id} imageUrl={playlist.imageUrl} isAdmin={admin} />
+      )}
 
       <PlaylistTracks
         playlistId={playlist.id}

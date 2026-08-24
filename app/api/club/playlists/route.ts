@@ -11,8 +11,9 @@ export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
   const title = typeof body?.title === 'string' ? body.title : '';
   const description = typeof body?.description === 'string' ? body.description : null;
+  const imageUrl = typeof body?.imageUrl === 'string' ? body.imageUrl : null;
 
-  const playlist = await createPlaylist({ title, description });
+  const playlist = await createPlaylist({ title, description, imageUrl });
   if (!playlist) return NextResponse.json({ error: 'A title is required' }, { status: 400 });
   return NextResponse.json({ playlist });
 }

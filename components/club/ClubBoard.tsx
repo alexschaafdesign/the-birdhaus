@@ -10,10 +10,13 @@ export default function ClubBoard({
   initialPosts,
   viewerMemberId,
   isAdmin,
+  eventId = null,
 }: {
   initialPosts: ClubPost[];
   viewerMemberId: number | null; // null when the viewer is the admin session
   isAdmin: boolean;
+  // null = the general Song Club board; a value = a specific event's board.
+  eventId?: number | null;
 }) {
   const [posts, setPosts] = useState<ClubPost[]>(initialPosts);
   const [draft, setDraft] = useState('');
@@ -34,7 +37,7 @@ export default function ClubBoard({
       const res = await fetch('/api/club/posts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ body, email: isAdmin && emailToo }),
+        body: JSON.stringify({ body, email: isAdmin && emailToo, eventId }),
       });
       const data = await res.json().catch(() => null);
       if (!res.ok) throw new Error(data?.error ?? `Couldn't post (${res.status})`);

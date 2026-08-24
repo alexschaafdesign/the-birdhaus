@@ -24,6 +24,7 @@ export interface SongClubEventFormValues {
   description: string;
   flyerUrl: string;
   published: boolean;
+  playlistId: number | null;
 }
 
 const inputClass =
@@ -43,9 +44,11 @@ function Field({ label, children, hint }: { label: string; children: React.React
 export default function SongClubEventForm({
   mode,
   initial,
+  rounds = [],
 }: {
   mode: 'add' | 'edit';
   initial?: Partial<SongClubEventFormValues>;
+  rounds?: Array<{ id: number; title: string }>;
 }) {
   const router = useRouter();
   const [v, setV] = useState<SongClubEventFormValues>({
@@ -59,6 +62,7 @@ export default function SongClubEventForm({
     description: initial?.description ?? '',
     flyerUrl: initial?.flyerUrl ?? '',
     published: initial?.published ?? false,
+    playlistId: initial?.playlistId ?? null,
   });
   const [status, setStatus] = useState<'idle' | 'saving' | 'error'>('idle');
   const [error, setError] = useState('');
@@ -135,6 +139,7 @@ export default function SongClubEventForm({
         description: v.description,
         flyerUrl,
         published: v.published,
+        playlistId: v.playlistId,
       };
 
       const res =
@@ -224,6 +229,28 @@ export default function SongClubEventForm({
           </button>
         )}
       </Field>
+
+      {rounds.length > 0 && (
+        <Field label="Song Club round" hint="Optional — links the public event page to this round in the members' portal">
+          <select
+            className={inputClass}
+            value={v.playlistId ?? ''}
+            onChange={(e) =>
+              setV((prev) => ({
+                ...prev,
+                playlistId: e.target.value ? Number(e.target.value) : null,
+              }))
+            }
+          >
+            <option value="">None</option>
+            {rounds.map((r) => (
+              <option key={r.id} value={r.id}>
+                {r.title}
+              </option>
+            ))}
+          </select>
+        </Field>
+      )}
 
       <label className="flex items-center gap-2 text-sm text-[#E8E0D0]/85">
         <input

@@ -21,8 +21,9 @@ export async function DELETE(
       : null;
   if (!by) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  if (!(await deletePost(id, by))) {
+  const deleted = await deletePost(id, by);
+  if (!deleted) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 });
   }
-  return NextResponse.json({ posts: await getPosts() });
+  return NextResponse.json({ posts: await getPosts(deleted.eventId) });
 }

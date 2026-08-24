@@ -23,6 +23,7 @@ export interface ClubPlaylist {
   id: number;
   title: string;
   description: string | null;
+  imageUrl: string | null;
   trackCount: number;
   createdAt: string;
 }
@@ -77,56 +78,82 @@ function mapTrack(r: TrackRow): ClubTrack {
 
 // --- playlists (admin-created only; the routes enforce it) ---
 
-export async function listPlaylists(): Promise<ClubPlaylist[]> {
-  const rows = await sql<
-    Array<{ id: number; title: string; description: string | null; track_count: number; created_at: string }>
-  >`
-    select p.id, p.title, p.description,
-           (select count(*)::int from song_club_playlist_tracks pt
-             where pt.playlist_id = p.id) as track_count,
-           p.created_at::text as created_at
-    from song_club_playlists p
-    order by p.created_at desc, p.id desc
-  `;
-  return rows.map((r) => ({
-    id: Number(r.id),
-    title: r.title,
-    description: r.description,
-    trackCount: Number(r.track_count),
-    createdAt: r.created_at,
-  }));
+interface PlaylistRow {
+  id: number;
+  title: string;
+  description: string | null;
+  image_url: string | null;
+  track_count: number;
+  created_at: string;
 }
 
-export async function getPlaylist(id: number): Promise<ClubPlaylist | null> {
-  const [r] = await sql<
-    Array<{ id: number; title: string; description: string | null; track_count: number; created_at: string }>
-  >`
-    select p.id, p.title, p.description,
-           (select count(*)::int from song_club_playlist_tracks pt
-             where pt.playlist_id = p.id) as track_count,
-           p.created_at::text as created_at
-    from song_club_playlists p where p.id = ${id}
-  `;
-  if (!r) return null;
+const PLAYLIST_SELECT = sql`
+  select p.id, p.title, p.description, p.image_url,
+         (select count(*)::int from song_club_playlist_tracks pt
+           where pt.playlist_id = p.id) as track_count,
+         p.created_at::text as created_at
+  from song_club_playlists p
+`;
+
+function mapPlaylist(r: PlaylistRow): ClubPlaylist {
   return {
     id: Number(r.id),
     title: r.title,
     description: r.description,
+    imageUrl: r.image_url,
     trackCount: Number(r.track_count),
     createdAt: r.created_at,
   };
 }
 
+export async function listPlaylists(): Promise<ClubPlaylist[]> {
+  const rows = await sql<PlaylistRow[]>`
+    ${PLAYLIST_SELECT} order by p.created_at desc, p.id desc
+  `;
+  return rows.map(mapPlaylist);
+}
+
+export async function getPlaylist(id: number): Promise<ClubPlaylist | null> {
+  const [r] = await sql<PlaylistRow[]>`${PLAYLIST_SELECT} where p.id = ${id}`;
+  return r ? mapPlaylist(r) : null;
+}
+
+// Rounds not linked from any event — the "Music" section on the portal home
+// (event-linked rounds appear under their event instead).
+export async function listStandaloneRounds(): Promise<ClubPlaylist[]> {
+  const rows = await sql<PlaylistRow[]>`
+    ${PLAYLIST_SELECT}
+    where not exists (
+      select 1 from song_club_events e where e.playlist_id = p.id
+    )
+    order by p.created_at desc, p.id desc
+  `;
+  return rows.map(mapPlaylist);
+}
+
+// The event (if any) that links to this round — its flyer is the round's cover.
+export async function getRoundEvent(
+  playlistId: number
+): Promise<{ id: number; slug: string; title: string; flyerUrl: string | null } | null> {
+  const [r] = await sql<Array<{ id: number; slug: string; title: string; flyer_url: string | null }>>`
+    select id, slug, title, flyer_url from song_club_events
+    where playlist_id = ${playlistId}
+    order by id asc limit 1
+  `;
+  return r ? { id: Number(r.id), slug: r.slug, title: r.title, flyerUrl: r.flyer_url } : null;
+}
+
 export async function createPlaylist(input: {
   title: string;
   description?: string | null;
+  imageUrl?: string | null;
 }): Promise<ClubPlaylist | null> {
   const title = input.title.trim().slice(0, 200);
   if (!title) return null;
   const description = input.description?.trim().slice(0, 2000) || null;
   const [row] = await sql<Array<{ id: number }>>`
-    insert into song_club_playlists (title, description)
-    values (${title}, ${description}) returning id
+    insert into song_club_playlists (title, description, image_url)
+    values (${title}, ${description}, ${input.imageUrl?.trim() || null}) returning id
   `;
   return getPlaylist(Number(row.id));
 }
@@ -140,15 +167,18 @@ export async function deletePlaylist(id: number): Promise<boolean> {
 
 export async function updatePlaylist(
   id: number,
-  input: { title?: string; description?: string | null }
+  input: { title?: string; description?: string | null; imageUrl?: string | null }
 ): Promise<boolean> {
   const title = typeof input.title === 'string' ? input.title.trim().slice(0, 200) : null;
   const hasDescription = input.description !== undefined;
   const description = input.description?.trim().slice(0, 2000) || null;
+  const hasImage = input.imageUrl !== undefined;
+  const imageUrl = input.imageUrl?.trim() || null;
   const result = await sql`
     update song_club_playlists set
       title = coalesce(${title}, title),
-      description = ${hasDescription ? description : sql`description`}
+      description = ${hasDescription ? description : sql`description`},
+      image_url = ${hasImage ? imageUrl : sql`image_url`}
     where id = ${id}
   `;
   return result.count > 0;

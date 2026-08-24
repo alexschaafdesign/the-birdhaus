@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { getEventById } from '@/lib/song-club';
+import { listPlaylists } from '@/lib/club-music';
 import SongClubEventForm from '@/components/admin/SongClubEventForm';
 
 export const metadata: Metadata = {
@@ -19,11 +20,14 @@ export default async function EditSongClubEventPage({
   const event = Number.isInteger(id) ? await getEventById(id) : null;
   if (!event) notFound();
 
+  const rounds = (await listPlaylists()).map((p) => ({ id: p.id, title: p.title }));
+
   return (
     <main className="mx-auto w-full max-w-2xl px-6 py-8 text-[#E8E0D0]">
       <h2 className="mb-6 text-xl font-medium">Edit meetup</h2>
       <SongClubEventForm
         mode="edit"
+        rounds={rounds}
         initial={{
           id: event.id,
           title: event.title,
@@ -36,6 +40,7 @@ export default async function EditSongClubEventPage({
           description: event.description ?? '',
           flyerUrl: event.flyer_url ?? '',
           published: event.published,
+          playlistId: event.playlist_id,
         }}
       />
     </main>

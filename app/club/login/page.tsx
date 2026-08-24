@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { getClubPortalMember } from '@/lib/club-members';
 import ClubLoginForm from '@/components/club/ClubLoginForm';
+import SongClubLogo from '@/components/club/SongClubLogo';
 
 export const metadata: Metadata = {
   title: 'Song Club — log in',
@@ -15,6 +16,9 @@ export default async function ClubLoginPage() {
 
   return (
     <main className="mx-auto w-full max-w-sm px-5 py-10 text-[#E8E0D0] sm:py-14">
+      <div className="mb-4">
+        <SongClubLogo className="h-24 w-24" />
+      </div>
       <h1 className="text-2xl font-semibold">Song Club portal</h1>
       <p className="mt-1 text-sm text-[#E8E0D0]/60">
         Members only. Log in with the account from your invite email.

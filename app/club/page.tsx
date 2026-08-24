@@ -4,10 +4,12 @@ import { redirect } from 'next/navigation';
 import { getClubPortalMember } from '@/lib/club-members';
 import { isAdminSession } from '@/lib/admin-session';
 import { getPins, getPosts } from '@/lib/club-board';
-import { listPlaylists, standaloneTracks } from '@/lib/club-music';
+import { listStandaloneRounds, standaloneTracks } from '@/lib/club-music';
+import { listPortalEvents } from '@/lib/club-events';
 import ClubPins from '@/components/club/ClubPins';
 import ClubBoard from '@/components/club/ClubBoard';
 import NewPlaylistForm from '@/components/club/NewPlaylistForm';
+import SongClubLogo from '@/components/club/SongClubLogo';
 
 export const metadata: Metadata = {
   title: 'Song Club portal',
@@ -24,21 +26,25 @@ export default async function ClubPage() {
   const admin = member ? false : await isAdminSession();
   if (!member && !admin) redirect('/club/login');
 
-  const [pins, posts, playlists, singles] = await Promise.all([
+  const [pins, posts, events, rounds, singles] = await Promise.all([
     getPins(),
     getPosts(),
-    listPlaylists(),
+    listPortalEvents(admin),
+    listStandaloneRounds(),
     standaloneTracks(),
   ]);
 
   return (
     <main className="mx-auto w-full max-w-3xl px-5 py-6 text-[#E8E0D0] sm:px-8 sm:py-8">
       <header className="mb-6 flex items-start justify-between gap-4">
-        <div>
-          <div className="text-xs font-medium uppercase tracking-wide text-[#E8E0D0]/50">
-            Members only
+        <div className="flex items-center gap-3">
+          <SongClubLogo className="h-14 w-14" />
+          <div>
+            <div className="text-xs font-medium uppercase tracking-wide text-[#E8E0D0]/50">
+              Members only
+            </div>
+            <h1 className="mt-0.5 text-2xl font-semibold sm:text-3xl">Song Club portal</h1>
           </div>
-          <h1 className="mt-0.5 text-2xl font-semibold sm:text-3xl">Song Club portal</h1>
         </div>
         <div className="flex shrink-0 flex-col items-end gap-1 text-right">
           <span className="text-sm text-[#E8E0D0]/70">
@@ -72,6 +78,54 @@ export default async function ClubPage() {
         </div>
       </header>
 
+      {/* Events — the portal's primary organizer. Each links to its hub
+          (round + attendees + event chat). */}
+      <section className="mb-8">
+        <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-[#E8E0D0]/45">
+          Events
+        </h2>
+        {events.length === 0 ? (
+          <p className="text-sm text-[#E8E0D0]/40">No events yet.</p>
+        ) : (
+          <div className="space-y-2">
+            {events.map((e) => (
+              <Link
+                key={e.id}
+                href={`/club/event/${e.id}`}
+                className="flex items-center gap-3 rounded-lg border border-[#E8E0D0]/15 bg-[#E8E0D0]/[0.03] p-4 transition hover:border-[#E8E0D0]/35 hover:bg-[#E8E0D0]/[0.06]"
+              >
+                {e.flyerUrl && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={e.flyerUrl} alt="" className="h-16 w-16 shrink-0 rounded object-cover" />
+                )}
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-baseline justify-between gap-3">
+                    <span className="min-w-0 truncate font-medium text-[#E8E0D0]">
+                      {e.title}
+                      {!e.published && (
+                        <span className="ml-2 rounded bg-[#E8E0D0]/10 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-[#E8E0D0]/60">
+                          Draft
+                        </span>
+                      )}
+                    </span>
+                    <span className="shrink-0 text-xs text-[#E8E0D0]/50">{formatShortDate(e.eventDate)}</span>
+                  </div>
+                  <div className="mt-1 text-sm text-[#E8E0D0]/55">
+                    {[
+                      e.playlistId ? `${e.trackCount} track${e.trackCount === 1 ? '' : 's'}` : null,
+                      e.attendeeCount ? `${e.attendeeCount} came` : null,
+                    ]
+                      .filter(Boolean)
+                      .join(' · ') || 'Open the hub →'}
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </div>
+        )}
+      </section>
+
+      {/* Music — standalone rounds + singles not tied to any event. */}
       <section className="mb-8">
         <div className="mb-3 flex items-baseline justify-between">
           <h2 className="text-xs font-semibold uppercase tracking-wide text-[#E8E0D0]/45">
@@ -85,29 +139,39 @@ export default async function ClubPage() {
           </Link>
         </div>
 
-        {playlists.length === 0 && singles.length === 0 && (
+        {rounds.length === 0 && singles.length === 0 && (
           <p className="text-sm text-[#E8E0D0]/40">
-            Nothing here yet — upload the first track.
+            Nothing here yet — upload a track, or add it to an event round.
           </p>
         )}
 
-        {playlists.length > 0 && (
+        {rounds.length > 0 && (
           <div className="space-y-2">
-            {playlists.map((p) => (
+            {rounds.map((p) => (
               <Link
                 key={p.id}
                 href={`/club/music/${p.id}`}
-                className="block rounded-lg border border-[#E8E0D0]/15 bg-[#E8E0D0]/[0.03] p-4 transition hover:border-[#E8E0D0]/35 hover:bg-[#E8E0D0]/[0.06]"
+                className="flex items-center gap-3 rounded-lg border border-[#E8E0D0]/15 bg-[#E8E0D0]/[0.03] p-4 transition hover:border-[#E8E0D0]/35 hover:bg-[#E8E0D0]/[0.06]"
               >
-                <div className="flex items-baseline justify-between gap-3">
-                  <span className="min-w-0 truncate font-medium text-[#E8E0D0]">{p.title}</span>
-                  <span className="shrink-0 text-xs text-[#E8E0D0]/50">
-                    {p.trackCount} track{p.trackCount === 1 ? '' : 's'}
-                  </span>
-                </div>
-                {p.description && (
-                  <p className="mt-1 truncate text-sm text-[#E8E0D0]/55">{p.description}</p>
+                {p.imageUrl && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={p.imageUrl}
+                    alt=""
+                    className="h-14 w-14 shrink-0 rounded object-cover"
+                  />
                 )}
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-baseline justify-between gap-3">
+                    <span className="min-w-0 truncate font-medium text-[#E8E0D0]">{p.title}</span>
+                    <span className="shrink-0 text-xs text-[#E8E0D0]/50">
+                      {p.trackCount} track{p.trackCount === 1 ? '' : 's'}
+                    </span>
+                  </div>
+                  {p.description && (
+                    <p className="mt-1 truncate text-sm text-[#E8E0D0]/55">{p.description}</p>
+                  )}
+                </div>
               </Link>
             ))}
           </div>
@@ -152,7 +216,7 @@ export default async function ClubPage() {
 
       <section className="mt-8">
         <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-[#E8E0D0]/45">
-          The thread
+          General chat
         </h2>
         <ClubBoard
           initialPosts={posts}
@@ -162,4 +226,13 @@ export default async function ClubPage() {
       </section>
     </main>
   );
+}
+
+// "2026-08-15" -> "Aug 15, 2026"
+function formatShortDate(isoDate: string): string {
+  return new Date(isoDate + 'T00:00:00').toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
 }

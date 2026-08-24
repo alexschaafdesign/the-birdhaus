@@ -23,6 +23,13 @@ export type ClubMemberStatus = 'invited' | 'active' | 'disabled';
 export { ALL_ROLES, type ClubRole } from './club-roles';
 import { ALL_ROLES, type ClubRole } from './club-roles';
 
+// A labeled profile link (Bandcamp, Instagram, website…) shown on attendee
+// cards.
+export interface ProfileLink {
+  label: string;
+  url: string;
+}
+
 export interface ClubMember {
   id: number;
   email: string;
@@ -31,6 +38,7 @@ export interface ClubMember {
   has_password: boolean;
   avatar_url: string | null;
   bio: string | null;
+  links: ProfileLink[];
   notify_track_comments: boolean;
   notify_announcements: boolean;
   notify_events: boolean;
@@ -40,12 +48,36 @@ export interface ClubMember {
   last_seen_at: string | null;
 }
 
+const MAX_LINKS = 8;
+
+// Keeps only well-formed {label,url} entries with an http(s) url; caps the count.
+export function sanitizeLinks(input: unknown): ProfileLink[] {
+  if (!Array.isArray(input)) return [];
+  const out: ProfileLink[] = [];
+  for (const raw of input) {
+    if (out.length >= MAX_LINKS) break;
+    if (!raw || typeof raw !== 'object') continue;
+    const label = typeof (raw as ProfileLink).label === 'string' ? (raw as ProfileLink).label.trim().slice(0, 40) : '';
+    let url = typeof (raw as ProfileLink).url === 'string' ? (raw as ProfileLink).url.trim() : '';
+    if (!url) continue;
+    if (!/^https?:\/\//i.test(url)) url = `https://${url}`;
+    try {
+      const parsed = new URL(url);
+      if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') continue;
+    } catch {
+      continue;
+    }
+    out.push({ label: label || new URL(url).hostname.replace(/^www\./, ''), url });
+  }
+  return out;
+}
+
 const INVITE_TOKEN_TTL_SECONDS = 60 * 60 * 24 * 30; // invites linger a month
 const RESET_TOKEN_TTL_SECONDS = 60 * 60 * 2; // resets are short-lived
 
 const COLUMNS = sql`
   id, email, name, status, (password_hash is not null) as has_password,
-  avatar_url, bio, notify_track_comments, notify_announcements, notify_events,
+  avatar_url, bio, links, notify_track_comments, notify_announcements, notify_events,
   (select coalesce(array_agg(r.role order by r.role), '{}')
      from user_roles r where r.user_id = users.id) as roles,
   invited_at::text as invited_at, joined_at::text as joined_at,
@@ -251,6 +283,7 @@ export async function updateProfile(
   input: {
     name?: string;
     bio?: string | null;
+    links?: unknown;
     notifyTrackComments?: boolean;
     notifyAnnouncements?: boolean;
     notifyEvents?: boolean;
@@ -259,10 +292,15 @@ export async function updateProfile(
   const name = typeof input.name === 'string' ? input.name.trim().slice(0, 120) || null : null;
   const hasBio = input.bio !== undefined;
   const bio = input.bio?.trim().slice(0, 1000) || null;
+  const hasLinks = input.links !== undefined;
+  // sql.json's type wants a JSON object; an array of {label,url} is valid JSON
+  // but trips its index-signature check, so coerce to the expected param type.
+  const linksJson = sanitizeLinks(input.links) as unknown as Parameters<typeof sql.json>[0];
   const [row] = await sql<Array<{ id: number }>>`
     update users set
       name = coalesce(${name}, name),
       bio = ${hasBio ? bio : sql`bio`},
+      links = ${hasLinks ? sql.json(linksJson) : sql`links`},
       notify_track_comments = coalesce(${input.notifyTrackComments ?? null}, notify_track_comments),
       notify_announcements = coalesce(${input.notifyAnnouncements ?? null}, notify_announcements),
       notify_events = coalesce(${input.notifyEvents ?? null}, notify_events)

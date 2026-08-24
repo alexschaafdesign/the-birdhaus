@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import type { ClubMember } from '@/lib/club-members';
+import type { ClubMember, ProfileLink } from '@/lib/club-members';
 
 const inputBase =
   'w-full rounded-md border border-[#E8E0D0]/20 bg-[#E8E0D0]/[0.03] px-3 py-2 text-sm text-[#E8E0D0] placeholder:text-[#E8E0D0]/30 focus:border-[#E8E0D0]/50 focus:outline-none transition';
@@ -13,6 +13,7 @@ export default function AccountSettings({ member }: { member: ClubMember }) {
   const router = useRouter();
   const [name, setName] = useState(member.name);
   const [bio, setBio] = useState(member.bio ?? '');
+  const [links, setLinks] = useState<ProfileLink[]>(member.links ?? []);
   const [avatarUrl, setAvatarUrl] = useState(member.avatar_url);
   const [prefs, setPrefs] = useState({
     notifyTrackComments: member.notify_track_comments,
@@ -40,7 +41,12 @@ export default function AccountSettings({ member }: { member: ClubMember }) {
       const res = await fetch('/api/club/account', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, bio, ...prefs }),
+        body: JSON.stringify({
+          name,
+          bio,
+          links: links.filter((l) => l.url.trim()),
+          ...prefs,
+        }),
       });
       const data = await res.json().catch(() => null);
       if (!res.ok) throw new Error(data?.error ?? `Couldn't save (${res.status})`);
@@ -148,6 +154,54 @@ export default function AccountSettings({ member }: { member: ClubMember }) {
             onChange={(e) => setBio(e.target.value)}
             className={`${inputBase} resize-y`}
           />
+        </div>
+
+        <div>
+          <label className={labelClass}>Links</label>
+          <p className="mb-2 text-[11px] text-[#E8E0D0]/40">
+            Bandcamp, Instagram, your site — shown on your attendee card.
+          </p>
+          <div className="space-y-2">
+            {links.map((l, i) => (
+              <div key={i} className="flex gap-2">
+                <input
+                  type="text"
+                  placeholder="Label (e.g. Bandcamp)"
+                  value={l.label}
+                  onChange={(e) =>
+                    setLinks(links.map((x, j) => (j === i ? { ...x, label: e.target.value } : x)))
+                  }
+                  className={`${inputBase} w-1/3`}
+                />
+                <input
+                  type="text"
+                  placeholder="https://…"
+                  value={l.url}
+                  onChange={(e) =>
+                    setLinks(links.map((x, j) => (j === i ? { ...x, url: e.target.value } : x)))
+                  }
+                  className={`${inputBase} flex-1`}
+                />
+                <button
+                  type="button"
+                  onClick={() => setLinks(links.filter((_, j) => j !== i))}
+                  aria-label="Remove link"
+                  className="shrink-0 px-2 text-[#E8E0D0]/40 transition hover:text-[#F5A3A3]"
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
+          </div>
+          {links.length < 8 && (
+            <button
+              type="button"
+              onClick={() => setLinks([...links, { label: '', url: '' }])}
+              className="mt-2 text-xs text-[#c8a26a]/80 underline-offset-2 transition hover:text-[#c8a26a] hover:underline"
+            >
+              + Add a link
+            </button>
+          )}
         </div>
 
         <fieldset className="space-y-2">

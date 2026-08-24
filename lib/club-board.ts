@@ -34,7 +34,8 @@ export interface ClubPin {
 const MAX_POST_LENGTH = 5000;
 
 // Oldest-first, so the thread reads top-down with the composer at the bottom.
-export async function getPosts(): Promise<ClubPost[]> {
+// eventId null = the general Song Club board; a value = that event's board.
+export async function getPosts(eventId: number | null = null): Promise<ClubPost[]> {
   const rows = await sql<
     Array<{
       id: number;
@@ -49,6 +50,7 @@ export async function getPosts(): Promise<ClubPost[]> {
            p.created_at::text as created_at
     from song_club_posts p
     left join users m on m.id = p.member_id
+    where ${eventId === null ? sql`p.event_id is null` : sql`p.event_id = ${eventId}`}
     order by p.created_at asc, p.id asc
   `;
   return rows.map((r) => ({
@@ -61,30 +63,38 @@ export async function getPosts(): Promise<ClubPost[]> {
   }));
 }
 
-// author: a member id, or 'admin' for a Birdhaus post.
+// author: a member id, or 'admin' for a Birdhaus post. eventId scopes the post
+// to an event board (null = general).
 export async function createPost(
   author: number | 'admin',
-  body: string
+  body: string,
+  eventId: number | null = null
 ): Promise<boolean> {
   const trimmed = body.trim().slice(0, MAX_POST_LENGTH);
   if (!trimmed) return false;
   await sql`
-    insert into song_club_posts (member_id, from_admin, body)
-    values (${author === 'admin' ? null : author}, ${author === 'admin'}, ${trimmed})
+    insert into song_club_posts (member_id, from_admin, body, event_id)
+    values (${author === 'admin' ? null : author}, ${author === 'admin'}, ${trimmed}, ${eventId})
   `;
   return true;
 }
 
-// Members may delete their own posts; the admin may delete any.
+// Members may delete their own posts; the admin may delete any. Returns the
+// deleted post's board scope (event_id, null = general) so the caller can
+// return the right refreshed thread, or undefined if nothing was deleted.
 export async function deletePost(
   id: number,
   by: { memberId: number } | { admin: true }
-): Promise<boolean> {
-  const result =
+): Promise<{ eventId: number | null } | undefined> {
+  const rows =
     'admin' in by
-      ? await sql`delete from song_club_posts where id = ${id}`
-      : await sql`delete from song_club_posts where id = ${id} and member_id = ${by.memberId}`;
-  return result.count > 0;
+      ? await sql<Array<{ event_id: number | null }>>`
+          delete from song_club_posts where id = ${id} returning event_id`
+      : await sql<Array<{ event_id: number | null }>>`
+          delete from song_club_posts where id = ${id} and member_id = ${by.memberId}
+          returning event_id`;
+  if (!rows[0]) return undefined;
+  return { eventId: rows[0].event_id === null ? null : Number(rows[0].event_id) };
 }
 
 export async function getPins(): Promise<ClubPin[]> {

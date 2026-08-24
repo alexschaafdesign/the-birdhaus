@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import type { Metadata } from 'next';
 import { listEvents, getTodayCentral, type SongClubEvent } from '@/lib/song-club';
+import SongClubLogo from '@/components/club/SongClubLogo';
 
 export const metadata: Metadata = {
   title: 'Song Club',
@@ -79,19 +80,22 @@ export default async function SongClubPage() {
 
   return (
     <main className="mx-auto w-full max-w-3xl px-5 py-6 sm:px-8 sm:py-8">
-      <header className="mb-6">
-        <h1 className="text-3xl font-semibold text-[#E8E0D0] sm:text-4xl">Song Club</h1>
-        <p className="mt-1 max-w-xl text-[15px] text-[#E8E0D0]/60">
-          Song-a-days, monthly songwriter meetups, and more.
-        </p>
-        <p className="mt-2 text-sm">
-          <Link
-            href="/club"
-            className="text-[#E8E0D0]/45 underline-offset-2 transition hover:text-[#E8E0D0] hover:underline"
-          >
-            Member? Open the portal →
-          </Link>
-        </p>
+      <header className="mb-6 flex items-start justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <SongClubLogo className="h-16 w-16 sm:h-20 sm:w-20" />
+          <div>
+            <h1 className="text-3xl font-semibold text-[#E8E0D0] sm:text-4xl">Song Club</h1>
+            <p className="mt-1 max-w-xl text-[15px] text-[#E8E0D0]/60">
+              Song-a-days, monthly songwriter meetups, and more.
+            </p>
+          </div>
+        </div>
+        <Link
+          href="/club"
+          className="shrink-0 rounded-md border border-[#E8E0D0]/30 px-4 py-2 text-sm font-semibold text-[#E8E0D0] transition hover:border-[#E8E0D0]/60 hover:bg-[#E8E0D0]/[0.06]"
+        >
+          Log in
+        </Link>
       </header>
 
       {events.length === 0 ? (

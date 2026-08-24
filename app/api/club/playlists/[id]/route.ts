@@ -40,10 +40,15 @@ export async function PATCH(
     return NextResponse.json({ ok: true });
   }
 
-  if (typeof body?.title === 'string' || body?.description !== undefined) {
+  if (
+    typeof body?.title === 'string' ||
+    body?.description !== undefined ||
+    body?.imageUrl !== undefined
+  ) {
     const ok = await updatePlaylist(id, {
       title: typeof body?.title === 'string' ? body.title : undefined,
       description: typeof body?.description === 'string' ? body.description : undefined,
+      imageUrl: body?.imageUrl !== undefined ? body.imageUrl : undefined,
     });
     if (!ok) return NextResponse.json({ error: 'Not found' }, { status: 404 });
     return NextResponse.json({ ok: true });

@@ -14,6 +14,7 @@ export async function PATCH(request: Request) {
   const updated = await updateProfile(member.id, {
     name: typeof body?.name === 'string' ? body.name : undefined,
     bio: typeof body?.bio === 'string' ? body.bio : undefined,
+    links: body?.links !== undefined ? body.links : undefined,
     notifyTrackComments:
       typeof body?.notifyTrackComments === 'boolean' ? body.notifyTrackComments : undefined,
     notifyAnnouncements:
