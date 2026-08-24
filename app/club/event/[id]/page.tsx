@@ -4,13 +4,14 @@ import { notFound, redirect } from 'next/navigation';
 import { getClubPortalMember } from '@/lib/club-members';
 import { isAdminSession } from '@/lib/admin-session';
 import { getEventById } from '@/lib/song-club';
-import { getPlaylist } from '@/lib/club-music';
+import { getPlaylist, playlistComments, playlistTracks } from '@/lib/club-music';
 import { getPosts } from '@/lib/club-board';
 import { getAddableMembers, getEventAttendees, isEventAttendee } from '@/lib/club-events';
 import EventAttendees from '@/components/club/EventAttendees';
 import ClubBoard from '@/components/club/ClubBoard';
 import ParticipateButton from '@/components/club/ParticipateButton';
 import CreateRoundForEvent from '@/components/club/CreateRoundForEvent';
+import PlaylistTracks from '@/components/club/PlaylistTracks';
 
 export const metadata: Metadata = {
   title: 'Song Club — event',
@@ -59,8 +60,14 @@ export default async function ClubEventPage({
       ])
     : [null, [], [], []];
 
+  // The round's tracks render inline on the event page (players + comments),
+  // so there's no separate "listen" page to click through to.
+  const [roundTracks, roundComments] = round
+    ? await Promise.all([playlistTracks(round.id), playlistComments(round.id)])
+    : [[], {}];
+
   return (
-    <main className="mx-auto w-full max-w-2xl px-5 py-6 text-[#E8E0D0] sm:px-8 sm:py-8">
+    <main className="mx-auto w-full max-w-3xl px-5 py-6 text-[#E8E0D0] sm:px-8 sm:py-8">
       <Link href="/club" className="text-sm text-[#E8E0D0]/50 transition hover:text-[#E8E0D0]">
         ← Song Club portal
       </Link>
@@ -73,12 +80,43 @@ export default async function ClubEventPage({
         <h1 className="mt-1 text-2xl font-semibold sm:text-3xl">{event.title}</h1>
       </header>
 
+      {/* The round leads — its tracks play inline here, above the flyer. */}
+      {unlocked && round && (
+        <section className="mt-6">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <div className="text-xs font-medium uppercase tracking-wide text-[#c8a26a]/80">
+                The round
+              </div>
+              <div className="truncate font-medium text-[#E8E0D0]">{round.title}</div>
+            </div>
+            <Link
+              href={`/club/upload?playlist=${round.id}`}
+              className="shrink-0 rounded-md bg-[#E8E0D0] px-3.5 py-1.5 text-sm font-semibold text-[#2A2420] transition hover:bg-white"
+            >
+              + Upload your track
+            </Link>
+          </div>
+          <PlaylistTracks
+            playlistId={round.id}
+            initialTracks={roundTracks}
+            commentsByTrack={roundComments}
+            viewerMemberId={member?.id ?? null}
+            isAdmin={admin}
+          />
+        </section>
+      )}
+
+      {unlocked && !round && admin && (
+        <CreateRoundForEvent eventId={id} defaultTitle={event.title} />
+      )}
+
       {event.flyer_url && (
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src={event.flyer_url}
           alt={event.title}
-          className="mt-5 w-full max-w-md rounded-lg border border-[#E8E0D0]/15"
+          className="mt-6 w-full max-w-md rounded-lg border border-[#E8E0D0]/15"
         />
       )}
 
@@ -99,31 +137,6 @@ export default async function ClubEventPage({
         </section>
       ) : (
         <>
-          {round ? (
-            <section className="mt-6 rounded-lg border border-[#c8a26a]/30 bg-[#c8a26a]/[0.06] p-4">
-              <div className="text-xs font-medium uppercase tracking-wide text-[#c8a26a]/80">
-                The round
-              </div>
-              <div className="mt-0.5 font-medium text-[#E8E0D0]">{round.title}</div>
-              <div className="mt-3 flex flex-wrap gap-2">
-                <Link
-                  href={`/club/upload?playlist=${round.id}`}
-                  className="rounded-md bg-[#E8E0D0] px-3.5 py-1.5 text-sm font-semibold text-[#2A2420] transition hover:bg-white"
-                >
-                  + Upload your track
-                </Link>
-                <Link
-                  href={`/club/music/${round.id}`}
-                  className="rounded-md border border-[#E8E0D0]/30 px-3.5 py-1.5 text-sm text-[#E8E0D0]/80 transition hover:border-[#E8E0D0]/60 hover:text-[#E8E0D0]"
-                >
-                  Listen — {round.trackCount} track{round.trackCount === 1 ? '' : 's'} →
-                </Link>
-              </div>
-            </section>
-          ) : (
-            admin && <CreateRoundForEvent eventId={id} defaultTitle={event.title} />
-          )}
-
           <section className="mt-8">
             <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-[#E8E0D0]/45">
               Who came
