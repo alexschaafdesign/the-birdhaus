@@ -25,7 +25,7 @@ export default async function ClubPage() {
   const [pins, posts] = await Promise.all([getPins(), getPosts()]);
 
   return (
-    <main className="mx-auto w-full max-w-2xl px-5 py-6 text-[#E8E0D0] sm:px-8 sm:py-8">
+    <main className="mx-auto w-full max-w-3xl px-5 py-6 text-[#E8E0D0] sm:px-8 sm:py-8">
       <header className="mb-6 flex items-start justify-between gap-4">
         <div>
           <div className="text-xs font-medium uppercase tracking-wide text-[#E8E0D0]/50">

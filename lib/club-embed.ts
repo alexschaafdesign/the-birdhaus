@@ -71,6 +71,18 @@ export function embedSrcFor(url: string): string | null {
   return null;
 }
 
+// Samply embeds are full app pages (folders with browsable track lists), not
+// fixed-height player strips — the UI gives them a tall panel so the whole
+// folder is usable inline.
+export function isSamplyEmbed(src: string): boolean {
+  try {
+    const host = new URL(src).hostname;
+    return host === 'samply.app' || host === 'www.samply.app';
+  } catch {
+    return false;
+  }
+}
+
 // Video embeds want a 16:9 box; everything else gets a fixed player-strip
 // height.
 export function isVideoEmbed(src: string): boolean {

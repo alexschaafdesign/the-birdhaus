@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import type { ClubPin } from '@/lib/club-board';
-import { embedSrcFor, isVideoEmbed } from '@/lib/club-embed';
+import { embedSrcFor, isSamplyEmbed, isVideoEmbed } from '@/lib/club-embed';
 
 // Pinned files, players, and links at the top of the Song Club portal.
 // Admin-featured pins render as a large player block above everything else;
@@ -106,9 +106,10 @@ export default function ClubPins({
               loading="lazy"
               allow="autoplay; encrypted-media; fullscreen"
               sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
-              className={`mt-2 w-full rounded border-0 bg-[#E8E0D0]/[0.02] ${
-                isVideoEmbed(embedSrc) ? 'aspect-video' : large ? 'h-64 sm:h-80' : 'h-40'
-              }`}
+              className={`mt-2 w-full rounded border-0 bg-[#E8E0D0]/[0.02] ${embedHeight(
+                embedSrc,
+                large
+              )}`}
             />
             <a
               href={pin.url}
@@ -325,6 +326,16 @@ function AddPinForm({
       </button>
     </form>
   );
+}
+
+// Samply embeds are whole app pages (a browsable folder), so featured ones
+// get a tall panel — most of the viewport — instead of a player-strip height.
+// Video wants 16:9; the fixed-height widgets (Spotify/SoundCloud strips) stay
+// short because extra height just shows blank space.
+function embedHeight(src: string, large: boolean): string {
+  if (isVideoEmbed(src)) return 'aspect-video';
+  if (isSamplyEmbed(src)) return large ? 'h-[75vh] min-h-[28rem]' : 'h-96';
+  return large ? 'h-64 sm:h-80' : 'h-40';
 }
 
 function hostOf(url: string): string {
