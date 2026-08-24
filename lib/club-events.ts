@@ -87,24 +87,6 @@ export async function getEventAttendees(eventId: number): Promise<AttendeeCard[]
   }));
 }
 
-// Active members not yet on this event's roster — the admin's "add attendee"
-// picker.
-export async function getAddableMembers(
-  eventId: number
-): Promise<Array<{ id: number; name: string; email: string }>> {
-  return sql<Array<{ id: number; name: string; email: string }>>`
-    select u.id, u.name, u.email
-    from users u
-    join user_roles r on r.user_id = u.id and r.role = 'song_club'
-    where u.status = 'active'
-      and not exists (
-        select 1 from song_club_event_attendees a
-        where a.event_id = ${eventId} and a.user_id = u.id
-      )
-    order by u.name asc
-  `;
-}
-
 // Links a round (playlist) to an event as its round. Admin-gated by callers.
 export async function setEventRound(eventId: number, playlistId: number): Promise<boolean> {
   const result = await sql`

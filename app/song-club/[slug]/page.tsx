@@ -6,7 +6,7 @@ import { getClubPortalMember } from '@/lib/club-members';
 import { isAdminSession } from '@/lib/admin-session';
 import { getPlaylist, playlistComments, playlistTracks } from '@/lib/club-music';
 import { getPosts } from '@/lib/club-board';
-import { getAddableMembers, getEventAttendees, isEventAttendee } from '@/lib/club-events';
+import { getEventAttendees, isEventAttendee } from '@/lib/club-events';
 import SongClubRSVPForm from '@/components/SongClubRSVPForm';
 import ClubTopBar from '@/components/club/ClubTopBar';
 import PlaylistTracks from '@/components/club/PlaylistTracks';
@@ -92,14 +92,13 @@ export default async function SongClubEventPage({
 
   const unlocked = admin || (member ? await isEventAttendee(event.id, member.id) : false);
 
-  const [round, attendees, addable, posts] = unlocked
+  const [round, attendees, posts] = unlocked
     ? await Promise.all([
         event.playlist_id ? getPlaylist(event.playlist_id) : Promise.resolve(null),
         getEventAttendees(event.id),
-        admin ? getAddableMembers(event.id) : Promise.resolve([]),
         getPosts(event.id),
       ])
-    : [null, [], [], []];
+    : [null, [], []];
   const [roundTracks, roundComments] = round
     ? await Promise.all([playlistTracks(round.id), playlistComments(round.id)])
     : [[], {}];
@@ -261,7 +260,6 @@ export default async function SongClubEventPage({
           <EventAttendees
             eventId={event.id}
             initialAttendees={attendees}
-            addableMembers={addable}
             isAdmin={admin}
           />
         </section>

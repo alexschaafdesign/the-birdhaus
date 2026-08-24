@@ -3,49 +3,22 @@
 import { useState } from 'react';
 import type { AttendeeCard } from '@/lib/club-events';
 
-// Attendee profile cards for an event (avatar / name / bio / links). Admins
-// get an add picker (from members not yet on the roster) and a remove control
-// per card.
+// Attendee profile cards for an event (avatar / name / bio / links). The roster
+// auto-populates from members who signed up / marked "I went to this" — no
+// admin add picker. The admin keeps a per-card remove control for moderation.
 export default function EventAttendees({
   eventId,
   initialAttendees,
-  addableMembers,
   isAdmin,
 }: {
   eventId: number;
   initialAttendees: AttendeeCard[];
-  addableMembers: Array<{ id: number; name: string; email: string }>;
   isAdmin: boolean;
 }) {
   const [attendees, setAttendees] = useState<AttendeeCard[]>(initialAttendees);
-  const [addable, setAddable] = useState(addableMembers);
-  const [pick, setPick] = useState('');
-  const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function add() {
-    if (!pick) return;
-    setBusy(true);
-    setError(null);
-    try {
-      const res = await fetch(`/api/club/events/${eventId}/attendees`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: Number(pick) }),
-      });
-      const data = await res.json().catch(() => null);
-      if (!res.ok) throw new Error(data?.error ?? `Couldn't add (${res.status})`);
-      setAttendees(data.attendees ?? []);
-      setAddable((prev) => prev.filter((m) => m.id !== Number(pick)));
-      setPick('');
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Couldn't add");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function remove(userId: number, name: string) {
+  async function remove(userId: number) {
     setError(null);
     try {
       const res = await fetch(`/api/club/events/${eventId}/attendees`, {
@@ -56,9 +29,6 @@ export default function EventAttendees({
       const data = await res.json().catch(() => null);
       if (!res.ok) throw new Error(data?.error ?? `Couldn't remove (${res.status})`);
       setAttendees(data.attendees ?? []);
-      setAddable((prev) =>
-        prev.some((m) => m.id === userId) ? prev : [...prev, { id: userId, name, email: '' }]
-      );
     } catch (e) {
       setError(e instanceof Error ? e.message : "Couldn't remove");
     }
@@ -66,31 +36,6 @@ export default function EventAttendees({
 
   return (
     <div className="space-y-3">
-      {isAdmin && (
-        <div className="flex flex-wrap items-center gap-2">
-          <select
-            value={pick}
-            onChange={(e) => setPick(e.target.value)}
-            className="rounded-md border border-[#E8E0D0]/20 bg-[#E8E0D0]/[0.03] px-3 py-1.5 text-sm text-[#E8E0D0] focus:border-[#E8E0D0]/50 focus:outline-none"
-          >
-            <option value="">Add someone who came…</option>
-            {addable.map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.name}
-              </option>
-            ))}
-          </select>
-          <button
-            type="button"
-            onClick={add}
-            disabled={busy || !pick}
-            className="rounded-md border border-[#E8E0D0]/40 px-3 py-1.5 text-sm text-[#E8E0D0]/80 transition hover:border-[#E8E0D0] hover:text-[#E8E0D0] disabled:opacity-40"
-          >
-            Add
-          </button>
-        </div>
-      )}
-
       {error && (
         <div className="rounded border border-red-400/40 bg-red-400/10 px-3 py-1.5 text-sm text-red-200">
           {error}
@@ -123,7 +68,7 @@ export default function EventAttendees({
                     {isAdmin && (
                       <button
                         type="button"
-                        onClick={() => remove(a.id, a.name)}
+                        onClick={() => remove(a.id)}
                         className="shrink-0 text-[10px] text-[#E8E0D0]/35 transition hover:text-[#F5A3A3]"
                       >
                         remove
