@@ -99,49 +99,34 @@ export default async function Home() {
 
       {/* Next show + hero photo, side by side. The photo column sets the row
           height; the next-show flyer crops via object-cover to match it. */}
-      {/* Same container + grid as the Upcoming Shows list below, so the
-          next-show card matches those cards exactly; the photo fills the
-          remaining columns and crops to the card's height. */}
-      <div className="w-full max-w-4xl mx-auto px-8 mb-12 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-[2fr_3fr] sm:items-stretch">
-        {nextShow && (
-          // The eyebrow is absolutely positioned so it doesn't add height to
-          // this column — the card alone defines the row height, keeping the
-          // card and the photo exactly level.
-          <div className="relative">
-            <p className="absolute -top-6 left-0 font-mono text-xs uppercase tracking-widest text-vhs-red">Next show</p>
-            <ShowCard show={nextShow} />
-          </div>
-        )}
-        {/* Hero photo as a paused camcorder still: scanlines + mono OSD text.
-            The photo credit lives in the OSD, bottom-right. */}
-        <div className="relative aspect-[4/3] sm:aspect-auto sm:h-full border-2 border-ink overflow-hidden">
+      {/* Full-bleed ink band: the venue photo runs edge-to-edge behind the
+          Next Show card, which overlaps the band's bottom edge onto the paper. */}
+      <section className="relative mb-16 bg-[#1A1712]">
+        <div className="absolute inset-0 overflow-hidden">
           <Image
             src="https://images.thebirdhaus.org/misc/2016-01-16%20by%20Jeremy%20Nelson%205.jpg"
             alt="The Birdhaus venue"
             fill
-            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 600px"
+            sizes="100vw"
             priority
             unoptimized
             className="object-cover"
           />
-          <div className="vhs-scanlines absolute inset-0" aria-hidden="true" />
-          <span
-            aria-hidden="true"
-            className="absolute left-3 top-2.5 font-mono text-xs font-bold uppercase tracking-widest text-white [text-shadow:1px_0_rgba(224,52,44,0.9),-1px_0_rgba(33,64,199,0.9)]"
-          >
-            Play ▶
-          </span>
-          <span
-            aria-hidden="true"
-            className="absolute bottom-2.5 left-3 font-mono text-[11px] uppercase tracking-widest text-white/90 [text-shadow:0_1px_3px_rgba(0,0,0,0.8)]"
-          >
-            Jan 16 2016
-          </span>
-          <span className="absolute bottom-2.5 right-3 font-mono text-[11px] uppercase tracking-widest text-white/80 [text-shadow:0_1px_3px_rgba(0,0,0,0.8)]">
-            Photo: Jeremy Nelson
-          </span>
         </div>
-      </div>
+        <span className="absolute bottom-2.5 right-3 z-10 font-mono text-[11px] uppercase tracking-widest text-white/80 [text-shadow:0_1px_3px_rgba(0,0,0,0.8)]">
+          Photo: Jeremy Nelson
+        </span>
+        <div className="relative max-w-4xl mx-auto grid grid-cols-1 px-8 py-8 sm:grid-cols-2 sm:py-10 lg:grid-cols-[2fr_3fr]">
+          {nextShow && (
+            <div className="relative translate-y-6">
+              <p className="absolute -top-6 left-0 font-mono text-xs uppercase tracking-widest text-paper/90 [text-shadow:0_1px_3px_rgba(0,0,0,0.8)]">
+                Next show
+              </p>
+              <ShowCard show={nextShow} />
+            </div>
+          )}
+        </div>
+      </section>
 
       {/* Upcoming Shows */}
       <div id="upcoming-shows" className="max-w-4xl mx-auto px-8 pb-16">
