@@ -228,6 +228,22 @@ export async function touchLastSeen(id: number): Promise<void> {
   await sql`update users set last_seen_at = now() where id = ${id}`;
 }
 
+// Active users who (a) can access the portal and (b) have the given
+// notification category turned on — the recipient list for a blast.
+export type NotifyCategory = 'announcements' | 'events';
+
+export async function getNotificationRecipients(
+  category: NotifyCategory
+): Promise<Array<{ id: number; email: string; name: string }>> {
+  const column = category === 'announcements' ? 'notify_announcements' : 'notify_events';
+  return sql<Array<{ id: number; email: string; name: string }>>`
+    select u.id, u.email, u.name
+    from users u
+    join user_roles r on r.user_id = u.id and r.role = 'song_club'
+    where u.status = 'active' and u.${sql(column)} = true
+  `;
+}
+
 // --- self-service account settings (/account) ---
 
 export async function updateProfile(

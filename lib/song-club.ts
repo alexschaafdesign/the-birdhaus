@@ -19,6 +19,7 @@ export interface SongClubEvent {
   description: string | null;
   flyer_url: string | null;
   published: boolean;
+  notified_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -41,7 +42,7 @@ export interface SongClubEventInput {
 const COLUMNS = sql`
   id, slug, title, event_date::text as event_date, start_time, end_time,
   venue_name, address, arrival_notes, description, flyer_url, published,
-  created_at, updated_at
+  notified_at::text as notified_at, created_at, updated_at
 `;
 
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -193,5 +194,16 @@ export async function updateEvent(
 
 export async function deleteEvent(id: number): Promise<boolean> {
   const result = await sql`delete from song_club_events where id = ${id}`;
+  return result.count > 0;
+}
+
+// Atomically claim the one-time "new event" blast: stamps notified_at only if
+// it's still null, returning true to the single caller that won the race.
+// Prevents a double blast if publish is toggled/saved more than once.
+export async function claimEventNotification(id: number): Promise<boolean> {
+  const result = await sql`
+    update song_club_events set notified_at = now()
+    where id = ${id} and notified_at is null
+  `;
   return result.count > 0;
 }

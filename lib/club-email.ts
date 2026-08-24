@@ -125,6 +125,105 @@ export async function sendTrackCommentEmail({
   if (error) throw new Error(`Resend send failed: ${JSON.stringify(error)}`);
 }
 
+// A Birdhaus board post, emailed to a member who wants announcements. One
+// send per recipient (personalized greeting + settings note). Caller loops.
+export async function sendAnnouncementEmail({
+  to,
+  recipientName,
+  body,
+  portalUrl,
+}: {
+  to: string;
+  recipientName: string;
+  body: string;
+  portalUrl: string;
+}): Promise<void> {
+  const from = process.env.RESEND_FROM_EMAIL;
+  if (!from) throw new Error('RESEND_FROM_EMAIL is not set');
+
+  const firstName = splitName(recipientName).firstName;
+  const greeting = firstName ? `hi ${firstName}!` : 'hi there!';
+
+  const text = [
+    greeting,
+    '',
+    'New from the Birdhaus in the Song Club portal:',
+    '',
+    body,
+    '',
+    `Open the portal: ${portalUrl}`,
+    '',
+    'To stop announcement emails, turn them off in your account settings.',
+    '',
+    '— the BIRDHAUS',
+  ].join('\n');
+
+  const html = `<p>${esc(greeting)}</p>
+<p>New from the Birdhaus in the Song Club portal:</p>
+<blockquote style="border-left: 3px solid #c8a26a; margin: 12px 0; padding: 4px 0 4px 12px; color: #444; white-space: pre-wrap;">${esc(body)}</blockquote>
+<p><a href="${esc(portalUrl)}" style="display: inline-block; background: #2A2420; color: #E8E0D0; padding: 8px 16px; border-radius: 6px; text-decoration: none; font-weight: 600;">Open the portal</a></p>
+<p style="font-size: 12px; color: #999;">To stop announcement emails, turn them off in your account settings.</p>
+<p>— the BIRDHAUS</p>`;
+
+  const { error } = await getResendClient().emails.send({
+    from,
+    to,
+    subject: 'New in the Song Club portal',
+    html,
+    text,
+  });
+  if (error) throw new Error(`Resend send failed: ${JSON.stringify(error)}`);
+}
+
+// A newly-published Song Club event, emailed to a member who wants event
+// notifications. Details come from the event record. One send per recipient.
+export async function sendClubEventEmail({
+  to,
+  recipientName,
+  title,
+  dateLabel,
+  eventUrl,
+}: {
+  to: string;
+  recipientName: string;
+  title: string;
+  dateLabel: string;
+  eventUrl: string;
+}): Promise<void> {
+  const from = process.env.RESEND_FROM_EMAIL;
+  if (!from) throw new Error('RESEND_FROM_EMAIL is not set');
+
+  const firstName = splitName(recipientName).firstName;
+  const greeting = firstName ? `hi ${firstName}!` : 'hi there!';
+
+  const text = [
+    greeting,
+    '',
+    `New Song Club event: ${title} — ${dateLabel}.`,
+    '',
+    `Details & RSVP: ${eventUrl}`,
+    '',
+    'To stop event emails, turn them off in your account settings.',
+    '',
+    '— the BIRDHAUS',
+  ].join('\n');
+
+  const html = `<p>${esc(greeting)}</p>
+<p>New Song Club event: <strong>${esc(title)}</strong> — ${esc(dateLabel)}.</p>
+<p><a href="${esc(eventUrl)}" style="display: inline-block; background: #2A2420; color: #E8E0D0; padding: 8px 16px; border-radius: 6px; text-decoration: none; font-weight: 600;">Details &amp; RSVP</a></p>
+<p style="font-size: 12px; color: #999;">To stop event emails, turn them off in your account settings.</p>
+<p>— the BIRDHAUS</p>`;
+
+  const { error } = await getResendClient().emails.send({
+    from,
+    to,
+    subject: `New Song Club event: ${title}`,
+    html,
+    text,
+  });
+  if (error) throw new Error(`Resend send failed: ${JSON.stringify(error)}`);
+}
+
 export async function sendClubPasswordResetEmail({
   name,
   email,

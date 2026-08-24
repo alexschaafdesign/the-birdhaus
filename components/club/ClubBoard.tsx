@@ -19,22 +19,32 @@ export default function ClubBoard({
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  // Admin default: also email the club, so an announcement reaches inboxes
+  // rather than waiting for people to revisit. Members never email the board.
+  const [emailToo, setEmailToo] = useState(true);
 
   async function send() {
     const body = draft.trim();
     if (!body) return;
     setSending(true);
     setError(null);
+    setNotice(null);
     try {
       const res = await fetch('/api/club/posts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ body }),
+        body: JSON.stringify({ body, email: isAdmin && emailToo }),
       });
       const data = await res.json().catch(() => null);
       if (!res.ok) throw new Error(data?.error ?? `Couldn't post (${res.status})`);
       setPosts(data.posts ?? []);
       setDraft('');
+      if (typeof data.emailedCount === 'number') {
+        setNotice(
+          `Posted + emailed ${data.emailedCount} member${data.emailedCount === 1 ? '' : 's'}.`
+        );
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Couldn't post");
     } finally {
@@ -108,14 +118,32 @@ export default function ClubBoard({
             {error}
           </div>
         )}
-        <button
-          type="button"
-          onClick={send}
-          disabled={sending || !draft.trim()}
-          className="rounded border border-[#E8E0D0] bg-[#E8E0D0] px-5 py-2 text-sm font-medium text-[#2A2420] transition-colors hover:bg-[#E8E0D0]/90 disabled:opacity-50"
-        >
-          {sending ? 'Posting…' : 'Post'}
-        </button>
+        {notice && (
+          <div className="rounded border border-green-400/40 bg-green-400/10 px-3 py-1.5 text-sm text-green-200">
+            {notice}
+          </div>
+        )}
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            onClick={send}
+            disabled={sending || !draft.trim()}
+            className="rounded border border-[#E8E0D0] bg-[#E8E0D0] px-5 py-2 text-sm font-medium text-[#2A2420] transition-colors hover:bg-[#E8E0D0]/90 disabled:opacity-50"
+          >
+            {sending ? 'Posting…' : isAdmin && emailToo ? 'Post + email' : 'Post'}
+          </button>
+          {isAdmin && (
+            <label className="flex cursor-pointer items-center gap-1.5 text-xs text-[#E8E0D0]/60">
+              <input
+                type="checkbox"
+                checked={emailToo}
+                onChange={(e) => setEmailToo(e.target.checked)}
+                className="accent-[#c8a26a]"
+              />
+              Also email members who want announcements
+            </label>
+          )}
+        </div>
       </div>
     </div>
   );
