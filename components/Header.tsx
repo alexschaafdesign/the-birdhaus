@@ -66,7 +66,7 @@ export default function Header({ isAdmin }: { isAdmin?: boolean }) {
   const dividerClass = onPhoto ? 'bg-paper/30' : 'bg-ink/20';
 
   return (
-    <header className="pb-5">
+    <header className="relative z-30 pb-5">
       {/* Ink band behind the cream logo — the "tape shell" above the paper
           label. On the photo-background home page the band is transparent. */}
       <div className={`px-8 pt-6 pb-6 ${onPhoto ? '' : 'bg-[#1A1712]'}`}>

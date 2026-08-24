@@ -51,8 +51,11 @@ export default async function Home() {
   return (
     <main className="min-h-screen">
       {/* Full-page backdrop: the venue photo fixed behind everything, under a
-          heavy ink scrim. Content scrolls over it. */}
-      <div className="fixed inset-0 -z-10" aria-hidden="true">
+          heavy ink scrim. Content scrolls over it — the backdrop sits at
+          normal stacking level and the page content + header are lifted above
+          it (more robust than a negative z-index, which loses to the body's
+          background layer). */}
+      <div className="fixed inset-0" aria-hidden="true">
         <Image
           src="https://images.thebirdhaus.org/misc/2016-01-16%20by%20Jeremy%20Nelson%205.jpg"
           alt=""
@@ -65,6 +68,7 @@ export default async function Home() {
         <div className="absolute inset-0 bg-[#1A1712]/70" />
       </div>
 
+      <div className="relative z-10">
       {/* Birdhaus Leaderboard */}
       {sortedBands.length > 0 && (
         <div className="max-w-4xl mx-auto px-8 mb-12">
@@ -149,6 +153,7 @@ export default async function Home() {
         <p className="mt-10 text-center font-mono text-[10px] uppercase tracking-widest text-paper/40">
           Background photo: Jeremy Nelson
         </p>
+      </div>
       </div>
     </main>
   );
