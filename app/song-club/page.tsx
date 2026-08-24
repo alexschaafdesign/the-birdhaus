@@ -103,7 +103,9 @@ export default async function SongClubPage() {
                   <div className="mt-1 text-sm text-[#E8E0D0]/55">
                     {[
                       e.playlistId ? `${e.trackCount} track${e.trackCount === 1 ? '' : 's'}` : null,
-                      e.attendeeCount ? `${e.attendeeCount} came` : null,
+                      e.attendeeCount
+                        ? `${e.attendeeCount} musician${e.attendeeCount === 1 ? '' : 's'}`
+                        : null,
                     ]
                       .filter(Boolean)
                       .join(' · ') || 'Chat, upload your song, listen to others'}
