@@ -18,10 +18,16 @@ function bandNames(show: Show) {
 
 export default function ShowCard({ show, draft }: { show: Show; draft?: boolean }) {
   const { day, weekday, month } = formatCardDate(show.date);
+  const isSongClub = show.type === 'song_club';
+  const href = draft
+    ? `/admin/shows/${show.id}`
+    : isSongClub
+      ? `/song-club/${show.slug}`
+      : `/shows/${show.slug}`;
 
   return (
     <Link
-      href={draft ? `/admin/shows/${show.id}` : `/shows/${show.slug}`}
+      href={href}
       className={`group relative flex flex-col overflow-hidden rounded-lg border bg-[#E8E0D0]/5 transition-colors ${
         draft
           ? 'border-dashed border-yellow-500/50 hover:border-yellow-400'
@@ -48,6 +54,11 @@ export default function ShowCard({ show, draft }: { show: Show; draft?: boolean 
             Draft
           </span>
         )}
+        {isSongClub && !draft && (
+          <span className="absolute left-2 top-2 rounded bg-[#c8a26a] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-black">
+            Song Club
+          </span>
+        )}
         <div className="absolute inset-x-0 bottom-0 flex items-baseline gap-2 bg-gradient-to-t from-black via-black/85 via-40% to-transparent px-4 pb-3 pt-16 [text-shadow:0_1px_4px_rgba(0,0,0,0.8)]">
           <span className="text-3xl font-black leading-none text-[#E8E0D0]">
             {day} {month}
@@ -58,7 +69,9 @@ export default function ShowCard({ show, draft }: { show: Show; draft?: boolean 
         </div>
       </div>
       <div className="flex items-center justify-between gap-3 px-4 py-3">
-        <p className="min-w-0 truncate text-sm text-[#E8E0D0]/60">{bandNames(show)}</p>
+        <p className="min-w-0 truncate text-sm text-[#E8E0D0]/60">
+          {isSongClub ? show.subtitle ?? show.title : bandNames(show)}
+        </p>
         <span className="flex-shrink-0 text-xs text-[#E8E0D0]/50 transition-colors group-hover:text-[#E8E0D0]">
           {draft ? 'Edit →' : 'RSVP →'}
         </span>

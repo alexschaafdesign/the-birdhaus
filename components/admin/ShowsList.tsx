@@ -420,10 +420,10 @@ export default function ShowsList({ initialShows, today }: { initialShows: ShowL
             {selectMode ? 'Cancel selection' : 'Ask an engineer…'}
           </button>
           <Link
-            href="/admin/shows/new"
+            href="/admin/events/new"
             className="border border-[#E8E0D0]/40 rounded px-4 py-1.5 text-sm hover:bg-[#E8E0D0]/10 transition-colors"
           >
-            + New show
+            + New event
           </Link>
         </div>
       </div>

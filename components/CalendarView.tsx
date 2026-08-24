@@ -13,6 +13,7 @@ export interface CalendarShow {
   title: string;
   date: string;
   flyer?: string | null;
+  type?: 'show' | 'song_club';
 }
 
 const WEEKDAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
@@ -28,7 +29,7 @@ export default function CalendarView({
   draftShows,
   availableDates,
   isAdmin,
-  showHref = (show) => `/shows/${show.slug}`,
+  showHref = (show) => (show.type === 'song_club' ? `/song-club/${show.slug}` : `/shows/${show.slug}`),
 }: {
   shows: CalendarShow[];
   today: string;

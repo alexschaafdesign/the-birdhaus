@@ -33,10 +33,10 @@ export default async function AdminSongClubPage() {
             Portal members
           </Link>
           <Link
-            href="/admin/song-club/new"
+            href="/admin/events/new?type=song_club"
             className="rounded-md bg-[#E8E0D0] px-3.5 py-1.5 text-sm font-semibold text-[#2A2420] transition hover:bg-white"
           >
-            + New meetup
+            + New event
           </Link>
         </div>
       </div>
