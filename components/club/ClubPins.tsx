@@ -100,9 +100,6 @@ export default function ClubPins({
 
         {embedSrc ? (
           <>
-            {/* The iframe sits inside an overflow-hidden box; Samply pages get
-                shifted up so their empty header band (dead space + share icon)
-                is cropped out of view — we can't restyle a cross-origin page. */}
             <div
               className={`mt-2 overflow-hidden rounded bg-[#E8E0D0]/[0.02] ${embedHeight(
                 embedSrc,
@@ -115,9 +112,7 @@ export default function ClubPins({
                 loading="lazy"
                 allow="autoplay; encrypted-media; fullscreen"
                 sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
-                className={`w-full border-0 ${
-                  isSamplyEmbed(embedSrc) ? '-mt-20 h-[calc(100%+5rem)]' : 'h-full'
-                }`}
+                className="h-full w-full border-0"
               />
             </div>
             <a
