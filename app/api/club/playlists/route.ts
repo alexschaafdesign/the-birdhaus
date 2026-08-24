@@ -14,8 +14,10 @@ export async function POST(request: Request) {
   const description = typeof body?.description === 'string' ? body.description : null;
   const imageUrl = typeof body?.imageUrl === 'string' ? body.imageUrl : null;
   // Optional: create this round already linked to an event (from the event hub).
-  const eventId =
-    typeof body?.eventId === 'number' && Number.isInteger(body.eventId) ? body.eventId : null;
+  // Event ids are bigints, which arrive as strings in JSON — coerce, don't
+  // require a JS number.
+  const eventIdNum = Number(body?.eventId);
+  const eventId = Number.isInteger(eventIdNum) && eventIdNum > 0 ? eventIdNum : null;
 
   const playlist = await createPlaylist({ title, description, imageUrl });
   if (!playlist) return NextResponse.json({ error: 'A title is required' }, { status: 400 });

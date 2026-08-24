@@ -18,8 +18,9 @@ export async function POST(request: Request) {
 
   const body = await request.json().catch(() => null);
   const text = typeof body?.body === 'string' ? body.body : '';
-  const eventId =
-    typeof body?.eventId === 'number' && Number.isInteger(body.eventId) ? body.eventId : null;
+  // Event ids are bigints → arrive as strings in JSON; coerce.
+  const eventIdNum = Number(body?.eventId);
+  const eventId = Number.isInteger(eventIdNum) && eventIdNum > 0 ? eventIdNum : null;
 
   // Posting to an event board requires participation (the admin is exempt) —
   // matches the page-level gate.

@@ -34,7 +34,7 @@ async function mutate(
   }
 
   const body = await request.json().catch(() => null);
-  const userId = typeof body?.userId === 'number' ? body.userId : NaN;
+  const userId = Number(body?.userId); // user ids are bigints → may arrive as strings
   if (!Number.isInteger(userId)) {
     return NextResponse.json({ error: 'userId required' }, { status: 400 });
   }
