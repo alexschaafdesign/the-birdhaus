@@ -84,6 +84,14 @@ export default async function SongClubPage() {
         <p className="mt-1 max-w-xl text-[15px] text-[#E8E0D0]/60">
           Song-a-days, monthly songwriter meetups, and more.
         </p>
+        <p className="mt-2 text-sm">
+          <Link
+            href="/club"
+            className="text-[#E8E0D0]/45 underline-offset-2 transition hover:text-[#E8E0D0] hover:underline"
+          >
+            Member? Open the portal →
+          </Link>
+        </p>
       </header>
 
       {events.length === 0 ? (

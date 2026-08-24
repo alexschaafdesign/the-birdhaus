@@ -43,6 +43,10 @@ export const ADVANCE_ATTACHMENTS_FOLDER = 'advance-attachments';
 // app/api/admin/expenses/receipt using uploadFileToR2.
 export const RECEIPTS_FOLDER = 'receipts';
 
+// Files members pin on the Song Club portal (lyric sheets, PDFs, images) —
+// arbitrary types via uploadFileToR2, same as advance attachments.
+export const SONG_CLUB_FILES_FOLDER = 'song-club-files';
+
 const EXTENSION_FOR_TYPE: Record<string, string> = {
   'image/jpeg': 'jpg',
   'image/png': 'png',

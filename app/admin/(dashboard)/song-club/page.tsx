@@ -25,12 +25,20 @@ export default async function AdminSongClubPage() {
     <main className="mx-auto w-full max-w-4xl px-6 py-8 text-[#E8E0D0]">
       <div className="mb-6 flex items-center justify-between">
         <h2 className="text-xl font-medium">Song Club — meetups</h2>
-        <Link
-          href="/admin/song-club/new"
-          className="rounded-md bg-[#E8E0D0] px-3.5 py-1.5 text-sm font-semibold text-[#2A2420] transition hover:bg-white"
-        >
-          + New meetup
-        </Link>
+        <div className="flex items-center gap-3">
+          <Link
+            href="/admin/song-club/members"
+            className="rounded-md border border-[#E8E0D0]/30 px-3.5 py-1.5 text-sm text-[#E8E0D0]/80 transition hover:border-[#E8E0D0]/60 hover:text-[#E8E0D0]"
+          >
+            Portal members
+          </Link>
+          <Link
+            href="/admin/song-club/new"
+            className="rounded-md bg-[#E8E0D0] px-3.5 py-1.5 text-sm font-semibold text-[#2A2420] transition hover:bg-white"
+          >
+            + New meetup
+          </Link>
+        </div>
       </div>
 
       {events.length === 0 ? (
