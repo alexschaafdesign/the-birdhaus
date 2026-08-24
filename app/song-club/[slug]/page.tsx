@@ -255,7 +255,7 @@ export default async function SongClubEventPage({
       {unlocked && (
         <section className="mt-8">
           <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-[#E8E0D0]/45">
-            {isUpcoming ? 'Who is signed up' : 'Who came'}
+            Songwriters
           </h2>
           <EventAttendees
             eventId={event.id}
