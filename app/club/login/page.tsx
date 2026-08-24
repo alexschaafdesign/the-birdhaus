@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { getClubPortalMember } from '@/lib/club-members';
+import { isAdminSession } from '@/lib/admin-session';
 import ClubLoginForm from '@/components/club/ClubLoginForm';
 import SongClubLogo from '@/components/club/SongClubLogo';
 
@@ -13,7 +14,9 @@ export const metadata: Metadata = {
 export const dynamic = 'force-dynamic';
 
 export default async function ClubLoginPage() {
-  if (await getClubPortalMember()) redirect('/club');
+  // The admin session always counts as being in the club — never show a login
+  // prompt to Alex.
+  if ((await isAdminSession()) || (await getClubPortalMember())) redirect('/club');
 
   return (
     <main className="mx-auto w-full max-w-sm px-5 py-10 text-[#E8E0D0] sm:py-14">

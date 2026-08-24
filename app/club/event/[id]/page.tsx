@@ -10,6 +10,7 @@ import { getAddableMembers, getEventAttendees, isEventAttendee } from '@/lib/clu
 import EventAttendees from '@/components/club/EventAttendees';
 import ClubBoard from '@/components/club/ClubBoard';
 import ParticipateButton from '@/components/club/ParticipateButton';
+import CreateRoundForEvent from '@/components/club/CreateRoundForEvent';
 
 export const metadata: Metadata = {
   title: 'Song Club — event',
@@ -98,21 +99,29 @@ export default async function ClubEventPage({
         </section>
       ) : (
         <>
-          {round && (
-            <Link
-              href={`/club/music/${round.id}`}
-              className="mt-6 flex items-center justify-between gap-4 rounded-lg border border-[#c8a26a]/30 bg-[#c8a26a]/[0.06] p-4 transition hover:border-[#c8a26a]/60 hover:bg-[#c8a26a]/[0.1]"
-            >
-              <div className="min-w-0">
-                <div className="text-xs font-medium uppercase tracking-wide text-[#c8a26a]/80">
-                  The round
-                </div>
-                <div className="truncate font-medium text-[#E8E0D0]">{round.title}</div>
+          {round ? (
+            <section className="mt-6 rounded-lg border border-[#c8a26a]/30 bg-[#c8a26a]/[0.06] p-4">
+              <div className="text-xs font-medium uppercase tracking-wide text-[#c8a26a]/80">
+                The round
               </div>
-              <span className="shrink-0 text-sm text-[#E8E0D0]/55">
-                {round.trackCount} track{round.trackCount === 1 ? '' : 's'} →
-              </span>
-            </Link>
+              <div className="mt-0.5 font-medium text-[#E8E0D0]">{round.title}</div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <Link
+                  href={`/club/upload?playlist=${round.id}`}
+                  className="rounded-md bg-[#E8E0D0] px-3.5 py-1.5 text-sm font-semibold text-[#2A2420] transition hover:bg-white"
+                >
+                  + Upload your track
+                </Link>
+                <Link
+                  href={`/club/music/${round.id}`}
+                  className="rounded-md border border-[#E8E0D0]/30 px-3.5 py-1.5 text-sm text-[#E8E0D0]/80 transition hover:border-[#E8E0D0]/60 hover:text-[#E8E0D0]"
+                >
+                  Listen — {round.trackCount} track{round.trackCount === 1 ? '' : 's'} →
+                </Link>
+              </div>
+            </section>
+          ) : (
+            admin && <CreateRoundForEvent eventId={id} defaultTitle={event.title} />
           )}
 
           <section className="mt-8">

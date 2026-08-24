@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import type { Metadata } from 'next';
 import { listEvents, getTodayCentral, type SongClubEvent } from '@/lib/song-club';
+import { isAdminSession } from '@/lib/admin-session';
 import SongClubLogo from '@/components/club/SongClubLogo';
 
 export const metadata: Metadata = {
@@ -74,6 +75,7 @@ function EventCard({ event, large = false }: { event: SongClubEvent; large?: boo
 
 export default async function SongClubPage() {
   const events = await listEvents({ publishedOnly: true });
+  const isAdmin = await isAdminSession();
   const today = getTodayCentral();
   const upcoming = events.filter((e) => e.event_date >= today).reverse(); // soonest first
   const past = events.filter((e) => e.event_date < today); // most recent first
@@ -94,7 +96,7 @@ export default async function SongClubPage() {
           href="/club"
           className="shrink-0 rounded-md border border-[#E8E0D0]/30 px-4 py-2 text-sm font-semibold text-[#E8E0D0] transition hover:border-[#E8E0D0]/60 hover:bg-[#E8E0D0]/[0.06]"
         >
-          Log in
+          {isAdmin ? 'Song Club portal' : 'Log in'}
         </Link>
       </header>
 

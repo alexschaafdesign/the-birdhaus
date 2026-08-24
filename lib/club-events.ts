@@ -101,6 +101,14 @@ export async function getAddableMembers(
   `;
 }
 
+// Links a round (playlist) to an event as its round. Admin-gated by callers.
+export async function setEventRound(eventId: number, playlistId: number): Promise<boolean> {
+  const result = await sql`
+    update song_club_events set playlist_id = ${playlistId} where id = ${eventId}
+  `;
+  return result.count > 0;
+}
+
 export async function isEventAttendee(eventId: number, userId: number): Promise<boolean> {
   const [row] = await sql<Array<{ one: number }>>`
     select 1 as one from song_club_event_attendees
