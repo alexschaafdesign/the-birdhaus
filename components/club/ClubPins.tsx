@@ -116,7 +116,7 @@ export default function ClubPins({
                 allow="autoplay; encrypted-media; fullscreen"
                 sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
                 className={`w-full border-0 ${
-                  isSamplyEmbed(embedSrc) ? '-mt-24 h-[calc(100%+6rem)]' : 'h-full'
+                  isSamplyEmbed(embedSrc) ? '-mt-20 h-[calc(100%+5rem)]' : 'h-full'
                 }`}
               />
             </div>
