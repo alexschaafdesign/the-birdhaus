@@ -18,6 +18,7 @@ export default function ShowsBrowser({
   draftShows,
   availableDates,
   isAdmin,
+  onDark,
 }: {
   upcomingShows: Show[];
   calendarShows: Show[];
@@ -25,13 +26,15 @@ export default function ShowsBrowser({
   draftShows?: Show[];
   availableDates?: string[];
   isAdmin?: boolean;
+  // The home page renders over the dark full-page photo background.
+  onDark?: boolean;
 }) {
   const [view, setView] = useState<'list' | 'calendar'>('list');
 
   const hasAdminExtras = isAdmin && ((draftShows?.length ?? 0) > 0 || (availableDates?.length ?? 0) > 0);
 
   if (upcomingShows.length === 0 && calendarShows.length === 0 && !hasAdminExtras) {
-    return <p className="text-ink/60">No upcoming shows scheduled.</p>;
+    return <p className={onDark ? 'text-paper/70' : 'text-ink/60'}>No upcoming shows scheduled.</p>;
   }
 
   // Admin sees draft shows and open available dates woven into the same
@@ -53,8 +56,12 @@ export default function ShowsBrowser({
             onClick={() => setView(option)}
             className={`border-2 px-3 py-1.5 font-mono text-sm uppercase tracking-widest transition-colors ${
               view === option
-                ? 'border-ink bg-ink text-paper'
-                : 'border-ink/30 text-ink/50 hover:border-ink hover:text-ink'
+                ? onDark
+                  ? 'border-paper bg-paper text-ink'
+                  : 'border-ink bg-ink text-paper'
+                : onDark
+                  ? 'border-paper/30 text-paper/60 hover:border-paper hover:text-paper'
+                  : 'border-ink/30 text-ink/50 hover:border-ink hover:text-ink'
             }`}
           >
             {option}
@@ -64,7 +71,7 @@ export default function ShowsBrowser({
 
       {view === 'list' ? (
         listEntries.length === 0 ? (
-          <p className="text-ink/60">No upcoming shows scheduled.</p>
+          <p className={onDark ? 'text-paper/70' : 'text-ink/60'}>No upcoming shows scheduled.</p>
         ) : (
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {listEntries.map((entry) =>
@@ -85,6 +92,7 @@ export default function ShowsBrowser({
           draftShows={draftShows}
           availableDates={availableDates}
           isAdmin={isAdmin}
+          dark={onDark}
         />
       )}
     </div>

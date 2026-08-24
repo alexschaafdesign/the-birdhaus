@@ -50,6 +50,21 @@ export default async function Home() {
 
   return (
     <main className="min-h-screen">
+      {/* Full-page backdrop: the venue photo fixed behind everything, under a
+          heavy ink scrim. Content scrolls over it. */}
+      <div className="fixed inset-0 -z-10" aria-hidden="true">
+        <Image
+          src="https://images.thebirdhaus.org/misc/2016-01-16%20by%20Jeremy%20Nelson%205.jpg"
+          alt=""
+          fill
+          sizes="100vw"
+          priority
+          unoptimized
+          className="object-cover"
+        />
+        <div className="absolute inset-0 bg-[#1A1712]/80" />
+      </div>
+
       {/* Birdhaus Leaderboard */}
       {sortedBands.length > 0 && (
         <div className="max-w-4xl mx-auto px-8 mb-12">
@@ -92,63 +107,48 @@ export default async function Home() {
 
       {/* Next show + hero photo, side by side. The photo column sets the row
           height; the next-show flyer crops via object-cover to match it. */}
-      {/* Full-bleed ink band: the venue photo runs edge-to-edge behind the
-          Next Show card, which overlaps the band's bottom edge onto the paper. */}
-      <section className="relative mb-16 bg-[#1A1712]">
-        <div className="absolute inset-0 overflow-hidden">
-          <Image
-            src="https://images.thebirdhaus.org/misc/2016-01-16%20by%20Jeremy%20Nelson%205.jpg"
-            alt="The Birdhaus venue"
-            fill
-            sizes="100vw"
-            priority
-            unoptimized
-            className="object-cover"
-          />
-          {/* Darkening scrim so the card and about text read clearly. */}
-          <div className="absolute inset-0 bg-[#1A1712]/75" aria-hidden="true" />
-        </div>
-        <span className="absolute bottom-2.5 right-3 z-10 font-mono text-[11px] uppercase tracking-widest text-white/80 [text-shadow:0_1px_3px_rgba(0,0,0,0.8)]">
-          Photo: Jeremy Nelson
-        </span>
-        <div className="relative max-w-4xl mx-auto grid grid-cols-1 px-8 py-8 sm:grid-cols-2 sm:py-10 lg:grid-cols-[2fr_3fr]">
-          {nextShow && (
-            <div className="relative translate-y-6">
-              <p className="absolute -top-6 left-0 font-mono text-xs uppercase tracking-widest text-paper/90 [text-shadow:0_1px_3px_rgba(0,0,0,0.8)]">
-                Next show
-              </p>
-              <ShowCard show={nextShow} />
-            </div>
-          )}
-          {/* About */}
-          <div className="mt-8 flex items-center justify-end sm:mt-0 sm:pl-8 lg:pl-12">
-            <p className="max-w-sm text-right text-lg md:text-xl leading-relaxed text-paper [text-shadow:0_2px_6px_rgba(0,0,0,0.9)]">
-              <span className="font-bold">the BIRDHAUS</span> is a DIY house venue and record label located in Powderhorn, Minneapolis
+      {/* Next show + about, floating over the photo backdrop. */}
+      <div className="w-full max-w-4xl mx-auto grid grid-cols-1 gap-6 px-8 pt-8 pb-16 sm:grid-cols-2 lg:grid-cols-[2fr_3fr]">
+        {nextShow && (
+          <div className="relative">
+            <p className="absolute -top-6 left-0 font-mono text-xs uppercase tracking-widest text-paper/90 [text-shadow:0_1px_3px_rgba(0,0,0,0.8)]">
+              Next show
             </p>
+            <ShowCard show={nextShow} />
           </div>
+        )}
+        {/* About */}
+        <div className="mt-8 flex items-center justify-end sm:mt-0 sm:pl-8 lg:pl-12">
+          <p className="max-w-sm text-right text-lg md:text-xl leading-relaxed text-paper [text-shadow:0_2px_6px_rgba(0,0,0,0.9)]">
+            <span className="font-bold">the BIRDHAUS</span> is a DIY house venue and record label located in Powderhorn, Minneapolis
+          </p>
         </div>
-      </section>
+      </div>
 
       {/* Upcoming Shows */}
       <div id="upcoming-shows" className="max-w-4xl mx-auto px-8 pb-16">
         <div className="mb-8">
           <div className="vhs-stripes h-1.5 w-24 mb-3" aria-hidden="true" />
-          <h2 className="text-4xl font-bold mb-2 uppercase tracking-tight">Upcoming Shows</h2>
-          <p className="text-ink/60 text-base">Click a show to RSVP and get details</p>
+          <h2 className="text-4xl font-bold mb-2 uppercase tracking-tight text-paper">Upcoming Shows</h2>
+          <p className="text-paper/70 text-base">Click a show to RSVP and get details</p>
         </div>
-        <ShowsBrowser upcomingShows={upcomingShows} calendarShows={calendarShows} today={today} />
+        <ShowsBrowser upcomingShows={upcomingShows} calendarShows={calendarShows} today={today} onDark />
 
         <div className="mt-8">
-          <a href="/archive" className="block text-2xl hover:text-vhs-red">
+          <a href="/archive" className="block text-2xl text-paper hover:text-vhs-red">
             Archive →
           </a>
         </div>
 
         <div className="mt-16 text-center">
-          <Link href="/admin/login" className="font-mono text-xs uppercase tracking-widest text-ink/40 hover:text-ink/70">
+          <Link href="/admin/login" className="font-mono text-xs uppercase tracking-widest text-paper/40 hover:text-paper/70">
             Admin Login
           </Link>
         </div>
+
+        <p className="mt-10 text-center font-mono text-[10px] uppercase tracking-widest text-paper/40">
+          Background photo: Jeremy Nelson
+        </p>
       </div>
     </main>
   );
