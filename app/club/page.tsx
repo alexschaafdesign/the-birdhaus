@@ -9,8 +9,6 @@ import { listPortalEvents } from '@/lib/club-events';
 import ClubPins from '@/components/club/ClubPins';
 import ClubBoard from '@/components/club/ClubBoard';
 import NewPlaylistForm from '@/components/club/NewPlaylistForm';
-import SongClubLogo from '@/components/club/SongClubLogo';
-import ClubUserMenu from '@/components/club/ClubUserMenu';
 
 export const metadata: Metadata = {
   title: 'Song Club portal',
@@ -37,31 +35,11 @@ export default async function ClubPage() {
 
   return (
     <main className="mx-auto w-full max-w-3xl px-5 py-6 text-[#E8E0D0] sm:px-8 sm:py-8">
-      <header className="mb-6 flex items-start justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <SongClubLogo className="h-14 w-14" />
-          <div>
-            <div className="text-xs font-medium uppercase tracking-wide text-[#E8E0D0]/50">
-              Members only
-            </div>
-            <h1 className="mt-0.5 text-2xl font-semibold sm:text-3xl">Song Club portal</h1>
-          </div>
+      <header className="mb-6">
+        <div className="text-xs font-medium uppercase tracking-wide text-[#E8E0D0]/50">
+          Members only
         </div>
-        <div className="flex shrink-0 flex-col items-end gap-1">
-          {member ? (
-            <ClubUserMenu name={member.name} avatarUrl={member.avatar_url} />
-          ) : (
-            <>
-              <span className="text-sm text-[#E8E0D0]/70">the Birdhaus (admin)</span>
-              <Link
-                href="/admin/song-club/members"
-                className="text-xs text-[#E8E0D0]/45 underline-offset-2 transition hover:text-[#E8E0D0] hover:underline"
-              >
-                Manage members
-              </Link>
-            </>
-          )}
-        </div>
+        <h1 className="mt-0.5 text-2xl font-semibold sm:text-3xl">Song Club portal</h1>
       </header>
 
       {/* Events — the portal's primary organizer. Each links to its hub
