@@ -22,6 +22,7 @@ export type ClubMemberStatus = 'invited' | 'active' | 'disabled';
 // live in club-roles.ts (client-safe) and are re-exported here.
 export { ALL_ROLES, type ClubRole } from './club-roles';
 import { ALL_ROLES, type ClubRole } from './club-roles';
+import { sanitizeFocusAreas, type FocusAreaKey } from './crew';
 
 // A labeled profile link (Bandcamp, Instagram, website…) shown on attendee
 // cards.
@@ -43,6 +44,11 @@ export interface ClubMember {
   notify_announcements: boolean;
   notify_events: boolean;
   roles: ClubRole[];
+  // Crew-only: free-text job title ("VP of Sound Engineering") and the focus
+  // areas (lib/crew.ts keys) that drive their tailored /admin home. Null/empty
+  // for non-crew members.
+  title: string | null;
+  focus_areas: FocusAreaKey[];
   invited_at: string;
   joined_at: string | null;
   last_seen_at: string | null;
@@ -80,6 +86,7 @@ const COLUMNS = sql`
   avatar_url, bio, links, notify_track_comments, notify_announcements, notify_events,
   (select coalesce(array_agg(r.role order by r.role), '{}')
      from user_roles r where r.user_id = users.id) as roles,
+  title, focus_areas,
   invited_at::text as invited_at, joined_at::text as joined_at,
   last_seen_at::text as last_seen_at
 `;
@@ -108,29 +115,43 @@ export async function getMemberById(id: number): Promise<ClubMember | null> {
 }
 
 // Creates (or re-invites) a user with the given roles and returns the raw
-// setup token for the invite email.
+// setup token for the invite email. `title`/`focusAreas` are the crew fields —
+// omit them for a plain Song Club invite (a re-invite that omits them leaves
+// any existing crew fields untouched).
 export async function inviteMember(input: {
   email: string;
   name: string;
   roles?: unknown;
+  title?: string | null;
+  focusAreas?: unknown;
 }): Promise<{ member: ClubMember; token: string } | { error: string }> {
   const email = normalizeEmail(input.email);
   const name = input.name.trim();
   if (!email || !name) return { error: 'Name and email are required' };
   const roles = sanitizeRoles(input.roles);
+  const title = typeof input.title === 'string' ? input.title.trim().slice(0, 120) || null : null;
+  const focusAreas = input.focusAreas === undefined ? [] : sanitizeFocusAreas(input.focusAreas);
 
   const { token, tokenHash } = createSetupToken();
   // Re-inviting an existing address refreshes their token and roles (never
   // wiping an already-set password); the conflict-update's WHERE makes
-  // inviting a disabled user a no-op instead of quietly re-arming it.
+  // inviting a disabled user a no-op instead of quietly re-arming it. Crew
+  // fields only overwrite when the caller actually supplied them (coalesce /
+  // non-empty check), so a Song Club re-invite can't blank a crew title.
   const [row] = await sql<Array<{ id: number }>>`
-    insert into users (email, name, setup_token_hash, setup_token_expires_at)
+    insert into users (email, name, setup_token_hash, setup_token_expires_at, title, focus_areas)
     values (${email}, ${name}, ${tokenHash},
-            now() + make_interval(secs => ${INVITE_TOKEN_TTL_SECONDS}))
+            now() + make_interval(secs => ${INVITE_TOKEN_TTL_SECONDS}),
+            ${title}, ${focusAreas})
     on conflict (email) do update set
       name = excluded.name,
       setup_token_hash = excluded.setup_token_hash,
       setup_token_expires_at = excluded.setup_token_expires_at,
+      title = coalesce(excluded.title, users.title),
+      focus_areas = case
+        when cardinality(excluded.focus_areas) > 0 then excluded.focus_areas
+        else users.focus_areas
+      end,
       invited_at = now()
     where users.status <> 'disabled'
     returning id
@@ -151,6 +172,36 @@ export async function setRoles(userId: number, roles: unknown): Promise<void> {
       await tx`insert into user_roles (user_id, role) values (${userId}, ${role})`;
     }
   });
+}
+
+// Crew members: everyone holding the 'crew' role, newest-invited last.
+export async function listCrew(): Promise<ClubMember[]> {
+  return sql<ClubMember[]>`
+    select ${COLUMNS} from users
+    where exists (select 1 from user_roles r where r.user_id = users.id and r.role = 'crew')
+    order by name asc, id asc
+  `;
+}
+
+// Updates a crew member's title and/or focus areas. `title: null` clears it;
+// `focusAreas` fully replaces the set. Either field can be omitted to leave it
+// as-is.
+export async function updateCrewFields(
+  id: number,
+  input: { title?: string | null; focusAreas?: unknown }
+): Promise<ClubMember | null> {
+  const hasTitle = input.title !== undefined;
+  const title = typeof input.title === 'string' ? input.title.trim().slice(0, 120) || null : null;
+  const hasFocus = input.focusAreas !== undefined;
+  const focusAreas = sanitizeFocusAreas(input.focusAreas);
+  const [row] = await sql<Array<{ id: number }>>`
+    update users set
+      title = ${hasTitle ? title : sql`title`},
+      focus_areas = ${hasFocus ? focusAreas : sql`focus_areas`}
+    where id = ${id}
+    returning id
+  `;
+  return row ? getMemberById(Number(row.id)) : null;
 }
 
 // Refreshes the setup token for an existing (non-disabled) user — used by

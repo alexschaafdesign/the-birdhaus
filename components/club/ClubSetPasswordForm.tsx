@@ -39,7 +39,10 @@ export default function ClubSetPasswordForm({ token, next }: { token: string; ne
       });
       const data = await res.json().catch(() => null);
       if (!res.ok) throw new Error(data?.error ?? `Something went wrong (${res.status})`);
-      router.push(dest);
+      // An explicit portal `next` wins; otherwise follow the server's dest
+      // (crew/staff accounts land in /admin).
+      const target = dest !== '/song-club' ? dest : (data?.dest ?? dest);
+      router.push(target);
       router.refresh();
       return;
     } catch (err) {

@@ -36,7 +36,11 @@ export async function POST(
   }
 
   await touchLastSeen(member.id);
-  const response = NextResponse.json({ ok: true });
+  // A crew/staff-only account (no song_club role) heads to /admin after setting
+  // a password; Song Club members go to the portal. The form prefers this over
+  // any `next` for a non-portal account.
+  const dest = member.roles.includes('song_club') ? '/song-club' : '/admin';
+  const response = NextResponse.json({ ok: true, dest });
   await grantSessionCookies(response, member.id, member.roles);
   return response;
 }

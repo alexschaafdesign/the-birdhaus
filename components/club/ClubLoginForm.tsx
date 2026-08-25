@@ -42,7 +42,10 @@ export default function ClubLoginForm({ next }: { next?: string }) {
         });
         const data = await res.json().catch(() => null);
         if (!res.ok) throw new Error(data?.error ?? `Something went wrong (${res.status})`);
-        router.push(dest);
+        // An explicit portal `next` wins; otherwise follow the server's dest
+        // (which sends crew/staff logins to /admin).
+        const target = dest !== '/song-club' ? dest : (data?.dest ?? dest);
+        router.push(target);
         router.refresh();
         return; // keep the button disabled through the redirect
       }

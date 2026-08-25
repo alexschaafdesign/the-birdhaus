@@ -31,7 +31,10 @@ export async function POST(request: Request) {
   }
 
   await touchLastSeen(row.id);
-  const response = NextResponse.json({ ok: true });
+  // Where to send them next: Song Club members to the portal; a crew/staff-only
+  // login (no song_club role) to the admin dashboard.
+  const dest = row.roles.includes('song_club') ? '/song-club' : '/admin';
+  const response = NextResponse.json({ ok: true, dest });
   await grantSessionCookies(response, row.id, row.roles);
   return response;
 }

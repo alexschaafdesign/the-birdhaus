@@ -44,15 +44,19 @@ export default async function ClubInvitePage({
   }
 
   const returning = member.has_password;
+  // A crew/staff account (no song_club role) is joining the admin, not the
+  // portal — word the invite line accordingly.
+  const isCrew = !member.roles.includes('song_club');
+  const joinLine = isCrew
+    ? `Pick a password for ${member.email} to get into the Birdhaus admin.`
+    : `Pick a password for ${member.email} to join the Song Club portal.`;
   return (
     <main className="mx-auto w-full max-w-sm px-5 py-10 text-[#E8E0D0] sm:py-14">
       <h1 className="text-2xl font-semibold">
         {returning ? 'Set a new password' : `Welcome, ${member.name.split(' ')[0]}!`}
       </h1>
       <p className="mt-1 text-sm text-[#E8E0D0]/60">
-        {returning
-          ? `Pick a new password for ${member.email}.`
-          : `Pick a password for ${member.email} to join the Song Club portal.`}
+        {returning ? `Pick a new password for ${member.email}.` : joinLine}
       </p>
       <div className="mt-6">
         <ClubSetPasswordForm token={token} next={next} />

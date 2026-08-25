@@ -1,5 +1,6 @@
 import postgres from 'postgres';
 import { sql } from './db';
+import { getTodayCentral } from './shows';
 
 // The three per-show relationship states. 'confirmed' is the assigned engineer
 // (at most one per show, enforced by a partial unique index — see
@@ -123,6 +124,44 @@ export async function updateSoundEngineerEmail(id: number, email: string): Promi
   await sql`
     update sound_engineers set contact_email = ${clean}, updated_at = now() where id = ${id}
   `;
+}
+
+// Upcoming shows with no CONFIRMED sound engineer — the work-list behind the
+// 'sound_coverage' crew focus widget. `sound_engineer_name` is the denormalized
+// cache of the confirmed engineer (kept in sync by setShowSoundEngineers), so
+// null there means the slot is still open. `askedNames` surfaces any pending
+// outreach so the widget can distinguish "asked Jordan" from a cold gap.
+export interface ShowMissingSoundEngineer {
+  id: number;
+  slug: string;
+  title: string;
+  date: string;
+  askedNames: string[];
+}
+
+export async function getUpcomingShowsMissingSoundEngineer(): Promise<ShowMissingSoundEngineer[]> {
+  const today = getTodayCentral();
+  const rows = await sql<
+    Array<{ id: number; slug: string; title: string; date: string; asked_names: string[] }>
+  >`
+    select s.id, s.slug, s.title, s.date::text as date,
+      coalesce((
+        select array_agg(se.name order by se.name)
+        from show_sound_engineers sse
+        join sound_engineers se on se.id = sse.sound_engineer_id
+        where sse.show_id = s.id and sse.status = 'asked'
+      ), '{}') as asked_names
+    from shows s
+    where s.date >= ${today} and s.sound_engineer_name is null
+    order by s.date asc
+  `;
+  return rows.map((r) => ({
+    id: Number(r.id),
+    slug: r.slug,
+    title: r.title,
+    date: r.date,
+    askedNames: r.asked_names ?? [],
+  }));
 }
 
 // Reads a show's engineer relationships (name + status). Confirmed first, then
