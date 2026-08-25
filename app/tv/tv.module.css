@@ -1,0 +1,242 @@
+/* ---------------------------------------------------------------
+   NTSC composite target: 640x480, 4:3, overscan-aware.
+   Hard rules (they come from the tube, not from taste):
+     - nothing critical outside the 90% title-safe box
+     - no pure #fff (blooms), no pure saturated red (chroma bleed)
+     - no 1px horizontal rules (interlace flicker) -> 3px minimum
+     - body type never below 20px at 640 wide
+     - local fonts only; no webfont fetch on boot
+   --------------------------------------------------------------- */
+
+.viewport {
+  --bg: #0b0c0e;
+  --ink: #ded6c4; /* ivory, not white */
+  --dim: #7d786c;
+  --cyan: #6fd3e0; /* VHS label blue */
+  --amber: #e0a44a;
+  --rec: #b03a34; /* dulled red, survives composite */
+  --safe-x: 32px;
+  --safe-y: 26px;
+
+  position: fixed;
+  inset: 0;
+  background: #000;
+  overflow: hidden;
+  font-family: 'DejaVu Sans Mono', Menlo, Consolas, 'Courier New', monospace;
+}
+
+/* fixed 640x480 stage, scaled to the viewport by inline transform */
+.stage {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 640px;
+  height: 480px;
+  transform-origin: center center;
+  background: var(--bg);
+  color: var(--ink);
+  overflow: hidden;
+}
+
+.safe {
+  position: absolute;
+  inset: var(--safe-y) var(--safe-x);
+  display: flex;
+  flex-direction: column;
+}
+
+/* ---- header ------------------------------------------------- */
+/* 1fr | auto | 1fr keeps the date dead-center of the stage regardless of how
+   wide the venue mark and clock are, so it lines up with centered slide
+   headers (Coming Soon) below it */
+.head {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: baseline;
+  font-size: 20px;
+  letter-spacing: 0.14em;
+  color: var(--dim);
+  flex: 0 0 auto;
+}
+.head > :last-child {
+  justify-self: end;
+}
+.mark {
+  color: var(--ink);
+}
+.clock {
+  color: var(--amber);
+  font-variant-numeric: tabular-nums;
+}
+.rule {
+  height: 3px;
+  background: var(--dim);
+  opacity: 0.5;
+  margin: 10px 0 0;
+  flex: 0 0 auto;
+}
+
+/* ---- slide deck ---------------------------------------------- */
+.deck {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding-top: 18px;
+  transition: opacity 0.6s linear;
+}
+.deckSwap {
+  opacity: 0;
+}
+
+.slide {
+  height: 100%;
+  display: flex;
+  gap: 22px;
+  align-items: stretch;
+}
+
+/* portrait flyers/photos pillarbox on the landscape tube */
+.art {
+  flex: 0 0 auto;
+  height: 100%;
+  display: flex;
+  align-items: flex-start;
+}
+.art img {
+  max-height: 100%;
+  max-width: 250px;
+  object-fit: contain;
+  display: block;
+}
+
+.copy {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* column variant: eyebrow up top, one centered image below (Coming Soon) */
+.slideCol {
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+.artCenter {
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.artCenter img {
+  max-height: 100%;
+  max-width: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+/* copy-only variant (no image survived): let text own the width */
+.copyCentered {
+  justify-content: center;
+}
+
+.eyebrow {
+  font-size: 20px;
+  letter-spacing: 0.28em;
+  color: var(--cyan);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 24px;
+}
+.dot {
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: var(--rec);
+  flex: 0 0 auto;
+  animation: pulse 2s steps(1) infinite;
+}
+@keyframes pulse {
+  0%,
+  50% {
+    opacity: 1;
+  }
+  51%,
+  100% {
+    opacity: 0.15;
+  }
+}
+
+.big {
+  font-size: 44px;
+  line-height: 1.06;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  margin: 10px 0 0;
+  text-shadow: 2px 2px 0 #000; /* VCR OSD shadow */
+  overflow-wrap: break-word;
+}
+.bigLong {
+  font-size: 32px;
+}
+.bigXlong {
+  font-size: 26px;
+}
+
+.sub {
+  font-size: 22px;
+  color: var(--amber);
+  margin-top: 10px;
+  letter-spacing: 0.06em;
+}
+
+/* ---- band list (tonight / upcoming slides) ------------------- */
+.lineup {
+  margin-top: 14px;
+  overflow: hidden;
+}
+.lineupRow {
+  font-size: 24px;
+  line-height: 1.5;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.lineupRow::before {
+  content: '\25B8'; /* small right triangle */
+  color: var(--dim);
+  margin-right: 12px;
+}
+
+/* doors/times line pinned to the slide's bottom edge */
+.times {
+  margin-top: auto;
+  padding-top: 12px;
+  font-size: 22px;
+  color: var(--amber);
+  letter-spacing: 0.06em;
+}
+
+/* ---- optional preview scanlines (?scanlines=1) ---------------- */
+.lines {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0.34) 0 1px,
+    transparent 1px 3px
+  );
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dot {
+    animation: none;
+  }
+  .deck {
+    transition: none;
+  }
+}
