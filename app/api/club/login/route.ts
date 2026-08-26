@@ -31,9 +31,13 @@ export async function POST(request: Request) {
   }
 
   await touchLastSeen(row.id);
-  // Where to send them next: Song Club members to the portal; a crew/staff-only
-  // login (no song_club role) to the admin dashboard.
-  const dest = row.roles.includes('song_club') ? '/song-club' : '/admin';
+  // Where to send them next: Song Club members to the portal; band-only
+  // logins to the Yellow Ostrich workspace; crew/staff-only to admin.
+  const dest = row.roles.includes('song_club')
+    ? '/song-club'
+    : row.roles.includes('band')
+      ? '/yellow-ostrich'
+      : '/admin';
   const response = NextResponse.json({ ok: true, dest });
   await grantSessionCookies(response, row.id, row.roles);
   return response;

@@ -18,8 +18,9 @@ import {
 export type ClubMemberStatus = 'invited' | 'active' | 'disabled';
 
 // What a login can reach: song_club = /club portal; crew = future
-// engineer/photographer pages; staff = the full admin dashboard. Constants
-// live in club-roles.ts (client-safe) and are re-exported here.
+// engineer/photographer pages; staff = the full admin dashboard; band = the
+// Yellow Ostrich workspace at /yellow-ostrich. Constants live in
+// club-roles.ts (client-safe) and are re-exported here.
 export { ALL_ROLES, type ClubRole } from './club-roles';
 import { ALL_ROLES, type ClubRole } from './club-roles';
 import { sanitizeFocusAreas, type FocusAreaKey } from './crew';
@@ -409,5 +410,26 @@ export type ClubActor = { memberId: number } | { admin: true };
 export async function getClubActor(): Promise<ClubActor | null> {
   const member = await getClubMember();
   if (member) return { memberId: member.id };
+  return (await isAdminSession()) ? { admin: true } : null;
+}
+
+// The current user only if they can access the Yellow Ostrich workspace:
+// the 'band' role, or staff (who see everything).
+export async function getBandMember(): Promise<ClubMember | null> {
+  const member = await getClubMember();
+  return member && (member.roles.includes('band') || member.roles.includes('staff'))
+    ? member
+    : null;
+}
+
+// Whoever is acting on the band workspace. Unlike ClubActor, staff members
+// keep their memberId (so uploads and comments stay attributed to a person,
+// not "the Birdhaus") and carry a `staff` flag for moderation rights.
+// {admin: true} only means a cookie-only admin session with no member login.
+export type BandActor = { memberId: number; staff: boolean } | { admin: true };
+
+export async function getBandActor(): Promise<BandActor | null> {
+  const member = await getBandMember();
+  if (member) return { memberId: member.id, staff: member.roles.includes('staff') };
   return (await isAdminSession()) ? { admin: true } : null;
 }

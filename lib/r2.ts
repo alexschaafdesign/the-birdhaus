@@ -54,6 +54,10 @@ export const SONG_CLUB_FILES_FOLDER = 'song-club-files';
 // PUT from the site origins.
 export const SONG_CLUB_TRACKS_FOLDER = 'song-club-tracks';
 
+// Yellow Ostrich in-progress song versions (audio). Same direct-to-R2
+// presigned PUT flow — and the same bucket, so the existing CORS rule covers it.
+export const BAND_SONGS_FOLDER = 'band-songs';
+
 const EXTENSION_FOR_TYPE: Record<string, string> = {
   'image/jpeg': 'jpg',
   'image/png': 'png',

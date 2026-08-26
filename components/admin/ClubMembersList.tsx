@@ -17,6 +17,7 @@ const ROLE_LABEL: Record<ClubRole, string> = {
   song_club: 'Song Club',
   crew: 'Crew',
   staff: 'Staff (admin)',
+  band: 'Yellow Ostrich',
 };
 
 // Invite + manage Song Club portal members. Inviting sends the set-password

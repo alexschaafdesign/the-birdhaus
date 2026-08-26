@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { getClubPortalMember } from '@/lib/club-members';
+import { getBandMember, getClubPortalMember } from '@/lib/club-members';
 import { isAdminSession } from '@/lib/admin-session';
 import ClubLoginForm from '@/components/club/ClubLoginForm';
 import SongClubLogo from '@/components/club/SongClubLogo';
@@ -21,8 +21,14 @@ export default async function ClubLoginPage({
   // The admin session always counts as being in the club — never show a login
   // prompt to Alex.
   if ((await isAdminSession()) || (await getClubPortalMember())) redirect('/song-club');
+  // A band-only login (no song_club role) that's already active goes straight
+  // to the Yellow Ostrich workspace instead of seeing a login form.
+  if (await getBandMember()) redirect('/yellow-ostrich');
   const rawNext = (await searchParams).next;
-  const next = rawNext && rawNext.startsWith('/song-club/') ? rawNext : undefined;
+  const next =
+    rawNext && (rawNext.startsWith('/song-club/') || rawNext.startsWith('/yellow-ostrich'))
+      ? rawNext
+      : undefined;
   const signupHref = next ? `/song-club/signup?next=${encodeURIComponent(next)}` : '/song-club/signup';
 
   return (
