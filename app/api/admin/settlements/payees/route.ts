@@ -5,6 +5,7 @@ import type { PayeeNameField } from '@/lib/settlements';
 const COLUMN_BY_NAME_FIELD: Record<PayeeNameField, string> = {
   photographerName: 'photographer_name',
   soundEngineerName: 'sound_engineer_name',
+  doorPersonName: 'door_person_name',
 };
 
 export async function GET(request: Request) {

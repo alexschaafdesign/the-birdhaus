@@ -25,6 +25,7 @@ export interface Show {
   content: string;
   announced?: boolean;
   soundEngineerName?: string;
+  doorPersonName?: string;
   targetBandCount: number;
   ignoredHealthChecks: string[];
   advanceSent?: boolean;
@@ -61,6 +62,7 @@ interface ShowRow {
   content_markdown: string;
   announced: boolean;
   sound_engineer_name: string | null;
+  door_person_name: string | null;
   target_band_count: number;
   ignored_health_checks: unknown;
   advance_sent: boolean;
@@ -99,6 +101,7 @@ async function rowToShow(row: ShowRow, renderContent = false): Promise<Show> {
     content: renderContent ? await renderMarkdown(row.content_markdown) : '',
     announced: row.announced,
     soundEngineerName: row.sound_engineer_name ?? undefined,
+    doorPersonName: row.door_person_name ?? undefined,
     targetBandCount: row.target_band_count,
     ignoredHealthChecks: (row.ignored_health_checks as string[]) ?? [],
     advanceSent: row.advance_sent,

@@ -45,6 +45,7 @@ const TEXT_FIELD_MAP: Record<string, string> = {
   photoFolder: 'photo_folder',
   photoCredit: 'photo_credit',
   content: 'content_markdown',
+  doorPersonName: 'door_person_name',
 };
 
 function parseId(id: string): number | null {

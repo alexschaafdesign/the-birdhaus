@@ -28,9 +28,9 @@ export const NUMERIC_FIELDS = [
 
 export type NumericField = (typeof NUMERIC_FIELDS)[number];
 
-export type PayeeNameField = 'photographerName' | 'soundEngineerName';
-export type PayeePaidField = 'photographerPaid' | 'soundPaid';
-export type PayeePaidMethodField = 'photographerPaidMethod' | 'soundPaidMethod';
+export type PayeeNameField = 'photographerName' | 'soundEngineerName' | 'doorPersonName';
+export type PayeePaidField = 'photographerPaid' | 'soundPaid' | 'doorPaid';
+export type PayeePaidMethodField = 'photographerPaidMethod' | 'soundPaidMethod' | 'doorPaidMethod';
 
 // How a payout was actually made. Null = unpaid, or paid before this was tracked.
 export type PaidMethod = 'cash' | 'venmo';
@@ -48,10 +48,13 @@ export type SettlementValues = {
   attendance: number | null;
   photographerName: string | null;
   soundEngineerName: string | null;
+  doorPersonName: string | null;
   soundPaid: boolean;
   photographerPaid: boolean;
+  doorPaid: boolean;
   soundPaidMethod: PaidMethod | null;
   photographerPaidMethod: PaidMethod | null;
+  doorPaidMethod: PaidMethod | null;
 } & Record<NumericField, number>;
 
 export const DEFAULT_SETTLEMENT_VALUES: SettlementValues = {
@@ -78,10 +81,13 @@ export const DEFAULT_SETTLEMENT_VALUES: SettlementValues = {
   attendance: null,
   photographerName: null,
   soundEngineerName: null,
+  doorPersonName: null,
   soundPaid: false,
   photographerPaid: false,
+  doorPaid: false,
   soundPaidMethod: null,
   photographerPaidMethod: null,
+  doorPaidMethod: null,
 };
 
 // Links an expense field to the payee-name field tracking who it was paid to,
@@ -108,6 +114,13 @@ export const PAYEE_EXPENSE_FIELDS: Array<{
     paidKey: 'soundPaid',
     methodKey: 'soundPaidMethod',
     label: 'Sound engineer',
+  },
+  {
+    amountKey: 'expDoorPerson',
+    nameKey: 'doorPersonName',
+    paidKey: 'doorPaid',
+    methodKey: 'doorPaidMethod',
+    label: 'Door person',
   },
 ];
 
@@ -319,10 +332,13 @@ export interface SettlementDbRow {
   attendance: number | null;
   photographer_name: string | null;
   sound_engineer_name: string | null;
+  door_person_name: string | null;
   sound_paid: boolean;
   photographer_paid: boolean;
+  door_paid: boolean;
   sound_paid_method: string | null;
   photographer_paid_method: string | null;
+  door_paid_method: string | null;
 }
 
 export function settlementValuesFromRow(row: SettlementDbRow): SettlementValues {
@@ -350,9 +366,12 @@ export function settlementValuesFromRow(row: SettlementDbRow): SettlementValues 
     attendance: row.attendance,
     photographerName: row.photographer_name,
     soundEngineerName: row.sound_engineer_name,
+    doorPersonName: row.door_person_name,
     soundPaid: row.sound_paid,
     photographerPaid: row.photographer_paid,
+    doorPaid: row.door_paid,
     soundPaidMethod: isPaidMethod(row.sound_paid_method) ? row.sound_paid_method : null,
     photographerPaidMethod: isPaidMethod(row.photographer_paid_method) ? row.photographer_paid_method : null,
+    doorPaidMethod: isPaidMethod(row.door_paid_method) ? row.door_paid_method : null,
   };
 }

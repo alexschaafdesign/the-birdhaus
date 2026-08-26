@@ -444,6 +444,9 @@ interface SettlementFormProps {
   // Same, for photographers.
   photographerPhotos?: Record<string, string>;
   photographers?: Array<{ name: string; photo: string | null; paymentMethod?: string | null }>;
+  // Same, for door people.
+  doorPersonPhotos?: Record<string, string>;
+  doorPersons?: Array<{ name: string; photo: string | null; paymentMethod?: string | null }>;
 }
 
 type FormState = {
@@ -453,10 +456,13 @@ type FormState = {
   attendance: string;
   photographerName: string;
   soundEngineerName: string;
+  doorPersonName: string;
   soundPaid: boolean;
   photographerPaid: boolean;
+  doorPaid: boolean;
   soundPaidMethod: PaidMethod | null;
   photographerPaidMethod: PaidMethod | null;
+  doorPaidMethod: PaidMethod | null;
   extraLineItems: FormExtraLineItem[];
 } & Record<NumericField, string>;
 
@@ -472,10 +478,13 @@ function toFormState(values: SettlementValues): FormState {
     attendance: values.attendance === null ? '' : String(values.attendance),
     photographerName: values.photographerName ?? '',
     soundEngineerName: values.soundEngineerName ?? '',
+    doorPersonName: values.doorPersonName ?? '',
     soundPaid: values.soundPaid,
     photographerPaid: values.photographerPaid,
+    doorPaid: values.doorPaid,
     soundPaidMethod: values.soundPaidMethod,
     photographerPaidMethod: values.photographerPaidMethod,
+    doorPaidMethod: values.doorPaidMethod,
     extraLineItems: values.extraLineItems.map((item) => ({ ...item, amount: String(item.amount) })),
   };
 }
@@ -498,6 +507,8 @@ export default function SettlementForm({
   soundEngineers = [],
   photographerPhotos = {},
   photographers = [],
+  doorPersonPhotos = {},
+  doorPersons = [],
 }: SettlementFormProps) {
   const router = useRouter();
   const [form, setForm] = useState<FormState>(() => toFormState(initialValues ?? DEFAULT_SETTLEMENT_VALUES));
@@ -671,10 +682,13 @@ export default function SettlementForm({
       attendance: parseAttendance(form.attendance),
       photographerName: form.photographerName,
       soundEngineerName: form.soundEngineerName,
+      doorPersonName: form.doorPersonName,
       soundPaid: form.soundPaid,
       photographerPaid: form.photographerPaid,
+      doorPaid: form.doorPaid,
       soundPaidMethod: form.soundPaidMethod,
       photographerPaidMethod: form.photographerPaidMethod,
+      doorPaidMethod: form.doorPaidMethod,
       extraLineItems: form.extraLineItems.map((item) => ({
         type: item.type,
         label: item.label,
@@ -708,10 +722,13 @@ export default function SettlementForm({
       attendance: parseAttendance(form.attendance),
       photographerName: form.photographerName.trim() || null,
       soundEngineerName: form.soundEngineerName.trim() || null,
+      doorPersonName: form.doorPersonName.trim() || null,
       soundPaid: form.soundPaid,
       photographerPaid: form.photographerPaid,
+      doorPaid: form.doorPaid,
       soundPaidMethod: form.soundPaidMethod,
       photographerPaidMethod: form.photographerPaidMethod,
+      doorPaidMethod: form.doorPaidMethod,
       extraLineItems: form.extraLineItems
         .filter((item) => item.label.trim())
         .map((item) => ({ type: item.type, label: item.label.trim(), amount: Number(item.amount) || 0 })),
@@ -967,7 +984,9 @@ export default function SettlementForm({
                           ? { list: soundEngineers, photos: soundEngineerPhotos }
                           : payee?.nameKey === 'photographerName'
                             ? { list: photographers, photos: photographerPhotos }
-                            : null;
+                            : payee?.nameKey === 'doorPersonName'
+                              ? { list: doorPersons, photos: doorPersonPhotos }
+                              : null;
                       // Match the stored name to a registry entry (so the <select>
                       // highlights it with the registry's casing); keep an unmatched
                       // custom value as its own option so it's never lost.

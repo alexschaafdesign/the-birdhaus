@@ -6,6 +6,7 @@ import Link from 'next/link';
 import BandNameInput, { type BandMatch, type TwinSceneBandOption } from './BandNameInput';
 import AddBandModal from './AddBandModal';
 import SoundEngineerNameInput, { type SoundEngineerMatch } from './SoundEngineerNameInput';
+import DoorPersonNameInput, { type DoorPersonMatch } from './DoorPersonNameInput';
 import ImageUploadField from './ImageUploadField';
 import ShowDateAvailability from './ShowDateAvailability';
 import Section from './Section';
@@ -145,6 +146,7 @@ export interface ShowFormInitialValues {
   bands?: Array<{ name: string; instagram?: string; bio?: string; photo?: string; bandId?: number }> | string[];
   description?: string | null;
   photographer?: { name: string; instagram?: string } | null;
+  doorPersonName?: string | null;
   ticketUrl?: string | null;
   externalTicketUrl?: string | null;
   rsvpForm?: boolean;
@@ -175,6 +177,7 @@ interface FormState {
   description: string;
   photographerName: string;
   photographerInstagram: string;
+  doorPersonName: string;
   ticketUrl: string;
   externalTicketUrl: string;
   rsvpForm: boolean;
@@ -215,6 +218,7 @@ function initFormState(initial?: ShowFormInitialValues): FormState {
     description: initial?.description ?? '',
     photographerName: initial?.photographer?.name ?? '',
     photographerInstagram: initial?.photographer?.instagram ?? '',
+    doorPersonName: initial?.doorPersonName ?? '',
     ticketUrl: initial?.ticketUrl ?? '',
     externalTicketUrl: initial?.externalTicketUrl ?? '',
     rsvpForm: initial?.rsvpForm ?? true,
@@ -564,6 +568,9 @@ export default function ShowForm({
               : {}),
           }
         : null,
+      // Sent even when blank (empty string, not undefined) so clearing it on
+      // edit actually persists — both show routes normalize blank to null.
+      doorPersonName: form.doorPersonName.trim(),
       ticketUrl: form.ticketUrl.trim(),
       externalTicketUrl: form.externalTicketUrl.trim(),
       rsvpForm: form.rsvpForm,
@@ -969,6 +976,23 @@ export default function ShowForm({
               &ldquo;Confirmed&rdquo; once they&apos;re locked in.
             </p>
           )}
+        </div>
+      </Section>
+
+      <Section title="Door person" collapsible>
+        <div>
+          <label className="block text-xs uppercase tracking-wide text-[#E8E0D0]/40 mb-1">Door person name</label>
+          <DoorPersonNameInput
+            placeholder="Choose or type a door person…"
+            value={form.doorPersonName}
+            onChange={(value) => set('doorPersonName', value)}
+            onSelect={(match: DoorPersonMatch) => set('doorPersonName', match.name)}
+            className={`${inputClass} w-full sm:max-w-sm`}
+          />
+          <p className="mt-1 text-xs text-[#E8E0D0]/30">
+            Who&apos;s working the door. Pre-fills the door-person payee on this show&apos;s{' '}
+            settlement — manage the roster under Crew → Door People.
+          </p>
         </div>
       </Section>
 

@@ -33,6 +33,7 @@ interface ShowRow {
   announced: boolean;
   target_band_count: number;
   advance_sent: boolean;
+  door_person_name: string | null;
   sound_engineers: unknown;
   square_item_id: string | null;
   square_image_id: string | null;
@@ -68,6 +69,7 @@ export default async function EditShowPage({ params }: { params: Promise<{ id: s
     bands: (row.bands as ShowFormInitialValues['bands']) ?? [],
     description: row.description,
     photographer: (row.photographer as ShowFormInitialValues['photographer']) ?? null,
+    doorPersonName: row.door_person_name,
     ticketUrl: row.ticket_url,
     externalTicketUrl: row.external_ticket_url,
     rsvpForm: row.rsvp_form,
