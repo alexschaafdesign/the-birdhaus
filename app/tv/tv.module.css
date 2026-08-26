@@ -22,6 +22,7 @@
   inset: 0;
   background: #000;
   overflow: hidden;
+  cursor: none; /* kiosk: no mouse in the venue, don't show a pointer on the tube */
   font-family: 'DejaVu Sans Mono', Menlo, Consolas, 'Courier New', monospace;
 }
 
