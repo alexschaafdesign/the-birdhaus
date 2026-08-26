@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getAllShows, ISO_DATE_RE, type Show } from '@/lib/shows';
 import { cloudinaryTransform } from '@/lib/cloudinary-url';
+import { R2_PUBLIC_BASE } from '@/lib/r2-public';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,10 +20,16 @@ function getTvDateCentral(): string {
   });
 }
 
-// The TV renders at 640px wide, so serve pre-resized Cloudinary files — the
-// Pi should never decode a full-res flyer. No-op for non-Cloudinary URLs.
+// The TV renders at 640px wide, so serve pre-resized files — the Pi should
+// never decode a full-res image. Cloudinary URLs resize via URL transform;
+// R2-hosted files (images.thebirdhaus.org) route through /api/tv/img, which
+// serves a CDN-cached 640px JPEG. Anything else passes through untouched.
 function tvImage(url: string | undefined): string | null {
-  return url ? cloudinaryTransform(url, 640) : null;
+  if (!url) return null;
+  if (url.startsWith(`${R2_PUBLIC_BASE}/`)) {
+    return `/api/tv/img?src=${encodeURIComponent(url.slice(R2_PUBLIC_BASE.length + 1))}`;
+  }
+  return cloudinaryTransform(url, 640);
 }
 
 // shows.bands is either string[] (legacy) or band objects; flatten both into
