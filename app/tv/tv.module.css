@@ -221,6 +221,35 @@
   letter-spacing: 0.06em;
 }
 
+/* ---- bounce mode (?bounce=auto idle DVD-screensaver) ---------- */
+/* Replaces the whole safe-area layout, header included; the moving box still
+   reflects off the title-safe edges, not the raw stage. Size and speed knobs
+   live in TvScreen.tsx (BOUNCE_*). */
+.bounceArea {
+  position: absolute;
+  inset: var(--safe-y) var(--safe-x);
+  overflow: hidden;
+}
+/* the ONE moving element — RAF writes translate3d on it directly */
+.bounceItem {
+  position: absolute;
+  top: 0;
+  left: 0;
+  will-change: transform;
+}
+.bounceItem img {
+  display: block;
+  margin: 0 auto;
+  object-fit: contain;
+}
+/* flyerless fallback: a framed text card bouncing the same way */
+.bounceCard {
+  border: 3px solid var(--dim);
+  background: var(--bg);
+  padding: 22px 28px;
+  max-width: 400px;
+}
+
 /* ---- optional preview scanlines (?scanlines=1) ---------------- */
 .lines {
   position: absolute;
