@@ -10,7 +10,7 @@ export interface Show {
   doorsTime?: string;
   showTime?: string;
   flyer?: string;
-  bands: Array<{ name: string; instagram?: string; bio?: string; photo?: string; bandId?: number }> | string[];
+  bands: Array<{ name: string; instagram?: string; bio?: string; photo?: string; bandId?: number; setStart?: string; setEnd?: string }> | string[];
   description?: string;
   photographer?: string | { name: string; instagram?: string };
   rsvpUrl?: string;
@@ -115,7 +115,8 @@ export function bandsJoinFragment() {
   return sql`
     coalesce((
       select json_strip_nulls(json_agg(json_build_object(
-        'bandId', b.id, 'name', b.name, 'instagram', b.instagram, 'bio', b.bio, 'photo', b.photo
+        'bandId', b.id, 'name', b.name, 'instagram', b.instagram, 'bio', b.bio, 'photo', b.photo,
+        'setStart', sb.set_start, 'setEnd', sb.set_end
       ) order by sb.sort_order))
       from show_bands sb
       join bands b on b.id = sb.band_id

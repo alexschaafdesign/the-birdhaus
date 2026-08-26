@@ -26,15 +26,19 @@ function tvImage(url: string | undefined): string | null {
 }
 
 // shows.bands is either string[] (legacy) or band objects; flatten both into
-// the shape the TV reads.
+// the shape the TV reads. setStart/setEnd are optional "HH:MM" venue-local
+// times that drive the live set-time state machine — null when unset (most
+// nights), which the TV treats as "no schedule, fall back to rotation".
 function tvBands(bands: Show['bands']) {
   return (bands ?? []).map((band) =>
     typeof band === 'string'
-      ? { name: band, photo: null, instagram: null }
+      ? { name: band, photo: null, instagram: null, setStart: null, setEnd: null }
       : {
           name: band.name,
           photo: tvImage(band.photo),
           instagram: band.instagram ?? null,
+          setStart: band.setStart ?? null,
+          setEnd: band.setEnd ?? null,
         }
   );
 }
