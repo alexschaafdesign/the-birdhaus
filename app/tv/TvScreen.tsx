@@ -360,6 +360,15 @@ function buildBounceItems(data: TvData | null): BounceItem[] {
 // never churns React renders per frame — the only setState is the flyer swap
 // on an edge hit (~every few seconds). memo() keeps the parent's once-a-second
 // clock tick from re-rendering this subtree.
+// Per-axis crossing seconds; ?bounceperiod=<seconds> (floor 2) overrides both
+// (y keeps the same shallow ratio) so the invariants script can force many
+// edge-hit swaps in a short run.
+function bouncePeriods(): { x: number; y: number } {
+  const p = Number(new URLSearchParams(window.location.search).get('bounceperiod'));
+  if (Number.isFinite(p) && p >= 2) return { x: p, y: p * 3.4 };
+  return { x: BOUNCE_X_SECONDS, y: BOUNCE_Y_SECONDS };
+}
+
 const BounceLayer = memo(function BounceLayer({
   items,
   imgOk,
@@ -373,6 +382,7 @@ const BounceLayer = memo(function BounceLayer({
   const motion = useRef({ x: 0, y: 0, dx: 1, dy: 1 });
 
   useEffect(() => {
+    const period = bouncePeriods();
     let raf = 0;
     let last: number | null = null;
     const step = (t: number) => {
@@ -391,8 +401,8 @@ const BounceLayer = memo(function BounceLayer({
       const travelX = Math.max(0, area.clientWidth - el.offsetWidth);
       const travelY = Math.max(0, area.clientHeight - el.offsetHeight);
       const m = motion.current;
-      m.x += m.dx * (travelX / BOUNCE_X_SECONDS) * dt;
-      m.y += m.dy * (travelY / BOUNCE_Y_SECONDS) * dt;
+      m.x += m.dx * (travelX / period.x) * dt;
+      m.y += m.dy * (travelY / period.y) * dt;
       // Reflect only when moving outward: a clamp caused by the next flyer
       // being bigger than the last isn't a bounce and mustn't advance again.
       let hit = false;
@@ -424,19 +434,32 @@ const BounceLayer = memo(function BounceLayer({
   const item = items[idx % items.length];
   const url = item.flyer;
   const flyerReady = !!url && imgOk[url] === true;
+  // Keep the last ready flyer as the <img>'s src while a text card is up, so
+  // returning to a flyer never re-creates the element. Never let src go empty:
+  // on old Chromium an <img src=""> fetches the page URL itself.
+  // (Render-phase derived state, per the React docs' "adjusting state during
+  // render" pattern — a ref write here trips the compiler lint.)
+  const [lastFlyer, setLastFlyer] = useState<string | undefined>(undefined);
+  if (flyerReady && lastFlyer !== url) setLastFlyer(url);
 
   return (
     <div ref={areaRef} className={styles.bounceArea}>
       <div ref={itemRef} className={styles.bounceItem} style={{ maxWidth: BOUNCE_MAX_W }}>
-        {flyerReady ? (
-          // Just the flyer — it already carries the date and lineup.
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={url}
-            alt={item.title || 'Show flyer'}
-            style={{ maxWidth: BOUNCE_MAX_W, maxHeight: BOUNCE_MAX_H }}
-          />
-        ) : (
+        {/* ONE persistent <img>, never unmounted: cycling shows must be a
+            src-attribute change on an already-decoded bitmap and nothing
+            else — no node replacement, no layout storm, no network, no
+            router. Hidden (not removed) while a text card substitutes. */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={flyerReady ? url : lastFlyer}
+          alt={flyerReady ? item.title || 'Show flyer' : ''}
+          style={{
+            maxWidth: BOUNCE_MAX_W,
+            maxHeight: BOUNCE_MAX_H,
+            display: flyerReady ? 'block' : 'none',
+          }}
+        />
+        {!flyerReady && (
           // No flyer (or its preload failed/hasn't landed): bounce a text
           // card instead — never skip the show, never bounce an empty box.
           <div className={styles.bounceCard}>
@@ -614,7 +637,16 @@ export default function TvScreen() {
       if (typeof url !== 'string' || preloadStarted.current.has(url)) continue;
       preloadStarted.current.add(url);
       const img = new window.Image();
-      img.onload = () => setImgOk((prev) => ({ ...prev, [url]: true }));
+      // Mark ok only after decode() resolves, not just onload: onload means
+      // bytes arrived, decode() means the bitmap exists. Without it the first
+      // paint of an image decodes synchronously on the main thread — the
+      // worst possible moment on the Pi (mid-bounce, mid-set-change).
+      img.onload = () => {
+        const decoded = typeof img.decode === 'function' ? img.decode() : Promise.resolve();
+        decoded
+          .catch(() => {})
+          .then(() => setImgOk((prev) => ({ ...prev, [url]: true })));
+      };
       img.onerror = () => setImgOk((prev) => ({ ...prev, [url]: false }));
       img.src = url;
     }

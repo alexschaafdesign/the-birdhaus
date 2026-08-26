@@ -21,8 +21,10 @@ import { join } from 'node:path';
 
 const BASE = process.argv[2] ?? 'http://127.0.0.1:3000';
 // Fast poll (3s) so the run crosses ~5 boundaries; forced bounce so the
-// moving element exists regardless of what's on the calendar today.
-const PAGE_URL = `${BASE}/tv?bounce=1&poll=3`;
+// moving element exists regardless of what's on the calendar today; fast
+// bounce (3s crossings) so edge-hit flyer swaps happen many times per run —
+// cycling to the next show must never navigate, reload, or reset motion.
+const PAGE_URL = `${BASE}/tv?bounce=1&poll=3&bounceperiod=3`;
 const RUN_MS = 22_000;
 const SAMPLE_MS = 300;
 const MUTATE_ON_POLL = 3; // which /api/tv response gets a show appended
@@ -103,6 +105,12 @@ ws.onmessage = async (ev) => {
   }
   if (msg.method === 'Fetch.requestPaused') {
     const { requestId } = msg.params;
+    // Belt and suspenders alongside the escaped patterns: only the poll
+    // endpoint itself gets counted/mutated, anything else passes through.
+    if (!/\/api\/tv(\?|$)/.test(msg.params.request.url)) {
+      await send('Fetch.continueResponse', { requestId });
+      return;
+    }
     pollCount++;
     const bodyRes = await send('Fetch.getResponseBody', { requestId });
     let body = bodyRes.base64Encoded
@@ -132,8 +140,14 @@ ws.onmessage = async (ev) => {
 
 await new Promise((r) => (ws.onopen = r));
 await send('Page.enable');
+// Match only the poll endpoint — '*/api/tv*' would also catch the flyer
+// variants at /api/tv/img and feed JPEG bytes to JSON.parse. In CDP url
+// patterns '?' is a single-char wildcard, so the literal one is escaped.
 await send('Fetch.enable', {
-  patterns: [{ urlPattern: '*/api/tv*', requestStage: 'Response' }],
+  patterns: [
+    { urlPattern: '*/api/tv', requestStage: 'Response' },
+    { urlPattern: '*/api/tv\\?*', requestStage: 'Response' },
+  ],
 });
 await send('Runtime.enable');
 await send('Page.navigate', { url: PAGE_URL });
@@ -141,17 +155,26 @@ await send('Page.navigate', { url: PAGE_URL });
 // ---- sample the moving element --------------------------------------------
 let prev = null; // {x, y}
 let everSeen = false;
+let prevContent = null;
+let swapCount = 0;
 const sample = async () => {
   const res = await send('Runtime.evaluate', {
     expression: `(() => {
       const el = document.querySelector('[class*="bounceItem"]');
       if (!el) return null;
       const m = /translate3d\\((-?[\\d.]+)px, (-?[\\d.]+)px/.exec(el.style.transform || '');
-      return m ? { x: Number(m[1]), y: Number(m[2]) } : { x: 0, y: 0 };
+      const img = el.querySelector('img');
+      const card = el.querySelector('[class*="bounceCard"]');
+      const content = card ? 'card:' + card.textContent : 'img:' + (img ? img.src : '');
+      return m ? { x: Number(m[1]), y: Number(m[2]), content } : { x: 0, y: 0, content };
     })()`,
     returnByValue: true,
   });
   const pos = res?.result?.value ?? null;
+  if (pos) {
+    if (prevContent !== null && pos.content !== prevContent) swapCount++;
+    prevContent = pos.content;
+  }
   if (!pos) {
     if (everSeen) fail('bounce element vanished mid-run (loading state or mode flap)');
     return;
@@ -179,10 +202,13 @@ if (!everSeen) fail('bounce element never appeared');
 if (pollCount < MUTATE_ON_POLL + 1) {
   fail(`only ${pollCount} polls observed; need at least ${MUTATE_ON_POLL + 1} to cover the changed-data case`);
 }
+if (swapCount < 3) {
+  fail(`only ${swapCount} edge-hit flyer swaps observed; need >=3 to cover the cycle path`);
+}
 
 console.log(
   failures.length === 0
-    ? `PASS — ${pollCount} polls (1 mutated), no reloads, no resets, no vanishing`
+    ? `PASS — ${pollCount} polls (1 mutated), ${swapCount} flyer swaps, no navigations, no resets, no vanishing`
     : `${failures.length} violation(s)`
 );
 process.exit(failures.length === 0 ? 0 : 1);
