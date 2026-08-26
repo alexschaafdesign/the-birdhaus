@@ -465,9 +465,14 @@ export default function TvScreen() {
   const [reduceMotion, setReduceMotion] = useState(false);
   const [slideNum, setSlideNum] = useState(0);
   const [fading, setFading] = useState(false);
+  // ?diag=1 boot badge text — see the boot-diagnostics block below
+  const [diag, setDiag] = useState('');
   // url -> preload outcome; an image only renders once its url maps to true
   const [imgOk, setImgOk] = useState<Record<string, boolean>>({});
   const preloadStarted = useRef<Set<string>>(new Set());
+  // raw /api/tv response text of the last applied payload, for the
+  // identical-poll short-circuit in pull()
+  const lastPayload = useRef<string | null>(null);
 
   const slides = buildSlides(data);
   const slidesLen = useRef(slides.length);
@@ -493,8 +498,17 @@ export default function TvScreen() {
       const qs = qsDate ? `?date=${qsDate}` : '';
       const res = await fetch(`/api/tv${qs}`, { cache: 'no-store' });
       if (!res.ok) throw new Error(String(res.status));
-      const body: unknown = await res.json();
-      if (isTvData(body)) setData(body);
+      // Identical payload -> zero work. Don't hand React a fresh object (and
+      // a re-render cascade) for a poll that changed nothing; a poll must be
+      // invisible unless the data actually moved. scripts/tv-invariants.mjs
+      // holds the page to this.
+      const text = await res.text();
+      if (text === lastPayload.current) return;
+      const body: unknown = JSON.parse(text);
+      if (isTvData(body)) {
+        lastPayload.current = text;
+        setData(body);
+      }
     } catch (err) {
       // A dead network mid-show is not a reason to clear the screen.
       console.warn('tv: fetch failed, holding last data', err);
@@ -503,7 +517,11 @@ export default function TvScreen() {
 
   useEffect(() => {
     pull();
-    const id = setInterval(pull, POLL_MS);
+    // ?poll=<seconds> shortens the refetch interval (floor 2s) so the
+    // invariants script can cross several poll boundaries in seconds.
+    const p = Number(new URLSearchParams(window.location.search).get('poll'));
+    const ms = Number.isFinite(p) && p >= 2 ? p * 1000 : POLL_MS;
+    const id = setInterval(pull, ms);
     return () => clearInterval(id);
   }, [pull]);
 
@@ -517,6 +535,36 @@ export default function TvScreen() {
     if (bounceParam === '1') setBounceMode('force');
     else if (bounceParam === 'auto') setBounceMode('auto');
     setReduceMotion(window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+
+    // Boot diagnostics. A kiosk page that quietly reloads (renderer crash +
+    // kiosk auto-restore, a watchdog, ...) looks exactly like an app bug: the
+    // rotation snaps to slide one, the bounce restarts from origin, the
+    // loading card flashes. In-app state can't do any of that after the first
+    // fetch — data never returns to null — so when it happens, it's a reload.
+    // Make that visible: count boots in localStorage, log every boot with the
+    // browser's own navigation type and the gap since the previous boot, and
+    // with ?diag=1 show it on the tube. A healthy night logs boot ONCE.
+    try {
+      const nav = performance.getEntriesByType('navigation')[0] as
+        | PerformanceNavigationTiming
+        | undefined;
+      const navType = nav?.type ?? 'unknown';
+      const bootCount = Number(localStorage.getItem('tv-boot-count') ?? '0') + 1;
+      const prevBootAt = Number(localStorage.getItem('tv-boot-at') ?? '0');
+      localStorage.setItem('tv-boot-count', String(bootCount));
+      localStorage.setItem('tv-boot-at', String(Date.now()));
+      const gap = prevBootAt ? Math.round((Date.now() - prevBootAt) / 1000) : null;
+      console.log(
+        `[tv] boot #${bootCount} type=${navType}${gap !== null ? ` +${gap}s since previous boot` : ''}`
+      );
+      if (params.has('diag')) {
+        setDiag(
+          `BOOT ${bootCount} · ${navType.toUpperCase()}${gap !== null ? ` · +${gap}s` : ''}`
+        );
+      }
+    } catch {
+      // localStorage unavailable (private mode etc.) — diagnostics only, skip
+    }
     const fit = () =>
       setScale(Math.min(window.innerWidth / 640, window.innerHeight / 480));
     fit();
@@ -828,6 +876,7 @@ export default function TvScreen() {
           </div>
         )}
         {scan && <div className={styles.lines} />}
+        {diag && <div className={styles.diag}>{diag}</div>}
       </div>
     </div>
   );

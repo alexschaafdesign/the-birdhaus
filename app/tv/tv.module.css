@@ -250,6 +250,18 @@
   max-width: 400px;
 }
 
+/* ---- boot diagnostics badge (?diag=1) ------------------------- */
+/* "BOOT 14 · RELOAD · +62s" — a counter that climbs during a night means the
+   page is being reloaded out from under us (Pi-side), not an app state bug. */
+.diag {
+  position: absolute;
+  right: var(--safe-x);
+  bottom: var(--safe-y);
+  font-size: 20px;
+  letter-spacing: 0.06em;
+  color: var(--dim);
+}
+
 /* ---- optional preview scanlines (?scanlines=1) ---------------- */
 .lines {
   position: absolute;
