@@ -213,21 +213,24 @@
 }
 
 /* ---- board mode (authored run-of-show) ----------------------- */
+/* One shared 2-column grid (time | label) so the time column is exactly as
+   wide as the widest time and every label lines up. Rows use display:contents
+   so their time/label cells are the grid items. The whole block shrink-wraps
+   and is centered by .slideCol. */
 .board {
   margin-top: 14px;
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+  max-width: 100%;
+  display: grid;
+  grid-template-columns: max-content minmax(0, auto);
+  align-items: baseline;
+  column-gap: 22px;
+  row-gap: 9px;
+  font-size: 26px;
+  line-height: 1.2;
   overflow: hidden;
 }
 .boardRow {
-  display: grid;
-  grid-template-columns: 5.5em 1fr;
-  align-items: baseline;
-  gap: 16px;
-  font-size: 26px;
-  line-height: 1.25;
+  display: contents;
 }
 .boardTime {
   color: var(--amber);
@@ -242,18 +245,13 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-/* the row whose time has most recently passed — "now" on the run-of-show */
-.boardRowNow .boardTime {
-  color: var(--cyan);
-}
+/* the row whose time has most recently passed — "now" on the run-of-show.
+   Color + weight only, so the current row stands out without shifting the
+   time/label columns out of alignment. */
+.boardRowNow .boardTime,
 .boardRowNow .boardLabel {
-  color: var(--ink);
-  font-weight: 700;
-}
-.boardRowNow .boardLabel::before {
-  content: '\25B8'; /* ▸ */
   color: var(--cyan);
-  margin-right: 10px;
+  font-weight: 700;
 }
 
 /* doors/times line pinned to the slide's bottom edge */
