@@ -66,6 +66,21 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: 'Invalid override mode' }, { status: 400 });
     }
     assignments.push(sql`override_mode = ${body.overrideMode ?? null}`);
+    // (Re)forcing or clearing a mode drops any stale expiry, unless the same
+    // request also sets one below.
+    if (!('overrideExpireInMinutes' in body)) {
+      assignments.push(sql`override_expires_at = null`);
+    }
+  }
+  if ('overrideExpireInMinutes' in body) {
+    const mins = body.overrideExpireInMinutes;
+    if (mins === null) {
+      assignments.push(sql`override_expires_at = null`);
+    } else if (Number.isFinite(mins) && mins > 0 && mins <= 24 * 60) {
+      assignments.push(sql`override_expires_at = now() + (${mins} * interval '1 minute')`);
+    } else {
+      return NextResponse.json({ error: 'Invalid expiry' }, { status: 400 });
+    }
   }
   if ('schedule' in body) {
     const schedule = cleanSchedule(body.schedule);

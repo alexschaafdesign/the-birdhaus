@@ -41,10 +41,16 @@ function venueNowSlot(): number {
   if (mins < DAY_START_MIN) mins += 24 * 60;
   return mins - DAY_START_MIN;
 }
+// Is the override set and not yet expired?
+function overrideOn(program: TvProgram): boolean {
+  if (!program.overrideMode) return false;
+  if (!program.overrideExpiresAt) return true;
+  return new Date(program.overrideExpiresAt).getTime() > Date.now();
+}
 // Mirrors lib/tv-program resolveMode — kept local so the admin can show what's
 // live without a round trip.
 function resolveLive(program: TvProgram): { mode: TvMode; source: 'override' | 'schedule' | 'default' } {
-  if (program.overrideMode) return { mode: program.overrideMode, source: 'override' };
+  if (overrideOn(program)) return { mode: program.overrideMode as TvMode, source: 'override' };
   const nowSlot = venueNowSlot();
   let mode: TvMode = program.defaultMode;
   let source: 'schedule' | 'default' = 'default';
@@ -135,12 +141,12 @@ export default function TvProgramControl({
         </p>
         <div className="flex items-center gap-2 flex-wrap">
           {MODES.map((m) => {
-            const on = program.overrideMode === m;
+            const on = overrideOn(program) && program.overrideMode === m;
             return (
               <button
                 key={m}
                 type="button"
-                onClick={() => save({ overrideMode: m }, { overrideMode: m })}
+                onClick={() => save({ overrideMode: m }, { overrideMode: m, overrideExpiresAt: null })}
                 className={`${chip} ${
                   on
                     ? 'border-[#E8E0D0] bg-[#E8E0D0]/10 text-[#E8E0D0]'
@@ -153,13 +159,56 @@ export default function TvProgramControl({
           })}
           <button
             type="button"
-            onClick={() => save({ overrideMode: null }, { overrideMode: null })}
-            disabled={!program.overrideMode}
+            onClick={() => save({ overrideMode: null }, { overrideMode: null, overrideExpiresAt: null })}
+            disabled={!overrideOn(program)}
             className={`${chip} border-[#E8E0D0]/30 text-[#E8E0D0]/70 hover:text-[#E8E0D0]`}
           >
             Auto (clear override)
           </button>
         </div>
+
+        {overrideOn(program) && (
+          <div className="flex items-center gap-2 flex-wrap mt-2 text-xs text-[#E8E0D0]/60">
+            <span>Auto-clear:</span>
+            {[
+              { label: '1h', mins: 60 },
+              { label: '3h', mins: 180 },
+              { label: '6h', mins: 360 },
+            ].map(({ label, mins }) => (
+              <button
+                key={mins}
+                type="button"
+                onClick={() =>
+                  save(
+                    { overrideExpireInMinutes: mins },
+                    { overrideExpiresAt: new Date(Date.now() + mins * 60_000).toISOString() }
+                  )
+                }
+                className="border border-[#E8E0D0]/25 rounded px-2 py-1 hover:bg-[#E8E0D0]/10"
+              >
+                +{label}
+              </button>
+            ))}
+            <button
+              type="button"
+              onClick={() => save({ overrideExpireInMinutes: null }, { overrideExpiresAt: null })}
+              disabled={!program.overrideExpiresAt}
+              className="border border-[#E8E0D0]/25 rounded px-2 py-1 hover:bg-[#E8E0D0]/10 disabled:opacity-40"
+            >
+              Off
+            </button>
+            {program.overrideExpiresAt && (
+              <span className="text-[#E8E0D0]/45">
+                clears in{' '}
+                {Math.max(
+                  0,
+                  Math.round((new Date(program.overrideExpiresAt).getTime() - Date.now()) / 60_000)
+                )}
+                m
+              </span>
+            )}
+          </div>
+        )}
         {error && <p className="text-sm text-red-400 mt-2">{error}</p>}
       </section>
 

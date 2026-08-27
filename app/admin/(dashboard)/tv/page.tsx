@@ -3,6 +3,7 @@ import { getAllTvImages } from '@/lib/tv-images';
 import TvProgramControl from '@/components/admin/TvProgramControl';
 import TvCardsList from '@/components/admin/TvCardsList';
 import TvImagesList from '@/components/admin/TvImagesList';
+import TvPreview from '@/components/admin/TvPreview';
 
 export const dynamic = 'force-dynamic';
 
@@ -25,6 +26,10 @@ export default async function AdminTvPage() {
       </div>
 
       <TvProgramControl initialProgram={program} />
+
+      <div className="border-t border-[#E8E0D0]/15 pt-8">
+        <TvPreview />
+      </div>
 
       <div className="border-t border-[#E8E0D0]/15 pt-8">
         <TvImagesList initialImages={images} />

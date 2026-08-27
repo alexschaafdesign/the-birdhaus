@@ -26,8 +26,17 @@ export interface TvProgram {
   defaultMode: TvMode;
   schedule: ScheduleWindow[];
   overrideMode: TvMode | null;
+  // When set and in the past, the override is treated as cleared. ISO string.
+  overrideExpiresAt: string | null;
   boardTitle: string | null;
   boardRows: BoardRow[];
+}
+
+// Is the override still in force (set and not expired) at this instant?
+export function overrideActive(program: TvProgram, at: Date = new Date()): boolean {
+  if (!program.overrideMode) return false;
+  if (!program.overrideExpiresAt) return true;
+  return new Date(program.overrideExpiresAt).getTime() > at.getTime();
 }
 
 export interface TvCard {
@@ -69,6 +78,7 @@ interface ProgramRow {
   default_mode: string;
   schedule: unknown;
   override_mode: string | null;
+  override_expires_at: Date | string | null;
   board_title: string | null;
   board_rows: unknown;
 }
@@ -78,13 +88,21 @@ function rowToProgram(row: ProgramRow): TvProgram {
     defaultMode: isTvMode(row.default_mode) ? row.default_mode : 'screensaver',
     schedule: parseSchedule(row.schedule),
     overrideMode: isTvMode(row.override_mode) ? row.override_mode : null,
+    overrideExpiresAt: row.override_expires_at ? new Date(row.override_expires_at).toISOString() : null,
     boardTitle: row.board_title,
     boardRows: parseBoardRows(row.board_rows),
   };
 }
 
 export function blankProgram(): TvProgram {
-  return { defaultMode: 'screensaver', schedule: [], overrideMode: null, boardTitle: null, boardRows: [] };
+  return {
+    defaultMode: 'screensaver',
+    schedule: [],
+    overrideMode: null,
+    overrideExpiresAt: null,
+    boardTitle: null,
+    boardRows: [],
+  };
 }
 
 // A program by scope: showId null = the global default program; a number = that
@@ -92,7 +110,7 @@ export function blankProgram(): TvProgram {
 // distinct from` makes the null case a real equality match.
 export async function getProgram(showId: number | null): Promise<TvProgram | null> {
   const [row] = await sql<ProgramRow[]>`
-    select default_mode, schedule, override_mode, board_title, board_rows
+    select default_mode, schedule, override_mode, override_expires_at, board_title, board_rows
     from tv_program where show_id is not distinct from ${showId}
   `;
   return row ? rowToProgram(row) : null;

@@ -126,6 +126,35 @@ function slotOfParts(v: VenueParts): number {
   return mins - DAY_START_MIN;
 }
 
+// Minutes since 04:00 for a board row's free-text time ("7:30pm", "8–8:30pm",
+// "8"). PM is assumed, matching the schedule editor. Uses the row's START time.
+function boardStartSlot(time: string): number | null {
+  const cleaned = time.toLowerCase().replace(/am|pm/g, '').replace(/\s+/g, '');
+  if (!cleaned) return null;
+  const first = cleaned.split(/–|—|-|to/)[0];
+  const m = /^(\d{1,2})(?::(\d{2}))?$/.exec(first);
+  if (!m) return null;
+  let h = Number(m[1]);
+  const mm = m[2] ? Number(m[2]) : 0;
+  if (h < 1 || h > 12 || mm > 59) return null;
+  if (h !== 12) h += 12; // PM
+  let mins = h * 60 + mm;
+  if (mins < DAY_START_MIN) mins += 24 * 60;
+  return mins - DAY_START_MIN;
+}
+
+// Index of the "current" board row: the last one whose start time has passed.
+// -1 before anything has started (or no clock).
+function currentBoardIndex(rows: TvBoardRow[], nowSlot: number | null): number {
+  if (nowSlot === null) return -1;
+  let idx = -1;
+  rows.forEach((r, i) => {
+    const s = boardStartSlot(r.time);
+    if (s !== null && nowSlot >= s) idx = i;
+  });
+  return idx;
+}
+
 // Minutes since 04:00 for a schedule window's 24h "HH:MM"; null if malformed.
 function slotOfHHMM(value: string): number | null {
   const m = /^(\d{1,2}):(\d{2})$/.exec(value.trim());
@@ -335,7 +364,11 @@ export default function TvScreen() {
 
   const pull = useCallback(async () => {
     try {
-      const res = await fetch('/api/tv', { cache: 'no-store' });
+      // ?showId=N previews a specific show's program (the admin preview); absent
+      // -> normal operation (tonight's show, else global).
+      const showId = new URLSearchParams(window.location.search).get('showId');
+      const qs = showId && /^\d+$/.test(showId) ? `?showId=${showId}` : '';
+      const res = await fetch(`/api/tv${qs}`, { cache: 'no-store' });
       if (!res.ok) throw new Error(String(res.status));
       const text = await res.text();
       if (text === lastPayload.current) return; // identical poll -> zero work
@@ -469,12 +502,16 @@ export default function TvScreen() {
     );
     if (rows.length === 0) return idleSlide;
     const title = typeof board.title === 'string' ? board.title.trim() : '';
+    const nowIdx = currentBoardIndex(rows, nowSlot);
     return (
       <div className={`${styles.slide} ${styles.slideCol}`}>
         <div className={styles.eyebrow}>{title || 'TONIGHT'}</div>
         <div className={styles.board}>
           {rows.map((r, i) => (
-            <div key={i} className={styles.boardRow}>
+            <div
+              key={i}
+              className={`${styles.boardRow} ${i === nowIdx ? styles.boardRowNow : ''}`}
+            >
               <span className={styles.boardTime}>{r.time}</span>
               <span className={styles.boardLabel}>{r.label}</span>
             </div>

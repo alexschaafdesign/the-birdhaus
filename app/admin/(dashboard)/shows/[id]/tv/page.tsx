@@ -4,6 +4,7 @@ import { sql } from '@/lib/db';
 import { getProgramOrBlank, getAllCards } from '@/lib/tv-program';
 import TvProgramControl from '@/components/admin/TvProgramControl';
 import TvCardsList from '@/components/admin/TvCardsList';
+import TvPreview from '@/components/admin/TvPreview';
 
 export const dynamic = 'force-dynamic';
 
@@ -45,6 +46,10 @@ export default async function ShowTvPage({ params }: { params: Promise<{ id: str
       </p>
 
       <TvProgramControl initialProgram={program} showId={showId} bandNames={bandNames} />
+
+      <div className="border-t border-[#E8E0D0]/15 pt-8">
+        <TvPreview showId={showId} />
+      </div>
 
       <div className="border-t border-[#E8E0D0]/15 pt-8">
         <TvCardsList initialCards={cards} showId={showId} />

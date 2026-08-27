@@ -242,6 +242,19 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* the row whose time has most recently passed — "now" on the run-of-show */
+.boardRowNow .boardTime {
+  color: var(--cyan);
+}
+.boardRowNow .boardLabel {
+  color: var(--ink);
+  font-weight: 700;
+}
+.boardRowNow .boardLabel::before {
+  content: '\25B8'; /* ▸ */
+  color: var(--cyan);
+  margin-right: 10px;
+}
 
 /* doors/times line pinned to the slide's bottom edge */
 .times {
