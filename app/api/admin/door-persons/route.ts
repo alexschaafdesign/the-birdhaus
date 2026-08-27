@@ -8,19 +8,24 @@ function nullableTrim(value: unknown): string | null {
   return value.trim() || null;
 }
 
-// Name typeahead (mirrors the photographers route). Returns [] without a query.
+// Door-person lookup. With a `q` it's a name typeahead (mirrors the
+// photographers route, capped at 8 matches); without one it returns the full
+// roster, which the show form's door-person dropdown loads on mount.
 export async function GET(request: Request) {
   const q = new URL(request.url).searchParams.get('q')?.trim() ?? '';
-  if (!q) {
-    return NextResponse.json([]);
-  }
-  const rows = await sql<Array<{ id: number; name: string }>>`
-    select id, name
-    from door_persons
-    where name ilike ${'%' + q + '%'}
-    order by name asc
-    limit 8
-  `;
+  const rows = q
+    ? await sql<Array<{ id: number; name: string }>>`
+        select id, name
+        from door_persons
+        where name ilike ${'%' + q + '%'}
+        order by name asc
+        limit 8
+      `
+    : await sql<Array<{ id: number; name: string }>>`
+        select id, name
+        from door_persons
+        order by name asc
+      `;
   return NextResponse.json(rows.map((r) => ({ id: Number(r.id), name: r.name })));
 }
 
