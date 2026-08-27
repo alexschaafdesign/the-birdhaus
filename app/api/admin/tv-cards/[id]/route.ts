@@ -48,8 +48,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     const b = neighbor.sort === a ? (body.move === 'up' ? a - 1 : a + 1) : neighbor.sort;
     await sql`
       update tv_cards set sort = case
-        when id = ${current.id} then ${b}
-        when id = ${neighbor.id} then ${a}
+        when id = ${current.id} then ${b}::int
+        when id = ${neighbor.id} then ${a}::int
       end, updated_at = now()
       where id in (${current.id}, ${neighbor.id})
     `;
