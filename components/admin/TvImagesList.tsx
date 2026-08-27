@@ -3,6 +3,8 @@
 import { useRef, useState } from 'react';
 import type { TvImage } from '@/lib/tv-images';
 import { downscaleImage } from '@/lib/downscale-image';
+import TvPresetBar from './TvPresetBar';
+import ShowFlyerPicker from './ShowFlyerPicker';
 
 // Manager for the /tv idle-image pool (069_tv_images.sql). Upload images, set
 // an optional caption, park/unpark, reorder, delete. These images cycle on the
@@ -105,12 +107,19 @@ export default function TvImagesList({ initialImages }: { initialImages: TvImage
     captions[img.id] ?? img.caption ?? '';
 
   const activeCount = images.filter((img) => img.active).length;
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   return (
     <div className="text-[#E8E0D0]">
+      {pickerOpen && (
+        <ShowFlyerPicker onClose={() => setPickerOpen(false)} onAdded={refresh} />
+      )}
       <div className="flex items-start justify-between gap-4 flex-wrap mb-1">
         <h2 className="text-xl font-bold">TV Screen — Idle Images</h2>
-        <div>
+        <div className="flex items-center gap-2">
+          <button type="button" onClick={() => setPickerOpen(true)} className={btn}>
+            + From show flyers
+          </button>
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
@@ -146,6 +155,9 @@ export default function TvImagesList({ initialImages }: { initialImages: TvImage
           <> {activeCount} of {images.length} active.</>
         )}
       </p>
+      <div className="mb-4">
+        <TvPresetBar category="screensaver" />
+      </div>
       {error && <p className="text-sm text-red-400 mb-3">{error}</p>}
 
       {images.length === 0 ? (

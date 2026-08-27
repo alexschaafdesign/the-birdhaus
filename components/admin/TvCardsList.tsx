@@ -3,6 +3,7 @@
 import { useRef, useState } from 'react';
 import type { TvCard } from '@/lib/tv-program';
 import { downscaleImage } from '@/lib/downscale-image';
+import TvPresetBar from './TvPresetBar';
 
 // Manager for global announcement cards (070_tv_program.sql), shown on the tube
 // in 'cards' mode. Each card: a headline, optional subtext, optional image.
@@ -103,6 +104,9 @@ export default function TvCardsList({
       <p className="text-xs text-[#E8E0D0]/45 mb-4 max-w-2xl">
         Rotated on the tube in “Announcement cards” mode — a headline, optional subtext, optional image.
       </p>
+      <div className="mb-4">
+        <TvPresetBar category="cards" showId={showId} />
+      </div>
       {error && <p className="text-sm text-red-400 mb-3">{error}</p>}
 
       {cards.length === 0 ? (

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import ScheduleEditor from './ScheduleEditor';
+import TvPresetBar from './TvPresetBar';
 import type { ScheduleRow } from '@/lib/advance';
 import type { TvMode, TvProgram, ScheduleWindow } from '@/lib/tv-program';
 
@@ -297,6 +298,9 @@ export default function TvProgramControl({
         <p className="text-xs text-[#E8E0D0]/45 mb-3">
           The run-of-show shown on the tube in “Schedule board” mode.
         </p>
+        <div className="mb-3">
+          <TvPresetBar category="board" showId={showId} />
+        </div>
         <input
           value={program.boardTitle ?? ''}
           placeholder="Board title (e.g. TONIGHT)"
