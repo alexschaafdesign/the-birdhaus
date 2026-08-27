@@ -17,6 +17,7 @@ const btn =
 export default function TvImagesList({ initialImages }: { initialImages: TvImage[] }) {
   const [images, setImages] = useState<TvImage[]>(initialImages);
   const [uploading, setUploading] = useState(false);
+  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -25,40 +26,60 @@ export default function TvImagesList({ initialImages }: { initialImages: TvImage
     if (res.ok) setImages(await res.json());
   }
 
-  async function handleFile(file: File) {
+  async function uploadOne(file: File): Promise<void> {
+    // Shrink big originals in the browser first so a full-res phone photo or
+    // screenshot slips under the upload cap; the server still does the final
+    // resize. Only fails if it's somehow still too big after that.
+    const prepared = await downscaleImage(file);
+    if (prepared.size > MAX_SIZE_BYTES) {
+      throw new Error('too large even after resizing');
+    }
+    const formData = new FormData();
+    formData.append('file', prepared);
+    formData.append('folder', 'tv');
+    const up = await fetch('/api/admin/uploads', { method: 'POST', body: formData });
+    const upBody = await up.json().catch(() => null);
+    if (!up.ok) throw new Error(upBody?.error || 'upload failed');
+
+    const create = await fetch('/api/admin/tv-images', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: upBody.url }),
+    });
+    if (!create.ok) throw new Error('could not add to pool');
+  }
+
+  async function handleFiles(files: File[]) {
     setError(null);
-    if (!file.type.startsWith('image/')) {
-      setError('Please choose an image file.');
+    const imageFiles = files.filter((f) => f.type.startsWith('image/'));
+    if (imageFiles.length === 0) {
+      setError('Please choose image files.');
       return;
     }
     setUploading(true);
+    setProgress({ done: 0, total: imageFiles.length });
+    // Sequential so pool order matches the order you picked them and progress
+    // advances one at a time; one bad file is reported but doesn't sink the rest.
+    const failures: string[] = [];
     try {
-      // Shrink big originals in the browser first so a full-res phone photo or
-      // screenshot slips under the upload cap; the server still does the final
-      // resize. Only rejects if it's somehow still too big after that.
-      const prepared = await downscaleImage(file);
-      if (prepared.size > MAX_SIZE_BYTES) {
-        setError('Image is too large even after resizing (max 8MB).');
-        return;
+      for (const file of imageFiles) {
+        try {
+          await uploadOne(file);
+        } catch (err) {
+          failures.push(`${file.name} (${err instanceof Error ? err.message : 'failed'})`);
+        } finally {
+          setProgress((p) => (p ? { ...p, done: p.done + 1 } : p));
+        }
       }
-      const formData = new FormData();
-      formData.append('file', prepared);
-      formData.append('folder', 'tv');
-      const up = await fetch('/api/admin/uploads', { method: 'POST', body: formData });
-      const upBody = await up.json().catch(() => null);
-      if (!up.ok) throw new Error(upBody?.error || 'Upload failed');
-
-      const create = await fetch('/api/admin/tv-images', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: upBody.url }),
-      });
-      if (!create.ok) throw new Error('Could not add image to the pool');
       await refresh();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Upload failed');
+      if (failures.length > 0) {
+        setError(
+          `Couldn’t upload ${failures.length} of ${imageFiles.length}: ${failures.join(', ')}`
+        );
+      }
     } finally {
       setUploading(false);
+      setProgress(null);
     }
   }
 
@@ -96,16 +117,21 @@ export default function TvImagesList({ initialImages }: { initialImages: TvImage
             disabled={uploading}
             className={btn}
           >
-            {uploading ? 'Uploading…' : '+ Add image'}
+            {uploading
+              ? progress
+                ? `Uploading ${progress.done}/${progress.total}…`
+                : 'Uploading…'
+              : '+ Add images'}
           </button>
           <input
             ref={fileInputRef}
             type="file"
             accept="image/*"
+            multiple
             className="hidden"
             onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (file) handleFile(file);
+              const files = Array.from(e.target.files ?? []);
+              if (files.length) handleFiles(files);
               e.target.value = '';
             }}
           />
