@@ -19,7 +19,7 @@ const GROUPS: NavGroup[] = [
     links: [
       { href: '/admin/shows', label: 'Shows' },
       { href: '/admin/submissions', label: 'Submissions' },
-      { href: '/admin/tv-images', label: 'TV Screen' },
+      { href: '/admin/tv', label: 'TV Screen' },
     ],
   },
   {

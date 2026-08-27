@@ -20,11 +20,18 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 const BASE = process.argv[2] ?? 'http://127.0.0.1:3000';
-// Fast poll (3s) so the run crosses ~5 boundaries; forced bounce so the
-// moving element exists regardless of what's on the calendar today; fast
-// bounce (3s crossings) so edge-hit flyer swaps happen many times per run —
-// cycling to the next show must never navigate, reload, or reset motion.
-const PAGE_URL = `${BASE}/tv?bounce=1&poll=3&bounceperiod=3`;
+// Fast poll (3s) so the run crosses ~5 boundaries; forced screensaver so the
+// moving element exists regardless of the program; fast bounce (3s crossings)
+// so edge-hit image swaps happen many times per run — cycling to the next
+// image must never navigate, reload, or reset motion. Every poll's `pool` is
+// replaced with fixed text-card items (fake urls -> text cards) so swaps are
+// deterministic without loading real images.
+const PAGE_URL = `${BASE}/tv?mode=screensaver&poll=3&bounceperiod=3`;
+const POOL_BASE = [
+  { url: 'x://alpha', caption: 'ALPHA' },
+  { url: 'x://bravo', caption: 'BRAVO' },
+  { url: 'x://charlie', caption: 'CHARLIE' },
+];
 const RUN_MS = 22_000;
 const SAMPLE_MS = 300;
 const MUTATE_ON_POLL = 3; // which /api/tv response gets a show appended
@@ -116,17 +123,21 @@ ws.onmessage = async (ev) => {
     let body = bodyRes.base64Encoded
       ? Buffer.from(bodyRes.body, 'base64').toString('utf8')
       : bodyRes.body;
+    const json = JSON.parse(body);
+    // Force screensaver and a deterministic 3-item pool on every poll, so the
+    // moving element exists and cycles distinct captions regardless of the
+    // program/DB. Identical across polls -> the identical-poll short-circuit
+    // must produce zero visible change.
+    json.program = { defaultMode: 'screensaver', schedule: [], overrideMode: null };
+    json.pool = [...POOL_BASE];
     if (pollCount === MUTATE_ON_POLL) {
-      // Changed-data poll: append a flyerless show. The page must swap
-      // content in without any motion reset.
-      const json = JSON.parse(body);
-      json.upcoming = [
-        ...(json.upcoming ?? []),
-        { title: 'INVARIANT PROBE', date: '2099-01-01', flyer: null, bands: [] },
-      ];
+      // Changed-data poll: append a fourth item. The page must swap content in
+      // without any motion reset.
+      json.pool.push({ url: 'x://delta', caption: 'DELTA' });
       body = JSON.stringify(json);
       console.log(`poll #${pollCount}: mutated payload injected`);
     } else {
+      body = JSON.stringify(json);
       console.log(`poll #${pollCount}: passed through unchanged`);
     }
     await send('Fetch.fulfillRequest', {
