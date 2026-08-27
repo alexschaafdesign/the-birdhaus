@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { downscaleImage } from '@/lib/downscale-image';
 
 // The round's cover image. Everyone sees it; the admin gets upload/replace/
 // remove controls. Uploads go through the shared admin image route (resize +
@@ -51,8 +52,10 @@ export default function RoundCover({
     setBusy(true);
     setError(null);
     try {
+      // Shrink big originals in the browser; the server does the final resize.
+      const prepared = await downscaleImage(file);
       const form = new FormData();
-      form.append('file', file);
+      form.append('file', prepared);
       form.append('folder', 'song-club');
       const res = await fetch('/api/admin/uploads', { method: 'POST', body: form });
       const data = await res.json().catch(() => null);

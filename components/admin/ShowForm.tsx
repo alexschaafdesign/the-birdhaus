@@ -10,6 +10,7 @@ import DoorPersonNameInput, { type DoorPersonMatch } from './DoorPersonNameInput
 import ImageUploadField from './ImageUploadField';
 import ShowDateAvailability from './ShowDateAvailability';
 import Section from './Section';
+import { downscaleImage } from '@/lib/downscale-image';
 
 const inputClass =
   'bg-transparent border border-[#E8E0D0]/30 rounded px-3 py-1.5 text-sm focus:outline-none focus:border-[#E8E0D0] placeholder:text-[#E8E0D0]/30';
@@ -458,10 +459,6 @@ export default function ShowForm({
         setError('Please choose image files only.');
         return;
       }
-      if (file.size > 8 * 1024 * 1024) {
-        setError(`"${file.name}" is too large (max 8MB).`);
-        return;
-      }
     }
 
     setPhotosUploading(true);
@@ -469,8 +466,12 @@ export default function ShowForm({
     try {
       const uploadedUrls: string[] = [];
       for (const file of fileArray) {
+        // Shrink big originals in the browser first; gallery photos open in a
+        // full-screen lightbox, so keep generous headroom. Server still does
+        // the final resize.
+        const prepared = await downscaleImage(file, { maxDim: 2400 });
         const formData = new FormData();
-        formData.append('file', file);
+        formData.append('file', prepared);
         formData.append('folder', 'photos');
         const res = await fetch('/api/admin/uploads', { method: 'POST', body: formData });
         const body = await res.json().catch(() => null);

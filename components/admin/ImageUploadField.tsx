@@ -2,6 +2,7 @@
 
 import { useRef, useState } from 'react';
 import type { UploadFolder } from '@/lib/r2';
+import { downscaleImage } from '@/lib/downscale-image';
 
 const inputClass =
   'bg-transparent border border-[#E8E0D0]/30 rounded px-3 py-1.5 text-sm focus:outline-none focus:border-[#E8E0D0] placeholder:text-[#E8E0D0]/30';
@@ -33,15 +34,19 @@ export default function ImageUploadField({
       setError('Please choose an image file.');
       return;
     }
-    if (file.size > MAX_SIZE_BYTES) {
-      setError('Image is too large (max 8MB).');
-      return;
-    }
 
     setUploading(true);
     try {
+      // Shrink big originals in the browser so a full-res photo slips under the
+      // upload cap; the server still does the authoritative resize. Gallery
+      // photos keep more headroom — they open in a full-screen lightbox.
+      const prepared = await downscaleImage(file, { maxDim: folder === 'photos' ? 2400 : 1600 });
+      if (prepared.size > MAX_SIZE_BYTES) {
+        setError('Image is too large even after resizing (max 8MB).');
+        return;
+      }
       const formData = new FormData();
-      formData.append('file', file);
+      formData.append('file', prepared);
       formData.append('folder', folder);
       const res = await fetch('/api/admin/uploads', { method: 'POST', body: formData });
       const body = await res.json().catch(() => null);

@@ -2,6 +2,7 @@
 
 import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { downscaleImage } from '@/lib/downscale-image';
 
 // Mirrors app/api/admin/uploads/route.ts's limits — checked here too so an
 // oversized/wrong-type file never has to make a round trip just to be rejected.
@@ -81,7 +82,7 @@ export default function SongClubEventForm({
     (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
       setV((prev) => ({ ...prev, [k]: e.target.value }));
 
-  function handleFlyerChange(e: React.ChangeEvent<HTMLInputElement>) {
+  async function handleFlyerChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
     const input = e.target;
@@ -91,16 +92,20 @@ export default function SongClubEventForm({
       input.value = '';
       return;
     }
-    if (file.size > MAX_FLYER_BYTES) {
-      const mb = (file.size / (1024 * 1024)).toFixed(1);
+
+    // Shrink big originals in the browser; the server still does the final
+    // resize. Only complain if it's somehow still too big after that.
+    const prepared = await downscaleImage(file);
+    if (prepared.size > MAX_FLYER_BYTES) {
+      const mb = (prepared.size / (1024 * 1024)).toFixed(1);
       setFlyerError(`That image is ${mb}MB — please use a file under 8MB`);
       input.value = '';
       return;
     }
 
     setFlyerError('');
-    setFlyerFile(file);
-    setFlyerPreview(URL.createObjectURL(file));
+    setFlyerFile(prepared);
+    setFlyerPreview(URL.createObjectURL(prepared));
   }
 
   function removeFlyer() {
