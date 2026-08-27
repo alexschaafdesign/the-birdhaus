@@ -31,7 +31,7 @@ function getClient(): S3Client {
 
 // Whitelist of upload destinations — keeps the object key's folder under our
 // control rather than letting a request pick an arbitrary path.
-export const ALLOWED_UPLOAD_FOLDERS = ['bands', 'flyers', 'photos', 'song-club', 'sound-engineers', 'photographers', 'door-persons'] as const;
+export const ALLOWED_UPLOAD_FOLDERS = ['bands', 'flyers', 'photos', 'song-club', 'sound-engineers', 'photographers', 'door-persons', 'tv'] as const;
 export type UploadFolder = (typeof ALLOWED_UPLOAD_FOLDERS)[number];
 
 // Folders for non-image uploads that don't go through the image-only route —
@@ -85,6 +85,9 @@ const MAX_DIMENSION: Record<UploadFolder, number> = {
   photographers: 1000,
   // Door-person headshots — same as engineers.
   'door-persons': 1000,
+  // /tv idle-pool images. The tube stage is 640px and the feed re-encodes to a
+  // 640px variant anyway, so the stored original only needs headroom for that.
+  tv: 1280,
 };
 
 // Matches the site's dark background (app/layout.tsx) so a transparent PNG

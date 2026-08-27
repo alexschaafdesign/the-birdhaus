@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getAllShows, ISO_DATE_RE, type Show } from '@/lib/shows';
+import { getActiveTvImages } from '@/lib/tv-images';
 import { cloudinaryTransform } from '@/lib/cloudinary-url';
 import { R2_PUBLIC_BASE } from '@/lib/r2-public';
 
@@ -52,6 +53,10 @@ function tvBands(bands: Show['bands']) {
 
 export async function GET(request: Request) {
   const shows = await getAllShows();
+  // Curated idle-pool images (069_tv_images.sql). The TV shows these only in
+  // "dead air" (no show, before doors, after the last set) — the client decides
+  // when — so the feed always carries them and lets the tube pick the moment.
+  const poolImages = await getActiveTvImages();
 
   // ?date=YYYY-MM-DD previews any day as "tonight" (pair of the page's
   // ?scanlines=1 affordance). Simulated days only surface announced shows —
@@ -89,6 +94,12 @@ export async function GET(request: Request) {
       flyer: tvImage(show.flyer),
       bands: tvBands(show.bands).map((band) => band.name),
     })),
+    // Each pool image, its URL rewritten to the 640px Pi variant like every
+    // other TV image. A row whose URL doesn't resolve to one is dropped rather
+    // than shipped as a broken slide.
+    pool: poolImages
+      .map((img) => ({ url: tvImage(img.url), caption: img.caption }))
+      .filter((img): img is { url: string; caption: string | null } => img.url !== null),
   };
 
   return NextResponse.json(body, {

@@ -18,13 +18,14 @@ import styles from './tv.module.css';
 //     -> closing), re-evaluated every second against the clock, no rotation.
 //   - ROTATION mode: no show tonight, or a show with no usable set times —
 //     the original slide loop (tonight bill, band spotlights, coming-soon).
-//   - BOUNCE mode (opt-in via ?bounce, off by default so the current kiosk
-//     URL is untouched): idle DVD-screensaver. With ?bounce=auto it engages
-//     when nothing is happening — before doors (live `doors` state, or
-//     rotation nights before doorsTime), after the last set (`closing`), or
-//     on no-show days — and show flyers drift and bounce inside the safe
-//     area, no header. Any info state wins over it. ?bounce=1 forces it on
-//     regardless of state, for tube testing.
+//   - BOUNCE mode: the idle DVD-screensaver. Engages on its own whenever the
+//     tube hits dead air — before doors (live `doors` state, or rotation
+//     nights before doorsTime), after the last set (`closing`), or on no-show
+//     days — AND the curated /tv image pool has images: the pool images drift
+//     and bounce inside the safe area (no header) and each edge hit swaps to
+//     the next image. Any live info state wins over it. With no pool curated,
+//     ?bounce=auto still bounces show flyers in idle, and ?bounce=1 forces the
+//     screensaver on regardless of state for tube testing.
 // Fetching feeds all three; neither the clock tick, the rotation, nor the
 // bounce loop ever fetches.
 
@@ -79,10 +80,19 @@ interface TvUpcoming {
   bands: string[];
 }
 
+// A curated idle-pool image (069_tv_images.sql). Shown only in dead air.
+interface TvPoolImage {
+  url: string;
+  caption: string | null;
+}
+
 interface TvData {
   date: string;
   tonight: TvTonight | null;
   upcoming: TvUpcoming[];
+  // Optional so a pre-069 / partial payload still validates and just runs
+  // without a pool.
+  pool?: TvPoolImage[];
 }
 
 type Slide =
@@ -326,16 +336,33 @@ const BOUNCE_MAX_H = 272;
 const BOUNCE_X_SECONDS = 10;
 const BOUNCE_Y_SECONDS = 34;
 
-// What bounces: one entry per show, tonight first, then upcoming in date
-// order. A show with no flyer still gets an entry — it renders as a text card.
+// What bounces: one entry per item, cycled on each edge hit. A missing flyer
+// still gets an entry — it renders as a text card.
 interface BounceItem {
   title: string;
   date: string;
   flyer: string | null;
 }
 
+// The curated /tv image pool IS the screensaver: when it has any images, the
+// bounce cycles those (caption as the text-card fallback). Only when there's no
+// pool at all does it fall back to the show flyers — tonight first, then
+// upcoming in date order — so a ?bounce test still has something to move.
 function buildBounceItems(data: TvData | null): BounceItem[] {
   const items: BounceItem[] = [];
+
+  const pool = Array.isArray(data?.pool) ? data.pool : [];
+  for (const img of pool) {
+    if (img && typeof img.url === 'string' && img.url) {
+      items.push({
+        title: typeof img.caption === 'string' ? img.caption : '',
+        date: '',
+        flyer: img.url,
+      });
+    }
+  }
+  if (items.length > 0) return items;
+
   const shows: Array<{ title?: unknown; date?: unknown; flyer?: unknown } | null> = [
     data?.tonight ?? null,
     ...(Array.isArray(data?.upcoming) ? data.upcoming : []),
@@ -482,8 +509,10 @@ export default function TvScreen() {
   const [sim, setSim] = useState<VenueParts | null>(null);
   const [scale, setScale] = useState(1);
   const [scan, setScan] = useState(false);
-  // ?bounce=auto engages the screensaver in idle states; ?bounce=1 forces it
-  // always-on; absent (the current kiosk URL) = today's behavior, untouched.
+  // ?bounce=1 forces the screensaver always-on (tube testing); ?bounce=auto
+  // bounces show flyers in idle states even with no curated pool. Absent, the
+  // screensaver still engages in idle whenever the /tv image pool is non-empty
+  // — the pool is the screensaver.
   const [bounceMode, setBounceMode] = useState<'off' | 'auto' | 'force'>('off');
   const [reduceMotion, setReduceMotion] = useState(false);
   const [slideNum, setSlideNum] = useState(0);
@@ -632,6 +661,9 @@ export default function TvScreen() {
     }
     for (const show of data?.upcoming ?? []) {
       if (show?.flyer) urls.push(show.flyer);
+    }
+    for (const img of data?.pool ?? []) {
+      if (img?.url) urls.push(img.url);
     }
     for (const url of urls) {
       if (typeof url !== 'string' || preloadStarted.current.has(url)) continue;
@@ -846,7 +878,6 @@ export default function TvScreen() {
   const tonight = data?.tonight ?? null;
   const sets = buildSets(tonight);
   const live = !!tonight && sets.length > 0 && venue !== null;
-  liveActiveRef.current = live;
 
   const nowSlot = venue ? slotOf(venue.hh, venue.mm, venue.ss) : null;
   const liveState: LiveState | null =
@@ -854,21 +885,35 @@ export default function TvScreen() {
       ? computeLiveState(nowSlot, slotOfLabel(tonight.doorsTime), sets)
       : null;
 
-  // Idle detection for ?bounce=auto: the screensaver runs only when there's
-  // nothing to read — before doors, after the last set, or no show tonight.
-  // On rotation nights (no set times) "before doors" comes straight from
-  // doorsTime vs the clock; with no doorsTime either, there's no idle signal
-  // and the night stays in rotation.
-  let bounce = bounceMode === 'force';
-  if (!bounce && bounceMode === 'auto' && !reduceMotion && data && nowSlot !== null) {
+  liveActiveRef.current = live;
+
+  // "Dead air": no show tonight, or a live night sitting before doors / after
+  // the last set. Live now/upnext/changeover own their own cards. On rotation
+  // nights (no set times) "before doors" comes from doorsTime vs the clock;
+  // with no doorsTime either there's no idle signal and the night stays in
+  // rotation.
+  let idle = false;
+  if (data && nowSlot !== null) {
     if (liveState) {
-      bounce = liveState.kind === 'doors' || liveState.kind === 'closing';
+      idle = liveState.kind === 'doors' || liveState.kind === 'closing';
     } else if (!tonight) {
-      bounce = true;
+      idle = true;
     } else {
       const doorsSlot = slotOfLabel(tonight.doorsTime);
-      bounce = doorsSlot !== null && nowSlot < doorsSlot;
+      idle = doorsSlot !== null && nowSlot < doorsSlot;
     }
+  }
+
+  // The curated pool IS the idle screensaver: whenever the tube hits dead air
+  // and there are pool images, the DVD-bounce cycles them (each edge hit swaps
+  // to the next image) — no ?bounce flag needed. ?bounce=1 still forces it on
+  // for tube testing; ?bounce=auto keeps the old behavior of bouncing the show
+  // flyers in idle even when no pool has been curated. prefers-reduced-motion
+  // suppresses the motion (falls back to the rotation deck / idle card).
+  const pool = Array.isArray(data?.pool) ? data.pool : [];
+  let bounce = bounceMode === 'force';
+  if (!bounce && idle && !reduceMotion && (pool.length > 0 || bounceMode === 'auto')) {
+    bounce = true;
   }
   bounceActiveRef.current = bounce;
   const bounceItems = useMemo(() => buildBounceItems(data), [data]);

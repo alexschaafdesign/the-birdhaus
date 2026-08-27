@@ -24,7 +24,7 @@ export const dynamic = 'force-dynamic';
 const TV_WIDTH = 640;
 
 // Only folders the TV feed actually references.
-const ALLOWED_PREFIXES = ['flyers/', 'bands/'];
+const ALLOWED_PREFIXES = ['flyers/', 'bands/', 'tv/'];
 // Object keys are server-generated (folder/timestamp-hex.ext) — anything
 // outside this shape is not ours to fetch.
 const KEY_RE = /^[a-z0-9/_-]+\.[a-z0-9]+$/i;
