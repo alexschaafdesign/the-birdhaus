@@ -356,6 +356,10 @@ export default function TvScreen() {
   const [imgOk, setImgOk] = useState<Record<string, boolean>>({});
   const preloadStarted = useRef<Set<string>>(new Set());
   const lastPayload = useRef<string | null>(null);
+  // Deploy version this page booted on; when a poll reports a different one, a
+  // new bundle has shipped and we reload once to pick it up (self-updating
+  // kiosk — no manual Pi restart).
+  const bootVersion = useRef<string | null>(null);
 
   // The rotation interval reads these so it idles (no state churn) while the
   // screensaver owns the stage or the current deck has only one slide.
@@ -373,6 +377,25 @@ export default function TvScreen() {
       const text = await res.text();
       if (text === lastPayload.current) return; // identical poll -> zero work
       const body: unknown = JSON.parse(text);
+
+      // Self-update: latch the version on first load; if a later poll reports a
+      // different one, a new bundle shipped — reload once to run it. Guarded by
+      // the identical-poll short-circuit above, so this only fires on a real
+      // change. Skipped for 'dev' (hot-reload handles it) and when absent.
+      const version =
+        body && typeof body === 'object' && typeof (body as { version?: unknown }).version === 'string'
+          ? (body as { version: string }).version
+          : null;
+      if (version && version !== 'dev') {
+        if (bootVersion.current === null) {
+          bootVersion.current = version;
+        } else if (version !== bootVersion.current) {
+          console.log(`[tv] new deploy ${bootVersion.current} -> ${version}, reloading`);
+          window.location.reload();
+          return;
+        }
+      }
+
       if (isTvData(body)) {
         lastPayload.current = text;
         setData(body);

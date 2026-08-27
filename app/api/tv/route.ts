@@ -13,6 +13,13 @@ import { R2_PUBLIC_BASE } from '@/lib/r2-public';
 
 export const dynamic = 'force-dynamic';
 
+// Identifies the running deployment. Changes on every deploy, constant across a
+// deployment's lifetime — so the kiosk can detect "new code shipped" from a
+// poll and reload itself onto the new bundle (no manual Pi restart). 'dev'
+// locally, where the bundle hot-reloads anyway.
+const DEPLOY_VERSION =
+  process.env.VERCEL_DEPLOYMENT_ID || process.env.VERCEL_GIT_COMMIT_SHA || 'dev';
+
 // Feed for the in-venue CRT (/tv). Polled once a minute by a Pi that must never
 // blank. The TV is now an authored CMS: this returns the PROGRAM (which mode is
 // on the tube, via override / schedule / default) plus each mode's authored
@@ -76,6 +83,8 @@ export async function GET(request: Request) {
 
   const body = {
     date: today,
+    // Bundle version — the kiosk reloads itself when this changes (new deploy).
+    version: DEPLOY_VERSION,
     // The program the client resolves the live mode from. An expired override
     // is dropped here so the tube stops honoring it without waiting on a manual
     // clear.
