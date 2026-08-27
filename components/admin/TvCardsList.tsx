@@ -14,7 +14,14 @@ const btn =
 const field =
   'bg-transparent border border-[#E8E0D0]/30 rounded px-3 py-1.5 text-sm focus:outline-none focus:border-[#E8E0D0] placeholder:text-[#E8E0D0]/30';
 
-export default function TvCardsList({ initialCards }: { initialCards: TvCard[] }) {
+export default function TvCardsList({
+  initialCards,
+  showId = null,
+}: {
+  initialCards: TvCard[];
+  // null = global cards; a number = that show's cards.
+  showId?: number | null;
+}) {
   const [cards, setCards] = useState<TvCard[]>(initialCards);
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<number | null>(null);
@@ -22,8 +29,10 @@ export default function TvCardsList({ initialCards }: { initialCards: TvCard[] }
   const [edits, setEdits] = useState<Record<number, { headline?: string; subtext?: string }>>({});
   const fileInputs = useRef<Record<number, HTMLInputElement | null>>({});
 
+  const scopeQs = showId != null ? `?showId=${showId}` : '';
+
   async function refresh() {
-    const res = await fetch('/api/admin/tv-cards', { cache: 'no-store' });
+    const res = await fetch(`/api/admin/tv-cards${scopeQs}`, { cache: 'no-store' });
     if (res.ok) setCards(await res.json());
   }
 
@@ -32,7 +41,7 @@ export default function TvCardsList({ initialCards }: { initialCards: TvCard[] }
     const res = await fetch('/api/admin/tv-cards', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ headline: 'New announcement' }),
+      body: JSON.stringify({ headline: 'New announcement', showId }),
     });
     if (res.ok) await refresh();
     else setError('Could not add card');

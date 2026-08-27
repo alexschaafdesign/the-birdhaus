@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { sql } from '@/lib/db';
-import { getGlobalProgram, isTvMode, type ScheduleWindow, type BoardRow } from '@/lib/tv-program';
+import { getProgramOrBlank, isTvMode, type ScheduleWindow, type BoardRow } from '@/lib/tv-program';
 
 // Global TV program (070_tv_program.sql). Auth is enforced centrally in
 // proxy.ts for all /api/admin/* routes. Phase 1 edits the single global row
@@ -34,8 +34,15 @@ function cleanBoardRows(value: unknown): BoardRow[] | null {
   return out;
 }
 
-export async function GET() {
-  return NextResponse.json(await getGlobalProgram());
+// Scope: ?showId=N targets that show's program; absent/invalid = global.
+function scopeShowId(value: unknown): number | null {
+  const n = Number(value);
+  return Number.isInteger(n) && n > 0 ? n : null;
+}
+
+export async function GET(request: Request) {
+  const showId = scopeShowId(new URL(request.url).searchParams.get('showId'));
+  return NextResponse.json(await getProgramOrBlank(showId));
 }
 
 export async function PATCH(request: Request) {
@@ -88,16 +95,10 @@ export async function PATCH(request: Request) {
     null
   );
 
-  // The seed migration guarantees the global row exists; update it in place.
-  const rows = await sql`
-    update tv_program set ${setClause}, updated_at = now()
-    where show_id is null
-    returning id
-  `;
-  if (rows.length === 0) {
-    // Defensive: recreate the global row if it went missing, then re-apply.
-    await sql`insert into tv_program (show_id, default_mode) values (null, 'screensaver') on conflict do nothing`;
-    await sql`update tv_program set ${setClause}, updated_at = now() where show_id is null`;
-  }
+  const showId = scopeShowId(body.showId);
+  // Ensure the scope's row exists — the global row is seeded, per-show rows are
+  // created lazily on first edit — then apply the update.
+  await sql`insert into tv_program (show_id, default_mode) values (${showId}, 'screensaver') on conflict do nothing`;
+  await sql`update tv_program set ${setClause}, updated_at = now() where show_id is not distinct from ${showId}`;
   return NextResponse.json({ ok: true });
 }

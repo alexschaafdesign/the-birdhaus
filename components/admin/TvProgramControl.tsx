@@ -66,7 +66,17 @@ const inputClass =
 const chip =
   'text-sm border rounded px-3 py-1.5 transition-colors whitespace-nowrap disabled:opacity-40';
 
-export default function TvProgramControl({ initialProgram }: { initialProgram: TvProgram }) {
+export default function TvProgramControl({
+  initialProgram,
+  showId = null,
+  bandNames = [],
+}: {
+  initialProgram: TvProgram;
+  // null = the global default program; a number = that show's program.
+  showId?: number | null;
+  // Lineup for the board's "prefill from lineup" (empty for the global program).
+  bandNames?: string[];
+}) {
   const [program, setProgram] = useState<TvProgram>(initialProgram);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -86,7 +96,7 @@ export default function TvProgramControl({ initialProgram }: { initialProgram: T
       const res = await fetch('/api/admin/tv-program', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(patch),
+        body: JSON.stringify({ ...patch, showId }),
       });
       if (!res.ok) {
         const body = await res.json().catch(() => null);
@@ -247,7 +257,7 @@ export default function TvProgramControl({ initialProgram }: { initialProgram: T
         />
         <ScheduleEditor
           rows={boardRows}
-          bandNames={[]}
+          bandNames={bandNames}
           onChange={(rows) => save({ boardRows: rows }, { boardRows: rows })}
         />
       </section>

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
+import { sql } from '@/lib/db';
 import { getActiveTvImages } from '@/lib/tv-images';
-import { getGlobalProgram, getGlobalCards } from '@/lib/tv-program';
+import { getProgram, getGlobalProgram, getActiveCards } from '@/lib/tv-program';
 import { cloudinaryTransform } from '@/lib/cloudinary-url';
 import { R2_PUBLIC_BASE } from '@/lib/r2-public';
 
@@ -35,14 +36,29 @@ function tvImage(url: string | null | undefined): string | null {
 }
 
 export async function GET() {
+  const today = getTvDateCentral();
+
+  // Prefer tonight's show's program (day-of authoring) over the global default.
+  // A show is "tonight" if it's dated today; the TV is inside the venue during
+  // it, so no announced gate. The show program only takes over once it actually
+  // has a row — otherwise the global default covers the night.
+  const [showRow] = await sql<Array<{ id: number }>>`
+    select id from shows where date = ${today} order by id asc limit 1
+  `;
+  const showId = showRow ? Number(showRow.id) : null;
+  const showProgram = showId !== null ? await getProgram(showId) : null;
+  // The scope whose program/cards are live: the show if it has a program, else
+  // global. The screensaver image pool is always global (a shared library).
+  const scope = showProgram ? showId : null;
+
   const [program, cards, poolImages] = await Promise.all([
-    getGlobalProgram(),
-    getGlobalCards(),
+    showProgram ? Promise.resolve(showProgram) : getGlobalProgram(),
+    getActiveCards(scope),
     getActiveTvImages(),
   ]);
 
   const body = {
-    date: getTvDateCentral(),
+    date: today,
     // The program the client resolves the live mode from.
     program: {
       defaultMode: program.defaultMode,

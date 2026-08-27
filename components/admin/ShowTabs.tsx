@@ -17,6 +17,7 @@ export default function ShowTabs({ id }: { id: number }) {
     { href: `${base}/inputs`, label: 'Inputs', exact: false },
     { href: `${base}/settlement`, label: 'Settlement', exact: false },
     { href: `${base}/rsvps`, label: 'RSVPs', exact: false },
+    { href: `${base}/tv`, label: 'TV', exact: false },
   ];
 
   return (

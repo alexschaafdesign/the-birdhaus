@@ -83,38 +83,53 @@ function rowToProgram(row: ProgramRow): TvProgram {
   };
 }
 
-// The global default program (show_id null). The seed migration guarantees a
-// row, but fall back to a screensaver default if it's somehow missing.
-export async function getGlobalProgram(): Promise<TvProgram> {
-  const [row] = await sql<ProgramRow[]>`
-    select default_mode, schedule, override_mode, board_title, board_rows
-    from tv_program where show_id is null
-  `;
-  if (!row) {
-    return { defaultMode: 'screensaver', schedule: [], overrideMode: null, boardTitle: null, boardRows: [] };
-  }
-  return rowToProgram(row);
+export function blankProgram(): TvProgram {
+  return { defaultMode: 'screensaver', schedule: [], overrideMode: null, boardTitle: null, boardRows: [] };
 }
 
-// Active global cards, in display order (for the feed).
-export async function getGlobalCards(): Promise<Array<{ headline: string; subtext: string | null; image: string | null }>> {
+// A program by scope: showId null = the global default program; a number = that
+// show's program. Returns null when no row exists for the scope. `is not
+// distinct from` makes the null case a real equality match.
+export async function getProgram(showId: number | null): Promise<TvProgram | null> {
+  const [row] = await sql<ProgramRow[]>`
+    select default_mode, schedule, override_mode, board_title, board_rows
+    from tv_program where show_id is not distinct from ${showId}
+  `;
+  return row ? rowToProgram(row) : null;
+}
+
+// The global default program (seeded by the migration; blank fallback if gone).
+export async function getGlobalProgram(): Promise<TvProgram> {
+  return (await getProgram(null)) ?? blankProgram();
+}
+
+// A program to edit in the admin — the scope's row, or a blank to fill in (the
+// row gets created on first save).
+export async function getProgramOrBlank(showId: number | null): Promise<TvProgram> {
+  return (await getProgram(showId)) ?? blankProgram();
+}
+
+// Active cards for a scope, in display order (for the feed).
+export async function getActiveCards(
+  showId: number | null
+): Promise<Array<{ headline: string; subtext: string | null; image: string | null }>> {
   const rows = await sql<Array<{ headline: string; subtext: string | null; image: string | null }>>`
     select headline, subtext, image
     from tv_cards
-    where show_id is null and active = true
+    where show_id is not distinct from ${showId} and active = true
     order by sort asc, id asc
   `;
   return rows.map((r) => ({ headline: r.headline, subtext: r.subtext, image: r.image }));
 }
 
-// All global cards (active + parked) for the admin manager.
-export async function getAllGlobalCards(): Promise<TvCard[]> {
+// All cards for a scope (active + parked) for the admin manager.
+export async function getAllCards(showId: number | null): Promise<TvCard[]> {
   const rows = await sql<
     Array<{ id: number; headline: string; subtext: string | null; image: string | null; sort: number; active: boolean }>
   >`
     select id, headline, subtext, image, sort, active
     from tv_cards
-    where show_id is null
+    where show_id is not distinct from ${showId}
     order by sort asc, id asc
   `;
   return rows.map((r) => ({

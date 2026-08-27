@@ -1,4 +1,4 @@
-import { getGlobalProgram, getAllGlobalCards } from '@/lib/tv-program';
+import { getGlobalProgram, getAllCards } from '@/lib/tv-program';
 import { getAllTvImages } from '@/lib/tv-images';
 import TvProgramControl from '@/components/admin/TvProgramControl';
 import TvCardsList from '@/components/admin/TvCardsList';
@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic';
 export default async function AdminTvPage() {
   const [program, cards, images] = await Promise.all([
     getGlobalProgram(),
-    getAllGlobalCards(),
+    getAllCards(null),
     getAllTvImages(),
   ]);
 

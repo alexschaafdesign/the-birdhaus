@@ -23,20 +23,24 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   }
 
   if (body.move === 'up' || body.move === 'down') {
-    const [current] = await sql<Array<{ id: number; sort: number }>>`
-      select id, sort from tv_cards where id = ${cardId} and show_id is null
+    const [current] = await sql<Array<{ id: number; sort: number; show_id: number | null }>>`
+      select id, sort, show_id from tv_cards where id = ${cardId}
     `;
     if (!current) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    // Reorder within the card's own scope (global cards among global, a show's
+    // cards among that show's).
     const [neighbor] =
       body.move === 'up'
         ? await sql<Array<{ id: number; sort: number }>>`
             select id, sort from tv_cards
-            where show_id is null and (sort, id) < (${current.sort}, ${current.id})
+            where show_id is not distinct from ${current.show_id}
+              and (sort, id) < (${current.sort}, ${current.id})
             order by sort desc, id desc limit 1
           `
         : await sql<Array<{ id: number; sort: number }>>`
             select id, sort from tv_cards
-            where show_id is null and (sort, id) > (${current.sort}, ${current.id})
+            where show_id is not distinct from ${current.show_id}
+              and (sort, id) > (${current.sort}, ${current.id})
             order by sort asc, id asc limit 1
           `;
     if (!neighbor) return NextResponse.json({ ok: true });
@@ -80,7 +84,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   );
   const [row] = await sql<Array<{ id: number }>>`
     update tv_cards set ${setClause}, updated_at = now()
-    where id = ${cardId} and show_id is null
+    where id = ${cardId}
     returning id
   `;
   if (!row) return NextResponse.json({ error: 'Not found' }, { status: 404 });
@@ -93,6 +97,6 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
   if (cardId === null) {
     return NextResponse.json({ error: 'Invalid id' }, { status: 400 });
   }
-  await sql`delete from tv_cards where id = ${cardId} and show_id is null`;
+  await sql`delete from tv_cards where id = ${cardId}`;
   return NextResponse.json({ ok: true });
 }
