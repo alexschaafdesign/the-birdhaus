@@ -1,5 +1,6 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { NextResponse } from 'next/server';
+import { revalidatePath } from 'next/cache';
 import { sql } from '@/lib/db';
 import { retrieveOrderLines } from '@/lib/square';
 import { sendTicketConfirmationEmail } from '@/lib/ticket-email';
@@ -79,6 +80,9 @@ export async function POST(request: Request) {
         update ticket_purchases set status = 'refunded'
         where square_payment_id = ${refund.payment_id}
       `;
+      // A refund can drop a show back below its cap — regenerate show pages so a
+      // sold-out notice clears (and the tickets count updates).
+      revalidatePath('/shows/[slug]', 'page');
     }
     return NextResponse.json({ ok: true });
   }
@@ -137,6 +141,10 @@ export async function POST(request: Request) {
     )
     on conflict (square_payment_id) do nothing
   `;
+
+  // A new sale may have crossed the show's ticket cap — regenerate the (static)
+  // show pages so the RSVP form flips to the sold-out notice without a redeploy.
+  revalidatePath('/shows/[slug]', 'page');
 
   // Confirmation email, idempotent via claim-first: mark the row before sending
   // so a webhook redelivery can never double-email. Backfilled rows are excluded

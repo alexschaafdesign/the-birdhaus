@@ -1,4 +1,4 @@
-import { getShowBySlug, getAllShows } from '@/lib/shows';
+import { getShowBySlug, getAllShows, getTicketAvailability } from '@/lib/shows';
 import { getPhotosFromFolder } from '@/lib/cloudinary';
 import { getAllBands } from '@/lib/bands';
 import { notFound } from 'next/navigation';
@@ -80,6 +80,11 @@ export default async function ShowPage({ params }: { params: Promise<{ slug: str
   const showDate = new Date(year, month - 1, day);
   const isPast = showDate < today;
 
+  // When a show hits its online ticket cap, the RSVP form is replaced by a
+  // sold-out notice. Only relevant for upcoming, capped shows. The webhook
+  // revalidates this page as sales land, so it flips on its own at the cap.
+  const soldOut = !isPast && (await getTicketAvailability(show.id, show.ticketLimit ?? null)).soldOut;
+
   // Format date nicely
   const dateObj = new Date(show.date + 'T00:00:00');
   const formattedDate = dateObj.toLocaleDateString('en-US', { 
@@ -141,7 +146,7 @@ export default async function ShowPage({ params }: { params: Promise<{ slug: str
         )}
 
         {/* Flyer + RSVP/tickets side by side */}
-        {(show.flyer || (!isPast && (show.rsvpForm || show.externalTicketUrl))) && (
+        {(show.flyer || (!isPast && (soldOut || show.rsvpForm || show.externalTicketUrl))) && (
           <div className="grid md:grid-cols-2 gap-8 mb-10 items-start">
             {show.flyer && (
               <Image
@@ -156,7 +161,19 @@ export default async function ShowPage({ params }: { params: Promise<{ slug: str
               />
             )}
 
-            {!isPast && show.rsvpForm && (
+            {/* Sold out: enough advance tickets sold that we're at capacity.
+                Replaces the RSVP form once the ticket cap is reached. */}
+            {!isPast && soldOut && (
+              <div className="border-2 border-[#E8E0D0]/20 rounded-lg p-6 bg-[#E8E0D0]/5">
+                <h2 className="text-xl font-bold mb-2">This show is sold out</h2>
+                <p className="text-sm text-[#E8E0D0]/70">
+                  Enough people have bought advance tickets (not just a free RSVP) that we&apos;re at
+                  capacity. Thanks!
+                </p>
+              </div>
+            )}
+
+            {!isPast && !soldOut && show.rsvpForm && (
               <div className="aspect-square">
                 <RSVPForm
                   showId={show.id}
@@ -166,7 +183,7 @@ export default async function ShowPage({ params }: { params: Promise<{ slug: str
             )}
 
             {/* External ticket link (e.g. promoter's ticket page) */}
-            {!isPast && !show.rsvpForm && show.externalTicketUrl && (
+            {!isPast && !soldOut && !show.rsvpForm && show.externalTicketUrl && (
               <div className="border-2 border-[#E8E0D0]/20 rounded-lg p-6 bg-[#E8E0D0]/5">
                 <h2 className="text-xl font-bold mb-2">Tickets</h2>
                 <p className="text-sm text-[#E8E0D0]/70 mb-6">
