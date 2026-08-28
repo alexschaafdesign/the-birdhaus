@@ -6,7 +6,6 @@ import Link from 'next/link';
 import BandNameInput, { type BandMatch, type TwinSceneBandOption } from './BandNameInput';
 import AddBandModal from './AddBandModal';
 import SoundEngineerNameInput, { type SoundEngineerMatch } from './SoundEngineerNameInput';
-import DoorPersonNameInput, { type DoorPersonMatch } from './DoorPersonNameInput';
 import ImageUploadField from './ImageUploadField';
 import ShowDateAvailability from './ShowDateAvailability';
 import Section from './Section';
@@ -280,6 +279,10 @@ export default function ShowForm({
   );
   const photosFileInputRef = useRef<HTMLInputElement>(null);
   const [twinSceneBands, setTwinSceneBands] = useState<TwinSceneBandOption[]>([]);
+  // Full door-person roster for the door-person dropdown below, loaded once on
+  // mount. Best-effort: on a failed fetch the dropdown just shows whatever name
+  // is already saved (preserved as its own option) plus "Unassigned".
+  const [doorPersons, setDoorPersons] = useState<string[]>([]);
   // Which band row (index) opened the full band modal, and the name to prefill
   // it with. `editBandId` set → edit that existing band's Twin Scene profile;
   // absent → create a new band. null when the modal is closed.
@@ -312,6 +315,25 @@ export default function ShowForm({
       })
       .catch(() => {
         // degrade to local-only typeahead
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Load the door-person roster once for the dropdown. The query-less GET
+  // returns the full list ordered by name.
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/admin/door-persons')
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data) => {
+        if (!cancelled && Array.isArray(data)) {
+          setDoorPersons(data.map((d: { name: string }) => d.name));
+        }
+      })
+      .catch(() => {
+        // degrade to just the saved value + "Unassigned"
       });
     return () => {
       cancelled = true;
@@ -992,13 +1014,33 @@ export default function ShowForm({
       <Section title="Door person" collapsible>
         <div>
           <label className="block text-xs uppercase tracking-wide text-[#E8E0D0]/40 mb-1">Door person name</label>
-          <DoorPersonNameInput
-            placeholder="Choose or type a door person…"
-            value={form.doorPersonName}
-            onChange={(value) => set('doorPersonName', value)}
-            onSelect={(match: DoorPersonMatch) => set('doorPersonName', match.name)}
-            className={`${inputClass} w-full sm:max-w-sm`}
-          />
+          {(() => {
+            // Match the saved name to the roster case-insensitively so the
+            // dropdown highlights the registry's casing; keep an unmatched
+            // saved value (e.g. one typed before the roster existed) as its own
+            // option so it's never silently dropped on save.
+            const name = form.doorPersonName;
+            const matched = doorPersons.find(
+              (n) => n.trim().toLowerCase() === name.trim().toLowerCase()
+            );
+            return (
+              <select
+                value={matched ?? name}
+                onChange={(e) => set('doorPersonName', e.target.value)}
+                className={`${inputClass} w-full sm:max-w-sm`}
+              >
+                <option value="" className="text-[#2A2420]">Unassigned</option>
+                {name && !matched && (
+                  <option value={name} className="text-[#2A2420]">{name}</option>
+                )}
+                {doorPersons.map((n) => (
+                  <option key={n} value={n} className="text-[#2A2420]">
+                    {n}
+                  </option>
+                ))}
+              </select>
+            );
+          })()}
           <p className="mt-1 text-xs text-[#E8E0D0]/30">
             Who&apos;s working the door. Pre-fills the door-person payee on this show&apos;s{' '}
             settlement — manage the roster under Crew → Door People.
