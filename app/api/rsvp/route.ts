@@ -56,9 +56,17 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Show not found' }, { status: 404 });
   }
 
+  // One RSVP per email per show (migration 075). Re-submitting updates the
+  // existing row's name/guests rather than piling up duplicates; opt-in only
+  // ever flips on (never silently drops a prior opt-in). Admin-set fields
+  // (buyer_email, credited_tickets, arrived/paid) are left untouched.
   const [rsvp] = await sql`
     insert into rsvps (show_id, name, email, guests, email_list_opt_in)
     values (${showId}, ${name}, ${email}, ${guests}, ${emailListOptIn})
+    on conflict (show_id, lower(email)) do update
+      set name = excluded.name,
+          guests = excluded.guests,
+          email_list_opt_in = rsvps.email_list_opt_in or excluded.email_list_opt_in
     returning id
   `;
 

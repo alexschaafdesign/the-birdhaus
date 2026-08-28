@@ -1,5 +1,13 @@
 import { NextResponse } from 'next/server';
-import { deleteRsvp, setRsvpArrived, setRsvpBuyerEmail, setRsvpPaid, updateRsvp } from '@/lib/rsvps';
+import { revalidatePath } from 'next/cache';
+import {
+  deleteRsvp,
+  setRsvpArrived,
+  setRsvpBuyerEmail,
+  setRsvpCreditedTickets,
+  setRsvpPaid,
+  updateRsvp,
+} from '@/lib/rsvps';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -37,6 +45,31 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     if (!rsvp) {
       return NextResponse.json({ error: 'Not found' }, { status: 404 });
     }
+    return NextResponse.json(rsvp);
+  }
+
+  // Manual attendance credit: { creditedTickets } counts this person as N heads
+  // toward the ticket cap regardless of what they bought ({ creditedTickets: null }
+  // clears it). Touches only this column.
+  if ('creditedTickets' in (body ?? {})) {
+    const raw = body?.creditedTickets;
+    let credited: number | null;
+    if (raw === null) {
+      credited = null;
+    } else {
+      const n = Number(raw);
+      if (!Number.isInteger(n) || n < 0) {
+        return NextResponse.json({ error: 'Invalid creditedTickets' }, { status: 400 });
+      }
+      credited = n;
+    }
+    const rsvp = await setRsvpCreditedTickets(rsvpId, credited);
+    if (!rsvp) {
+      return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    }
+    // A credit can push a show over (or back under) its cap — regenerate the
+    // static show pages so the sold-out notice reflects it.
+    revalidatePath('/shows/[slug]', 'page');
     return NextResponse.json(rsvp);
   }
 

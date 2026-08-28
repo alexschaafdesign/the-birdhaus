@@ -14,13 +14,17 @@ export interface Rsvp {
   paid_at: string | null;
   confirmation_email_sent_at: string | null;
   buyer_email: string | null;
+  // Manual attendance credit: when set, this person counts as this many heads
+  // toward the ticket cap regardless of how many they actually bought. See
+  // migration 074 and getTicketAvailability(). null = count actual purchases.
+  credited_tickets: number | null;
   created_at: string;
 }
 
 // Shared column list so every read returns the full Rsvp shape.
 const RSVP_COLUMNS = sql`
   id, show_id, name, email, guests, email_list_opt_in,
-  arrived, arrived_at, arrived_count, paid, paid_at, confirmation_email_sent_at, buyer_email, created_at
+  arrived, arrived_at, arrived_count, paid, paid_at, confirmation_email_sent_at, buyer_email, credited_tickets, created_at
 `;
 
 export interface RsvpSummary {
@@ -50,9 +54,16 @@ export async function createRsvp(input: {
   guests: number;
   emailListOptIn: boolean;
 }): Promise<Rsvp> {
+  // One RSVP per email per show (migration 075): if this email already RSVP'd
+  // for the show, update that row instead of hitting the unique index. Admin
+  // fields (buyer_email, credited_tickets, arrived/paid) are preserved.
   const [row] = await sql<Rsvp[]>`
     insert into rsvps (show_id, name, email, guests, email_list_opt_in)
     values (${input.showId}, ${input.name}, ${input.email}, ${input.guests}, ${input.emailListOptIn})
+    on conflict (show_id, lower(email)) do update
+      set name = excluded.name,
+          guests = excluded.guests,
+          email_list_opt_in = rsvps.email_list_opt_in or excluded.email_list_opt_in
     returning ${RSVP_COLUMNS}
   `;
   return row;
@@ -125,6 +136,22 @@ export async function setRsvpBuyerEmail(id: number, buyerEmail: string | null): 
   const [row] = await sql<Rsvp[]>`
     update rsvps
     set buyer_email = ${buyerEmail ? buyerEmail.toLowerCase() : null}
+    where id = ${id}
+    returning ${RSVP_COLUMNS}
+  `;
+  return row ?? null;
+}
+
+// Manual attendance credit: count this RSVP as `credited` heads toward the
+// ticket cap regardless of what they bought (pass null to clear and fall back to
+// their actual purchases). Used for "RSVP'd for 2, bought 1 ticket, both coming".
+export async function setRsvpCreditedTickets(
+  id: number,
+  credited: number | null,
+): Promise<Rsvp | null> {
+  const [row] = await sql<Rsvp[]>`
+    update rsvps
+    set credited_tickets = ${credited}
     where id = ${id}
     returning ${RSVP_COLUMNS}
   `;

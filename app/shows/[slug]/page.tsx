@@ -83,7 +83,8 @@ export default async function ShowPage({ params }: { params: Promise<{ slug: str
   // When a show hits its online ticket cap, the RSVP form is replaced by a
   // sold-out notice. Only relevant for upcoming, capped shows. The webhook
   // revalidates this page as sales land, so it flips on its own at the cap.
-  const soldOut = !isPast && (await getTicketAvailability(show.id, show.ticketLimit ?? null)).soldOut;
+  const soldOut =
+    !isPast && (await getTicketAvailability(show.id, show.ticketLimit ?? null)).soldOut;
 
   // Format date nicely
   const dateObj = new Date(show.date + 'T00:00:00');

@@ -115,12 +115,19 @@ async function rowToShow(row: ShowRow, renderContent = false): Promise<Show> {
 
 // Online ticket availability for a show. `sold` is the sum of completed
 // ticket_purchases quantities (the same source as the admin "tickets sold"
-// pill); door/cash sales aren't tracked here so they don't count. `limit` is
-// the show's cap (null when uncapped). `remaining` is null when uncapped, else
-// clamped at 0. `soldOut` is true only when a cap is set and reached.
+// pill); door/cash sales aren't tracked here so they don't count. `credited` is
+// the extra heads from per-RSVP manual credits — for each RSVP the admin marked
+// with credited_tickets, max(0, credited − what that RSVP actually bought) —
+// covering people who RSVP'd for a bigger party than they bought tickets for.
+// `effective` = sold + credited, which is what capacity is measured against.
+// `limit` is the show's cap (null when uncapped). `remaining` is null when
+// uncapped, else clamped at 0. `soldOut` is true only when a cap is set and
+// effective reaches it.
 export type TicketAvailability = {
   limit: number | null;
   sold: number;
+  credited: number;
+  effective: number;
   remaining: number | null;
   soldOut: boolean;
 };
@@ -129,15 +136,40 @@ export async function getTicketAvailability(
   showId: number,
   limit: number | null | undefined,
 ): Promise<TicketAvailability> {
-  const [row] = await sql<{ sold: number }[]>`
-    select coalesce(sum(quantity), 0)::int as sold
-    from ticket_purchases
-    where show_id = ${showId} and status = 'completed'
+  const [row] = await sql<{ sold: number; credited: number }[]>`
+    select
+      coalesce((
+        select sum(quantity) from ticket_purchases
+        where show_id = ${showId} and status = 'completed'
+      ), 0)::int as sold,
+      coalesce((
+        select sum(greatest(0, r.credited_tickets - coalesce(b.bought, 0)))
+        from rsvps r
+        left join lateral (
+          select sum(tp.quantity) as bought
+          from ticket_purchases tp
+          where tp.show_id = ${showId} and tp.status = 'completed'
+            and (
+              lower(tp.buyer_email) = lower(r.email)
+              or (r.buyer_email is not null and lower(tp.buyer_email) = r.buyer_email)
+            )
+        ) b on true
+        where r.show_id = ${showId} and r.credited_tickets is not null
+      ), 0)::int as credited
   `;
   const sold = row?.sold ?? 0;
+  const credited = row?.credited ?? 0;
+  const effective = sold + credited;
   const cap = typeof limit === 'number' ? limit : null;
-  const remaining = cap === null ? null : Math.max(0, cap - sold);
-  return { limit: cap, sold, remaining, soldOut: remaining !== null && remaining <= 0 };
+  const remaining = cap === null ? null : Math.max(0, cap - effective);
+  return {
+    limit: cap,
+    sold,
+    credited,
+    effective,
+    remaining,
+    soldOut: remaining !== null && remaining <= 0,
+  };
 }
 
 // Aggregates show_bands -> bands into the same shape the bands JSONB column

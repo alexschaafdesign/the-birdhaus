@@ -12,8 +12,11 @@ export default async function ShowRsvpsPage({ params }: { params: Promise<{ id: 
   const showId = Number(id);
   if (!Number.isInteger(showId)) notFound();
 
-  const [show] = await sql<{ id: number; title: string; date: string }[]>`
-    select id, title, date::text as date from shows where id = ${showId}
+  const [show] = await sql<
+    { id: number; title: string; date: string; ticket_limit: number | null }[]
+  >`
+    select id, title, date::text as date, ticket_limit
+    from shows where id = ${showId}
   `;
   if (!show) notFound();
 
@@ -35,6 +38,7 @@ export default async function ShowRsvpsPage({ params }: { params: Promise<{ id: 
       showId={show.id}
       showTitle={show.title}
       showDate={show.date}
+      ticketLimit={show.ticket_limit}
       doorToken={doorToken}
       {...rsvpSummary}
       purchasesByEmail={purchasesByEmail}
