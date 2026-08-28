@@ -179,6 +179,20 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     updates.push({ column: 'target_band_count', value: normalizeTargetBandCount(body.targetBandCount) });
   }
 
+  if ('ticketLimit' in body) {
+    // null / '' clears the cap (unlimited). Otherwise a non-negative integer.
+    const raw = body.ticketLimit;
+    if (raw === null || raw === '') {
+      updates.push({ column: 'ticket_limit', value: null });
+    } else {
+      const n = Number(raw);
+      if (!Number.isInteger(n) || n < 0) {
+        return NextResponse.json({ error: 'Invalid ticketLimit' }, { status: 400 });
+      }
+      updates.push({ column: 'ticket_limit', value: n });
+    }
+  }
+
   if ('ignoredHealthChecks' in body) {
     if (!isValidIgnoredHealthChecksInput(body.ignoredHealthChecks)) {
       return NextResponse.json({ error: 'Invalid ignoredHealthChecks' }, { status: 400 });

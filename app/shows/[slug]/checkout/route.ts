@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { sql } from '@/lib/db';
 import { claimAlertSlot, sendAdminAlertEmail } from '@/lib/alerts';
 import { createTierPaymentLink, isSquareSyncEnabled } from '@/lib/square';
+import { getTicketAvailability } from '@/lib/shows';
 
 // On-demand Square checkout. Square API payment links are single-use — a stored
 // link shows a "payment confirmed" receipt to everyone after its first sale — so
@@ -27,8 +28,11 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
   const qtyRaw = Number(searchParams.get('qty'));
   const quantity = Number.isInteger(qtyRaw) && qtyRaw > 0 ? Math.min(qtyRaw, 10) : 1;
 
-  const [row] = await sql<{ variationId: string | null; url: string | null }[]>`
-    select l.square_variation_id as "variationId", l.url
+  const [row] = await sql<
+    { showId: number; ticketLimit: number | null; variationId: string | null; url: string | null }[]
+  >`
+    select s.id as "showId", s.ticket_limit as "ticketLimit",
+           l.square_variation_id as "variationId", l.url
     from show_square_links l
     join shows s on s.id = l.show_id
     where s.slug = ${slug} and l.amount_cents = ${amount}
@@ -37,6 +41,19 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
   `;
   if (!row) {
     return NextResponse.json({ error: 'Ticket tier not found' }, { status: 404 });
+  }
+
+  // Enforce the online ticket cap (if the show has one) BEFORE minting a Square
+  // link, so a sold-out show never sends anyone to a checkout page. Best-effort
+  // soft cap: Square's hosted checkout completes the sale later, so simultaneous
+  // buyers can still slip past a near-full cap — acceptable at this scale.
+  if (typeof row.ticketLimit === 'number') {
+    const { remaining } = await getTicketAvailability(row.showId, row.ticketLimit);
+    if (remaining !== null && remaining < quantity) {
+      const back = new URL(`/shows/${slug}/tickets`, request.url);
+      back.searchParams.set(remaining <= 0 ? 'sold_out' : 'left', String(Math.max(0, remaining)));
+      return NextResponse.redirect(back, 302);
+    }
   }
 
   // Dev / Square disabled: there's no live API to mint a link, so fall back to

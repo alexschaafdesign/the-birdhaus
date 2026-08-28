@@ -30,6 +30,7 @@ export interface ShowListItem {
   bands_missing_inputs?: number;
   tickets_sold?: number;
   revenue_cents?: number;
+  ticket_limit?: number | null;
 }
 
 interface Issue {
@@ -621,11 +622,27 @@ function ShowGroup({
                       {show.guest_count === 1 ? '' : 's'}
                     </span>
                   )}
-                  {!!show.tickets_sold && (
+                  {(!!show.tickets_sold || typeof show.ticket_limit === 'number') && (
                     // Advance ticket sales recorded by the Square webhook/backfill.
-                    <span className="text-xs px-2 py-0.5 rounded-full border border-amber-400/40 text-amber-300 whitespace-nowrap">
-                      {show.tickets_sold} ticket{show.tickets_sold === 1 ? '' : 's'} · $
-                      {Math.round((show.revenue_cents ?? 0) / 100)}
+                    // When a cap is set, show sold/cap and flag sold-out.
+                    <span
+                      className={`text-xs px-2 py-0.5 rounded-full border whitespace-nowrap ${
+                        typeof show.ticket_limit === 'number' &&
+                        (show.tickets_sold ?? 0) >= show.ticket_limit
+                          ? 'border-red-400/50 text-red-300'
+                          : 'border-amber-400/40 text-amber-300'
+                      }`}
+                    >
+                      {show.tickets_sold ?? 0}
+                      {typeof show.ticket_limit === 'number' ? `/${show.ticket_limit}` : ''} ticket
+                      {(show.tickets_sold ?? 0) === 1 && typeof show.ticket_limit !== 'number'
+                        ? ''
+                        : 's'}{' '}
+                      · ${Math.round((show.revenue_cents ?? 0) / 100)}
+                      {typeof show.ticket_limit === 'number' &&
+                      (show.tickets_sold ?? 0) >= show.ticket_limit
+                        ? ' · SOLD OUT'
+                        : ''}
                     </span>
                   )}
                   {clusters.map((cluster, clusterIndex) => (

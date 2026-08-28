@@ -29,6 +29,9 @@ export interface Show {
   targetBandCount: number;
   ignoredHealthChecks: string[];
   advanceSent?: boolean;
+  // Cap on online ticket sales. undefined = no cap. See migration 073 and
+  // getTicketAvailability().
+  ticketLimit?: number;
   // Discriminates a house show from a Song Club event when the two are shown
   // in one combined calendar/list (see lib/calendar.ts). Undefined = house
   // show. Song Club events are ADAPTED into this shape for rendering only —
@@ -66,6 +69,7 @@ interface ShowRow {
   target_band_count: number;
   ignored_health_checks: unknown;
   advance_sent: boolean;
+  ticket_limit: number | null;
 }
 
 async function renderMarkdown(markdown: string): Promise<string> {
@@ -105,7 +109,35 @@ async function rowToShow(row: ShowRow, renderContent = false): Promise<Show> {
     targetBandCount: row.target_band_count,
     ignoredHealthChecks: (row.ignored_health_checks as string[]) ?? [],
     advanceSent: row.advance_sent,
+    ticketLimit: row.ticket_limit ?? undefined,
   };
+}
+
+// Online ticket availability for a show. `sold` is the sum of completed
+// ticket_purchases quantities (the same source as the admin "tickets sold"
+// pill); door/cash sales aren't tracked here so they don't count. `limit` is
+// the show's cap (null when uncapped). `remaining` is null when uncapped, else
+// clamped at 0. `soldOut` is true only when a cap is set and reached.
+export type TicketAvailability = {
+  limit: number | null;
+  sold: number;
+  remaining: number | null;
+  soldOut: boolean;
+};
+
+export async function getTicketAvailability(
+  showId: number,
+  limit: number | null | undefined,
+): Promise<TicketAvailability> {
+  const [row] = await sql<{ sold: number }[]>`
+    select coalesce(sum(quantity), 0)::int as sold
+    from ticket_purchases
+    where show_id = ${showId} and status = 'completed'
+  `;
+  const sold = row?.sold ?? 0;
+  const cap = typeof limit === 'number' ? limit : null;
+  const remaining = cap === null ? null : Math.max(0, cap - sold);
+  return { limit: cap, sold, remaining, soldOut: remaining !== null && remaining <= 0 };
 }
 
 // Aggregates show_bands -> bands into the same shape the bands JSONB column

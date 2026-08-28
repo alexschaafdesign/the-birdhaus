@@ -150,6 +150,7 @@ export interface ShowFormInitialValues {
   doorPersonName?: string | null;
   ticketUrl?: string | null;
   externalTicketUrl?: string | null;
+  ticketLimit?: number | null;
   rsvpForm?: boolean;
   videos?: Array<{ youtube: string; title: string; bandIds?: number[] }>;
   audio?: Array<{ bandcamp: string; title: string }>;
@@ -181,6 +182,8 @@ interface FormState {
   doorPersonName: string;
   ticketUrl: string;
   externalTicketUrl: string;
+  // Online ticket cap as a string ('' = no cap) so the input can be cleared.
+  ticketLimit: string;
   rsvpForm: boolean;
   videos: Video[];
   audio: Audio[];
@@ -222,6 +225,10 @@ function initFormState(initial?: ShowFormInitialValues): FormState {
     doorPersonName: initial?.doorPersonName ?? '',
     ticketUrl: initial?.ticketUrl ?? '',
     externalTicketUrl: initial?.externalTicketUrl ?? '',
+    ticketLimit:
+      initial?.ticketLimit === null || initial?.ticketLimit === undefined
+        ? ''
+        : String(initial.ticketLimit),
     rsvpForm: initial?.rsvpForm ?? true,
     videos: (initial?.videos ?? []).map((v) => ({
       youtube: v.youtube,
@@ -574,6 +581,8 @@ export default function ShowForm({
       doorPersonName: form.doorPersonName.trim(),
       ticketUrl: form.ticketUrl.trim(),
       externalTicketUrl: form.externalTicketUrl.trim(),
+      // '' clears the cap (null = unlimited); otherwise the parsed integer.
+      ticketLimit: form.ticketLimit.trim() === '' ? null : Number(form.ticketLimit.trim()),
       rsvpForm: form.rsvpForm,
       videos: form.videos
         .filter((v) => v.youtube.trim() && v.title.trim())
@@ -1015,6 +1024,26 @@ export default function ShowForm({
             className={`${inputClass} w-full`}
           />
         </div>
+      </div>
+
+      <div className="mt-4">
+        <label className="block text-xs uppercase tracking-wide text-[#E8E0D0]/40 mb-1">
+          Online ticket limit
+        </label>
+        <input
+          type="number"
+          min={0}
+          inputMode="numeric"
+          placeholder="No limit"
+          value={form.ticketLimit}
+          onChange={(e) => set('ticketLimit', e.target.value.replace(/[^0-9]/g, ''))}
+          className={`${inputClass} w-40`}
+        />
+        <p className="text-xs text-[#E8E0D0]/40 mt-1 max-w-prose">
+          Max tickets sellable online (total, across all donation tiers). Leave blank for no cap.
+          Counts completed online sales only — door/cash sales aren&apos;t included. Once reached, the
+          tickets page shows “sold out” and points buyers to the door.
+        </p>
       </div>
 
       <div className="mt-4 pt-4 border-t border-[#E8E0D0]/10 flex flex-wrap gap-6">

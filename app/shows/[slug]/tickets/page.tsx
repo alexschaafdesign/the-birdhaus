@@ -1,4 +1,4 @@
-import { getShowBySlug } from '@/lib/shows';
+import { getShowBySlug, getTicketAvailability } from '@/lib/shows';
 import { sql } from '@/lib/db';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
@@ -46,7 +46,7 @@ export default async function TicketsPage({
   searchParams,
 }: {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ checkout_error?: string }>;
+  searchParams: Promise<{ checkout_error?: string; sold_out?: string; left?: string }>;
 }) {
   const { slug } = await params;
   const show = await getShowBySlug(slug);
@@ -54,7 +54,14 @@ export default async function TicketsPage({
 
   // Set when /checkout couldn't mint a Square link and bounced the buyer back
   // here (the tier forms open in a new tab, so the banner lands in that tab).
-  const { checkout_error: checkoutError } = await searchParams;
+  // `left` is set when /checkout turned a buyer away because they asked for more
+  // than remain; the sold-out state itself is derived from live availability below.
+  const { checkout_error: checkoutError, left: leftParam } = await searchParams;
+
+  // Online ticket cap (null when the show is uncapped).
+  const availability = await getTicketAvailability(show.id, show.ticketLimit ?? null);
+  const capped = availability.limit !== null;
+  const remaining = availability.remaining;
 
   const links = await sql<TierLink[]>`
     select tier_label as "tierLabel", amount_cents as "amountCents",
@@ -66,7 +73,12 @@ export default async function TicketsPage({
 
   // A tier is buyable if we can start a checkout for it: a catalog variation to
   // mint a fresh on-demand link from (prod), or a stored link as a dev fallback.
-  const tiers = links.filter((l) => l.variationId || l.url);
+  // When a cap is set and reached, nothing is buyable.
+  const soldOut = availability.soldOut;
+  const tiers = soldOut ? [] : links.filter((l) => l.variationId || l.url);
+
+  // Cap the qty selector to what's left (never above 10, always at least 1).
+  const maxQty = capped && remaining !== null ? Math.min(10, Math.max(1, remaining)) : 10;
 
   const formattedDate = new Date(show.date + 'T00:00:00').toLocaleDateString('en-US', {
     weekday: 'long',
@@ -101,13 +113,40 @@ export default async function TicketsPage({
           </div>
         ) : null}
 
+        {leftParam !== undefined && !soldOut ? (
+          <div
+            role="alert"
+            className="mb-6 border-2 border-amber-400/40 bg-amber-400/10 rounded-lg px-5 py-4 text-sm"
+          >
+            <p className="font-bold mb-1">Almost sold out.</p>
+            <p className="text-[#E8E0D0]/80">
+              Only {leftParam} ticket{leftParam === '1' ? '' : 's'} left online — please lower the
+              quantity to {leftParam} or fewer. There&apos;s always room to pay at the door too.
+            </p>
+          </div>
+        ) : null}
+
         <h2 className="text-xl font-bold mb-2">Choose your donation</h2>
         <p className="text-sm text-[#E8E0D0]/70 mb-6 max-w-prose">
           No ticket is required for entry — donations go straight to the artists and keeping the
           venue running. Pick whatever works for you.
         </p>
 
-        {tiers.length === 0 ? (
+        {capped && !soldOut && remaining !== null ? (
+          <p className="text-sm font-bold text-amber-300/90 mb-6">
+            {remaining} ticket{remaining === 1 ? '' : 's'} left online.
+          </p>
+        ) : null}
+
+        {soldOut ? (
+          <div className="border-2 border-[#E8E0D0]/20 rounded-lg px-6 py-8 bg-[#E8E0D0]/5 text-center">
+            <p className="text-lg font-bold mb-1">Online tickets are sold out.</p>
+            <p className="text-sm text-[#E8E0D0]/70 max-w-prose mx-auto">
+              You can still pay what you can at the door — cash, Venmo, and card all work. Come early;
+              entry is first come, first served.
+            </p>
+          </div>
+        ) : tiers.length === 0 ? (
           <p className="text-sm text-[#E8E0D0]/50">
             Donation links aren&apos;t available for this show yet — check back soon.
           </p>
@@ -137,7 +176,7 @@ export default async function TicketsPage({
                       aria-label={`Quantity for ${tierName(tier.tierLabel)}`}
                       className="rounded-md border-2 border-[#E8E0D0]/20 bg-[#1a1a1a] text-[#E8E0D0] px-2 py-1 font-bold"
                     >
-                      {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
+                      {Array.from({ length: maxQty }, (_, i) => i + 1).map((n) => (
                         <option key={n} value={n}>
                           {n}
                         </option>

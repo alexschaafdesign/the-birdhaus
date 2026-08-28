@@ -20,7 +20,8 @@ async function getShows(): Promise<ShowListItem[]> {
       coalesce(vc.bands_with_video_count, 0)::int as bands_with_video_count,
       coalesce(ii.bands_missing_inputs, 0)::int as bands_missing_inputs,
       coalesce(tp.tickets_sold, 0)::int as tickets_sold,
-      coalesce(tp.revenue_cents, 0)::int as revenue_cents
+      coalesce(tp.revenue_cents, 0)::int as revenue_cents,
+      s.ticket_limit
     from shows s
     left join (
       select show_id, count(*) as band_count

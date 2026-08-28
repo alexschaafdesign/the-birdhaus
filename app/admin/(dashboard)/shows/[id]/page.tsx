@@ -37,6 +37,7 @@ interface ShowRow {
   sound_engineers: unknown;
   square_item_id: string | null;
   square_image_id: string | null;
+  ticket_limit: number | null;
 }
 
 export default async function EditShowPage({ params }: { params: Promise<{ id: string }> }) {
@@ -72,6 +73,7 @@ export default async function EditShowPage({ params }: { params: Promise<{ id: s
     doorPersonName: row.door_person_name,
     ticketUrl: row.ticket_url,
     externalTicketUrl: row.external_ticket_url,
+    ticketLimit: row.ticket_limit,
     rsvpForm: row.rsvp_form,
     videos: (row.videos as ShowFormInitialValues['videos']) ?? [],
     audio: (row.audio as ShowFormInitialValues['audio']) ?? [],
