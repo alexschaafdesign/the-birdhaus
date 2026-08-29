@@ -56,7 +56,7 @@ export default async function SongClubPage() {
             </Link>
           ) : (
             <Link
-              href="/song-club/login"
+              href="/song-club/signup"
               className="rounded-md border border-[#E8E0D0]/30 px-4 py-2 text-sm font-semibold text-[#E8E0D0] transition hover:border-[#E8E0D0]/60 hover:bg-[#E8E0D0]/[0.06]"
             >
               Sign up/log in

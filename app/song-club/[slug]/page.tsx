@@ -78,7 +78,7 @@ export default async function SongClubEventPage({
   // and isn't yet enrolled gets signed up automatically (client-side).
   const wantsJoin = (await searchParams).join === '1';
   // Guests: sign up / log in, come back here, and auto-join.
-  const signUpToJoinHref = `/song-club/login?next=${encodeURIComponent(
+  const signUpToJoinHref = `/song-club/signup?next=${encodeURIComponent(
     `/song-club/${event.slug}?join=1`
   )}`;
 
@@ -226,7 +226,7 @@ export default async function SongClubEventPage({
                   href={signUpToJoinHref}
                   className="inline-block rounded-md bg-[#E8E0D0] px-5 py-2.5 text-sm font-semibold text-[#2A2420] transition hover:bg-white"
                 >
-                  Log in to join
+                  Sign up to join
                 </Link>
               )}
             </section>

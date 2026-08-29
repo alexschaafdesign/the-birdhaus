@@ -35,12 +35,15 @@ export default async function ClubSignupPage({
       <div className="mt-6">
         <ClubSignupForm next={next} />
       </div>
-      <p className="mt-4 text-sm text-[#E8E0D0]/50">
-        Already a member?{' '}
-        <Link href={loginHref} className="underline underline-offset-2 hover:text-[#E8E0D0]">
+      <div className="mt-6 border-t border-[#E8E0D0]/10 pt-5 text-center">
+        <p className="text-sm text-[#E8E0D0]/60">Already a member?</p>
+        <Link
+          href={loginHref}
+          className="mt-2 block w-full rounded-md border border-[#E8E0D0]/30 px-4 py-2.5 text-sm font-semibold text-[#E8E0D0] transition hover:border-[#E8E0D0]/60 hover:bg-[#E8E0D0]/[0.06]"
+        >
           Log in
         </Link>
-      </p>
+      </div>
     </main>
   );
 }
