@@ -87,6 +87,33 @@ export async function getEventAttendees(eventId: number): Promise<AttendeeCard[]
   }));
 }
 
+export interface EventSignup {
+  id: number;
+  name: string;
+  email: string;
+  added_at: string;
+}
+
+// Sign-ups for an online event: the attendee roster with contact info, for the
+// admin sign-ups view. Newest first. Admin-gated by callers.
+export async function getEventSignups(eventId: number): Promise<EventSignup[]> {
+  const rows = await sql<
+    Array<{ id: number; name: string; email: string; added_at: string }>
+  >`
+    select u.id, u.name, u.email, a.added_at
+    from song_club_event_attendees a
+    join users u on u.id = a.user_id
+    where a.event_id = ${eventId}
+    order by a.added_at desc, u.id desc
+  `;
+  return rows.map((r) => ({
+    id: Number(r.id),
+    name: r.name,
+    email: r.email,
+    added_at: r.added_at,
+  }));
+}
+
 // Links a round (playlist) to an event as its round. Admin-gated by callers.
 export async function setEventRound(eventId: number, playlistId: number): Promise<boolean> {
   const result = await sql`
