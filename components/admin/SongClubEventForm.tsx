@@ -24,6 +24,7 @@ export interface SongClubEventFormValues {
   address: string;
   arrivalNotes: string;
   description: string;
+  body: string;
   flyerUrl: string;
   published: boolean;
   playlistId: number | null;
@@ -64,6 +65,7 @@ export default function SongClubEventForm({
     address: initial?.address ?? '',
     arrivalNotes: initial?.arrivalNotes ?? '',
     description: initial?.description ?? '',
+    body: initial?.body ?? '',
     flyerUrl: initial?.flyerUrl ?? '',
     published: initial?.published ?? false,
     playlistId: initial?.playlistId ?? null,
@@ -147,6 +149,7 @@ export default function SongClubEventForm({
         address: v.address,
         arrivalNotes: v.arrivalNotes,
         description: v.description,
+        body: v.body,
         flyerUrl,
         published: v.published,
         playlistId: v.playlistId,
@@ -247,8 +250,11 @@ export default function SongClubEventForm({
           </Field>
         </>
       )}
-      <Field label="Description / theme" hint="Shown on the event page and included in the confirmation email">
+      <Field label="Description / theme" hint="Short blurb — shown on the event page and included in the confirmation email">
         <textarea className={`${inputClass} min-h-24`} value={v.description} onChange={set('description')} />
+      </Field>
+      <Field label="Body text" hint="Optional — a paragraph or two of main copy shown on the event page (not emailed). Blank lines separate paragraphs.">
+        <textarea className={`${inputClass} min-h-40`} value={v.body} onChange={set('body')} />
       </Field>
       <Field label="Flyer" hint="Optional — JPG, PNG, WebP, or GIF.">
         <div className="flex items-center gap-3">

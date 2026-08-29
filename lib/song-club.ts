@@ -18,6 +18,7 @@ export interface SongClubEvent {
   address: string | null;
   arrival_notes: string | null;
   description: string | null;
+  body: string | null;
   flyer_url: string | null;
   published: boolean;
   playlist_id: number | null;
@@ -39,6 +40,7 @@ export interface SongClubEventInput {
   address: string | null;
   arrivalNotes: string | null;
   description: string | null;
+  body: string | null;
   flyerUrl: string | null;
   published: boolean;
   playlistId: number | null;
@@ -47,7 +49,7 @@ export interface SongClubEventInput {
 
 const COLUMNS = sql`
   id, slug, title, event_date::text as event_date, end_date::text as end_date,
-  start_time, end_time, venue_name, address, arrival_notes, description,
+  start_time, end_time, venue_name, address, arrival_notes, description, body,
   flyer_url, published, playlist_id, format,
   notified_at::text as notified_at, created_at, updated_at
 `;
@@ -65,6 +67,7 @@ export interface SongClubEventBody {
   address?: unknown;
   arrivalNotes?: unknown;
   description?: unknown;
+  body?: unknown;
   flyerUrl?: unknown;
   published?: unknown;
   playlistId?: unknown;
@@ -108,6 +111,7 @@ export function buildEventInput(
     address: optionalTrim(body.address),
     arrivalNotes: optionalTrim(body.arrivalNotes),
     description: optionalTrim(body.description),
+    body: optionalTrim(body.body),
     flyerUrl: optionalTrim(body.flyerUrl),
     published: body.published === true,
     playlistId:
@@ -181,11 +185,11 @@ export async function createEvent(input: SongClubEventInput): Promise<SongClubEv
   const [row] = await sql<SongClubEvent[]>`
     insert into song_club_events
       (slug, title, event_date, end_date, start_time, end_time, venue_name, address,
-       arrival_notes, description, flyer_url, published, playlist_id, format)
+       arrival_notes, description, body, flyer_url, published, playlist_id, format)
     values
       (${slug}, ${input.title}, ${input.eventDate}, ${input.endDate}, ${input.startTime},
        ${input.endTime}, ${input.venueName}, ${input.address},
-       ${input.arrivalNotes}, ${input.description}, ${input.flyerUrl},
+       ${input.arrivalNotes}, ${input.description}, ${input.body}, ${input.flyerUrl},
        ${input.published}, ${input.playlistId}, ${input.format})
     returning ${COLUMNS}
   `;
@@ -209,6 +213,7 @@ export async function updateEvent(
       address = ${input.address},
       arrival_notes = ${input.arrivalNotes},
       description = ${input.description},
+      body = ${input.body},
       flyer_url = ${input.flyerUrl},
       published = ${input.published},
       playlist_id = ${input.playlistId},

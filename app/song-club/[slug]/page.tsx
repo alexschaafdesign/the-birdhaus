@@ -252,6 +252,20 @@ export default async function SongClubEventPage({
         </div>
       )}
 
+      {event.body && (
+        <div className="mt-6 space-y-4 text-[15px] leading-relaxed text-[#E8E0D0]/80">
+          {event.body
+            .split(/\n{2,}/)
+            .map((para) => para.trim())
+            .filter(Boolean)
+            .map((para, i) => (
+              <p key={i} className="whitespace-pre-wrap">
+                {para}
+              </p>
+            ))}
+        </div>
+      )}
+
       {unlocked && (
         <section className="mt-8">
           <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-[#E8E0D0]/45">

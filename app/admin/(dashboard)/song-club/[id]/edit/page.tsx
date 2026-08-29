@@ -39,6 +39,7 @@ export default async function EditSongClubEventPage({
           address: event.address ?? '',
           arrivalNotes: event.arrival_notes ?? '',
           description: event.description ?? '',
+          body: event.body ?? '',
           flyerUrl: event.flyer_url ?? '',
           published: event.published,
           playlistId: event.playlist_id,
