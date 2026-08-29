@@ -65,7 +65,7 @@ export default async function AdminSongClubPage() {
                   href={`/admin/song-club/${e.id}/rsvps`}
                   className="text-[#E8E0D0]/70 hover:text-[#E8E0D0]"
                 >
-                  RSVPs
+                  {e.format === 'online' ? 'Sign-ups' : 'RSVPs'}
                 </Link>
                 <Link
                   href={`/admin/song-club/${e.id}/edit`}
