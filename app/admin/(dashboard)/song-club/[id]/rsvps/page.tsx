@@ -5,6 +5,7 @@ import { getEventById } from '@/lib/song-club';
 import { getRsvpsForEvent } from '@/lib/song-club-rsvps';
 import { getEventSignups } from '@/lib/club-events';
 import SongClubRsvpBlast from '@/components/admin/SongClubRsvpBlast';
+import EventSignupsTable from '@/components/admin/EventSignupsTable';
 
 export const metadata: Metadata = {
   title: 'RSVPs',
@@ -51,34 +52,7 @@ export default async function SongClubRsvpsPage({
           </p>
         </div>
 
-        {signups.length === 0 ? (
-          <p className="text-sm text-[#E8E0D0]/50">No sign-ups yet.</p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead>
-                <tr className="border-b border-[#E8E0D0]/15 text-xs uppercase tracking-wide text-[#E8E0D0]/45">
-                  <th className="py-2 pr-4 font-medium">Name</th>
-                  <th className="py-2 pr-4 font-medium">Email</th>
-                  <th className="py-2 font-medium">Signed up</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#E8E0D0]/10">
-                {signups.map((s) => (
-                  <tr key={s.id}>
-                    <td className="py-2 pr-4">{s.name}</td>
-                    <td className="py-2 pr-4 text-[#E8E0D0]/70">
-                      <a href={`mailto:${s.email}`} className="hover:text-[#E8E0D0]">
-                        {s.email}
-                      </a>
-                    </td>
-                    <td className="py-2 text-[#E8E0D0]/60">{formatDateTime(s.added_at)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+        <EventSignupsTable eventId={event.id} initialSignups={signups} />
       </main>
     );
   }
