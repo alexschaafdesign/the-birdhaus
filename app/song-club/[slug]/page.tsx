@@ -180,26 +180,7 @@ export default async function SongClubEventPage({
         </section>
       )}
 
-      {event.flyer_url && (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={event.flyer_url}
-          alt={event.title}
-          className="mt-6 w-full max-w-md rounded-lg border border-[#E8E0D0]/15"
-        />
-      )}
-
-      {!online && event.venue_name && (
-        <p className="mt-5 text-[15px] text-[#E8E0D0]/80">{event.venue_name}</p>
-      )}
-
-      {event.description && (
-        <div className="mt-4 whitespace-pre-wrap text-[15px] leading-relaxed text-[#E8E0D0]/80">
-          {event.description}
-        </div>
-      )}
-
-      {/* Join actions (only when not already in) */}
+      {/* Join actions (only when not already in) — above the flyer. */}
       {!unlocked &&
         (member && wantsJoin ? (
           // Returned from login/signup with intent to join — enroll automatically.
@@ -251,6 +232,25 @@ export default async function SongClubEventPage({
             </section>
           </>
         ))}
+
+      {event.flyer_url && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={event.flyer_url}
+          alt={event.title}
+          className="mt-6 w-full max-w-md rounded-lg border border-[#E8E0D0]/15"
+        />
+      )}
+
+      {!online && event.venue_name && (
+        <p className="mt-5 text-[15px] text-[#E8E0D0]/80">{event.venue_name}</p>
+      )}
+
+      {event.description && (
+        <div className="mt-4 whitespace-pre-wrap text-[15px] leading-relaxed text-[#E8E0D0]/80">
+          {event.description}
+        </div>
+      )}
 
       {unlocked && (
         <section className="mt-8">

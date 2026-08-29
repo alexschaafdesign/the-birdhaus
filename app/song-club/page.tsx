@@ -3,11 +3,9 @@ import Link from 'next/link';
 import { getClubPortalMember } from '@/lib/club-members';
 import { isAdminSession } from '@/lib/admin-session';
 import { getPins, getPosts } from '@/lib/club-board';
-import { listStandaloneRounds, standaloneTracks } from '@/lib/club-music';
 import { listPortalEvents } from '@/lib/club-events';
 import ClubPins from '@/components/club/ClubPins';
 import ClubBoard from '@/components/club/ClubBoard';
-import NewPlaylistForm from '@/components/club/NewPlaylistForm';
 import SongClubLogo from '@/components/club/SongClubLogo';
 import ClubUserMenu from '@/components/club/ClubUserMenu';
 
@@ -26,12 +24,10 @@ export default async function SongClubPage() {
   const admin = member ? false : await isAdminSession();
   const canAct = Boolean(member) || admin;
 
-  const [pins, posts, events, rounds, singles] = await Promise.all([
+  const [pins, posts, events] = await Promise.all([
     getPins(),
     getPosts(),
     listPortalEvents(admin),
-    listStandaloneRounds(),
-    standaloneTracks(),
   ]);
 
   return (
@@ -63,7 +59,7 @@ export default async function SongClubPage() {
               href="/song-club/login"
               className="rounded-md border border-[#E8E0D0]/30 px-4 py-2 text-sm font-semibold text-[#E8E0D0] transition hover:border-[#E8E0D0]/60 hover:bg-[#E8E0D0]/[0.06]"
             >
-              Log in
+              Sign up/log in
             </Link>
           )}
         </div>
@@ -117,97 +113,11 @@ export default async function SongClubPage() {
         )}
       </section>
 
-      {/* Music — standalone rounds + singles not tied to any event. */}
-      <section className="mb-8">
-        <div className="mb-3 flex items-baseline justify-between">
-          <h2 className="text-xs font-semibold uppercase tracking-wide text-[#E8E0D0]/45">
-            Music
-          </h2>
-          {canAct ? (
-            <Link
-              href="/song-club/upload"
-              className="rounded-md bg-[#E8E0D0] px-3.5 py-1.5 text-sm font-semibold text-[#2A2420] transition hover:bg-white"
-            >
-              + Upload a track
-            </Link>
-          ) : (
-            <Link
-              href="/song-club/login"
-              className="text-xs text-[#E8E0D0]/45 underline-offset-2 transition hover:text-[#E8E0D0] hover:underline"
-            >
-              Log in to upload
-            </Link>
-          )}
-        </div>
-
-        {rounds.length === 0 && singles.length === 0 && (
-          <p className="text-sm text-[#E8E0D0]/40">Nothing here yet.</p>
-        )}
-
-        {rounds.length > 0 && (
-          <div className="space-y-2">
-            {rounds.map((p) => (
-              <Link
-                key={p.id}
-                href={`/song-club/music/${p.id}`}
-                className="flex items-center gap-3 rounded-lg border border-[#E8E0D0]/15 bg-[#E8E0D0]/[0.03] p-4 transition hover:border-[#E8E0D0]/35 hover:bg-[#E8E0D0]/[0.06]"
-              >
-                {p.imageUrl && (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={p.imageUrl} alt="" className="h-14 w-14 shrink-0 rounded object-cover" />
-                )}
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-baseline justify-between gap-3">
-                    <span className="min-w-0 truncate font-medium text-[#E8E0D0]">{p.title}</span>
-                    <span className="shrink-0 text-xs text-[#E8E0D0]/50">
-                      {p.trackCount} track{p.trackCount === 1 ? '' : 's'}
-                    </span>
-                  </div>
-                  {p.description && (
-                    <p className="mt-1 truncate text-sm text-[#E8E0D0]/55">{p.description}</p>
-                  )}
-                </div>
-              </Link>
-            ))}
-          </div>
-        )}
-
-        {singles.length > 0 && (
-          <div className="mt-4">
-            <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-[#E8E0D0]/35">
-              Singles
-            </h3>
-            <ul className="divide-y divide-[#E8E0D0]/10 rounded-lg border border-[#E8E0D0]/15 bg-[#E8E0D0]/[0.03]">
-              {singles.map((t) => (
-                <li key={t.id}>
-                  <Link
-                    href={`/song-club/track/${t.id}`}
-                    className="flex items-baseline justify-between gap-3 px-4 py-2.5 transition hover:bg-[#E8E0D0]/[0.05]"
-                  >
-                    <span className="min-w-0 truncate text-sm text-[#E8E0D0]">{t.title}</span>
-                    <span className="shrink-0 text-xs text-[#E8E0D0]/45">
-                      {t.uploaderName}
-                      {t.commentCount > 0 ? ` · ${t.commentCount} 💬` : ''}
-                    </span>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-
-        {admin && (
-          <div className="mt-3">
-            <NewPlaylistForm />
-          </div>
-        )}
-      </section>
-
       <ClubPins initialPins={pins} viewerMemberId={member?.id ?? null} isAdmin={admin} />
 
       <section className="mt-8">
         <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-[#E8E0D0]/45">
-          General chat
+          Song Club chat
         </h2>
         <ClubBoard
           initialPosts={posts}

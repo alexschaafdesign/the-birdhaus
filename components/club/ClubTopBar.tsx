@@ -35,7 +35,7 @@ export default async function ClubTopBar() {
             href="/song-club/login"
             className="rounded-md border border-[#E8E0D0]/30 px-3.5 py-1.5 text-sm font-semibold text-[#E8E0D0] transition hover:border-[#E8E0D0]/60 hover:bg-[#E8E0D0]/[0.06]"
           >
-            Log in
+            Sign up/log in
           </Link>
         )}
       </div>
