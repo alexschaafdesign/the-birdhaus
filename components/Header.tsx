@@ -54,6 +54,10 @@ export default function Header({ isAdmin }: { isAdmin?: boolean }) {
   // The door check-in kiosk is a standalone full-screen view — no site chrome.
   if (pathname.startsWith('/door')) return null;
 
+  // The /redesign broadcast homepage carries its own header band and owns the
+  // whole viewport — suppress the shared logo band + nav there.
+  if (pathname.startsWith('/redesign')) return null;
+
   // The home page runs the venue photo as a full-page dark background, so the
   // header goes transparent there and the nav flips to cream-on-dark.
   const onPhoto = pathname === '/';

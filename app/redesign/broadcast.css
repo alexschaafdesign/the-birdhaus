@@ -1,0 +1,360 @@
+/* Broadcast identity — scoped to the /redesign homepage only.
+   Everything lives under .broadcast-root so it can't leak into the rest of the
+   site (which still runs the Courier paper theme from globals.css). */
+
+/* Berkeley Mono — self-hosted, licensed. Files live in
+   public/fonts/berkeley-mono/ (converted from the licensed .otf to .woff2).
+   The `local()` first-entries let a system install win if present. */
+@font-face {
+  font-family: "Berkeley Mono";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: local("Berkeley Mono"), url("/fonts/berkeley-mono/BerkeleyMono-Regular.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Berkeley Mono";
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: local("Berkeley Mono Oblique"), url("/fonts/berkeley-mono/BerkeleyMono-Oblique.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Berkeley Mono";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: local("Berkeley Mono Bold"), url("/fonts/berkeley-mono/BerkeleyMono-Bold.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Berkeley Mono";
+  font-style: italic;
+  font-weight: 700;
+  font-display: swap;
+  src: local("Berkeley Mono Bold Oblique"), url("/fonts/berkeley-mono/BerkeleyMono-Bold-Oblique.woff2") format("woff2");
+}
+
+.broadcast-root {
+  /* Confirmed tokens from the Figma micro-graphic specimen. */
+  --bx-paper: #f0ede4;
+  --bx-paper-2: #e7e3d5; /* row separators / recessed panels */
+  --bx-ink: #16150f; /* near-black, never pure black */
+  --bx-ink-dim: #57534a; /* AA-safe muted ink for secondary data (raised from the print alphas) */
+  --bx-red: #982726; /* catalogue numbers, set times, OSD accents */
+  --bx-blue: #2140c7;
+
+  /* atmospheric washes */
+  --bx-wash-blue: #4951b7;
+  --bx-wash-red: #b42f2c;
+  --bx-wash-green: #48aa5d;
+
+  /* fresh cuts + chroma */
+  --bx-yellow: #e1e42f;
+  --bx-chroma-y: #ffd900;
+  --bx-chroma-m: #e3008c;
+  --bx-sliver-blue: #009ee3;
+
+  --bx-mono: "Berkeley Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --bx-grotesk: var(--font-grotesk), var(--bx-mono);
+
+  position: relative;
+  min-height: 100vh;
+  background: var(--bx-paper);
+  color: var(--bx-ink);
+  font-family: var(--bx-mono);
+  /* Cancel the site-wide Courier + text-stroke from globals.css. */
+  -webkit-text-stroke: 0;
+  overflow-x: clip;
+}
+
+.broadcast-root ::selection {
+  background: var(--bx-red);
+  color: var(--bx-paper);
+}
+
+/* ---- Texture layers (all decorative, aria-hidden) --------------------- */
+
+/* Scanlines: ONE repeating gradient across the whole surface, not ~95 nodes.
+   1.5px line on an 18px pitch, at the print's 5% ink. */
+.bx-scanlines {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 40;
+  background-image: repeating-linear-gradient(
+    to bottom,
+    rgba(22, 21, 15, 0.05) 0,
+    rgba(22, 21, 15, 0.05) 1.5px,
+    transparent 1.5px,
+    transparent 18px
+  );
+}
+
+/* Three large blurred ellipses bleeding off the edges, multiply blend. */
+.bx-washes {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 0;
+}
+.bx-wash {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(90px);
+  mix-blend-mode: multiply;
+}
+.bx-wash--blue {
+  width: 46vw;
+  height: 42vw;
+  top: 4vh;
+  right: -10vw;
+  background: var(--bx-wash-blue);
+  opacity: 0.14;
+}
+.bx-wash--red {
+  width: 44vw;
+  height: 40vw;
+  top: 44vh;
+  left: -14vw;
+  background: var(--bx-wash-red);
+  opacity: 0.11;
+}
+.bx-wash--green {
+  width: 40vw;
+  height: 42vw;
+  bottom: -8vh;
+  right: 6vw;
+  background: var(--bx-wash-green);
+  opacity: 0.15;
+}
+@media (max-width: 640px) {
+  /* Large blur radii are expensive to paint on mobile — dial them back. */
+  .bx-wash {
+    filter: blur(56px);
+  }
+}
+
+/* Corner registration marks — 26px L-brackets, 2px stroke, inset 20px. */
+.bx-regmark {
+  position: absolute;
+  width: 26px;
+  height: 26px;
+  z-index: 30;
+  pointer-events: none;
+}
+.bx-regmark::before,
+.bx-regmark::after {
+  content: "";
+  position: absolute;
+  background: var(--bx-ink);
+}
+.bx-regmark::before { /* horizontal arm */
+  height: 2px;
+  width: 26px;
+  top: 0;
+}
+.bx-regmark::after { /* vertical arm */
+  width: 2px;
+  height: 26px;
+  left: 0;
+}
+.bx-regmark--tl { top: 20px; left: 20px; }
+.bx-regmark--tr { top: 20px; right: 20px; }
+.bx-regmark--tr::after { left: auto; right: 0; }
+.bx-regmark--bl { bottom: 20px; left: 20px; }
+.bx-regmark--bl::before { top: auto; bottom: 0; }
+.bx-regmark--br { bottom: 20px; right: 20px; }
+.bx-regmark--br::before { top: auto; bottom: 0; }
+.bx-regmark--br::after { left: auto; right: 0; }
+
+/* ---- SMPTE 75% bars ---------------------------------------------------- */
+.bx-smpte {
+  display: flex;
+  width: 100%;
+  height: 22px;
+}
+.bx-smpte > span {
+  flex: 1 1 0;
+}
+@media (max-width: 600px) {
+  .bx-smpte { height: 14px; } /* shrinks but never disappears */
+}
+
+/* ---- Disco ball hero (pure CSS, cheap + responsive) -------------------- */
+.bx-disco {
+  position: relative;
+  width: clamp(220px, 52vw, 440px);
+  aspect-ratio: 1;
+  margin-inline: auto;
+}
+.bx-disco__line {
+  position: absolute;
+  left: 50%;
+  top: calc(-1 * clamp(28px, 6vw, 52px));
+  width: 2px;
+  height: clamp(28px, 6vw, 52px);
+  background: var(--bx-ink);
+  transform: translateX(-50%);
+}
+.bx-disco__rim {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+}
+.bx-disco__rim--blue {
+  background: #2f38b0;
+  transform: translateX(-2.5%);
+}
+.bx-disco__rim--red {
+  background: #a5312e;
+  transform: translateX(2.5%);
+}
+.bx-disco__field {
+  position: absolute;
+  inset: 2.5%;
+  border-radius: 50%;
+  overflow: hidden;
+  background: radial-gradient(120% 120% at 50% 32%, #17140d 42%, #0b0a06 100%);
+}
+.bx-disco__blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(clamp(14px, 4vw, 34px));
+  mix-blend-mode: screen;
+}
+.bx-disco__blob--blue {
+  width: 56%; height: 40%; top: 7%; left: 22%;
+  background: #3a49d6;
+}
+.bx-disco__blob--red {
+  width: 42%; height: 42%; top: 46%; left: 11%;
+  background: #b83f3b;
+}
+.bx-disco__blob--green {
+  width: 46%; height: 48%; top: 40%; left: 49%;
+  background: #40ae5c;
+}
+
+/* ---- Fresh Cuts disc --------------------------------------------------- */
+.bx-fcdisc {
+  position: relative;
+  width: clamp(200px, 42vw, 320px);
+  aspect-ratio: 1;
+  flex-shrink: 0;
+}
+.bx-fcdisc__circle {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: var(--bx-yellow);
+  mix-blend-mode: multiply;
+}
+.bx-fcdisc__mark {
+  position: absolute;
+  left: 50%;
+  top: 46%;
+  transform: translate(-50%, -50%);
+  width: 132%;
+  max-width: none;
+  height: auto;
+}
+.bx-fcdisc__tag {
+  position: absolute;
+  left: 50%;
+  bottom: 16%;
+  transform: translateX(-50%);
+  text-align: center;
+  white-space: nowrap;
+}
+
+/* ---- Layout + typographic roles -------------------------------------- */
+.bx-wrap {
+  position: relative;
+  z-index: 10;
+  max-width: 1080px;
+  margin-inline: auto;
+  padding-inline: clamp(20px, 5vw, 64px);
+}
+
+/* On-screen-display line: the small mono readouts in the header + data bands. */
+.bx-osd {
+  font-size: clamp(12px, 1.55vw, 15px);
+  letter-spacing: 0.05em;
+  line-height: 1.3;
+}
+.bx-osd--dim { color: var(--bx-ink-dim); }
+.bx-red { color: var(--bx-red); }
+
+.bx-rule {
+  height: 2px;
+  width: 100%;
+  background: rgba(22, 21, 15, 0.7);
+}
+
+/* Display-size band name — the voice of the machine at its loudest. */
+.bx-name {
+  font-size: clamp(2.3rem, 8.5vw, 5rem);
+  line-height: 0.98;
+  letter-spacing: -0.01em;
+  font-weight: 400;
+  word-break: break-word;
+}
+.bx-settime {
+  font-size: clamp(11px, 1.4vw, 14px);
+  color: var(--bx-red);
+  letter-spacing: 0.1em;
+}
+
+/* Section label: "▶ UPCOMING" style headings. */
+.bx-sectlabel {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  font-size: clamp(13px, 1.7vw, 16px);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+/* Compact schedule readout rows — a list, not cards. */
+.bx-row {
+  display: grid;
+  grid-template-columns: 8ch 13ch 1fr auto;
+  gap: clamp(10px, 2vw, 24px);
+  align-items: baseline;
+  padding: 14px 0;
+  border-top: 1px solid rgba(22, 21, 15, 0.16);
+  transition: background 120ms ease;
+}
+.bx-row:last-child { border-bottom: 1px solid rgba(22, 21, 15, 0.16); }
+a.bx-row:hover { background: var(--bx-paper-2); }
+.bx-row__name {
+  font-size: clamp(1rem, 2.4vw, 1.4rem);
+  line-height: 1.15;
+}
+@media (max-width: 640px) {
+  .bx-row {
+    grid-template-columns: 1fr auto;
+    row-gap: 4px;
+  }
+  .bx-row__cat { grid-column: 2; grid-row: 1; text-align: right; }
+  .bx-row__date { grid-column: 1; grid-row: 1; }
+  .bx-row__name { grid-column: 1 / -1; grid-row: 2; }
+  .bx-row__tag { grid-column: 1 / -1; grid-row: 3; }
+}
+
+/* Rare chroma-split display treatment — the only use of Space Grotesk. */
+.bx-chroma {
+  font-family: var(--bx-grotesk);
+  font-weight: 700;
+  color: var(--bx-ink);
+  text-shadow: -2px 0 0 var(--bx-chroma-m), 2px 0 0 var(--bx-chroma-y);
+}
+
+/* ---- Reduced motion: kill any transitions (no animation is used, but hover
+       affordances below use them). ---------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  .broadcast-root * {
+    transition: none !important;
+  }
+}

@@ -45,3 +45,7 @@ next-env.d.ts
 bands-export.json
 bands-import-preview.json
 bands-id-mapping.json
+
+# Berkeley Mono is a licensed typeface — keep the self-hosted binaries out of
+# git. The /redesign homepage falls back to a monospace stack without them.
+/public/fonts/berkeley-mono/
