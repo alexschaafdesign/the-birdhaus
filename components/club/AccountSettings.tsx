@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { ClubMember, ProfileLink } from '@/lib/club-members';
+import { downscaleImage } from '@/lib/downscale-image';
 
 const inputBase =
   'w-full rounded-md border border-[#E8E0D0]/20 bg-[#E8E0D0]/[0.03] px-3 py-2 text-sm text-[#E8E0D0] placeholder:text-[#E8E0D0]/30 focus:border-[#E8E0D0]/50 focus:outline-none transition';
@@ -67,9 +68,18 @@ export default function AccountSettings({ member }: { member: ClubMember }) {
     setUploadingAvatar(true);
     setProfileError(null);
     try {
+      // Shrink big originals in the browser so they slip under Vercel's ~4.5 MB
+      // request-body cap; the server does the final resize. Mirrors every other
+      // image upload flow (see RoundCover, ImageUploadField).
+      const prepared = await downscaleImage(file);
       const form = new FormData();
-      form.set('file', file);
+      form.set('file', prepared);
       const res = await fetch('/api/club/account/avatar', { method: 'POST', body: form });
+      // A 413 comes from the platform before our handler runs (no JSON body), so
+      // give a plain-language reason instead of a bare status code.
+      if (res.status === 413) {
+        throw new Error("That image is too big — try one under a few MB.");
+      }
       const data = await res.json().catch(() => null);
       if (!res.ok) throw new Error(data?.error ?? `Upload failed (${res.status})`);
       setAvatarUrl(data.avatarUrl);
