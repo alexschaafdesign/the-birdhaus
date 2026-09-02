@@ -165,6 +165,10 @@ export interface ShowFormInitialValues {
   // registry) purely for display next to each thumbnail; only the id is saved.
   // Legacy string[] rows are accepted and treated as uncredited.
   photos?: Array<string | { url: string; photographerId?: number | null; photographerName?: string | null }>;
+  // Registry photographer booked to shoot this show (shows.photographer_id).
+  // Name is resolved server-side for display in the picker.
+  assignedPhotographerId?: number | null;
+  assignedPhotographerName?: string | null;
   photoFolder?: string | null;
   photoCredit?: string | null;
   content?: string;
@@ -198,6 +202,10 @@ interface FormState {
   // Gallery photos with their per-photo photographer credit (id only; name is
   // cached separately for display). Uploading is the only way to add.
   photos: PhotoEntry[];
+  // Registry photographer booked to shoot this show (shows.photographer_id) —
+  // drives the crew photographer's Queue. Also seeds activePhotographer below so
+  // uploaded photos default to being credited to them.
+  assignedPhotographer: { id: number | null; name: string };
   // The photographer newly uploaded photos are credited to, and the target for
   // click-to-recredit. Not persisted on its own — it just drives new entries.
   activePhotographer: { id: number | null; name: string };
@@ -261,13 +269,26 @@ function initFormState(initial?: ShowFormInitialValues): FormState {
         ? { url: p, photographerId: null }
         : { url: p.url, photographerId: p.photographerId ?? null }
     ),
-    activePhotographer: { id: null, name: '' },
-    photographerNames: (initial?.photos ?? []).reduce<Record<number, string>>((acc, p) => {
-      if (typeof p !== 'string' && p.photographerId != null && p.photographerName) {
-        acc[p.photographerId] = p.photographerName;
-      }
-      return acc;
-    }, {}),
+    assignedPhotographer: {
+      id: initial?.assignedPhotographerId ?? null,
+      name: initial?.assignedPhotographerName ?? '',
+    },
+    // Uploads default to crediting the assigned photographer.
+    activePhotographer: {
+      id: initial?.assignedPhotographerId ?? null,
+      name: initial?.assignedPhotographerName ?? '',
+    },
+    photographerNames: (initial?.photos ?? []).reduce<Record<number, string>>(
+      (acc, p) => {
+        if (typeof p !== 'string' && p.photographerId != null && p.photographerName) {
+          acc[p.photographerId] = p.photographerName;
+        }
+        return acc;
+      },
+      initial?.assignedPhotographerId != null && initial?.assignedPhotographerName
+        ? { [initial.assignedPhotographerId]: initial.assignedPhotographerName }
+        : {}
+    ),
     photoFolder: initial?.photoFolder ?? '',
     photoCredit: initial?.photoCredit ?? '',
     content: initial?.content ?? '',
@@ -647,6 +668,7 @@ export default function ShowForm({
       photos: form.photos
         .map((p) => ({ url: p.url.trim(), photographerId: p.photographerId }))
         .filter((p) => p.url),
+      assignedPhotographerId: form.assignedPhotographer.id,
       photoFolder: form.photoFolder.trim(),
       photoCredit: form.photoCredit.trim(),
       content: form.content,
@@ -794,6 +816,36 @@ export default function ShowForm({
         </div>
 
         <div className="pt-4 border-t border-[#E8E0D0]/10 space-y-3">
+          <div>
+            <label className="block text-xs uppercase tracking-wide text-[#E8E0D0]/40 mb-1">
+              Assigned photographer
+            </label>
+            <PhotographerNameInput
+              value={form.assignedPhotographer.name}
+              onChange={(value) =>
+                setForm((prev) => ({ ...prev, assignedPhotographer: { id: null, name: value } }))
+              }
+              onSelect={(match: PhotographerMatch) =>
+                setForm((prev) => ({
+                  ...prev,
+                  assignedPhotographer: { id: match.id, name: match.name },
+                  photographerNames: { ...prev.photographerNames, [match.id]: match.name },
+                  // If no per-photo credit has been chosen yet, default uploads
+                  // to the assigned photographer.
+                  activePhotographer:
+                    prev.activePhotographer.id == null
+                      ? { id: match.id, name: match.name }
+                      : prev.activePhotographer,
+                }))
+              }
+              placeholder="Who's shooting this show?"
+              className={`${inputClass} w-full sm:max-w-sm`}
+            />
+            <p className="mt-1 text-xs text-[#E8E0D0]/40 max-w-prose">
+              Books a photographer to shoot this show. It shows up in their crew Queue, and past
+              shows with no photos yet get a “needs photos” flag on their end.
+            </p>
+          </div>
           <div>
             <label className="block text-xs uppercase tracking-wide text-[#E8E0D0]/40 mb-1">
               Photographer for these photos

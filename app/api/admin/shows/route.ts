@@ -85,6 +85,10 @@ export async function POST(request: Request) {
   }
 
   const photographer = normalizePhotographerInput(body?.photographer);
+  const assignedPhotographerId =
+    typeof body?.assignedPhotographerId === 'number' && Number.isFinite(body.assignedPhotographerId)
+      ? body.assignedPhotographerId
+      : null;
   const rsvpForm = body?.rsvpForm === undefined ? true : Boolean(body.rsvpForm);
   const announced = Boolean(body?.announced);
   const targetBandCount = normalizeTargetBandCount(body?.targetBandCount);
@@ -111,14 +115,14 @@ export async function POST(request: Request) {
       const [row] = await tx`
         insert into shows (
           slug, title, date, doors_time, show_time, flyer, bands, description,
-          photographer, rsvp_url, ticket_url, external_ticket_url, rsvp_form,
+          photographer, photographer_id, rsvp_url, ticket_url, external_ticket_url, rsvp_form,
           videos, audio, photos, photo_folder, photo_credit, content_markdown, announced,
           sound_engineer_name, door_person_name, target_band_count, advance_sent
         )
         values (
           ${slug}, ${title}, ${date}, ${nullableTrim(body.doorsTime)}, ${nullableTrim(body.showTime)},
           ${nullableTrim(body.flyer)}, ${bandsJson}, ${nullableTrim(body.description)},
-          ${tx.json(photographer)}, ${nullableTrim(body.rsvpUrl)}, ${nullableTrim(body.ticketUrl)},
+          ${tx.json(photographer)}, ${assignedPhotographerId}, ${nullableTrim(body.rsvpUrl)}, ${nullableTrim(body.ticketUrl)},
           ${nullableTrim(body.externalTicketUrl)}, ${rsvpForm},
           ${videosJson}, ${tx.json(audio)}, ${tx.json(photos)},
           ${nullableTrim(body.photoFolder)}, ${nullableTrim(body.photoCredit)},

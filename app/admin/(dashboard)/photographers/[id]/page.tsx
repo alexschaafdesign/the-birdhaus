@@ -6,6 +6,7 @@ import {
   getShowsForPhotographer,
   photographerSlug,
 } from '@/lib/photographers';
+import { listCrew } from '@/lib/club-members';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,7 +18,11 @@ export default async function EditPhotographerPage({ params }: { params: Promise
   const photographer = await getPhotographerProfile(photographerId);
   if (!photographer) notFound();
 
-  const shows = await getShowsForPhotographer(photographer.name);
+  const [shows, crew] = await Promise.all([
+    getShowsForPhotographer(photographer.name),
+    listCrew(),
+  ]);
+  const crewOptions = crew.map((c) => ({ id: c.id, name: c.name, email: c.email }));
 
   return (
     <main className="max-w-2xl mx-auto px-6 pb-16 pt-6">
@@ -30,7 +35,12 @@ export default async function EditPhotographerPage({ params }: { params: Promise
           View public profile ↗
         </Link>
       </div>
-      <PhotographerForm mode="edit" initialValues={photographer} linkedShows={shows} />
+      <PhotographerForm
+        mode="edit"
+        initialValues={photographer}
+        linkedShows={shows}
+        crewOptions={crewOptions}
+      />
     </main>
   );
 }

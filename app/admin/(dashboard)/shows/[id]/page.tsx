@@ -21,6 +21,7 @@ interface ShowRow {
   bands: unknown;
   description: string | null;
   photographer: unknown;
+  photographer_id: number | null;
   rsvp_url: string | null;
   ticket_url: string | null;
   external_ticket_url: string | null;
@@ -63,9 +64,12 @@ export default async function EditShowPage({ params }: { params: Promise<{ id: s
   // Resolve each photo's photographerId → name so the form can display the
   // credit next to each thumbnail (only ids are stored on the row).
   const photoEntries = normalizePhotosInput(row.photos);
-  const photoCredits = await getPhotographerCredits(
-    photoEntries.map((p) => p.photographerId).filter((n): n is number => n != null)
-  );
+  const photoCredits = await getPhotographerCredits([
+    ...photoEntries.map((p) => p.photographerId).filter((n): n is number => n != null),
+    ...(row.photographer_id != null ? [row.photographer_id] : []),
+  ]);
+  const assignedPhotographerName =
+    row.photographer_id != null ? photoCredits.get(row.photographer_id)?.name ?? null : null;
 
   const initialValues: ShowFormInitialValues = {
     id: row.id,
@@ -90,6 +94,8 @@ export default async function EditShowPage({ params }: { params: Promise<{ id: s
       photographerId: p.photographerId,
       photographerName: p.photographerId != null ? photoCredits.get(p.photographerId)?.name ?? null : null,
     })),
+    assignedPhotographerId: row.photographer_id,
+    assignedPhotographerName,
     photoFolder: row.photo_folder,
     photoCredit: row.photo_credit,
     content: row.content_markdown,

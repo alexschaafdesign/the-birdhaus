@@ -156,6 +156,14 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     updates.push({ column: 'photos', value: normalizePhotosInput(body.photos), json: true });
   }
 
+  if ('assignedPhotographerId' in body) {
+    const value =
+      typeof body.assignedPhotographerId === 'number' && Number.isFinite(body.assignedPhotographerId)
+        ? body.assignedPhotographerId
+        : null;
+    updates.push({ column: 'photographer_id', value, json: false });
+  }
+
   if ('photographer' in body) {
     updates.push({ column: 'photographer', value: normalizePhotographerInput(body.photographer), json: true });
   }
