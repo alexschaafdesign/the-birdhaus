@@ -12,7 +12,58 @@ export type ArchiveShowGroup = {
   bands: string[];
   flyer?: string;
   videos: ArchiveVideo[];
+  photos: string[];
 };
+
+const PHOTO_PREVIEW_LIMIT = 5;
+
+function PhotoStrip({ show }: { show: ArchiveShowGroup }) {
+  const preview = show.photos.slice(0, PHOTO_PREVIEW_LIMIT);
+  const total = show.photos.length;
+  const extra = total - preview.length;
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-3">
+        <p className="text-[#E8E0D0]/50 text-xs font-mono uppercase tracking-widest">
+          Photos
+        </p>
+        <Link
+          href={`/shows/${show.slug}#photos`}
+          className="text-xs text-[#E8E0D0]/60 hover:text-[#E8E0D0] transition-colors"
+        >
+          See all {total} →
+        </Link>
+      </div>
+      <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
+        {preview.map((url, i) => {
+          const isLast = i === preview.length - 1;
+          return (
+            <Link
+              key={`${url}-${i}`}
+              href={`/shows/${show.slug}#photos`}
+              className="group relative aspect-square rounded overflow-hidden bg-[#E8E0D0]/10"
+            >
+              <Image
+                src={url}
+                alt=""
+                fill
+                sizes="(min-width: 640px) 20vw, 33vw"
+                unoptimized
+                className="object-cover transition-opacity group-hover:opacity-80"
+              />
+              {isLast && extra > 0 && (
+                <span className="absolute inset-0 flex items-center justify-center bg-black/60 text-[#E8E0D0] text-sm font-medium">
+                  +{extra}
+                </span>
+              )}
+            </Link>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
 function VideoCard({ video }: { video: ArchiveVideo }) {
   const [playing, setPlaying] = useState(false);
@@ -83,10 +134,12 @@ export default function VideoArchive({ groups }: { groups: ArchiveShowGroup[] })
     <div className="space-y-6">
       {groups.map((show) => {
         const hasVideos = show.videos.length > 0;
+        const hasPhotos = show.photos.length > 0;
 
-        // Shows without videos still hold their place in the timeline, but render
-        // as a lighter row (flyer + header) instead of a video grid.
-        if (!hasVideos) {
+        // Shows with neither videos nor photos still hold their place in the
+        // timeline, but render as a lighter row (flyer + header) instead of a
+        // full media card.
+        if (!hasVideos && !hasPhotos) {
           return (
             <section key={show.slug}>
               <Link
@@ -131,11 +184,18 @@ export default function VideoArchive({ groups }: { groups: ArchiveShowGroup[] })
             <div className="mb-5 pb-3 border-b border-[#E8E0D0]/15">
               <ShowHeader show={show} />
             </div>
-            <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-              {show.videos.map((video, i) => (
-                <VideoCard key={`${video.youtube}-${i}`} video={video} />
-              ))}
-            </div>
+            {hasVideos && (
+              <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                {show.videos.map((video, i) => (
+                  <VideoCard key={`${video.youtube}-${i}`} video={video} />
+                ))}
+              </div>
+            )}
+            {hasPhotos && (
+              <div className={hasVideos ? 'mt-6 pt-5 border-t border-[#E8E0D0]/15' : ''}>
+                <PhotoStrip show={show} />
+              </div>
+            )}
           </section>
         );
       })}

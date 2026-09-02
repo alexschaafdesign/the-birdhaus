@@ -344,7 +344,7 @@ export default async function ShowPage({ params }: { params: Promise<{ slug: str
 
         {/* Photos */}
         {photosWithCredit.length > 0 && (
-          <div className="mb-12">
+          <div id="photos" className="mb-12 scroll-mt-24">
             <h2 className="text-2xl font-bold mb-2">Photos</h2>
             {uniformCredit ? (
               // Every photo is by the same photographer — one gallery-wide line
