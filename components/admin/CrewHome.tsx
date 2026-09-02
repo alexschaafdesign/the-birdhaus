@@ -1,4 +1,3 @@
-import { splitName } from '@/lib/name';
 import type { ClubMember } from '@/lib/club-members';
 import {
   getPhotographerByUserId,
@@ -13,7 +12,6 @@ import PhotographerDashboard from './PhotographerDashboard';
 // if their login is linked to a photographer profile. They still have the full
 // admin nav above — this just puts their job front and center.
 export default async function CrewHome({ member }: { member: ClubMember }) {
-  const firstName = splitName(member.name).firstName || member.name;
   const focus = member.focus_areas;
 
   // The photographer dashboard is driven by the photographers.user_id link, not
@@ -26,7 +24,7 @@ export default async function CrewHome({ member }: { member: ClubMember }) {
   return (
     <main className="mx-auto w-full max-w-3xl px-6 py-8 text-[#E8E0D0]">
       <header className="mb-8">
-        <h2 className="text-2xl font-semibold">Hey {firstName}</h2>
+        <h2 className="text-2xl font-semibold">{member.name}</h2>
         {member.title && <p className="mt-1 text-sm text-[#E8E0D0]/55">{member.title}</p>}
       </header>
 
