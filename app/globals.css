@@ -64,3 +64,13 @@ body {
 .hub-prose strong { font-weight: 700; color: #E8E0D0; }
 .hub-prose a { color: #c8a26a; text-decoration: underline; }
 .hub-prose hr { border: none; border-top: 1px solid rgba(232, 224, 208, 0.15); margin: 1.4em 0; }
+
+/* Let mobile users long-press a lightbox photo to save it. yet-another-react-
+   lightbox disables the iOS "Save Image" callout and text selection on slide
+   images (-webkit-touch-callout:none; user-select:none); re-enable them so the
+   native hold-to-save menu works on full-res gallery photos. */
+.yarl__slide_image {
+  -webkit-touch-callout: default !important;
+  -webkit-user-select: auto !important;
+  user-select: auto !important;
+}
