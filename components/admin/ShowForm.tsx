@@ -771,10 +771,28 @@ export default function ShowForm({
           {form.videos.length === 0 && <p className="text-xs text-[#E8E0D0]/30">No videos added yet.</p>}
         </div>
 
-        <div className="pt-4 border-t border-[#E8E0D0]/10">
+        <div className="pt-4 border-t border-[#E8E0D0]/10 space-y-3">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <label className="block text-xs uppercase tracking-wide text-[#E8E0D0]/40 mb-1">Photographer name</label>
+              <input
+                value={form.photographerName}
+                onChange={(e) => set('photographerName', e.target.value)}
+                className={`${inputClass} w-full`}
+              />
+            </div>
+            <div>
+              <label className="block text-xs uppercase tracking-wide text-[#E8E0D0]/40 mb-1">Photographer Instagram</label>
+              <input
+                value={form.photographerInstagram}
+                onChange={(e) => set('photographerInstagram', e.target.value)}
+                className={`${inputClass} w-full`}
+              />
+            </div>
+          </div>
           <div className="flex items-center justify-between mb-1">
             <label className="block text-xs uppercase tracking-wide text-[#E8E0D0]/40">
-              Photos — upload or paste URLs (one per line)
+              Photos
             </label>
             <button
               type="button"
@@ -799,12 +817,39 @@ export default function ShowForm({
               }}
             />
           </div>
-          <textarea
-            rows={4}
-            value={form.photosText}
-            onChange={(e) => set('photosText', e.target.value)}
-            className={`${inputClass} w-full resize-none font-mono`}
-          />
+          {(() => {
+            // photosText remains the source of truth (one URL per line); here we
+            // render it as a thumbnail grid instead of a raw textarea. Uploading
+            // is the only way to add — removing a thumbnail drops that line.
+            const urls = form.photosText.split('\n').map((u) => u.trim()).filter(Boolean);
+            if (urls.length === 0) {
+              return (
+                <p className="text-xs text-[#E8E0D0]/30">
+                  No photos yet — use “Upload photos” to add some.
+                </p>
+              );
+            }
+            return (
+              <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+                {urls.map((url, i) => (
+                  <div key={`${url}-${i}`} className="group relative aspect-square overflow-hidden rounded border border-[#E8E0D0]/10">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={url} alt="" className="h-full w-full object-cover" />
+                    <button
+                      type="button"
+                      onClick={() =>
+                        set('photosText', urls.filter((_, j) => j !== i).join('\n'))
+                      }
+                      aria-label="Remove photo"
+                      className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-[#2A2420]/80 text-[#E8E0D0] opacity-0 transition-opacity hover:bg-red-500/80 group-hover:opacity-100"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
         </div>
       </div>
     </Section>
@@ -1037,27 +1082,6 @@ export default function ShowForm({
             </div>
           ))}
           {form.bands.length === 0 && <p className="text-xs text-[#E8E0D0]/30">No bands added yet.</p>}
-        </div>
-      </Section>
-
-      <Section title="Photographer" collapsible>
-        <div className="grid gap-3 sm:grid-cols-2">
-        <div>
-          <label className="block text-xs uppercase tracking-wide text-[#E8E0D0]/40 mb-1">Photographer name</label>
-          <input
-            value={form.photographerName}
-            onChange={(e) => set('photographerName', e.target.value)}
-            className={`${inputClass} w-full`}
-          />
-        </div>
-        <div>
-          <label className="block text-xs uppercase tracking-wide text-[#E8E0D0]/40 mb-1">Photographer Instagram</label>
-          <input
-            value={form.photographerInstagram}
-            onChange={(e) => set('photographerInstagram', e.target.value)}
-            className={`${inputClass} w-full`}
-          />
-        </div>
         </div>
       </Section>
 
