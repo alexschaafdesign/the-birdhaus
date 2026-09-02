@@ -6,6 +6,7 @@ import Link from 'next/link';
 import BandNameInput, { type BandMatch, type TwinSceneBandOption } from './BandNameInput';
 import AddBandModal from './AddBandModal';
 import SoundEngineerNameInput, { type SoundEngineerMatch } from './SoundEngineerNameInput';
+import PhotographerNameInput, { type PhotographerMatch } from './PhotographerNameInput';
 import ImageUploadField from './ImageUploadField';
 import ShowDateAvailability from './ShowDateAvailability';
 import Section from './Section';
@@ -117,6 +118,13 @@ interface Audio {
   title: string;
 }
 
+// One gallery photo: its URL plus the registry photographer it's credited to
+// (null = uncredited). Mirrors lib/shows' ShowPhoto.
+interface PhotoEntry {
+  url: string;
+  photographerId: number | null;
+}
+
 // Sound-engineer statuses from the API, kept in sync with lib/sound-engineers.ts.
 type SoundEngineerStatus = 'confirmed' | 'asked' | 'declined';
 
@@ -153,7 +161,10 @@ export interface ShowFormInitialValues {
   rsvpForm?: boolean;
   videos?: Array<{ youtube: string; title: string; bandIds?: number[] }>;
   audio?: Array<{ bandcamp: string; title: string }>;
-  photos?: string[];
+  // Per-photo entries. photographerName is resolved server-side (from the
+  // registry) purely for display next to each thumbnail; only the id is saved.
+  // Legacy string[] rows are accepted and treated as uncredited.
+  photos?: Array<string | { url: string; photographerId?: number | null; photographerName?: string | null }>;
   photoFolder?: string | null;
   photoCredit?: string | null;
   content?: string;
@@ -176,8 +187,6 @@ interface FormState {
   flyer: string;
   bands: Band[];
   description: string;
-  photographerName: string;
-  photographerInstagram: string;
   doorPersonName: string;
   ticketUrl: string;
   externalTicketUrl: string;
@@ -186,7 +195,14 @@ interface FormState {
   rsvpForm: boolean;
   videos: Video[];
   audio: Audio[];
-  photosText: string;
+  // Gallery photos with their per-photo photographer credit (id only; name is
+  // cached separately for display). Uploading is the only way to add.
+  photos: PhotoEntry[];
+  // The photographer newly uploaded photos are credited to, and the target for
+  // click-to-recredit. Not persisted on its own — it just drives new entries.
+  activePhotographer: { id: number | null; name: string };
+  // id → display name cache for showing credits without a lookup per render.
+  photographerNames: Record<number, string>;
   photoFolder: string;
   photoCredit: string;
   content: string;
@@ -219,8 +235,6 @@ function initFormState(initial?: ShowFormInitialValues): FormState {
           }
     ),
     description: initial?.description ?? '',
-    photographerName: initial?.photographer?.name ?? '',
-    photographerInstagram: initial?.photographer?.instagram ?? '',
     doorPersonName: initial?.doorPersonName ?? '',
     ticketUrl: initial?.ticketUrl ?? '',
     externalTicketUrl: initial?.externalTicketUrl ?? '',
@@ -242,7 +256,18 @@ function initFormState(initial?: ShowFormInitialValues): FormState {
         .filter((idx) => idx >= 0),
     })),
     audio: initial?.audio ?? [],
-    photosText: (initial?.photos ?? []).join('\n'),
+    photos: (initial?.photos ?? []).map((p) =>
+      typeof p === 'string'
+        ? { url: p, photographerId: null }
+        : { url: p.url, photographerId: p.photographerId ?? null }
+    ),
+    activePhotographer: { id: null, name: '' },
+    photographerNames: (initial?.photos ?? []).reduce<Record<number, string>>((acc, p) => {
+      if (typeof p !== 'string' && p.photographerId != null && p.photographerName) {
+        acc[p.photographerId] = p.photographerName;
+      }
+      return acc;
+    }, {}),
     photoFolder: initial?.photoFolder ?? '',
     photoCredit: initial?.photoCredit ?? '',
     content: initial?.content ?? '',
@@ -474,10 +499,10 @@ export default function ShowForm({
     }));
   }
 
-  // Uploads one or more files and appends their URLs as new lines, rather
-  // than replacing the textarea's existing content like ImageUploadField's
-  // single-value fields do. Uploads sequentially (not Promise.all) so
-  // photosUploadProgress advances one at a time instead of jumping at the end.
+  // Uploads one or more files and appends them to the gallery, each credited to
+  // the currently-selected photographer (form.activePhotographer). Uploads
+  // sequentially (not Promise.all) so photosUploadProgress advances one at a
+  // time instead of jumping at the end.
   async function handlePhotosUpload(files: FileList | File[]) {
     setError(null);
     const fileArray = Array.from(files);
@@ -510,9 +535,10 @@ export default function ShowForm({
       }
       setForm((prev) => ({
         ...prev,
-        photosText: prev.photosText
-          ? `${prev.photosText}\n${uploadedUrls.join('\n')}`
-          : uploadedUrls.join('\n'),
+        photos: [
+          ...prev.photos,
+          ...uploadedUrls.map((url) => ({ url, photographerId: prev.activePhotographer.id })),
+        ],
       }));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Upload failed');
@@ -590,14 +616,11 @@ export default function ShowForm({
       flyer: form.flyer.trim(),
       bands: bandsPayload,
       description: form.description.trim(),
-      photographer: form.photographerName.trim()
-        ? {
-            name: form.photographerName.trim(),
-            ...(form.photographerInstagram.trim()
-              ? { instagram: form.photographerInstagram.trim() }
-              : {}),
-          }
-        : null,
+      // Per-photo photographer credit lives on each `photos` entry now (see
+      // below). The legacy show-level `photographer` field is intentionally not
+      // sent: on create it defaults to null, and on edit an omitted key leaves
+      // any existing legacy credit untouched (the public page prefers per-photo
+      // credits over it anyway).
       // Sent even when blank (empty string, not undefined) so clearing it on
       // edit actually persists — both show routes normalize blank to null.
       doorPersonName: form.doorPersonName.trim(),
@@ -621,10 +644,9 @@ export default function ShowForm({
           };
         }),
       audio: form.audio.filter((a) => a.bandcamp.trim() && a.title.trim()),
-      photos: form.photosText
-        .split('\n')
-        .map((line) => line.trim())
-        .filter(Boolean),
+      photos: form.photos
+        .map((p) => ({ url: p.url.trim(), photographerId: p.photographerId }))
+        .filter((p) => p.url),
       photoFolder: form.photoFolder.trim(),
       photoCredit: form.photoCredit.trim(),
       content: form.content,
@@ -772,23 +794,30 @@ export default function ShowForm({
         </div>
 
         <div className="pt-4 border-t border-[#E8E0D0]/10 space-y-3">
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div>
-              <label className="block text-xs uppercase tracking-wide text-[#E8E0D0]/40 mb-1">Photographer name</label>
-              <input
-                value={form.photographerName}
-                onChange={(e) => set('photographerName', e.target.value)}
-                className={`${inputClass} w-full`}
-              />
-            </div>
-            <div>
-              <label className="block text-xs uppercase tracking-wide text-[#E8E0D0]/40 mb-1">Photographer Instagram</label>
-              <input
-                value={form.photographerInstagram}
-                onChange={(e) => set('photographerInstagram', e.target.value)}
-                className={`${inputClass} w-full`}
-              />
-            </div>
+          <div>
+            <label className="block text-xs uppercase tracking-wide text-[#E8E0D0]/40 mb-1">
+              Photographer for these photos
+            </label>
+            <PhotographerNameInput
+              value={form.activePhotographer.name}
+              onChange={(value) =>
+                setForm((prev) => ({ ...prev, activePhotographer: { id: null, name: value } }))
+              }
+              onSelect={(match: PhotographerMatch) =>
+                setForm((prev) => ({
+                  ...prev,
+                  activePhotographer: { id: match.id, name: match.name },
+                  photographerNames: { ...prev.photographerNames, [match.id]: match.name },
+                }))
+              }
+              placeholder="Choose or add a photographer…"
+              className={`${inputClass} w-full sm:max-w-sm`}
+            />
+            <p className="mt-1 text-xs text-[#E8E0D0]/40 max-w-prose">
+              Photos you upload are credited to this photographer (pulled from the Photographers
+              registry). Shooting a gallery with more than one? Upload each person&apos;s batch
+              under their name — or switch the name here and click a photo below to re-credit it.
+            </p>
           </div>
           <div className="flex items-center justify-between mb-1">
             <label className="block text-xs uppercase tracking-wide text-[#E8E0D0]/40">
@@ -817,39 +846,60 @@ export default function ShowForm({
               }}
             />
           </div>
-          {(() => {
-            // photosText remains the source of truth (one URL per line); here we
-            // render it as a thumbnail grid instead of a raw textarea. Uploading
-            // is the only way to add — removing a thumbnail drops that line.
-            const urls = form.photosText.split('\n').map((u) => u.trim()).filter(Boolean);
-            if (urls.length === 0) {
-              return (
-                <p className="text-xs text-[#E8E0D0]/30">
-                  No photos yet — use “Upload photos” to add some.
-                </p>
-              );
-            }
-            return (
-              <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
-                {urls.map((url, i) => (
-                  <div key={`${url}-${i}`} className="group relative aspect-square overflow-hidden rounded border border-[#E8E0D0]/10">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={url} alt="" className="h-full w-full object-cover" />
+          {form.photos.length === 0 ? (
+            <p className="text-xs text-[#E8E0D0]/30">
+              No photos yet — choose a photographer above, then use “Upload photos”.
+            </p>
+          ) : (
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+              {form.photos.map((photo, i) => {
+                const creditName =
+                  photo.photographerId != null ? form.photographerNames[photo.photographerId] : null;
+                return (
+                  <div
+                    key={`${photo.url}-${i}`}
+                    className="group relative overflow-hidden rounded border border-[#E8E0D0]/10"
+                  >
+                    <div className="relative aspect-square">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={photo.url} alt="" className="h-full w-full object-cover" />
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setForm((prev) => ({
+                            ...prev,
+                            photos: prev.photos.filter((_, j) => j !== i),
+                          }))
+                        }
+                        aria-label="Remove photo"
+                        className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-[#2A2420]/80 text-[#E8E0D0] opacity-0 transition-opacity hover:bg-red-500/80 group-hover:opacity-100"
+                      >
+                        ×
+                      </button>
+                    </div>
                     <button
                       type="button"
                       onClick={() =>
-                        set('photosText', urls.filter((_, j) => j !== i).join('\n'))
+                        setForm((prev) => {
+                          const photos = [...prev.photos];
+                          photos[i] = { ...photos[i], photographerId: prev.activePhotographer.id };
+                          return { ...prev, photos };
+                        })
                       }
-                      aria-label="Remove photo"
-                      className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-[#2A2420]/80 text-[#E8E0D0] opacity-0 transition-opacity hover:bg-red-500/80 group-hover:opacity-100"
+                      title="Credit this photo to the photographer selected above"
+                      className="block w-full truncate px-2 py-1 text-left text-[11px] hover:bg-[#E8E0D0]/10"
                     >
-                      ×
+                      {creditName ? (
+                        <span className="text-[#E8E0D0]/70">📷 {creditName}</span>
+                      ) : (
+                        <span className="text-[#E8E0D0]/35">Uncredited — click to credit</span>
+                      )}
                     </button>
                   </div>
-                ))}
-              </div>
-            );
-          })()}
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
     </Section>

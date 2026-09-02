@@ -1,5 +1,6 @@
 import { getShowBySlug, getAllShows, getTicketAvailability } from '@/lib/shows';
 import { getPhotosFromFolder } from '@/lib/cloudinary';
+import { getPhotographerCredits } from '@/lib/photographers';
 import { getAllBands } from '@/lib/bands';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
@@ -69,6 +70,26 @@ export default async function ShowPage({ params }: { params: Promise<{ slug: str
   const galleryPhotos = show.photoFolder
     ? await getPhotosFromFolder(show.photoFolder)
     : [];
+
+  // Resolve each uploaded photo's photographerId → name/instagram for per-photo
+  // credit in the lightbox. Also derive a single gallery-wide credit when every
+  // photo shares one photographer (the common case), falling back to the legacy
+  // show-level `show.photographer` only when there are no per-photo credits.
+  const showPhotos = show.photos ?? [];
+  const photoCredits = await getPhotographerCredits(
+    showPhotos.map((p) => p.photographerId).filter((n): n is number => n != null)
+  );
+  const photosWithCredit = showPhotos.map((p) => ({
+    url: p.url,
+    credit: p.photographerId != null ? photoCredits.get(p.photographerId) ?? null : null,
+  }));
+  const creditedIds = new Set(
+    showPhotos.map((p) => p.photographerId).filter((n): n is number => n != null)
+  );
+  const uniformCredit =
+    creditedIds.size === 1 && showPhotos.every((p) => p.photographerId != null)
+      ? photoCredits.get([...creditedIds][0]) ?? null
+      : null;
   // Per-show band entries can override name/bio/photo/instagram, but almost
   // never do in practice — the band's own profile (curated centrally via
   // /admin/bands) is where this actually gets filled in. Fall back to that.
@@ -309,10 +330,29 @@ export default async function ShowPage({ params }: { params: Promise<{ slug: str
         )}
 
         {/* Photos */}
-        {show.photos && show.photos.length > 0 && (
+        {photosWithCredit.length > 0 && (
           <div className="mb-12">
             <h2 className="text-2xl font-bold mb-2">Photos</h2>
-            {show.photographer && (
+            {uniformCredit ? (
+              // Every photo is by the same photographer — one gallery-wide line.
+              <p className="text-sm text-[#E8E0D0]/70 mb-6">
+                Photos by{' '}
+                {uniformCredit.instagram ? (
+                  <a
+                    href={uniformCredit.instagram}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="hover:text-[#E8E0D0] underline"
+                  >
+                    {uniformCredit.name}
+                  </a>
+                ) : (
+                  uniformCredit.name
+                )}
+              </p>
+            ) : creditedIds.size === 0 && show.photographer ? (
+              // No per-photo credits (legacy show) — fall back to the old
+              // show-level photographer field.
               <p className="text-sm text-[#E8E0D0]/70 mb-6">
                 Photos by{' '}
                 {typeof show.photographer === 'string' ? (
@@ -330,8 +370,9 @@ export default async function ShowPage({ params }: { params: Promise<{ slug: str
                   show.photographer.name
                 )}
               </p>
-            )}
-            <PhotoGallery photos={show.photos} showTitle={show.title} />
+            ) : null}
+            {/* Mixed credits (more than one photographer) show per-photo in the lightbox. */}
+            <PhotoGallery photos={photosWithCredit} showTitle={show.title} />
           </div>
         )}
 

@@ -17,6 +17,28 @@ export async function getAllPhotographers(): Promise<Photographer[]> {
   return rows.map((r) => ({ id: Number(r.id), name: r.name }));
 }
 
+// Minimal credit info for resolving per-photo photographer references
+// (Show['photos'][].photographerId → name + instagram) when displaying a
+// gallery. Returned as a Map keyed by id for O(1) lookup by callers.
+export interface PhotographerCredit {
+  id: number;
+  name: string;
+  instagram: string | null;
+}
+
+export async function getPhotographerCredits(
+  ids: number[]
+): Promise<Map<number, PhotographerCredit>> {
+  const unique = [...new Set(ids.filter((n) => Number.isFinite(n)))];
+  if (unique.length === 0) return new Map();
+  const rows = await sql<Array<{ id: number; name: string; instagram: string | null }>>`
+    select id, name, instagram from photographers where id = any(${unique})
+  `;
+  return new Map(
+    rows.map((r) => [Number(r.id), { id: Number(r.id), name: r.name, instagram: r.instagram }])
+  );
+}
+
 export interface PhotographerProfile {
   id: number;
   name: string;

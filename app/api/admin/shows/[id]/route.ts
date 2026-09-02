@@ -6,7 +6,7 @@ import {
   isValidBandsInput,
   isValidVideosInput,
   isValidAudioInput,
-  isValidPhotosInput,
+  normalizePhotosInput,
   isValidIgnoredHealthChecksInput,
   normalizePhotographerInput,
   normalizeBandIds,
@@ -153,10 +153,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   }
 
   if ('photos' in body) {
-    if (!isValidPhotosInput(body.photos)) {
-      return NextResponse.json({ error: 'Invalid photos' }, { status: 400 });
-    }
-    updates.push({ column: 'photos', value: body.photos, json: true });
+    updates.push({ column: 'photos', value: normalizePhotosInput(body.photos), json: true });
   }
 
   if ('photographer' in body) {

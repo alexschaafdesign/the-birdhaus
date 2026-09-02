@@ -2,6 +2,18 @@ import { remark } from 'remark';
 import html from 'remark-html';
 import { sql } from './db';
 
+// One entry in a show's photo gallery. `photographerId` references the
+// photographers registry (050_photographers.sql); null means uncredited.
+// Stored in the `photos` jsonb column — legacy rows hold bare URL strings and
+// are normalized to this shape on read (see normalizePhotosInput).
+// A type alias (not an interface) so it satisfies the DB layer's JSONValue
+// constraint when written to the `photos` jsonb column — interfaces lack the
+// implicit index signature that structural check requires.
+export type ShowPhoto = {
+  url: string;
+  photographerId: number | null;
+};
+
 export interface Show {
   id: number;
   slug: string;
@@ -19,7 +31,7 @@ export interface Show {
   rsvpForm?: boolean;
   videos: Array<{ youtube: string; title: string; bandIds?: number[] }>;
   audio?: Array<{ bandcamp: string; title: string }>;
-  photos?: string[];
+  photos?: ShowPhoto[];
   photoFolder?: string;
   photoCredit?: string;
   content: string;
@@ -99,7 +111,7 @@ async function rowToShow(row: ShowRow, renderContent = false): Promise<Show> {
     rsvpForm: row.rsvp_form,
     videos: (row.videos as Show['videos']) ?? [],
     audio: (row.audio as Show['audio']) ?? [],
-    photos: (row.photos as string[]) ?? [],
+    photos: normalizePhotosInput(row.photos),
     photoFolder: row.photo_folder ?? undefined,
     photoCredit: row.photo_credit ?? undefined,
     content: renderContent ? await renderMarkdown(row.content_markdown) : '',
@@ -351,8 +363,30 @@ export function isValidAudioInput(input: unknown): input is NonNullable<Show['au
   );
 }
 
-export function isValidPhotosInput(input: unknown): input is string[] {
-  return Array.isArray(input) && input.every((photo) => typeof photo === 'string');
+// Normalizes an incoming photos value into the ShowPhoto[] shape stored in the
+// `photos` jsonb column. Accepts both the legacy `string[]` form (bare URLs,
+// mapped to uncredited entries) and the current `[{ url, photographerId }]`
+// form. Entries missing a usable url are dropped rather than rejected, and a
+// non-numeric photographerId falls back to null (uncredited). Used on both the
+// write path (validating admin input) and the read path (rowToShow).
+export function normalizePhotosInput(input: unknown): ShowPhoto[] {
+  if (!Array.isArray(input)) return [];
+  const out: ShowPhoto[] = [];
+  for (const entry of input) {
+    if (typeof entry === 'string') {
+      const url = entry.trim();
+      if (url) out.push({ url, photographerId: null });
+    } else if (entry && typeof entry === 'object') {
+      const obj = entry as Record<string, unknown>;
+      const url = typeof obj.url === 'string' ? obj.url.trim() : '';
+      if (!url) continue;
+      const pid = obj.photographerId;
+      const photographerId =
+        typeof pid === 'number' && Number.isFinite(pid) ? pid : null;
+      out.push({ url, photographerId });
+    }
+  }
+  return out;
 }
 
 export function isValidIgnoredHealthChecksInput(input: unknown): input is string[] {

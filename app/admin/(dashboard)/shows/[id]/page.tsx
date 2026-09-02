@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation';
 import { sql } from '@/lib/db';
-import { bandsJoinFragment, videosJoinFragment } from '@/lib/shows';
+import { bandsJoinFragment, videosJoinFragment, normalizePhotosInput } from '@/lib/shows';
+import { getPhotographerCredits } from '@/lib/photographers';
 import { soundEngineersJoinFragment, type ShowSoundEngineer } from '@/lib/sound-engineers';
 import { getOrCreateShareToken } from '@/lib/share-token';
 import { SITE_URL } from '@/lib/site';
@@ -59,6 +60,13 @@ export default async function EditShowPage({ params }: { params: Promise<{ id: s
     order by amount_cents
   `;
 
+  // Resolve each photo's photographerId → name so the form can display the
+  // credit next to each thumbnail (only ids are stored on the row).
+  const photoEntries = normalizePhotosInput(row.photos);
+  const photoCredits = await getPhotographerCredits(
+    photoEntries.map((p) => p.photographerId).filter((n): n is number => n != null)
+  );
+
   const initialValues: ShowFormInitialValues = {
     id: row.id,
     slug: row.slug,
@@ -77,7 +85,11 @@ export default async function EditShowPage({ params }: { params: Promise<{ id: s
     rsvpForm: row.rsvp_form,
     videos: (row.videos as ShowFormInitialValues['videos']) ?? [],
     audio: (row.audio as ShowFormInitialValues['audio']) ?? [],
-    photos: (row.photos as string[]) ?? [],
+    photos: photoEntries.map((p) => ({
+      url: p.url,
+      photographerId: p.photographerId,
+      photographerName: p.photographerId != null ? photoCredits.get(p.photographerId)?.name ?? null : null,
+    })),
     photoFolder: row.photo_folder,
     photoCredit: row.photo_credit,
     content: row.content_markdown,

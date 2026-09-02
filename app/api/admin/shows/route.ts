@@ -6,7 +6,7 @@ import {
   isValidBandsInput,
   isValidVideosInput,
   isValidAudioInput,
-  isValidPhotosInput,
+  normalizePhotosInput,
   normalizePhotographerInput,
   normalizeBandIds,
   normalizeTargetBandCount,
@@ -77,10 +77,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Invalid audio' }, { status: 400 });
   }
 
-  const photos = body?.photos === undefined ? [] : body.photos;
-  if (!isValidPhotosInput(photos)) {
-    return NextResponse.json({ error: 'Invalid photos' }, { status: 400 });
-  }
+  const photos = normalizePhotosInput(body?.photos);
 
   const soundEngineers = body?.soundEngineers ?? [];
   if (!isValidSoundEngineersInput(soundEngineers)) {
