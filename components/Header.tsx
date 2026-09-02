@@ -2,9 +2,13 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { cloudinaryTransform } from '@/lib/cloudinary-url';
+
+// Minimal current-user summary the header fetches from /api/club/me. `undefined`
+// while loading (render nothing to avoid a flash), `null` when logged out.
+type HeaderMe = { name: string; firstName: string; avatarUrl: string | null; canAdmin: boolean };
 
 const LOGO_URL = cloudinaryTransform(
   'https://res.cloudinary.com/defdv9zw7/image/upload/v1780325979/Horiz_mkva70.png',
@@ -37,8 +41,14 @@ const navItems: NavItem[] = [
 
 export default function Header() {
   const pathname = usePathname();
+  const router = useRouter();
   const [openDropdown, setOpenDropdown] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Auth area (top-right): who's logged in, plus its own little dropdown.
+  const [me, setMe] = useState<HeaderMe | null | undefined>(undefined);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const userMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!openDropdown) return;
@@ -51,6 +61,42 @@ export default function Header() {
     return () => document.removeEventListener('click', handleClick);
   }, [openDropdown]);
 
+  // Load the current user once per mount. Best-effort — a failure just leaves
+  // the Log in button showing.
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/club/me', { cache: 'no-store' })
+      .then((res) => (res.ok ? res.json() : { member: null }))
+      .then((data) => {
+        if (!cancelled) setMe(data?.member ?? null);
+      })
+      .catch(() => {
+        if (!cancelled) setMe(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!userMenuOpen) return;
+    const handleClick = (e: MouseEvent) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
+        setUserMenuOpen(false);
+      }
+    };
+    document.addEventListener('click', handleClick);
+    return () => document.removeEventListener('click', handleClick);
+  }, [userMenuOpen]);
+
+  async function handleLogout() {
+    await fetch('/api/club/logout', { method: 'POST' }).catch(() => {});
+    setMe(null);
+    setUserMenuOpen(false);
+    router.push('/');
+    router.refresh();
+  }
+
   // The door check-in kiosk and the in-venue TV are standalone full-screen
   // views — no site chrome.
   if (pathname.startsWith('/door') || pathname.startsWith('/tv')) return null;
@@ -58,8 +104,72 @@ export default function Header() {
   const linkClass = (isActive: boolean) =>
     `block w-full text-center rounded border border-[#E8E0D0]/30 px-4 py-3 transition-colors hover:border-[#E8E0D0] hover:bg-[#E8E0D0]/5 md:w-auto md:rounded-none md:border-0 md:p-0 md:hover:bg-transparent md:hover:underline${isActive ? ' bg-[#E8E0D0]/10 font-semibold md:bg-transparent' : ''}`;
 
+  const initial = me ? me.firstName.charAt(0).toUpperCase() || '?' : '?';
+  // The admin dashboard has its own nav + logout (AdminNav/LogoutButton), so
+  // skip the header's auth area there to avoid a duplicate account menu.
+  const showAuth = !pathname.startsWith('/admin');
+
   return (
-    <header className="pt-12 pb-8 px-8">
+    <header className="relative pt-12 pb-8 px-8">
+      <div className="absolute right-4 top-4 sm:right-8 sm:top-6">
+        {!showAuth || me === undefined ? null : me === null ? (
+          <Link
+            href="/login"
+            className="rounded border border-[#E8E0D0]/30 px-3 py-1.5 text-sm transition-colors hover:border-[#E8E0D0] hover:bg-[#E8E0D0]/5"
+          >
+            Log in
+          </Link>
+        ) : (
+          <div className="relative" ref={userMenuRef}>
+            <button
+              type="button"
+              onClick={() => setUserMenuOpen((open) => !open)}
+              aria-expanded={userMenuOpen}
+              aria-label="Account menu"
+              className="flex items-center gap-2 rounded-full border border-[#E8E0D0]/30 py-1 pl-1 pr-3 text-sm transition-colors hover:border-[#E8E0D0] hover:bg-[#E8E0D0]/5"
+            >
+              {me.avatarUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={me.avatarUrl} alt="" className="h-7 w-7 rounded-full object-cover" />
+              ) : (
+                <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#E8E0D0]/15 text-xs">
+                  {initial}
+                </span>
+              )}
+              <span className="hidden sm:inline">{me.firstName}</span>
+            </button>
+            {userMenuOpen && (
+              <div className="absolute right-0 top-full z-40 pt-2">
+                <div className="min-w-[10rem] whitespace-nowrap rounded-lg border border-[#E8E0D0]/20 bg-[#3A322B] py-1.5 shadow-[0_12px_24px_-8px_rgba(0,0,0,0.7)]">
+                  {me.canAdmin && (
+                    <Link
+                      href="/admin"
+                      className="block px-4 py-2 text-left text-sm hover:bg-[#E8E0D0]/10"
+                      onClick={() => setUserMenuOpen(false)}
+                    >
+                      Dashboard
+                    </Link>
+                  )}
+                  <Link
+                    href="/account"
+                    className="block px-4 py-2 text-left text-sm hover:bg-[#E8E0D0]/10"
+                    onClick={() => setUserMenuOpen(false)}
+                  >
+                    Account settings
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={handleLogout}
+                    className="block w-full px-4 py-2 text-left text-sm hover:bg-[#E8E0D0]/10"
+                  >
+                    Log out
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
       <div className="flex flex-col items-center justify-center gap-4 mb-4">
         <Link href="/">
           <Image
