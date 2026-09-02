@@ -698,6 +698,118 @@ export default function ShowForm({
     }
   }
 
+  // Combined Videos / Photos card. Rendered in one of two spots depending on
+  // whether the show is in the past: for past shows it moves up directly under
+  // Show details and opens by default (the gallery is the main post-show task);
+  // for upcoming shows it stays lower down and collapsed. Defined as a helper so
+  // the markup lives in exactly one place regardless of position.
+  const videosPhotosSection = (defaultOpen: boolean) => (
+    <Section
+      title="Videos / Photos"
+      collapsible
+      defaultOpen={defaultOpen}
+      action={
+        <button type="button" onClick={addVideo} className="text-xs border border-[#E8E0D0]/30 rounded px-2 py-1 hover:bg-[#E8E0D0]/10">
+          + add video
+        </button>
+      }
+    >
+      <div className="space-y-5">
+        <div className="space-y-2">
+          {form.videos.map((video, index) => (
+            <div key={index} className="border border-[#E8E0D0]/10 rounded p-3 space-y-2">
+              <div className="grid gap-2 sm:grid-cols-[1fr_1fr_auto] items-start">
+                <input
+                  placeholder="YouTube URL or video ID"
+                  value={video.youtube}
+                  onChange={(e) => updateVideo(index, 'youtube', e.target.value)}
+                  onBlur={(e) => updateVideo(index, 'youtube', extractYoutubeId(e.target.value))}
+                  className={`${inputClass} w-full`}
+                />
+                <input
+                  placeholder="Title"
+                  value={video.title}
+                  onChange={(e) => updateVideo(index, 'title', e.target.value)}
+                  className={`${inputClass} w-full`}
+                />
+                <button
+                  type="button"
+                  onClick={() => removeVideo(index)}
+                  className="text-red-400/70 hover:text-red-400 text-sm px-2"
+                >
+                  Remove
+                </button>
+              </div>
+              {form.bands.length > 0 && (
+                <div>
+                  <p className="text-xs text-[#E8E0D0]/40 mb-1.5">
+                    Which band(s) is this a video of? (optional)
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {form.bands.map((band, bandIdx) => {
+                      const selected = video.bandIndexes.includes(bandIdx);
+                      return (
+                        <button
+                          key={bandIdx}
+                          type="button"
+                          onClick={() => toggleVideoBand(index, bandIdx)}
+                          className={
+                            selected
+                              ? 'text-xs rounded-full px-2.5 py-1 border border-[#E8E0D0] bg-[#E8E0D0] text-[#2A2420]'
+                              : 'text-xs rounded-full px-2.5 py-1 border border-[#E8E0D0]/30 text-[#E8E0D0]/70 hover:border-[#E8E0D0]/60'
+                          }
+                        >
+                          {band.name || `Band ${bandIdx + 1}`}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
+          {form.videos.length === 0 && <p className="text-xs text-[#E8E0D0]/30">No videos added yet.</p>}
+        </div>
+
+        <div className="pt-4 border-t border-[#E8E0D0]/10">
+          <div className="flex items-center justify-between mb-1">
+            <label className="block text-xs uppercase tracking-wide text-[#E8E0D0]/40">
+              Photos — upload or paste URLs (one per line)
+            </label>
+            <button
+              type="button"
+              onClick={() => photosFileInputRef.current?.click()}
+              disabled={photosUploading}
+              className="text-xs border border-[#E8E0D0]/30 rounded px-2 py-1 hover:bg-[#E8E0D0]/10 disabled:opacity-50"
+            >
+              {photosUploadProgress
+                ? `Uploading ${photosUploadProgress.done}/${photosUploadProgress.total}...`
+                : '+ Upload photos'}
+            </button>
+            <input
+              ref={photosFileInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              className="hidden"
+              onChange={(e) => {
+                const files = e.target.files;
+                if (files && files.length > 0) handlePhotosUpload(files);
+                e.target.value = '';
+              }}
+            />
+          </div>
+          <textarea
+            rows={4}
+            value={form.photosText}
+            onChange={(e) => set('photosText', e.target.value)}
+            className={`${inputClass} w-full resize-none font-mono`}
+          />
+        </div>
+      </div>
+    </Section>
+  );
+
   return (
     <>
     {addBandModal && (
@@ -837,6 +949,10 @@ export default function ShowForm({
         </div>
       </div>
       </Section>
+
+      {/* For past shows the gallery is the priority, so surface it right here,
+          expanded. Upcoming shows render it lower down, collapsed. */}
+      {isPastShow && videosPhotosSection(true)}
 
       {!isPastShow && <ShowDateAvailability date={form.date} />}
 
@@ -1159,71 +1275,7 @@ export default function ShowForm({
         </Section>
       )}
 
-      <Section
-        title="Videos"
-        collapsible
-        action={
-          <button type="button" onClick={addVideo} className="text-xs border border-[#E8E0D0]/30 rounded px-2 py-1 hover:bg-[#E8E0D0]/10">
-            + add video
-          </button>
-        }
-      >
-        <div className="space-y-2">
-          {form.videos.map((video, index) => (
-            <div key={index} className="border border-[#E8E0D0]/10 rounded p-3 space-y-2">
-              <div className="grid gap-2 sm:grid-cols-[1fr_1fr_auto] items-start">
-                <input
-                  placeholder="YouTube URL or video ID"
-                  value={video.youtube}
-                  onChange={(e) => updateVideo(index, 'youtube', e.target.value)}
-                  onBlur={(e) => updateVideo(index, 'youtube', extractYoutubeId(e.target.value))}
-                  className={`${inputClass} w-full`}
-                />
-                <input
-                  placeholder="Title"
-                  value={video.title}
-                  onChange={(e) => updateVideo(index, 'title', e.target.value)}
-                  className={`${inputClass} w-full`}
-                />
-                <button
-                  type="button"
-                  onClick={() => removeVideo(index)}
-                  className="text-red-400/70 hover:text-red-400 text-sm px-2"
-                >
-                  Remove
-                </button>
-              </div>
-              {form.bands.length > 0 && (
-                <div>
-                  <p className="text-xs text-[#E8E0D0]/40 mb-1.5">
-                    Which band(s) is this a video of? (optional)
-                  </p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {form.bands.map((band, bandIdx) => {
-                      const selected = video.bandIndexes.includes(bandIdx);
-                      return (
-                        <button
-                          key={bandIdx}
-                          type="button"
-                          onClick={() => toggleVideoBand(index, bandIdx)}
-                          className={
-                            selected
-                              ? 'text-xs rounded-full px-2.5 py-1 border border-[#E8E0D0] bg-[#E8E0D0] text-[#2A2420]'
-                              : 'text-xs rounded-full px-2.5 py-1 border border-[#E8E0D0]/30 text-[#E8E0D0]/70 hover:border-[#E8E0D0]/60'
-                          }
-                        >
-                          {band.name || `Band ${bandIdx + 1}`}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-            </div>
-          ))}
-          {form.videos.length === 0 && <p className="text-xs text-[#E8E0D0]/30">No videos added yet.</p>}
-        </div>
-      </Section>
+      {!isPastShow && videosPhotosSection(false)}
 
       <Section
         title="Audio"
@@ -1267,41 +1319,6 @@ export default function ShowForm({
           Advanced (Cloudinary gallery · page content)
         </summary>
         <div className="mt-3 space-y-3">
-          <div>
-            <div className="flex items-center justify-between mb-1">
-              <label className="block text-xs uppercase tracking-wide text-[#E8E0D0]/40">
-                Photo URLs (one per line)
-              </label>
-              <button
-                type="button"
-                onClick={() => photosFileInputRef.current?.click()}
-                disabled={photosUploading}
-                className="text-xs border border-[#E8E0D0]/30 rounded px-2 py-1 hover:bg-[#E8E0D0]/10 disabled:opacity-50"
-              >
-                {photosUploadProgress
-                  ? `Uploading ${photosUploadProgress.done}/${photosUploadProgress.total}...`
-                  : '+ Upload photos'}
-              </button>
-              <input
-                ref={photosFileInputRef}
-                type="file"
-                accept="image/*"
-                multiple
-                className="hidden"
-                onChange={(e) => {
-                  const files = e.target.files;
-                  if (files && files.length > 0) handlePhotosUpload(files);
-                  e.target.value = '';
-                }}
-              />
-            </div>
-            <textarea
-              rows={4}
-              value={form.photosText}
-              onChange={(e) => set('photosText', e.target.value)}
-              className={`${inputClass} w-full resize-none font-mono`}
-            />
-          </div>
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
               <label className="block text-xs uppercase tracking-wide text-[#E8E0D0]/40 mb-1">
