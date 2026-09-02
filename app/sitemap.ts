@@ -1,6 +1,7 @@
 import type { MetadataRoute } from 'next';
 import { getAllShows, getTodayCentral } from '@/lib/shows';
 import { getAllBands } from '@/lib/bands';
+import { getPublicPhotographers, photographerSlug } from '@/lib/photographers';
 import { SITE_URL } from '@/lib/site';
 
 export const dynamic = 'force-dynamic';
@@ -14,7 +15,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   }));
 
   const today = getTodayCentral();
-  const [shows, bands] = await Promise.all([getAllShows(), getAllBands()]);
+  const [shows, bands, photographers] = await Promise.all([
+    getAllShows(),
+    getAllBands(),
+    getPublicPhotographers(),
+  ]);
 
   // Only public show pages: past shows (already happened) and announced upcoming.
   const showEntries: MetadataRoute.Sitemap = shows
@@ -31,5 +36,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.5,
   }));
 
-  return [...staticEntries, ...showEntries, ...bandEntries];
+  const photographerEntries: MetadataRoute.Sitemap = photographers.map((photographer) => ({
+    url: `${SITE_URL}/photos/${photographerSlug(photographer.name)}`,
+    changeFrequency: 'monthly',
+    priority: 0.5,
+  }));
+
+  return [...staticEntries, ...showEntries, ...bandEntries, ...photographerEntries];
 }

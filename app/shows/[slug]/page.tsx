@@ -1,6 +1,6 @@
-import { getShowBySlug, getAllShows, getTicketAvailability } from '@/lib/shows';
+import { getShowBySlug, getAllShows, getTicketAvailability, slugify } from '@/lib/shows';
 import { getPhotosFromFolder } from '@/lib/cloudinary';
-import { getPhotographerCredits } from '@/lib/photographers';
+import { getPhotographerCredits, getPhotographerProfileBySlug } from '@/lib/photographers';
 import { getAllBands } from '@/lib/bands';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
@@ -90,6 +90,19 @@ export default async function ShowPage({ params }: { params: Promise<{ slug: str
     creditedIds.size === 1 && showPhotos.every((p) => p.photographerId != null)
       ? photoCredits.get([...creditedIds][0]) ?? null
       : null;
+  // Legacy galleries (no per-photo ids) fall back to the show-level photographer
+  // name. Link it to that photographer's profile page when they're in the
+  // registry; otherwise render plain text (never the stored instagram value as
+  // an href — it may be malformed and 404 relative to /shows/).
+  const legacyName =
+    creditedIds.size === 0
+      ? typeof show.photographer === 'string'
+        ? show.photographer
+        : show.photographer?.name ?? null
+      : null;
+  const legacyProfile = legacyName
+    ? await getPhotographerProfileBySlug(slugify(legacyName))
+    : null;
   // Per-show band entries can override name/bio/photo/instagram, but almost
   // never do in practice — the band's own profile (curated centrally via
   // /admin/bands) is where this actually gets filled in. Fall back to that.
@@ -334,40 +347,32 @@ export default async function ShowPage({ params }: { params: Promise<{ slug: str
           <div className="mb-12">
             <h2 className="text-2xl font-bold mb-2">Photos</h2>
             {uniformCredit ? (
-              // Every photo is by the same photographer — one gallery-wide line.
+              // Every photo is by the same photographer — one gallery-wide line
+              // linking to their Birdhaus profile page (which carries their IG).
               <p className="text-sm text-[#E8E0D0]/70 mb-6">
                 Photos by{' '}
-                {uniformCredit.instagram ? (
-                  <a
-                    href={uniformCredit.instagram}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="hover:text-[#E8E0D0] underline"
-                  >
-                    {uniformCredit.name}
-                  </a>
-                ) : (
-                  uniformCredit.name
-                )}
+                <Link
+                  href={`/photos/${slugify(uniformCredit.name)}`}
+                  className="hover:text-[#E8E0D0] underline"
+                >
+                  {uniformCredit.name}
+                </Link>
               </p>
-            ) : creditedIds.size === 0 && show.photographer ? (
-              // No per-photo credits (legacy show) — fall back to the old
-              // show-level photographer field.
+            ) : legacyName ? (
+              // No per-photo credits (legacy show) — fall back to the show-level
+              // photographer name, linked to their profile if they're in the
+              // registry.
               <p className="text-sm text-[#E8E0D0]/70 mb-6">
                 Photos by{' '}
-                {typeof show.photographer === 'string' ? (
-                  show.photographer
-                ) : show.photographer.instagram ? (
-                  <a
-                    href={show.photographer.instagram}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                {legacyProfile ? (
+                  <Link
+                    href={`/photos/${slugify(legacyName)}`}
                     className="hover:text-[#E8E0D0] underline"
                   >
-                    {show.photographer.name}
-                  </a>
+                    {legacyName}
+                  </Link>
                 ) : (
-                  show.photographer.name
+                  legacyName
                 )}
               </p>
             ) : null}
