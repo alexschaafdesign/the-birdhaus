@@ -26,7 +26,7 @@ export default async function EditPhotographerPage({ params }: { params: Promise
 
   return (
     <main className="max-w-2xl mx-auto px-6 pb-16 pt-6">
-      <div className="mb-4">
+      <div className="mb-4 flex flex-wrap gap-4">
         <Link
           href={`/photos/${photographerSlug(photographer.name)}`}
           target="_blank"
@@ -34,6 +34,14 @@ export default async function EditPhotographerPage({ params }: { params: Promise
         >
           View public profile ↗
         </Link>
+        {photographer.userId != null && (
+          <Link
+            href={`/admin/crew/${photographer.userId}/preview`}
+            className="text-sm text-[#E8E0D0]/60 underline decoration-dotted underline-offset-2 hover:text-[#E8E0D0]"
+          >
+            Preview their dashboard
+          </Link>
+        )}
       </div>
       <PhotographerForm
         mode="edit"

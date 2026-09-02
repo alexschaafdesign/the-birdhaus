@@ -11,7 +11,15 @@ import PhotographerDashboard from './PhotographerDashboard';
 // renders a widget for each assigned focus area, plus a photographer dashboard
 // if their login is linked to a photographer profile. They still have the full
 // admin nav above — this just puts their job front and center.
-export default async function CrewHome({ member }: { member: ClubMember }) {
+export default async function CrewHome({
+  member,
+  preview = false,
+}: {
+  member: ClubMember;
+  // Admin preview render — disables the interactive controls (they'd act as the
+  // logged-in admin, not this member).
+  preview?: boolean;
+}) {
   const focus = member.focus_areas;
 
   // The photographer dashboard is driven by the photographers.user_id link, not
@@ -45,6 +53,7 @@ export default async function CrewHome({ member }: { member: ClubMember }) {
               initialInstagram={photographer.instagram}
               initialBio={photographer.bio}
               queue={queue}
+              readOnly={preview}
             />
           )}
         </div>

@@ -25,6 +25,7 @@ export default function PhotographerDashboard({
   initialInstagram,
   initialBio,
   queue,
+  readOnly = false,
 }: {
   name: string;
   profileHref: string;
@@ -32,6 +33,9 @@ export default function PhotographerDashboard({
   initialInstagram: string | null;
   initialBio: string | null;
   queue: PhotographerQueueItem[];
+  // Admin preview: render exactly what she sees, but disable the actions (they
+  // upload/save as the logged-in user, which isn't her).
+  readOnly?: boolean;
 }) {
   const router = useRouter();
 
@@ -50,6 +54,7 @@ export default function PhotographerDashboard({
   );
 
   async function handlePhotoUpload(file: File) {
+    if (readOnly) return;
     setError(null);
     if (!file.type.startsWith('image/')) {
       setError('Please choose an image file.');
@@ -72,6 +77,7 @@ export default function PhotographerDashboard({
   }
 
   async function saveProfile() {
+    if (readOnly) return;
     setSavingProfile(true);
     setProfileMsg(null);
     setError(null);
@@ -92,6 +98,7 @@ export default function PhotographerDashboard({
   }
 
   async function handleShowUpload(showId: number, files: FileList) {
+    if (readOnly) return;
     setError(null);
     const fileArray = Array.from(files);
     if (fileArray.length === 0) return;
@@ -162,7 +169,7 @@ export default function PhotographerDashboard({
           <button
             type="button"
             onClick={() => photoInputRef.current?.click()}
-            disabled={photoBusy}
+            disabled={photoBusy || readOnly}
             className="text-xs border border-[#E8E0D0]/30 rounded px-2 py-1 hover:bg-[#E8E0D0]/10 disabled:opacity-50"
           >
             {photoBusy ? 'Uploading…' : 'Change photo'}
@@ -185,20 +192,22 @@ export default function PhotographerDashboard({
             value={instagram}
             onChange={(e) => setInstagram(e.target.value)}
             placeholder="Instagram (handle or URL)"
-            className={`${inputClass} w-full`}
+            disabled={readOnly}
+            className={`${inputClass} w-full disabled:opacity-60`}
           />
           <textarea
             value={bio}
             onChange={(e) => setBio(e.target.value)}
             placeholder="Short bio (optional)"
             rows={3}
-            className={`${inputClass} w-full resize-y`}
+            disabled={readOnly}
+            className={`${inputClass} w-full resize-y disabled:opacity-60`}
           />
           <div className="flex items-center gap-3">
             <button
               type="button"
               onClick={saveProfile}
-              disabled={savingProfile}
+              disabled={savingProfile || readOnly}
               className="text-xs border border-[#E8E0D0]/30 rounded px-3 py-1.5 hover:bg-[#E8E0D0]/10 disabled:opacity-50"
             >
               {savingProfile ? 'Saving…' : 'Save profile'}
@@ -238,7 +247,7 @@ export default function PhotographerDashboard({
                       </span>
                       <label
                         className={`cursor-pointer text-xs border border-[#E8E0D0]/30 rounded px-2 py-1 hover:bg-[#E8E0D0]/10 ${
-                          uploading ? 'pointer-events-none opacity-50' : ''
+                          uploading || readOnly ? 'pointer-events-none opacity-50' : ''
                         }`}
                       >
                         {uploading?.showId === item.showId
@@ -249,7 +258,7 @@ export default function PhotographerDashboard({
                           accept="image/*"
                           multiple
                           className="hidden"
-                          disabled={!!uploading}
+                          disabled={!!uploading || readOnly}
                           onChange={(e) => {
                             const files = e.target.files;
                             if (files && files.length > 0) handleShowUpload(item.showId, files);
