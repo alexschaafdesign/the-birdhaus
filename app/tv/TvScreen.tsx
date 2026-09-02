@@ -350,6 +350,13 @@ export default function TvScreen() {
   // ?mode=screensaver|board|cards forces a mode for preview/testing; overrides
   // the program's resolution. null = follow the program.
   const [modePreview, setModePreview] = useState<TvMode | null>(null);
+  // ?export=1 shows a one-off "Export PNG" button that snapshots the stage to a
+  // 1280x960 (2x of the 640x480 tube) PNG — the source frame for the Roku
+  // schedule-loop video. Off (and invisible) in normal kiosk operation, so the
+  // Pi never sees it. Also blanks the live clock, since a frozen time reads
+  // wrong on an all-night loop.
+  const [exportMode, setExportMode] = useState(false);
+  const stageRef = useRef<HTMLDivElement | null>(null);
   const [slideNum, setSlideNum] = useState(0);
   const [fading, setFading] = useState(false);
   const [diag, setDiag] = useState('');
@@ -419,6 +426,7 @@ export default function TvScreen() {
     const modeParam = params.get('mode');
     if (isTvMode(modeParam)) setModePreview(modeParam);
     else if (params.get('bounce') === '1') setModePreview('screensaver'); // legacy alias
+    setExportMode(params.has('export'));
     setReduceMotion(window.matchMedia('(prefers-reduced-motion: reduce)').matches);
 
     // Boot diagnostics: a kiosk that silently reloads looks like an app bug.
@@ -525,7 +533,9 @@ export default function TvScreen() {
     );
     if (rows.length === 0) return idleSlide;
     const title = typeof board.title === 'string' ? board.title.trim() : '';
-    const nowIdx = currentBoardIndex(rows, nowSlot);
+    // The "now" highlight tracks the live clock; on a static export loop a frozen
+    // cyan row reads wrong, so suppress it (matches the blanked clock).
+    const nowIdx = exportMode ? -1 : currentBoardIndex(rows, nowSlot);
     return (
       <div className={`${styles.slide} ${styles.slideCol}`}>
         <div className={styles.eyebrow}>{title || 'TONIGHT'}</div>
@@ -607,9 +617,35 @@ export default function TvScreen() {
     body = idleSlide;
   }
 
+  // One-off PNG export of the stage for the Roku schedule loop. Snapshots the
+  // fixed 640x480 tube at 2x (1280x960) — a clean 4:3 frame that feeds the
+  // pad-to-720x480 ffmpeg pipeline unchanged. Neutralizes the stage's centering
+  // transform so the clone rasterizes as a plain block, not the scaled view.
+  async function handleExport() {
+    const node = stageRef.current;
+    if (!node) return;
+    try {
+      const { toPng } = await import('html-to-image');
+      const dataUrl = await toPng(node, {
+        width: 640,
+        height: 480,
+        pixelRatio: 2,
+        backgroundColor: '#0b0c0e',
+        style: { transform: 'none', top: '0', left: '0' },
+      });
+      const a = document.createElement('a');
+      a.href = dataUrl;
+      a.download = `schedule-${headerDateIso() || 'birdhaus'}.png`;
+      a.click();
+    } catch (err) {
+      console.error('tv: export failed', err);
+    }
+  }
+
   return (
     <div className={styles.viewport}>
       <div
+        ref={stageRef}
         className={styles.stage}
         style={{ transform: `translate(-50%, -50%) scale(${scale})` }}
       >
@@ -621,7 +657,7 @@ export default function TvScreen() {
           <div className={styles.safe}>
             <div className={styles.head}>
               <span className={styles.mark}>THE BIRDHAUS</span>
-              <span className={styles.clock}>{venue ? fmtClock(venue) : ''}</span>
+              <span className={styles.clock}>{exportMode ? '' : venue ? fmtClock(venue) : ''}</span>
               <span>{formatDate(headerDateIso())}</span>
             </div>
             <div className={styles.rule} />
@@ -631,6 +667,29 @@ export default function TvScreen() {
         {scan && <div className={styles.lines} />}
         {diag && <div className={styles.diag}>{diag}</div>}
       </div>
+      {/* Export affordance — rendered OUTSIDE .stage so it never lands in the
+          snapshot; only present with ?export=1, never on the kiosk. */}
+      {exportMode && (
+        <button
+          type="button"
+          onClick={handleExport}
+          style={{
+            position: 'fixed',
+            left: 16,
+            bottom: 16,
+            zIndex: 10,
+            cursor: 'pointer',
+            font: '14px system-ui, -apple-system, sans-serif',
+            padding: '8px 14px',
+            borderRadius: 6,
+            border: '1px solid #444',
+            background: '#111',
+            color: '#ded6c4',
+          }}
+        >
+          Export PNG
+        </button>
+      )}
     </div>
   );
 }

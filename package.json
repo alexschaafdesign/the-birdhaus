@@ -23,6 +23,7 @@
     "@react-pdf/renderer": "^4.5.1",
     "cloudinary": "^2.10.0",
     "gray-matter": "^4.0.3",
+    "html-to-image": "^1.11.13",
     "next": "16.1.6",
     "postgres": "^3.4.9",
     "react": "19.2.3",
