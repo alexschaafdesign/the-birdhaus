@@ -8,6 +8,7 @@ import {
   getActiveCards,
   overrideActive,
 } from '@/lib/tv-program';
+import { getPresetBoard } from '@/lib/tv-presets';
 import { cloudinaryTransform } from '@/lib/cloudinary-url';
 import { R2_PUBLIC_BASE } from '@/lib/r2-public';
 
@@ -59,6 +60,14 @@ export async function GET(request: Request) {
   const previewParam = new URL(request.url).searchParams.get('showId');
   const previewShowId = previewParam && /^\d+$/.test(previewParam) ? Number(previewParam) : null;
 
+  // ?presetId=N renders that board preset's run-of-show as the board content
+  // (used by the admin "export PNG" of a saved schedule). Read-only preview —
+  // it never touches the live tube. Non-board / missing ids fall through to the
+  // normal board below.
+  const presetParam = new URL(request.url).searchParams.get('presetId');
+  const presetId = presetParam && /^\d+$/.test(presetParam) ? Number(presetParam) : null;
+  const presetBoard = presetId !== null ? await getPresetBoard(presetId) : null;
+
   let program;
   let scope: number | null;
   if (previewShowId !== null) {
@@ -93,8 +102,9 @@ export async function GET(request: Request) {
       schedule: program.schedule,
       overrideMode: overrideActive(program) ? program.overrideMode : null,
     },
-    // 'board' mode content.
-    board: {
+    // 'board' mode content — a ?presetId preview swaps in that saved preset's
+    // run-of-show instead of the live board.
+    board: presetBoard ?? {
       title: program.boardTitle,
       rows: program.boardRows,
     },

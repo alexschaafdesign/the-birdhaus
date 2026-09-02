@@ -103,6 +103,26 @@ export async function savePreset(category: PresetCategory, name: string, showId:
   return Number(row.id);
 }
 
+// A single board preset's content, sanitized — for previewing/exporting a
+// preset's run-of-show without applying it into a scope. null if the id isn't a
+// board preset. (Screensaver/cards presets have no schedule board to render.)
+export async function getPresetBoard(id: number): Promise<BoardData | null> {
+  const [row] = await sql<Array<{ category: string; data: PresetData }>>`
+    select category, data from tv_presets where id = ${id}
+  `;
+  if (!row || row.category !== 'board') return null;
+  const d = row.data as BoardData;
+  return {
+    title: typeof d?.title === 'string' ? d.title : null,
+    rows: (Array.isArray(d?.rows) ? d.rows : [])
+      .map((r) => ({
+        time: typeof r?.time === 'string' ? r.time : '',
+        label: typeof r?.label === 'string' ? r.label : '',
+      }))
+      .filter((r) => r.time || r.label),
+  };
+}
+
 // ---- apply: copy a preset's content into a scope ---------------------------
 export async function applyPreset(presetId: number, showId: number | null): Promise<boolean> {
   const [row] = await sql<Array<{ category: string; data: PresetData }>>`

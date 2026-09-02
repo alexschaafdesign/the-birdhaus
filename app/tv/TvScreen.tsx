@@ -342,6 +342,9 @@ const BounceLayer = memo(function BounceLayer({
 
 export default function TvScreen() {
   const [data, setData] = useState<TvData | null>(null);
+  // Latest payload, readable from the export hook without a stale closure.
+  const dataRef = useRef<TvData | null>(null);
+  dataRef.current = data;
   const [now, setNow] = useState<Date | null>(null);
   const [sim, setSim] = useState<VenueParts | null>(null);
   const [scale, setScale] = useState(1);
@@ -356,7 +359,14 @@ export default function TvScreen() {
   // Pi never sees it. Also blanks the live clock, since a frozen time reads
   // wrong on an all-night loop.
   const [exportMode, setExportMode] = useState(false);
+  // ?date=YYYY-MM-DD overrides the header date on an export, so a schedule made
+  // days ahead shows the show's date, not today's. null = live venue date.
+  const [dateOverride, setDateOverride] = useState<string | null>(null);
   const stageRef = useRef<HTMLDivElement | null>(null);
+  // Export-only: the board is scaled to fill the title-safe box (see the
+  // fit effect). deckRef is the available area; boardFitRef is what's scaled.
+  const deckRef = useRef<HTMLDivElement | null>(null);
+  const boardFitRef = useRef<HTMLDivElement | null>(null);
   const [slideNum, setSlideNum] = useState(0);
   const [fading, setFading] = useState(false);
   const [diag, setDiag] = useState('');
@@ -375,11 +385,17 @@ export default function TvScreen() {
 
   const pull = useCallback(async () => {
     try {
-      // ?showId=N previews a specific show's program (the admin preview); absent
-      // -> normal operation (tonight's show, else global).
-      const showId = new URLSearchParams(window.location.search).get('showId');
-      const qs = showId && /^\d+$/.test(showId) ? `?showId=${showId}` : '';
-      const res = await fetch(`/api/tv${qs}`, { cache: 'no-store' });
+      // ?showId=N previews a specific show's program (the admin preview);
+      // ?presetId=N previews a saved board preset (the admin export). Absent ->
+      // normal operation (tonight's show, else global).
+      const params = new URLSearchParams(window.location.search);
+      const showId = params.get('showId');
+      const presetId = params.get('presetId');
+      const qs = new URLSearchParams();
+      if (showId && /^\d+$/.test(showId)) qs.set('showId', showId);
+      if (presetId && /^\d+$/.test(presetId)) qs.set('presetId', presetId);
+      const query = qs.toString();
+      const res = await fetch(`/api/tv${query ? `?${query}` : ''}`, { cache: 'no-store' });
       if (!res.ok) throw new Error(String(res.status));
       const text = await res.text();
       if (text === lastPayload.current) return; // identical poll -> zero work
@@ -427,6 +443,8 @@ export default function TvScreen() {
     if (isTvMode(modeParam)) setModePreview(modeParam);
     else if (params.get('bounce') === '1') setModePreview('screensaver'); // legacy alias
     setExportMode(params.has('export'));
+    const dateParam = params.get('date');
+    if (dateParam && ISO_DATE.test(dateParam)) setDateOverride(dateParam);
     setReduceMotion(window.matchMedia('(prefers-reduced-motion: reduce)').matches);
 
     // Boot diagnostics: a kiosk that silently reloads looks like an app bug.
@@ -508,10 +526,94 @@ export default function TvScreen() {
     }
   }, [data]);
 
+  // Snapshot the fixed 640x480 stage to a 2x (1280x960) PNG data URL — a clean
+  // 4:3 frame for the Roku schedule loop. Neutralizes the stage's centering
+  // transform so the clone rasterizes as a plain block, not the scaled view.
+  const captureStage = useCallback(async (): Promise<string | null> => {
+    const node = stageRef.current;
+    if (!node) return null;
+    const { toPng } = await import('html-to-image');
+    try {
+      // Wait for fonts so the mono type isn't captured mid-swap. The tube uses
+      // local fonts, so this resolves ~instantly (and is optional if absent).
+      await (document as Document & { fonts?: { ready?: Promise<unknown> } }).fonts?.ready;
+    } catch {
+      // fonts API unavailable — capture anyway
+    }
+    // The kiosk stage is centered with position:absolute + top/left:50% +
+    // translate(-50%,-50%). html-to-image can't reliably override all three via
+    // its clone, so neutralize them on the real node (reflowing it to the
+    // origin as a plain 640x480 block), capture, then restore. .safe stays
+    // anchored because the node keeps position:relative.
+    const prevStyle = node.getAttribute('style');
+    node.style.position = 'relative';
+    node.style.top = '0';
+    node.style.left = '0';
+    node.style.transform = 'none';
+
+    // Scale the board to fill the title-safe box. Content-aware (min of the
+    // width/height ratios) so long labels never overflow or ellipsis-clip; a
+    // 0.96 inset keeps it off the very edge, and the cap avoids ballooning a
+    // one-row board. Restored with the stage below.
+    const fit = boardFitRef.current;
+    const deck = deckRef.current;
+    const prevFit = fit?.getAttribute('style') ?? null;
+    if (fit && deck) {
+      fit.style.transform = 'none';
+      const nw = fit.offsetWidth;
+      const nh = fit.offsetHeight;
+      const aw = deck.clientWidth;
+      const ah = deck.clientHeight;
+      if (nw && nh && aw && ah) {
+        const s = Math.min(aw / nw, ah / nh) * 0.96;
+        if (s > 1.02) {
+          fit.style.transform = `scale(${Math.min(s, 2.6)})`;
+          fit.style.transformOrigin = 'center center';
+        }
+      }
+    }
+
+    try {
+      return await toPng(node, {
+        width: 640,
+        height: 480,
+        pixelRatio: 2,
+        backgroundColor: '#0b0c0e',
+      });
+    } finally {
+      if (prevStyle === null) node.removeAttribute('style');
+      else node.setAttribute('style', prevStyle);
+      if (fit) {
+        if (prevFit === null) fit.removeAttribute('style');
+        else fit.setAttribute('style', prevFit);
+      }
+    }
+  }, []);
+
+  // Export hook for the admin editor: it loads /tv?export=1&presetId=N in a
+  // hidden 640x480 iframe and calls this to get the PNG. Waits for the board to
+  // populate first (the feed fetch is async), then captures. Only exposed with
+  // ?export=1, and torn down on unmount so it never lingers on the kiosk.
+  useEffect(() => {
+    if (!exportMode) return;
+    const w = window as Window & { __tvExportPng?: () => Promise<string | null> };
+    w.__tvExportPng = async () => {
+      const start = Date.now();
+      while (!dataRef.current?.board?.rows?.length && Date.now() - start < 6000) {
+        await new Promise((r) => setTimeout(r, 100));
+      }
+      return captureStage();
+    };
+    return () => {
+      delete w.__tvExportPng;
+    };
+  }, [exportMode, captureStage]);
+
   const venue: VenueParts | null = sim ?? (now ? venuePartsOf(now) : null);
   const nowSlot = venue ? slotOfParts(venue) : null;
 
   function headerDateIso(): string {
+    if (dateOverride) return dateOverride; // export: caller-supplied show date
     if (data?.date) return data.date;
     if (!venue) return '';
     return venueDateIso(venue);
@@ -536,8 +638,8 @@ export default function TvScreen() {
     // The "now" highlight tracks the live clock; on a static export loop a frozen
     // cyan row reads wrong, so suppress it (matches the blanked clock).
     const nowIdx = exportMode ? -1 : currentBoardIndex(rows, nowSlot);
-    return (
-      <div className={`${styles.slide} ${styles.slideCol}`}>
+    const inner = (
+      <>
         <div className={styles.eyebrow}>{title || 'TONIGHT'}</div>
         <div className={styles.board}>
           {rows.map((r, i) => (
@@ -550,6 +652,19 @@ export default function TvScreen() {
             </div>
           ))}
         </div>
+      </>
+    );
+    return (
+      <div className={`${styles.slide} ${styles.slideCol}`}>
+        {exportMode ? (
+          // Wrapped so the fit effect can scale the whole block up to fill the
+          // title-safe box (the live tube keeps its natural, un-scaled size).
+          <div ref={boardFitRef} className={styles.boardFit}>
+            {inner}
+          </div>
+        ) : (
+          inner
+        )}
       </div>
     );
   }
@@ -617,22 +732,13 @@ export default function TvScreen() {
     body = idleSlide;
   }
 
-  // One-off PNG export of the stage for the Roku schedule loop. Snapshots the
-  // fixed 640x480 tube at 2x (1280x960) — a clean 4:3 frame that feeds the
-  // pad-to-720x480 ffmpeg pipeline unchanged. Neutralizes the stage's centering
-  // transform so the clone rasterizes as a plain block, not the scaled view.
+  // Direct button (on /tv?export=1) — captures the current stage and downloads
+  // it in one click. The admin editor uses the window.__tvExportPng hook below
+  // instead (a hidden iframe it captures from), so this is a manual fallback.
   async function handleExport() {
-    const node = stageRef.current;
-    if (!node) return;
     try {
-      const { toPng } = await import('html-to-image');
-      const dataUrl = await toPng(node, {
-        width: 640,
-        height: 480,
-        pixelRatio: 2,
-        backgroundColor: '#0b0c0e',
-        style: { transform: 'none', top: '0', left: '0' },
-      });
+      const dataUrl = await captureStage();
+      if (!dataUrl) return;
       const a = document.createElement('a');
       a.href = dataUrl;
       a.download = `schedule-${headerDateIso() || 'birdhaus'}.png`;
@@ -660,8 +766,10 @@ export default function TvScreen() {
               <span className={styles.clock}>{exportMode ? '' : venue ? fmtClock(venue) : ''}</span>
               <span>{formatDate(headerDateIso())}</span>
             </div>
-            <div className={styles.rule} />
-            <div className={`${styles.deck} ${fading ? styles.deckSwap : ''}`}>{body}</div>
+            <div className={`${styles.rule} ${exportMode ? styles.ruleExport : ''}`} />
+            <div ref={deckRef} className={`${styles.deck} ${fading ? styles.deckSwap : ''}`}>
+              {body}
+            </div>
           </div>
         )}
         {scan && <div className={styles.lines} />}

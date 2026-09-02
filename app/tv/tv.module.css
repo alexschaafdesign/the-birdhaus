@@ -76,6 +76,12 @@
   margin: 10px 0 0;
   flex: 0 0 auto;
 }
+/* export-only: a little breathing room between the header line and the board
+   (the live tube keeps its tighter spacing). The board fit measures the deck
+   below this, so the gap is honored, not scaled away. */
+.ruleExport {
+  margin-bottom: 16px;
+}
 
 /* ---- slide deck ---------------------------------------------- */
 .deck {
@@ -229,6 +235,16 @@
   line-height: 1.2;
   overflow: hidden;
 }
+/* export-only: wraps the eyebrow + board so the capture can scale the whole
+   block to fill the title-safe box. Mirrors .slideCol's child layout so the
+   un-scaled look is unchanged; the scale is applied inline at capture time. */
+.boardFit {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
 .boardRow {
   display: contents;
 }

@@ -28,6 +28,7 @@ export default function TvPresetBar({
   const [presets, setPresets] = useState<PresetSummary[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [exportingId, setExportingId] = useState<number | null>(null);
 
   const refresh = useCallback(async () => {
     const res = await fetch(`/api/admin/tv-presets?category=${category}`, { cache: 'no-store' });
@@ -98,6 +99,69 @@ export default function TvPresetBar({
     if (res.ok) setPresets((prev) => prev.filter((x) => x.id !== p.id));
   }
 
+  // Export a board preset's run-of-show as a PNG — the source frame for a Roku
+  // schedule-loop video. Renders the preset through the real tube in a hidden
+  // 640×480 iframe (/tv?export=1&presetId=N) and captures it via the hook the
+  // tube exposes. Read-only: the live tube is never touched. Board presets only.
+  async function exportPng(p: PresetSummary) {
+    // The schedule is often made days ahead, so ask what date to stamp on it
+    // rather than locking in today's. Blank = today. Defaults to today so the
+    // format is obvious and only the day needs changing.
+    const today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Chicago' });
+    const input = window.prompt('Date to show on the schedule (YYYY-MM-DD):', today);
+    if (input === null) return; // cancelled
+    const date = input.trim();
+    if (date && !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      setError('Date must be YYYY-MM-DD (or blank for today).');
+      return;
+    }
+
+    setError(null);
+    setExportingId(p.id);
+    const iframe = document.createElement('iframe');
+    iframe.setAttribute('aria-hidden', 'true');
+    iframe.style.cssText = 'position:fixed;left:-10000px;top:0;width:640px;height:480px;border:0;';
+    iframe.src = `/tv?mode=board&export=1&presetId=${p.id}${date ? `&date=${date}` : ''}`;
+    document.body.appendChild(iframe);
+    try {
+      const dataUrl = await new Promise<string | null>((resolve, reject) => {
+        const start = Date.now();
+        const tick = async () => {
+          const w = iframe.contentWindow as
+            | (Window & { __tvExportPng?: () => Promise<string | null> })
+            | null;
+          if (w?.__tvExportPng) {
+            try {
+              resolve(await w.__tvExportPng());
+            } catch (e) {
+              reject(e);
+            }
+            return;
+          }
+          if (Date.now() - start > 12000) {
+            reject(new Error('the tube preview did not load'));
+            return;
+          }
+          setTimeout(tick, 150);
+        };
+        iframe.addEventListener('load', tick);
+      });
+      if (dataUrl) {
+        const slug =
+          p.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'schedule';
+        const a = document.createElement('a');
+        a.href = dataUrl;
+        a.download = `schedule-${slug}${date ? `-${date}` : ''}.png`;
+        a.click();
+      }
+    } catch (e) {
+      setError(e instanceof Error ? `Export failed: ${e.message}` : 'Export failed');
+    } finally {
+      iframe.remove();
+      setExportingId(null);
+    }
+  }
+
   return (
     <div className="rounded border border-[#E8E0D0]/15 bg-[#E8E0D0]/[0.03] p-3">
       <div className="flex items-center justify-between gap-3 mb-2">
@@ -131,6 +195,17 @@ export default function TvPresetBar({
                 {p.count} {UNIT[category]}
               </span>
               <span className="flex-1" />
+              {category === 'board' && (
+                <button
+                  type="button"
+                  onClick={() => exportPng(p)}
+                  disabled={exportingId === p.id}
+                  title="Download this schedule as a PNG (for the Roku loop)"
+                  className="text-xs text-[#E8E0D0]/45 hover:text-[#E8E0D0] disabled:opacity-40"
+                >
+                  {exportingId === p.id ? 'exporting…' : 'export'}
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => rename(p)}
