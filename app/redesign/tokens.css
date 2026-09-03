@@ -9,7 +9,7 @@
   /* Type face */
   --font-berkeley: "Berkeley Mono", ui-monospace, "SF Mono", Menlo, monospace;
 
-  /* Colors — mode-invariant (identical Light/Dark): straight literals */
+  /* Colors — mode-invariant (identical across Light/Dark): literals */
   --color-series-fresh-cuts: #e1e42f;
   --color-chroma-yellow: #ffd900;
   --color-chroma-magenta: #e3008c;
@@ -34,8 +34,8 @@
   --bh-wash-red: #b42f2c14;
   --bh-wash-green: #48aa5d21;
 }
-/* Dark is authored in Figma but no toggle is wired this pass (tokens only),
-   so :root stays Light until something sets [data-theme="dark"]. */
+/* Dark is authored in Figma but no toggle is wired this pass (tokens
+   only), so :root stays Light until something sets [data-theme="dark"]. */
 /* ⚠ UNVERIFIED: wash/blue, wash/red, wash/green carry alpha in Light but
    are opaque in Dark — likely a dropped alpha channel in the Figma Dark mode.
    Fix in Figma (re-add alpha, keep the Dark hue) and `npm run tokens`. Until
