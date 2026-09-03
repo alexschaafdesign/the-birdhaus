@@ -1,4 +1,9 @@
 @import "tailwindcss";
+/* Birdhaus 2027 design tokens (generated from Figma — see redesign/tokens.css).
+   Imported here so its @theme blocks join the Tailwind build. Additive and
+   inert for the live site: new token names, unconsumed; no data-theme/
+   data-context triggers wired yet. */
+@import "./redesign/tokens.css";
 
 /* 2027 light "lo-fi VHS" palette: warm paper + ink, straight corners, hard
    shadows, primary-RGB accents. Back-of-house (admin, /hub, /door) still uses

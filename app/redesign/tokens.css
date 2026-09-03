@@ -1,0 +1,285 @@
+/* ─────────────────────────────────────────────────────────────────────
+   Birdhaus design tokens — GENERATED FILE, DO NOT EDIT BY HAND.
+   Source: DESIGN SYSTEM - BIRDHAUS (Figma published library)
+   Captured: 2026-09-02   ·   Regenerate: `npm run tokens`
+   Edit values in app/redesign/tokens.figma.json, never here.
+   ───────────────────────────────────────────────────────────────────── */
+
+@theme {
+  /* Type face */
+  --font-berkeley: "Berkeley Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+  /* Colors — mode-invariant (identical Light/Dark): straight literals */
+  --color-series-fresh-cuts: #e1e42f;
+  --color-chroma-yellow: #ffd900;
+  --color-chroma-magenta: #e3008c;
+  --color-bars-1-gray: #bfbfbf;
+  --color-bars-2-yellow: #bfbf00;
+  --color-bars-3-cyan: #00bfbf;
+  --color-bars-4-green: #00bf00;
+  --color-bars-5-magenta: #bf00bf;
+  --color-bars-6-red: #bf0000;
+  --color-bars-7-blue: #0000bf;
+}
+
+/* ── Colors — mode-varying. Each token keeps its own per-mode literal
+   (no aliasing); the --bh-* layer only carries the Light/Dark axis. */
+:root {
+  --bh-surface-paper: #f0ede4;
+  --bh-surface-ink: #16150f;
+  --bh-text-primary: #16150f;
+  --bh-text-inverse: #f0ede4;
+  --bh-accent-red: #982726;
+  --bh-wash-blue: #4951b721;
+  --bh-wash-red: #b42f2c14;
+  --bh-wash-green: #48aa5d21;
+}
+/* Dark is authored in Figma but no toggle is wired this pass (tokens only),
+   so :root stays Light until something sets [data-theme="dark"]. */
+/* ⚠ UNVERIFIED: wash/blue, wash/red, wash/green carry alpha in Light but
+   are opaque in Dark — likely a dropped alpha channel in the Figma Dark mode.
+   Fix in Figma (re-add alpha, keep the Dark hue) and `npm run tokens`. Until
+   then, do NOT wire [data-theme="dark"]: these render as solid blobs. */
+[data-theme="dark"] {
+  --bh-surface-paper: #0b0b0d;
+  --bh-surface-ink: #f0ede4;
+  --bh-text-primary: #f0ede4;
+  --bh-text-inverse: #0b0b0d;
+  --bh-accent-red: #d9382f;
+  --bh-wash-blue: #4f5cf5;  /* ⚠ UNVERIFIED — opaque, expected alpha */
+  --bh-wash-red: #e62e24;  /* ⚠ UNVERIFIED — opaque, expected alpha */
+  --bh-wash-green: #33d95c;  /* ⚠ UNVERIFIED — opaque, expected alpha */
+}
+
+@theme inline {
+  --color-surface-paper: var(--bh-surface-paper);
+  --color-surface-ink: var(--bh-surface-ink);
+  --color-text-primary: var(--bh-text-primary);
+  --color-text-inverse: var(--bh-text-inverse);
+  --color-accent-red: var(--bh-accent-red);
+  --color-wash-blue: var(--bh-wash-blue);
+  --color-wash-red: var(--bh-wash-red);
+  --color-wash-green: var(--bh-wash-green);
+}
+
+/* ── Type sizes — context-varying. Web is the :root default; the four
+   capture/broadcast contexts override the same --bh-size-* names.
+   Independent of [data-theme]: /tv will opt into [data-context="tv"]. */
+:root {
+  --bh-size-display-1: 96px;
+  --bh-size-display-2: 72px;
+  --bh-size-display-3: 52px;
+  --bh-size-display-4: 80px;
+  --bh-size-header-1: 40px;
+  --bh-size-header-2: 30px;
+  --bh-size-header-3: 24px;
+  --bh-size-header-4: 20px;
+  --bh-size-body-1: 18px;
+  --bh-size-body-2: 16px;
+  --bh-size-body-3: 14px;
+  --bh-size-timecode: 15px;
+  --bh-size-data-set-time-20: 20px;
+  --bh-size-data-catalogue-id-16: 16px;
+  --bh-size-data-caption-13: 13px;
+  --bh-size-data-caption-13-bold: 13px;
+  --bh-size-data-label-11: 11px;
+  --bh-size-data-label-10-small: 10px;
+  --bh-size-data-overline-11: 11px;
+  --bh-size-data-spec-12: 12px;
+  --bh-size-ui-input-label-12: 12px;
+  --bh-size-ui-input-value-16: 16px;
+  --bh-size-ui-nav-item-14: 14px;
+  --bh-size-ui-button-15: 15px;
+  --bh-size-ui-link-16: 16px;
+  --bh-size-tv-heading-34: 34px;
+  --bh-size-tv-label-20: 20px;
+  --bh-size-tv-body-22: 22px;
+}
+[data-context="print"] { /* Print 200dpi */
+  --bh-size-display-1: 118px;
+  --bh-size-display-2: 86px;
+  --bh-size-display-3: 62px;
+  --bh-size-display-4: 96px;
+  --bh-size-header-1: 52px;
+  --bh-size-header-2: 40px;
+  --bh-size-header-3: 33px;
+  --bh-size-header-4: 28px;
+  --bh-size-body-1: 25px;
+  --bh-size-body-2: 23px;
+  --bh-size-body-3: 20px;
+  --bh-size-timecode: 22px;
+  --bh-size-data-set-time-20: 28px;
+  --bh-size-data-catalogue-id-16: 24px;
+  --bh-size-data-caption-13: 19px;
+  --bh-size-data-caption-13-bold: 19px;
+  --bh-size-data-label-11: 17px;
+  --bh-size-data-label-10-small: 15px;
+  --bh-size-data-overline-11: 17px;
+  --bh-size-data-spec-12: 17px;
+  --bh-size-ui-input-label-12: 17px;
+  --bh-size-ui-input-value-16: 24px;
+  --bh-size-ui-nav-item-14: 20px;
+  --bh-size-ui-button-15: 24px;
+  --bh-size-ui-link-16: 24px;
+  --bh-size-tv-heading-34: 68px;
+  --bh-size-tv-label-20: 40px;
+  --bh-size-tv-body-22: 44px;
+}
+[data-context="social"] { /* Social 1080 */
+  --bh-size-display-1: 112px;
+  --bh-size-display-2: 82px;
+  --bh-size-display-3: 60px;
+  --bh-size-display-4: 92px;
+  --bh-size-header-1: 50px;
+  --bh-size-header-2: 38px;
+  --bh-size-header-3: 32px;
+  --bh-size-header-4: 28px;
+  --bh-size-body-1: 27px;
+  --bh-size-body-2: 25px;
+  --bh-size-body-3: 23px;
+  --bh-size-timecode: 23px;
+  --bh-size-data-set-time-20: 28px;
+  --bh-size-data-catalogue-id-16: 25px;
+  --bh-size-data-caption-13: 23px;
+  --bh-size-data-caption-13-bold: 23px;
+  --bh-size-data-label-11: 21px;
+  --bh-size-data-label-10-small: 20px;
+  --bh-size-data-overline-11: 21px;
+  --bh-size-data-spec-12: 21px;
+  --bh-size-ui-input-label-12: 21px;
+  --bh-size-ui-input-value-16: 25px;
+  --bh-size-ui-nav-item-14: 23px;
+  --bh-size-ui-button-15: 25px;
+  --bh-size-ui-link-16: 25px;
+  --bh-size-tv-heading-34: 46px;
+  --bh-size-tv-label-20: 28px;
+  --bh-size-tv-body-22: 30px;
+}
+[data-context="tv"] { /* TV 720x480 */
+  --bh-size-display-1: 44px;
+  --bh-size-display-2: 40px;
+  --bh-size-display-3: 34px;
+  --bh-size-display-4: 40px;
+  --bh-size-header-1: 34px;
+  --bh-size-header-2: 30px;
+  --bh-size-header-3: 26px;
+  --bh-size-header-4: 24px;
+  --bh-size-body-1: 22px;
+  --bh-size-body-2: 22px;
+  --bh-size-body-3: 20px;
+  --bh-size-timecode: 20px;
+  --bh-size-data-set-time-20: 24px;
+  --bh-size-data-catalogue-id-16: 22px;
+  --bh-size-data-caption-13: 20px;
+  --bh-size-data-caption-13-bold: 20px;
+  --bh-size-data-label-11: 20px;
+  --bh-size-data-label-10-small: 20px;
+  --bh-size-data-overline-11: 20px;
+  --bh-size-data-spec-12: 20px;
+  --bh-size-ui-input-label-12: 20px;
+  --bh-size-ui-input-value-16: 22px;
+  --bh-size-ui-nav-item-14: 20px;
+  --bh-size-ui-button-15: 22px;
+  --bh-size-ui-link-16: 22px;
+  --bh-size-tv-heading-34: 34px;
+  --bh-size-tv-label-20: 20px;
+  --bh-size-tv-body-22: 22px;
+}
+[data-context="mobile"] { /* Mobile 390 */
+  --bh-size-display-1: 44px;
+  --bh-size-display-2: 34px;
+  --bh-size-display-3: 32px;
+  --bh-size-display-4: 40px;
+  --bh-size-header-1: 30px;
+  --bh-size-header-2: 24px;
+  --bh-size-header-3: 20px;
+  --bh-size-header-4: 18px;
+  --bh-size-body-1: 17px;
+  --bh-size-body-2: 16px;
+  --bh-size-body-3: 14px;
+  --bh-size-timecode: 14px;
+  --bh-size-data-set-time-20: 14px;
+  --bh-size-data-catalogue-id-16: 15px;
+  --bh-size-data-caption-13: 13px;
+  --bh-size-data-caption-13-bold: 13px;
+  --bh-size-data-label-11: 12px;
+  --bh-size-data-label-10-small: 12px;
+  --bh-size-data-overline-11: 12px;
+  --bh-size-data-spec-12: 12px;
+  --bh-size-ui-input-label-12: 12px;
+  --bh-size-ui-input-value-16: 16px;
+  --bh-size-ui-nav-item-14: 15px;
+  --bh-size-ui-button-15: 16px;
+  --bh-size-ui-link-16: 16px;
+  --bh-size-tv-heading-34: 34px;
+  --bh-size-tv-label-20: 20px;
+  --bh-size-tv-body-22: 22px;
+}
+
+@theme inline {
+  --text-display-1: var(--bh-size-display-1);
+  --text-display-2: var(--bh-size-display-2);
+  --text-display-3: var(--bh-size-display-3);
+  --text-display-4: var(--bh-size-display-4);
+  --text-header-1: var(--bh-size-header-1);
+  --text-header-2: var(--bh-size-header-2);
+  --text-header-3: var(--bh-size-header-3);
+  --text-header-4: var(--bh-size-header-4);
+  --text-body-1: var(--bh-size-body-1);
+  --text-body-2: var(--bh-size-body-2);
+  --text-body-3: var(--bh-size-body-3);
+  --text-timecode: var(--bh-size-timecode);
+  --text-data-set-time-20: var(--bh-size-data-set-time-20);
+  --text-data-catalogue-id-16: var(--bh-size-data-catalogue-id-16);
+  --text-data-caption-13: var(--bh-size-data-caption-13);
+  --text-data-caption-13-bold: var(--bh-size-data-caption-13-bold);
+  --text-data-label-11: var(--bh-size-data-label-11);
+  --text-data-label-10-small: var(--bh-size-data-label-10-small);
+  --text-data-overline-11: var(--bh-size-data-overline-11);
+  --text-data-spec-12: var(--bh-size-data-spec-12);
+  --text-ui-input-label-12: var(--bh-size-ui-input-label-12);
+  --text-ui-input-value-16: var(--bh-size-ui-input-value-16);
+  --text-ui-nav-item-14: var(--bh-size-ui-nav-item-14);
+  --text-ui-button-15: var(--bh-size-ui-button-15);
+  --text-ui-link-16: var(--bh-size-ui-link-16);
+  --text-tv-heading-34: var(--bh-size-tv-heading-34);
+  --text-tv-label-20: var(--bh-size-tv-label-20);
+  --text-tv-body-22: var(--bh-size-tv-body-22);
+}
+
+/* ── Text styles (reference) — composite Figma text styles, all Berkeley
+   Mono. Size → the --text-* token named; leading/tracking/weight raw.
+   Not emitted as classes yet (tokens-only pass).
+
+   Display/1 — XL 128       w400  --text-display-1  lh 95%  tracking -2px
+   Display/2 — L 88         w400  --text-display-2  lh 90%  tracking 0%
+   Display/3 — M 64         w400  --text-display-3  lh 100%  tracking -1px
+   Display/4 — Chroma 104   w700  --text-display-4  lh auto  tracking -1px
+   Header/1 — 48            w400  --text-header-1  lh auto  tracking 0%
+   Header/2 — 32 Bold       w700  --text-header-2  lh auto  tracking 0%
+   Header/3 — 24            w400  --text-header-3  lh auto  tracking 0%
+   Header/4 — 20            w400  --text-header-4  lh auto  tracking 0%
+   Body/1 — 18              w400  --text-body-1  lh auto  tracking 0%
+   Body/1 — 18 Bold         w700  --text-body-1  lh 150%  tracking 0%
+   Body/2 — 16              w400  --text-body-2  lh auto  tracking 0%
+   Body/2 — 16 Bold         w700  --text-body-2  lh 150%  tracking 0%
+   Body/3 — 14              w400  --text-body-3  lh auto  tracking 0%
+   Body/3 — 14 Bold         w700  --text-body-3  lh 150%  tracking 0%
+   Data/Set Time 20         w400  --text-data-set-time-20  lh 120%  tracking 0%
+   Data/Catalogue ID 16     w700  --text-data-catalogue-id-16  lh 120%  tracking 0.5px
+   Data/Caption 13          w400  --text-data-caption-13  lh auto  tracking 1.5px
+   Data/Caption 13 Bold     w700  --text-data-caption-13-bold  lh 140%  tracking 1.5px
+   Data/Timecode 15         w400  --text-timecode  lh 120%  tracking 0.5px
+   Data/Label 11            w700  --text-data-label-11  lh auto  tracking 1.5px
+   Data/Label 10 Small      w700  --text-data-label-10-small  lh 130%  tracking 2px
+   Data/Overline 11         w700  --text-data-overline-11  lh 130%  tracking 2.5px
+   Data/Spec 12             w400  --text-data-spec-12  lh 145%  tracking 1px
+   UI/Input Label 12        w700  --text-ui-input-label-12  lh 130%  tracking 1.5px
+   UI/Input Value 16        w400  --text-ui-input-value-16  lh 140%  tracking 0%
+   UI/Nav Item 14           w400  --text-ui-nav-item-14  lh 130%  tracking 1px
+   UI/Button 15             w700  --text-ui-button-15  lh 120%  tracking 1px
+   UI/Link 16               w400  --text-ui-link-16  lh 150%  tracking 0%
+   TV/Heading 34            w700  --text-tv-heading-34  lh 115%  tracking 0%
+   TV/Label 20              w700  --text-tv-label-20  lh 130%  tracking 1.5px
+   TV/Body 22               w400  --text-tv-body-22  lh 145%  tracking 0%
+   ───────────────────────────────────────────────────────────────────── */
