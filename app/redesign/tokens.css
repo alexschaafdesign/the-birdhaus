@@ -9,7 +9,15 @@
   /* Type face */
   --font-berkeley: "Berkeley Mono", ui-monospace, "SF Mono", Menlo, monospace;
 
-  /* Colors — mode-invariant (identical across Light/Dark): literals */
+  /* Colors — single-mode collection (Light): all literals */
+  --color-surface-paper: #f0ede4;
+  --color-surface-ink: #16150f;
+  --color-text-primary: #16150f;
+  --color-text-inverse: #f0ede4;
+  --color-accent-red: #982726;
+  --color-wash-blue: #4951b721;
+  --color-wash-red: #b42f2c14;
+  --color-wash-green: #48aa5d21;
   --color-series-fresh-cuts: #e1e42f;
   --color-chroma-yellow: #ffd900;
   --color-chroma-magenta: #e3008c;
@@ -20,46 +28,6 @@
   --color-bars-5-magenta: #bf00bf;
   --color-bars-6-red: #bf0000;
   --color-bars-7-blue: #0000bf;
-}
-
-/* ── Colors — mode-varying. Each token keeps its own per-mode literal
-   (no aliasing); the --bh-* layer only carries the Light/Dark axis. */
-:root {
-  --bh-surface-paper: #f0ede4;
-  --bh-surface-ink: #16150f;
-  --bh-text-primary: #16150f;
-  --bh-text-inverse: #f0ede4;
-  --bh-accent-red: #982726;
-  --bh-wash-blue: #4951b721;
-  --bh-wash-red: #b42f2c14;
-  --bh-wash-green: #48aa5d21;
-}
-/* Dark is authored in Figma but no toggle is wired this pass (tokens
-   only), so :root stays Light until something sets [data-theme="dark"]. */
-/* ⚠ UNVERIFIED: wash/blue, wash/red, wash/green carry alpha in Light but
-   are opaque in Dark — likely a dropped alpha channel in the Figma Dark mode.
-   Fix in Figma (re-add alpha, keep the Dark hue) and `npm run tokens`. Until
-   then, do NOT wire [data-theme="dark"]: these render as solid blobs. */
-[data-theme="dark"] {
-  --bh-surface-paper: #0b0b0d;
-  --bh-surface-ink: #f0ede4;
-  --bh-text-primary: #f0ede4;
-  --bh-text-inverse: #0b0b0d;
-  --bh-accent-red: #d9382f;
-  --bh-wash-blue: #4f5cf5;  /* ⚠ UNVERIFIED — opaque, expected alpha */
-  --bh-wash-red: #e62e24;  /* ⚠ UNVERIFIED — opaque, expected alpha */
-  --bh-wash-green: #33d95c;  /* ⚠ UNVERIFIED — opaque, expected alpha */
-}
-
-@theme inline {
-  --color-surface-paper: var(--bh-surface-paper);
-  --color-surface-ink: var(--bh-surface-ink);
-  --color-text-primary: var(--bh-text-primary);
-  --color-text-inverse: var(--bh-text-inverse);
-  --color-accent-red: var(--bh-accent-red);
-  --color-wash-blue: var(--bh-wash-blue);
-  --color-wash-red: var(--bh-wash-red);
-  --color-wash-green: var(--bh-wash-green);
 }
 
 /* ── Type sizes — context-varying. Web is the :root default; the four
