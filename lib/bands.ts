@@ -168,6 +168,11 @@ export interface ShowBandPaidStatus {
   // computed even split; a set value fixes this band's payout and sends the
   // difference from its computed share to the venue net as profit.
   payoutOverride: number | null;
+  // Per-band percentage of the artist pool (show_bands.payout_pct). null = even
+  // split; a set value (e.g. 50) pays this band that share of the pool — the
+  // knob behind an uneven split like 50/25/25. Mutually exclusive with
+  // payoutOverride: setting one clears the other.
+  payoutPct: number | null;
   // Band photo URL (bands.photo), shown as an avatar on the payout checklist.
   photo: string | null;
 }
@@ -184,10 +189,11 @@ export async function getShowBandsPaidStatus(showId: number): Promise<ShowBandPa
       excluded: boolean;
       payment_method: string | null;
       payout_override: string | null;
+      payout_pct: string | null;
       photo: string | null;
     }>
   >`
-    select b.id as band_id, b.name, sb.paid, sb.paid_method, sb.excluded, b.payment_method, sb.payout_override, b.photo
+    select b.id as band_id, b.name, sb.paid, sb.paid_method, sb.excluded, b.payment_method, sb.payout_override, sb.payout_pct, b.photo
     from show_bands sb
     join bands b on b.id = sb.band_id
     where sb.show_id = ${showId}
@@ -202,6 +208,7 @@ export async function getShowBandsPaidStatus(showId: number): Promise<ShowBandPa
     paymentMethod: r.payment_method,
     // numeric comes back as a string from postgres.js; null stays null.
     payoutOverride: r.payout_override === null ? null : Number(r.payout_override),
+    payoutPct: r.payout_pct === null ? null : Number(r.payout_pct),
     photo: r.photo,
   }));
 }
@@ -244,10 +251,12 @@ export async function setShowBandExcluded(
   return row ? row.excluded : null;
 }
 
-// Sets (or clears) a band's payout override for a show. Pass null to clear the
-// override and let the band fall back to the computed even split. Like the paid/
-// excluded setters, a standalone write on show_bands. Returns the stored override
-// (null when cleared) on success, or `undefined` if the show/band pairing
+// Sets (or clears) a band's fixed-dollar payout override for a show. Pass null to
+// clear the override and let the band fall back to its computed share. Setting a
+// value also clears any percentage share (payout_pct) — the two are mutually
+// exclusive, a band is paid a fixed amount OR a percentage OR the even split. Like
+// the paid/excluded setters, a standalone write on show_bands. Returns the stored
+// override (null when cleared) on success, or `undefined` if the show/band pairing
 // doesn't exist — distinct from a successfully-stored null.
 export async function setShowBandPayoutOverride(
   showId: number,
@@ -255,12 +264,35 @@ export async function setShowBandPayoutOverride(
   override: number | null
 ): Promise<number | null | undefined> {
   const [row] = await sql<Array<{ payout_override: string | null }>>`
-    update show_bands set payout_override = ${override}
+    update show_bands
+      set payout_override = ${override},
+          payout_pct = case when ${override}::numeric is null then payout_pct else null end
     where show_id = ${showId} and band_id = ${bandId}
     returning payout_override
   `;
   if (!row) return undefined;
   return row.payout_override === null ? null : Number(row.payout_override);
+}
+
+// Sets (or clears) a band's percentage-of-pool share for a show. Pass null to
+// clear it and fall back to the even split. Setting a value also clears any
+// fixed-dollar override (payout_override) — the two are mutually exclusive.
+// Standalone write on show_bands; returns the stored percentage (null when
+// cleared), or `undefined` if the show/band pairing doesn't exist.
+export async function setShowBandPayoutPct(
+  showId: number,
+  bandId: number,
+  pct: number | null
+): Promise<number | null | undefined> {
+  const [row] = await sql<Array<{ payout_pct: string | null }>>`
+    update show_bands
+      set payout_pct = ${pct},
+          payout_override = case when ${pct}::numeric is null then payout_override else null end
+    where show_id = ${showId} and band_id = ${bandId}
+    returning payout_pct
+  `;
+  if (!row) return undefined;
+  return row.payout_pct === null ? null : Number(row.payout_pct);
 }
 
 export interface BandVideo {

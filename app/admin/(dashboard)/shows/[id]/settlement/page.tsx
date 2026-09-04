@@ -134,7 +134,8 @@ export default async function SettlementPage({ params }: { params: Promise<{ id:
         computeSettlementSummary(
           initialValues,
           payoutBandCount,
-          includedBands.map((b) => b.payoutOverride)
+          includedBands.map((b) => b.payoutOverride),
+          includedBands.map((b) => b.payoutPct)
         ),
         payoutBandCount
       )

@@ -38,8 +38,10 @@ export async function GET(request: Request, { params }: { params: Promise<{ show
   const payoutBandCount = bands.filter((b) => !b.excluded).length;
 
   const values = settlementValuesFromRow(settlementRow);
-  const includedOverrides = bands.filter((b) => !b.excluded).map((b) => b.payoutOverride);
-  const summary = computeSettlementSummary(values, payoutBandCount, includedOverrides);
+  const includedBands = bands.filter((b) => !b.excluded);
+  const includedOverrides = includedBands.map((b) => b.payoutOverride);
+  const includedPcts = includedBands.map((b) => b.payoutPct);
+  const summary = computeSettlementSummary(values, payoutBandCount, includedOverrides, includedPcts);
 
   const buffer = await renderToBuffer(
     <SettlementPdfDocument showTitle={show.title} showDate={show.date} values={values} summary={summary} bands={bands} />

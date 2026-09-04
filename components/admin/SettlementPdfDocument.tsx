@@ -2,6 +2,7 @@ import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer';
 import {
   formatCurrency,
   formatPct,
+  bandShare,
   dealTermsLabel,
   PAYEE_EXPENSE_FIELDS,
   SHOW_INCOME_FIELDS,
@@ -176,7 +177,9 @@ export default function SettlementPdfDocument({
               <Text style={band.excluded ? { color: MUTED } : undefined}>
                 {band.excluded
                   ? 'Excluded'
-                  : formatCurrency(band.payoutOverride ?? summary.perBand)}
+                  : band.payoutPct !== null && band.payoutOverride === null
+                    ? `${formatPct(band.payoutPct)}% · ${formatCurrency(bandShare(summary, band.payoutOverride, band.payoutPct))}`
+                    : formatCurrency(bandShare(summary, band.payoutOverride, band.payoutPct))}
               </Text>
             </View>
           ))}
