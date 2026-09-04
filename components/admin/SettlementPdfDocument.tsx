@@ -3,6 +3,7 @@ import {
   formatCurrency,
   formatPct,
   bandShare,
+  bandDue,
   dealTermsLabel,
   PAYEE_EXPENSE_FIELDS,
   SHOW_INCOME_FIELDS,
@@ -163,26 +164,36 @@ export default function SettlementPdfDocument({
           <Text style={styles.sectionTitle}>Deal Terms — {dealTermsLabel(values)}</Text>
           <Row label="Artist split" value={formatCurrency(summary.artistPool)} bold />
           <Row label={`Per band (${payoutBandCount})`} value={formatCurrency(summary.perBand)} />
-          {bands.map((band) => (
-            <View key={band.bandId} style={styles.row}>
-              <Text
-                style={
-                  band.excluded
-                    ? { ...styles.rowLabel, color: MUTED, textDecoration: 'line-through' }
-                    : { ...styles.rowLabel, paddingLeft: 10 }
-                }
-              >
-                {band.excluded ? band.name : `• ${band.name}`}
-              </Text>
-              <Text style={band.excluded ? { color: MUTED } : undefined}>
-                {band.excluded
-                  ? 'Excluded'
-                  : band.payoutPct !== null && band.payoutOverride === null
-                    ? `${formatPct(band.payoutPct)}% · ${formatCurrency(bandShare(summary, band.payoutOverride, band.payoutPct))}`
-                    : formatCurrency(bandShare(summary, band.payoutOverride, band.payoutPct))}
-              </Text>
-            </View>
-          ))}
+          {bands.map((band) => {
+            const adjusted = !band.excluded && band.payoutOverride !== null;
+            const pctLabel = band.payoutPct !== null ? `${formatPct(band.payoutPct)}% · ` : '';
+            return (
+              <View key={band.bandId}>
+                <View style={styles.row}>
+                  <Text
+                    style={
+                      band.excluded
+                        ? { ...styles.rowLabel, color: MUTED, textDecoration: 'line-through' }
+                        : { ...styles.rowLabel, paddingLeft: 10 }
+                    }
+                  >
+                    {band.excluded ? band.name : `• ${band.name}`}
+                  </Text>
+                  <Text style={band.excluded ? { color: MUTED } : undefined}>
+                    {band.excluded
+                      ? 'Excluded'
+                      : `${pctLabel}${formatCurrency(bandShare(summary, band.payoutOverride, band.payoutPct))}`}
+                  </Text>
+                </View>
+                {adjusted && (
+                  <Text style={{ color: MUTED, fontSize: 8, paddingLeft: 10, marginTop: -1, marginBottom: 2 }}>
+                    due {formatCurrency(bandDue(summary, band.payoutPct))}
+                    {band.payoutNote ? ` — ${band.payoutNote}` : ''}
+                  </Text>
+                )}
+              </View>
+            );
+          })}
           {summary.bandPayoutSavings > 0 && (
             <Row label="Kept from band payouts" value={formatCurrency(summary.bandPayoutSavings)} />
           )}

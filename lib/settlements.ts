@@ -179,12 +179,14 @@ export interface SettlementSummary {
   venueNet: number;
 }
 
-// `bandPayoutOverrides` is the per-band fixed-dollar override for the *included*
-// bands only — one entry per band that shares the split, null where the band
-// follows its computed share. `bandPayoutPcts` is the parallel per-band
-// *percentage of the artist pool* (e.g. 50 for a 50% share), null where the band
-// takes the even split; the two are mutually exclusive per band (a fixed override
-// wins if both are somehow set). When both are omitted (or all null) every band
+// `bandPayoutOverrides` is the per-band manual dollar adjustment for the
+// *included* bands only — one entry per band, null where the band is paid exactly
+// what it's due. `bandPayoutPcts` is the parallel per-band *percentage of the
+// artist pool* (e.g. 50 for a 50% share) that sets what the band is due, null
+// where the band takes the even split. The two coexist: the percentage drives the
+// due amount and the override, when set, is the amount actually paid (its
+// difference from the due amount is the venue's saving). When both are omitted
+// (or all null) every band
 // takes the even per-band share, so bandPayout equals artistPool and there are no
 // savings. When a band is paid less than the even share the difference is added to
 // the venue net as profit (and a band paid more reduces it), matching how the
@@ -273,18 +275,24 @@ export function computeSettlementSummary(
   };
 }
 
-// The dollar amount a single band is paid, given a computed summary and that
-// band's per-band settings — a fixed override, else a percentage of the pool,
-// else the even split. Mirrors `bandShareAt` inside computeSettlementSummary so
-// the settlement page and PDF display exactly what the totals were built from.
+// What a band is *due* from the pool, before any manual dollar adjustment: its
+// percentage of the artist pool, or the even per-band share when it has no
+// percentage set.
+export function bandDue(summary: SettlementSummary, payoutPct: number | null): number {
+  if (payoutPct !== null) return summary.artistPool * (payoutPct / 100);
+  return summary.perBand;
+}
+
+// The dollar amount a single band is actually paid: the manual override when set,
+// otherwise what they're due. Mirrors `bandShareAt` inside computeSettlementSummary
+// so the settlement page and PDF display exactly what the totals were built from.
 export function bandShare(
   summary: SettlementSummary,
   payoutOverride: number | null,
   payoutPct: number | null
 ): number {
   if (payoutOverride !== null) return payoutOverride;
-  if (payoutPct !== null) return summary.artistPool * (payoutPct / 100);
-  return summary.perBand;
+  return bandDue(summary, payoutPct);
 }
 
 export function formatCurrency(value: number): string {
