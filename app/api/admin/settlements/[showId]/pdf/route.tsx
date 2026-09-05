@@ -4,6 +4,7 @@ import { sql } from '@/lib/db';
 import { computeSettlementSummary, settlementValuesFromRow, type SettlementDbRow } from '@/lib/settlements';
 import { getShowBandsPaidStatus } from '@/lib/bands';
 import SettlementPdfDocument from '@/components/admin/SettlementPdfDocument';
+import { requireAdmin } from '@/lib/admin-session';
 
 export const runtime = 'nodejs';
 
@@ -13,6 +14,8 @@ function parseId(id: string): number | null {
 }
 
 export async function GET(request: Request, { params }: { params: Promise<{ showId: string }> }) {
+  const denied = await requireAdmin();
+  if (denied) return denied;
   const { showId: showIdParam } = await params;
   const showId = parseId(showIdParam);
   if (showId === null) {

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { sql } from '@/lib/db';
 import { getProgramOrBlank, isTvMode, type ScheduleWindow, type BoardRow } from '@/lib/tv-program';
+import { requireAdmin } from '@/lib/admin-session';
 
 // Global TV program (070_tv_program.sql). Auth is enforced centrally in
 // proxy.ts for all /api/admin/* routes. Phase 1 edits the single global row
@@ -41,11 +42,15 @@ function scopeShowId(value: unknown): number | null {
 }
 
 export async function GET(request: Request) {
+  const denied = await requireAdmin();
+  if (denied) return denied;
   const showId = scopeShowId(new URL(request.url).searchParams.get('showId'));
   return NextResponse.json(await getProgramOrBlank(showId));
 }
 
 export async function PATCH(request: Request) {
+  const denied = await requireAdmin();
+  if (denied) return denied;
   const body = await request.json().catch(() => null);
   if (!body || typeof body !== 'object') {
     return NextResponse.json({ error: 'Invalid body' }, { status: 400 });

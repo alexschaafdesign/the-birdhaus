@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { revalidatePath } from 'next/cache';
 import { sql } from '@/lib/db';
 import { slugify } from '@/lib/bands';
+import { requireAdmin } from '@/lib/admin-session';
 
 function nullableTrim(value: unknown): string | null {
   if (typeof value !== 'string') return null;
@@ -10,6 +11,8 @@ function nullableTrim(value: unknown): string | null {
 }
 
 export async function GET(request: Request) {
+  const denied = await requireAdmin();
+  if (denied) return denied;
   const q = new URL(request.url).searchParams.get('q');
 
   if (q && q.trim()) {
@@ -35,6 +38,8 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  const denied = await requireAdmin();
+  if (denied) return denied;
   const body = await request.json().catch(() => null);
 
   const name = nullableTrim(body?.name);

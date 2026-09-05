@@ -27,8 +27,11 @@ import {
   setShowSoundEngineers,
   type ShowSoundEngineer,
 } from '@/lib/sound-engineers';
+import { requireAdmin } from '@/lib/admin-session';
 
 export async function GET() {
+  const denied = await requireAdmin();
+  if (denied) return denied;
   const rows = await sql`
     select *, date::text as date, ${bandsJoinFragment()}, ${videosJoinFragment()}
     from shows
@@ -44,6 +47,8 @@ function nullableTrim(value: unknown): string | null {
 }
 
 export async function POST(request: Request) {
+  const denied = await requireAdmin();
+  if (denied) return denied;
   const body = await request.json().catch(() => null);
 
   const title = nullableTrim(body?.title);

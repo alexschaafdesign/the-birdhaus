@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { RECEIPTS_FOLDER, uploadFileToR2 } from '@/lib/r2';
+import { requireAdmin } from '@/lib/admin-session';
 
 // Admin-gated by proxy.ts. Accepts a receipt image or PDF and re-hosts it on R2,
 // returning its public URL + original filename to store on the expense row.
@@ -18,6 +19,8 @@ const ALLOWED_TYPES = new Set([
 ]);
 
 export async function POST(request: Request) {
+  const denied = await requireAdmin();
+  if (denied) return denied;
   const formData = await request.formData().catch(() => null);
   if (!formData) {
     return NextResponse.json({ error: 'Invalid form data' }, { status: 400 });

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { sql } from '@/lib/db';
 import type { PayeeNameField } from '@/lib/settlements';
+import { requireAdmin } from '@/lib/admin-session';
 
 const COLUMN_BY_NAME_FIELD: Record<PayeeNameField, string> = {
   photographerName: 'photographer_name',
@@ -9,6 +10,8 @@ const COLUMN_BY_NAME_FIELD: Record<PayeeNameField, string> = {
 };
 
 export async function GET(request: Request) {
+  const denied = await requireAdmin();
+  if (denied) return denied;
   const url = new URL(request.url);
   const role = url.searchParams.get('role') as PayeeNameField | null;
   const q = url.searchParams.get('q')?.trim() ?? '';

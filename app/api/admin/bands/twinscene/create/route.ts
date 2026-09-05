@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { revalidatePath } from 'next/cache';
 import { getTwinSceneBands, createTwinSceneBandFull, type TwinSceneBandInput } from '@/lib/twinscene';
 import { syncBandFromTwinScene } from '@/lib/bands';
+import { requireAdmin } from '@/lib/admin-session';
 
 // Full "Add band" from the Edit Show form's typeahead modal: create the band in
 // Twin Scene's canonical directory with a complete profile, then create the
@@ -15,6 +16,8 @@ import { syncBandFromTwinScene } from '@/lib/bands';
 // Scene's authoritative, post-enrichment field values (e.g. resolved Bandcamp
 // embed) rather than just the raw form input.
 export async function POST(request: Request) {
+  const denied = await requireAdmin();
+  if (denied) return denied;
   const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
   const name = typeof body?.name === 'string' ? body.name.trim() : '';
   if (!name) {

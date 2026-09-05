@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { sql } from '@/lib/db';
 import { getAllCards } from '@/lib/tv-program';
+import { requireAdmin } from '@/lib/admin-session';
 
 // Announcement cards for 'cards' mode (070_tv_program.sql). Auth is enforced
 // centrally in proxy.ts for all /api/admin/* routes. Scope: ?showId=N / a
@@ -15,11 +16,15 @@ function scopeShowId(value: unknown): number | null {
 }
 
 export async function GET(request: Request) {
+  const denied = await requireAdmin();
+  if (denied) return denied;
   const showId = scopeShowId(new URL(request.url).searchParams.get('showId'));
   return NextResponse.json(await getAllCards(showId));
 }
 
 export async function POST(request: Request) {
+  const denied = await requireAdmin();
+  if (denied) return denied;
   const body = await request.json().catch(() => null);
   const headline = typeof body?.headline === 'string' ? body.headline.trim() : '';
   if (!headline) {

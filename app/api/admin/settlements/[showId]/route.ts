@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { sql } from '@/lib/db';
 import { isPaidMethod, type PaidMethod } from '@/lib/settlements';
+import { requireAdmin } from '@/lib/admin-session';
 
 const DEAL_TYPES = ['straight_split', 'venue_guarantee_then_split'];
 
@@ -47,6 +48,8 @@ function isValidExtraLineItems(value: unknown): value is Array<{ type: string; l
 }
 
 export async function GET(request: Request, { params }: { params: Promise<{ showId: string }> }) {
+  const denied = await requireAdmin();
+  if (denied) return denied;
   const { showId: showIdParam } = await params;
   const showId = parseId(showIdParam);
   if (showId === null) {
@@ -63,6 +66,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ show
 // default, so show_id + the flag is enough. An optional paid-method (cash/venmo)
 // rides along with each flag; unmarking always clears it.
 export async function PATCH(request: Request, { params }: { params: Promise<{ showId: string }> }) {
+  const denied = await requireAdmin();
+  if (denied) return denied;
   const { showId: showIdParam } = await params;
   const showId = parseId(showIdParam);
   if (showId === null) {
@@ -114,6 +119,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ sh
 }
 
 export async function PUT(request: Request, { params }: { params: Promise<{ showId: string }> }) {
+  const denied = await requireAdmin();
+  if (denied) return denied;
   const { showId: showIdParam } = await params;
   const showId = parseId(showIdParam);
   if (showId === null) {

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { revalidatePath } from 'next/cache';
 import { getTwinSceneBands } from '@/lib/twinscene';
 import { syncBandFromTwinScene } from '@/lib/bands';
+import { requireAdmin } from '@/lib/admin-session';
 
 // Fetched once per Edit Show form load (see ShowForm.tsx) and cached
 // client-side for the rest of the session — BandNameInput filters this list
@@ -9,6 +10,8 @@ import { syncBandFromTwinScene } from '@/lib/bands';
 // Scene is unreachable, the form's local-only typeahead (/api/admin/bands)
 // still works on its own.
 export async function GET() {
+  const denied = await requireAdmin();
+  if (denied) return denied;
   try {
     const bands = await getTwinSceneBands();
     return NextResponse.json(
@@ -34,6 +37,8 @@ export async function GET() {
 // enrichment pull at POST /api/admin/bands/sync-twinscene, which only fills
 // gaps on bands already linked — this is the one-time create path.
 export async function POST(request: Request) {
+  const denied = await requireAdmin();
+  if (denied) return denied;
   const body = await request.json().catch(() => null);
   const twinSceneId = typeof body?.twinSceneId === 'number' ? body.twinSceneId : null;
   if (!twinSceneId) {

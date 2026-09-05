@@ -10,6 +10,7 @@ import {
   type TwinSceneEditableBand,
 } from '@/lib/twinscene';
 import { syncBandFromTwinScene } from '@/lib/bands';
+import { requireAdmin } from '@/lib/admin-session';
 
 // Full "Edit band" from the Edit Show form — the counterpart to the create modal
 // (POST /api/admin/bands/twinscene/create). Keyed by the LOCAL overlay band id
@@ -95,6 +96,8 @@ async function loadLocal(bandId: number): Promise<LocalRow | null> {
 }
 
 export async function GET(_request: Request, { params }: { params: Promise<{ bandId: string }> }) {
+  const denied = await requireAdmin();
+  if (denied) return denied;
   const { bandId } = await params;
   const id = Number(bandId);
   if (!Number.isInteger(id)) {
@@ -120,6 +123,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ ban
 }
 
 export async function PUT(request: Request, { params }: { params: Promise<{ bandId: string }> }) {
+  const denied = await requireAdmin();
+  if (denied) return denied;
   const { bandId } = await params;
   const id = Number(bandId);
   if (!Number.isInteger(id)) {

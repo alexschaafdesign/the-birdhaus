@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { sql } from '@/lib/db';
 import { getAllTvImages } from '@/lib/tv-images';
+import { requireAdmin } from '@/lib/admin-session';
 
 // Curated /tv idle-pool images (069_tv_images.sql). Auth is enforced centrally
 // in proxy.ts for all /api/admin/* routes.
@@ -8,6 +9,8 @@ import { getAllTvImages } from '@/lib/tv-images';
 // Full pool (active + parked), in display order — the admin list refreshes
 // from this after a mutation.
 export async function GET() {
+  const denied = await requireAdmin();
+  if (denied) return denied;
   const images = await getAllTvImages();
   return NextResponse.json(images);
 }
@@ -16,6 +19,8 @@ export async function GET() {
 // client uploads via /api/admin/uploads with folder=tv, then posts the URL).
 // New images land at the end of the order.
 export async function POST(request: Request) {
+  const denied = await requireAdmin();
+  if (denied) return denied;
   const body = await request.json().catch(() => null);
   const url = typeof body?.url === 'string' ? body.url.trim() : '';
   if (!url) {

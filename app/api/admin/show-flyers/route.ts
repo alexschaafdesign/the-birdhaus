@@ -1,10 +1,13 @@
 import { NextResponse } from 'next/server';
 import { sql } from '@/lib/db';
+import { requireAdmin } from '@/lib/admin-session';
 
 // Shows that have a flyer, for the screensaver flyer picker. Auth is enforced
 // centrally in proxy.ts for all /api/admin/* routes. Returns the public flyer
 // URL as-is (the TV feed rewrites it to a 640px variant when it's shown).
 export async function GET() {
+  const denied = await requireAdmin();
+  if (denied) return denied;
   const rows = await sql<Array<{ id: number; title: string; date: string; flyer: string }>>`
     select id, title, date::text as date, flyer
     from shows

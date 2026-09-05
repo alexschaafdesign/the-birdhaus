@@ -1,9 +1,12 @@
 import { NextResponse } from 'next/server';
 import { sql } from '@/lib/db';
+import { requireAdmin } from '@/lib/admin-session';
 
 // Name typeahead for the show form's sound-engineer fields. Hit on every
 // keystroke, so keep it cheap (mirrors the bands search route).
 export async function GET(request: Request) {
+  const denied = await requireAdmin();
+  if (denied) return denied;
   const url = new URL(request.url);
   const q = url.searchParams.get('q')?.trim() ?? '';
   if (!q) {
@@ -28,6 +31,8 @@ function nullableTrim(value: unknown): string | null {
 // Create a sound engineer profile from the admin section. Name is unique
 // case-insensitively (sound_engineers_name_idx) — a collision returns 409.
 export async function POST(request: Request) {
+  const denied = await requireAdmin();
+  if (denied) return denied;
   const body = await request.json().catch(() => null);
   const name = nullableTrim(body?.name);
   if (!name) {

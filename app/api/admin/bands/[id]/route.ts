@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { revalidatePath } from 'next/cache';
 import { sql } from '@/lib/db';
 import { slugify } from '@/lib/bands';
+import { requireAdmin } from '@/lib/admin-session';
 
 const TEXT_FIELD_MAP: Record<string, string> = {
   name: 'name',
@@ -23,6 +24,8 @@ function parseId(id: string): number | null {
 }
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const denied = await requireAdmin();
+  if (denied) return denied;
   const { id } = await params;
   const bandId = parseId(id);
   if (bandId === null) {
@@ -109,6 +112,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 }
 
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const denied = await requireAdmin();
+  if (denied) return denied;
   const { id } = await params;
   const bandId = parseId(id);
   if (bandId === null) {

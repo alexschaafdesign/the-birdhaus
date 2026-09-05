@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createRsvp } from '@/lib/rsvps';
+import { requireAdmin } from '@/lib/admin-session';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -15,6 +16,8 @@ function parseId(id: string): number | null {
 }
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const denied = await requireAdmin();
+  if (denied) return denied;
   const { id } = await params;
   const showId = parseId(id);
   if (showId === null) {

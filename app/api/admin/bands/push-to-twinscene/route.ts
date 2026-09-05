@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { revalidatePath } from 'next/cache';
 import { sql } from '@/lib/db';
 import { createTwinSceneBandFull, type TwinSceneBandInput } from '@/lib/twinscene';
+import { requireAdmin } from '@/lib/admin-session';
 
 // Push an existing, unlinked Birdhaus band up to Twin Scene and link the local
 // overlay row in place (sets twin_scene_band_id) — without creating a duplicate
@@ -77,6 +78,8 @@ async function pushOne(b: BandRow): Promise<{ name: string; tsId?: number; match
 }
 
 export async function POST(request: Request) {
+  const denied = await requireAdmin();
+  if (denied) return denied;
   const body = (await request.json().catch(() => null)) as { id?: number } | null;
 
   let rows: BandRow[];

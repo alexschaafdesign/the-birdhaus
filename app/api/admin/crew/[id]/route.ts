@@ -8,6 +8,7 @@ import {
   updateCrewFields,
 } from '@/lib/club-members';
 import { sendCrewInviteEmail } from '@/lib/club-email';
+import { requireAdmin } from '@/lib/admin-session';
 
 // Admin auth: enforced by proxy.ts for all /api/admin routes.
 
@@ -16,6 +17,8 @@ export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const denied = await requireAdmin();
+  if (denied) return denied;
   const id = Number((await params).id);
   if (!Number.isInteger(id)) {
     return NextResponse.json({ error: 'Invalid id' }, { status: 400 });
@@ -69,6 +72,8 @@ export async function DELETE(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const denied = await requireAdmin();
+  if (denied) return denied;
   const id = Number((await params).id);
   if (!Number.isInteger(id)) {
     return NextResponse.json({ error: 'Invalid id' }, { status: 400 });

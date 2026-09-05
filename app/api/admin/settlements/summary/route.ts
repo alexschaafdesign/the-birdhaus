@@ -9,6 +9,7 @@ import {
   type SettlementDbRow,
 } from '@/lib/settlements';
 import { paidTotalsByWorker } from '@/lib/timesheet';
+import { requireAdmin } from '@/lib/admin-session';
 
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -19,6 +20,8 @@ interface SettlementSummaryRow extends SettlementDbRow {
 }
 
 export async function GET(request: Request) {
+  const denied = await requireAdmin();
+  if (denied) return denied;
   const url = new URL(request.url);
   const yearParam = url.searchParams.get('year');
   const startParam = url.searchParams.get('start');

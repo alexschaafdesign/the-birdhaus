@@ -1,9 +1,12 @@
 import { NextResponse } from 'next/server';
 import { createEvent, buildEventInput, type SongClubEventBody } from '@/lib/song-club';
 import { maybeNotifyEventPublished } from '@/lib/club-notify';
+import { requireAdmin } from '@/lib/admin-session';
 
 // Create a new Song Club event. Admin-gated by proxy.ts (the /api/admin/* matcher).
 export async function POST(request: Request) {
+  const denied = await requireAdmin();
+  if (denied) return denied;
   const body = (await request.json()) as SongClubEventBody;
   const input = buildEventInput(body);
   if ('error' in input) {

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { applyPreset } from '@/lib/tv-presets';
+import { requireAdmin } from '@/lib/admin-session';
 
 // Apply a preset into a scope (global or a show). Auth is enforced centrally in
 // proxy.ts for all /api/admin/* routes. Screensaver presets always apply to the
@@ -15,6 +16,8 @@ function scopeShowId(value: unknown): number | null {
 }
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const denied = await requireAdmin();
+  if (denied) return denied;
   const { id } = await params;
   const presetId = parseId(id);
   if (presetId === null) return NextResponse.json({ error: 'Invalid id' }, { status: 400 });

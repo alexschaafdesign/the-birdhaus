@@ -28,6 +28,7 @@ import {
   type ShowSoundEngineer,
 } from '@/lib/sound-engineers';
 import { SITE_URL } from '@/lib/site';
+import { requireAdmin } from '@/lib/admin-session';
 
 // Maps the camelCase keys the client sends (matching the `Show` interface) to
 // their snake_case columns for the plain text/URL fields. Fields with their own
@@ -54,6 +55,8 @@ function parseId(id: string): number | null {
 }
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const denied = await requireAdmin();
+  if (denied) return denied;
   const { id } = await params;
   const showId = parseId(id);
   if (showId === null) {
@@ -300,6 +303,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 }
 
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const denied = await requireAdmin();
+  if (denied) return denied;
   const { id } = await params;
   const showId = parseId(id);
   if (showId === null) {

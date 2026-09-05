@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { sql } from '@/lib/db';
+import { requireAdmin } from '@/lib/admin-session';
 
 // Auth is enforced centrally in proxy.ts for all /api/admin/* routes.
 
@@ -11,6 +12,8 @@ function parseId(id: string): number | null {
 // Edit a card: headline / subtext / image / active, or reorder one step within
 // the global set. `move: 'up'|'down'` swaps display order with the neighbor.
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const denied = await requireAdmin();
+  if (denied) return denied;
   const { id } = await params;
   const cardId = parseId(id);
   if (cardId === null) {
@@ -92,6 +95,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 }
 
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const denied = await requireAdmin();
+  if (denied) return denied;
   const { id } = await params;
   const cardId = parseId(id);
   if (cardId === null) {

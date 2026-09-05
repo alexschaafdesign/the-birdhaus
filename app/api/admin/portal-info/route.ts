@@ -1,14 +1,19 @@
 import { NextResponse } from 'next/server';
 import { getPortalInfo, updatePortalInfo } from '@/lib/portal-content';
+import { requireAdmin } from '@/lib/admin-session';
 
 // Auth is enforced centrally in proxy.ts for all /api/admin/* routes.
 
 export async function GET() {
+  const denied = await requireAdmin();
+  if (denied) return denied;
   const info = await getPortalInfo();
   return NextResponse.json(info);
 }
 
 export async function PUT(request: Request) {
+  const denied = await requireAdmin();
+  if (denied) return denied;
   const body = await request.json().catch(() => null);
   const infoBody = typeof body?.body === 'string' ? body.body : '';
   if (!infoBody.trim()) {

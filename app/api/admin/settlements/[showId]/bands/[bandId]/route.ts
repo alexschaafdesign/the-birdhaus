@@ -7,6 +7,7 @@ import {
   setShowBandPayoutNote,
 } from '@/lib/bands';
 import { isPaidMethod } from '@/lib/settlements';
+import { requireAdmin } from '@/lib/admin-session';
 
 function parseId(id: string): number | null {
   const parsed = Number(id);
@@ -17,6 +18,8 @@ export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ showId: string; bandId: string }> }
 ) {
+  const denied = await requireAdmin();
+  if (denied) return denied;
   const { showId: showIdParam, bandId: bandIdParam } = await params;
   const showId = parseId(showIdParam);
   const bandId = parseId(bandIdParam);

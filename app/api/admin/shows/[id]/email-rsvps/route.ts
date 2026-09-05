@@ -3,6 +3,7 @@ import { sql } from '@/lib/db';
 import { getRsvpsForShow } from '@/lib/rsvps';
 import { getShowPurchaseMatches } from '@/lib/square';
 import { sendRsvpBlast } from '@/lib/rsvp-email';
+import { requireAdmin } from '@/lib/admin-session';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -14,6 +15,8 @@ function parseId(id: string): number | null {
 // One-off blast to everyone who RSVPed for a show. Guarded by proxy.ts admin
 // middleware (matches /api/admin/:path*), so no auth check is needed here.
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const denied = await requireAdmin();
+  if (denied) return denied;
   const { id } = await params;
   const showId = parseId(id);
   if (showId === null) {
