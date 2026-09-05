@@ -45,3 +45,4 @@ next-env.d.ts
 bands-export.json
 bands-import-preview.json
 bands-id-mapping.json
+settlements-snapshot-*.json
