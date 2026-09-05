@@ -225,8 +225,8 @@ export default function DoorCheckIn({ token, data }: { token: string; data: Door
                 }`}
               >
                 <div className="min-w-0">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <div className="text-lg font-semibold leading-tight truncate">{r.name}</div>
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1 min-w-0">
+                    <div className="text-lg font-semibold leading-tight break-words">{r.name}</div>
                     {prepaid && (
                       <span className="shrink-0 rounded-full bg-emerald-400/15 border border-emerald-400/50 text-emerald-300 text-[11px] font-bold uppercase tracking-wide px-2.5 py-1 leading-none">
                         ✓{' '}
