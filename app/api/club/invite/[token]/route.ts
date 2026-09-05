@@ -41,6 +41,6 @@ export async function POST(
   // any `next` for a non-portal account.
   const dest = member.roles.includes('song_club') ? '/song-club' : '/admin';
   const response = NextResponse.json({ ok: true, dest });
-  await grantSessionCookies(response, member.id, member.roles);
+  await grantSessionCookies(response, member.id, member.roles, member.session_epoch);
   return response;
 }

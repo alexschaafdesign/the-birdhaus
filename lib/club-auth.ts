@@ -56,37 +56,51 @@ export function hashSetupToken(token: string): string {
   return crypto.createHash('sha256').update(token).digest('hex');
 }
 
-// --- session tokens: "<memberId>.<issuedAt>.<hmac>" ---
+// --- session tokens: "<memberId>.<epoch>.<issuedAt>.<hmac>" ---
+//
+// The epoch is users.session_epoch at issue time. Verification hands it back
+// so the caller can compare against the row's current epoch — bumping the
+// epoch (password change/reset, disable) invalidates every outstanding token,
+// which a pure stateless HMAC could never do. Pre-epoch three-part tokens no
+// longer verify; members from before the change just log in again once.
 
-function signSession(memberId: number, issuedAt: string): string {
+function signSession(memberId: number, epoch: number, issuedAt: string): string {
   return crypto
     .createHmac('sha256', getSecret())
-    .update(`club:${memberId}.${issuedAt}`)
+    .update(`club2:${memberId}.${epoch}.${issuedAt}`)
     .digest('hex');
 }
 
-export function createClubSessionToken(memberId: number): string {
+export function createClubSessionToken(memberId: number, epoch: number): string {
   const issuedAt = Date.now().toString();
-  return `${memberId}.${issuedAt}.${signSession(memberId, issuedAt)}`;
+  return `${memberId}.${epoch}.${issuedAt}.${signSession(memberId, epoch, issuedAt)}`;
 }
 
-// Returns the member id the token vouches for, or null. Callers still need to
-// load the member row and check status — a signed cookie must not outlive a
-// disabled account.
-export function verifyClubSessionToken(token: string | undefined | null): number | null {
+export interface ClubTokenInfo {
+  memberId: number;
+  epoch: number;
+}
+
+// Returns the member id + epoch the token vouches for, or null. Callers still
+// need to load the member row and check status AND that the epoch matches —
+// a signed cookie must not outlive a disabled account or a password change.
+export function verifyClubSessionToken(token: string | undefined | null): ClubTokenInfo | null {
   if (!token) return null;
-  const [idPart, issuedAt, signature] = token.split('.');
-  if (!idPart || !issuedAt || !signature) return null;
+  const parts = token.split('.');
+  if (parts.length !== 4) return null;
+  const [idPart, epochPart, issuedAt, signature] = parts;
 
   const memberId = Number(idPart);
   if (!Number.isInteger(memberId) || memberId <= 0) return null;
+  const epoch = Number(epochPart);
+  if (!Number.isInteger(epoch) || epoch <= 0) return null;
 
   const age = Date.now() - Number(issuedAt);
   if (!Number.isFinite(age) || age < 0 || age > CLUB_SESSION_MAX_AGE_SECONDS * 1000) return null;
 
-  const expected = signSession(memberId, issuedAt);
+  const expected = signSession(memberId, epoch, issuedAt);
   const a = Buffer.from(signature);
   const b = Buffer.from(expected);
   if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
-  return memberId;
+  return { memberId, epoch };
 }

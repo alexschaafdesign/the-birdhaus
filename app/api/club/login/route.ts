@@ -39,6 +39,6 @@ export async function POST(request: Request) {
       ? '/yellow-ostrich'
       : '/admin';
   const response = NextResponse.json({ ok: true, dest });
-  await grantSessionCookies(response, row.id, row.roles);
+  await grantSessionCookies(response, row.id, row.roles, row.session_epoch);
   return response;
 }

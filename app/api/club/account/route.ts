@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getClubMember, updateProfile, changePassword } from '@/lib/club-members';
+import { grantSessionCookies } from '@/lib/club-session';
 
 // Self-service account settings for the logged-in user. This uses
 // getClubMember (any active account), not the portal-role variant, so crew /
@@ -39,8 +40,14 @@ export async function POST(request: Request) {
       { status: 400 }
     );
   }
-  if (!(await changePassword(member.id, currentPassword, newPassword))) {
+  const newEpoch = await changePassword(member.id, currentPassword, newPassword);
+  if (newEpoch === null) {
     return NextResponse.json({ error: 'Current password is incorrect' }, { status: 400 });
   }
-  return NextResponse.json({ ok: true });
+  // The epoch bump just logged out every session, including this one — re-issue
+  // this device's cookies so the changer stays signed in; everywhere else stays
+  // logged out.
+  const response = NextResponse.json({ ok: true });
+  await grantSessionCookies(response, member.id, member.roles, newEpoch);
+  return response;
 }

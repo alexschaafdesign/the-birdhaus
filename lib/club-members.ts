@@ -53,6 +53,10 @@ export interface ClubMember {
   invited_at: string;
   joined_at: string | null;
   last_seen_at: string | null;
+  // Session-revocation counter (080): tokens embed it at issue time and die
+  // when it's bumped (password change/reset, disable). Not secret — forging a
+  // token still requires the HMAC secret.
+  session_epoch: number;
 }
 
 const MAX_LINKS = 8;
@@ -87,7 +91,7 @@ const COLUMNS = sql`
   avatar_url, bio, links, notify_track_comments, notify_announcements, notify_events,
   (select coalesce(array_agg(r.role order by r.role), '{}')
      from user_roles r where r.user_id = users.id) as roles,
-  title, focus_areas,
+  title, focus_areas, session_epoch,
   invited_at::text as invited_at, joined_at::text as joined_at,
   last_seen_at::text as last_seen_at
 `;
@@ -248,10 +252,13 @@ export async function acceptSetupToken(
   if (!member) return null;
 
   const passwordHash = await hashPassword(password);
+  // session_epoch bump: a password (re)set kills every outstanding session —
+  // this is what makes "reset your password" actually log out a stolen cookie.
   const [row] = await sql<Array<{ id: number }>>`
     update users set
       password_hash = ${passwordHash},
       status = 'active',
+      session_epoch = session_epoch + 1,
       joined_at = coalesce(joined_at, now()),
       setup_token_hash = null,
       setup_token_expires_at = null
@@ -268,6 +275,7 @@ export async function getLoginRow(email: string): Promise<{
   password_hash: string | null;
   status: ClubMemberStatus;
   roles: ClubRole[];
+  session_epoch: number;
 } | null> {
   const [row] = await sql<
     Array<{
@@ -275,9 +283,10 @@ export async function getLoginRow(email: string): Promise<{
       password_hash: string | null;
       status: ClubMemberStatus;
       roles: ClubRole[];
+      session_epoch: number;
     }>
   >`
-    select id, password_hash, status,
+    select id, password_hash, status, session_epoch,
            (select coalesce(array_agg(r.role order by r.role), '{}')
               from user_roles r where r.user_id = users.id) as roles
     from users where email = ${normalizeEmail(email)}
@@ -290,13 +299,16 @@ export async function setMemberStatus(
   status: 'active' | 'disabled'
 ): Promise<ClubMember | null> {
   // Enabling someone who never accepted their invite returns them to
-  // 'invited' (they still have no password to log in with).
+  // 'invited' (they still have no password to log in with). Disabling bumps
+  // the session epoch so every outstanding session — including a staff
+  // account's admin cookie — dies on its next request, not when it expires.
   const [row] = await sql<Array<{ id: number }>>`
     update users set
       status = case
         when ${status} = 'active' and password_hash is null then 'invited'
         else ${status}
-      end
+      end,
+      session_epoch = session_epoch + case when ${status} = 'disabled' then 1 else 0 end
     where id = ${id}
     returning id
   `;
@@ -366,32 +378,41 @@ export async function setAvatar(id: number, url: string): Promise<void> {
   await sql`update users set avatar_url = ${url} where id = ${id}`;
 }
 
-// Change password with current-password verification. Returns false when the
-// current password doesn't match (or the user is gone).
+// Change password with current-password verification. Bumps the session epoch
+// so every other session logs out; returns the new epoch (the caller re-issues
+// this device's cookies with it), or null when the current password doesn't
+// match (or the user is gone).
 export async function changePassword(
   id: number,
   currentPassword: string,
   newPassword: string
-): Promise<boolean> {
+): Promise<number | null> {
   const [row] = await sql<Array<{ password_hash: string | null }>>`
     select password_hash from users where id = ${id} and status = 'active'
   `;
-  if (!row?.password_hash) return false;
-  if (!(await verifyPassword(currentPassword, row.password_hash))) return false;
+  if (!row?.password_hash) return null;
+  if (!(await verifyPassword(currentPassword, row.password_hash))) return null;
   const hash = await hashPassword(newPassword);
-  await sql`update users set password_hash = ${hash} where id = ${id}`;
-  return true;
+  const [updated] = await sql<Array<{ session_epoch: number }>>`
+    update users set password_hash = ${hash}, session_epoch = session_epoch + 1
+    where id = ${id}
+    returning session_epoch
+  `;
+  return updated ? Number(updated.session_epoch) : null;
 }
 
 // The logged-in user for the current request, from the session cookie.
-// Re-loads the row so a disabled/deleted user is locked out immediately,
-// signed cookie or not.
+// Re-loads the row so a disabled/deleted user — or a token from before the
+// last password change (stale epoch) — is locked out immediately, signed
+// cookie or not.
 export async function getClubMember(): Promise<ClubMember | null> {
   const token = (await cookies()).get(CLUB_SESSION_COOKIE)?.value;
-  const memberId = verifyClubSessionToken(token);
-  if (memberId === null) return null;
-  const member = await getMemberById(memberId);
-  return member && member.status === 'active' ? member : null;
+  const info = verifyClubSessionToken(token);
+  if (info === null) return null;
+  const member = await getMemberById(info.memberId);
+  return member && member.status === 'active' && Number(member.session_epoch) === info.epoch
+    ? member
+    : null;
 }
 
 // The current user only if they can access the Song Club portal. A crew- or

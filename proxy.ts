@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { SESSION_COOKIE, verifySessionToken } from '@/lib/auth';
+import { SESSION_COOKIE, verifyAdminToken } from '@/lib/auth';
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -13,8 +13,11 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // HMAC + expiry only — the middleware can't reach the DB. Staff tokens get
+  // their status/epoch re-check in lib/admin-session.ts (pages call
+  // isAdminSession via the dashboard layout; API routes call requireAdmin).
   const token = request.cookies.get(SESSION_COOKIE)?.value;
-  if (await verifySessionToken(token)) {
+  if (await verifyAdminToken(token)) {
     return NextResponse.next();
   }
 
