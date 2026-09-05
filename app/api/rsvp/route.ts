@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { sql } from '@/lib/db';
-import { getShowById } from '@/lib/shows';
+import { getShowById, getTodayCentral } from '@/lib/shows';
 import { sendRsvpConfirmationEmail } from '@/lib/rsvp-email';
 import { upsertMailchimpSubscriber, getMailchimpConfigStatus } from '@/lib/mailchimp';
 import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
@@ -41,8 +41,11 @@ export async function POST(request: Request) {
   const name = nullableTrim(body.name);
   const email = nullableTrim(body.email);
   const emailListOptIn = body.emailList === true || body.emailList === 'true';
+  // Clamp party size like checkout clamps qty: the form offers small numbers,
+  // so anything huge is a prank or a bot — and unclamped it wrecks the door
+  // list's headcount (or overflows the int column outright).
   const guestsInput = Number.parseInt(String(body.guests), 10);
-  const guests = Number.isInteger(guestsInput) && guestsInput > 0 ? guestsInput : 1;
+  const guests = Number.isInteger(guestsInput) && guestsInput > 0 ? Math.min(guestsInput, 10) : 1;
 
   if (!Number.isInteger(showId) || !name || !email || !EMAIL_REGEX.test(email)) {
     return NextResponse.json({ error: 'Missing or invalid required fields' }, { status: 400 });
@@ -54,6 +57,14 @@ export async function POST(request: Request) {
   const show = await getShowById(showId);
   if (!show) {
     return NextResponse.json({ error: 'Show not found' }, { status: 404 });
+  }
+
+  // The RSVP form only renders on announced, non-past show pages — a request
+  // for anything else is a stale tab or hand-crafted, and shouldn't be able to
+  // add rows to an unannounced show's door list (or email "see you there" for
+  // a show that already happened).
+  if (!show.announced || show.date < getTodayCentral()) {
+    return NextResponse.json({ error: 'RSVPs are closed for this show' }, { status: 400 });
   }
 
   // One RSVP per email per show (migration 075). Re-submitting updates the
