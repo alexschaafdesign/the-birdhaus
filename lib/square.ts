@@ -361,7 +361,13 @@ export async function deletePaymentLink(paymentLinkId: string): Promise<void> {
   );
 }
 
-export type RetrievedOrderLine = { catalogObjectId: string | null; quantity: number };
+export type RetrievedOrderLine = {
+  catalogObjectId: string | null;
+  quantity: number;
+  // The line's total in cents (Square's total_money — includes quantity).
+  // null only if Square ever omits it; callers fall back to the payment total.
+  totalCents: number | null;
+};
 
 // Retrieve one order's line items — the webhook uses this to map a payment back
 // to a show via the line items' catalog variation ids. Read-only, so it doesn't
@@ -369,7 +375,15 @@ export type RetrievedOrderLine = { catalogObjectId: string | null; quantity: num
 // the webhook can 500 and let Square retry.
 export async function retrieveOrderLines(orderId: string): Promise<RetrievedOrderLine[]> {
   const token = requireEnv('SQUARE_ACCESS_TOKEN');
-  const data = await squareFetch<{ order?: { line_items?: { catalog_object_id?: string; quantity?: string }[] } }>(
+  const data = await squareFetch<{
+    order?: {
+      line_items?: {
+        catalog_object_id?: string;
+        quantity?: string;
+        total_money?: { amount?: number };
+      }[];
+    };
+  }>(
     `/v2/orders/${encodeURIComponent(orderId)}`,
     { method: 'GET' },
     token,
@@ -378,6 +392,7 @@ export async function retrieveOrderLines(orderId: string): Promise<RetrievedOrde
     catalogObjectId: li.catalog_object_id ?? null,
     // Square sends quantity as a string; clamp garbage to 1.
     quantity: Math.max(1, Math.trunc(Number(li.quantity)) || 1),
+    totalCents: Number.isFinite(li.total_money?.amount) ? Number(li.total_money!.amount) : null,
   }));
 }
 
