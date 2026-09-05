@@ -12,7 +12,9 @@ export function isPresetCategory(v: unknown): v is PresetCategory {
 }
 
 interface ScreensaverData {
-  images: Array<{ url: string; caption: string | null }>;
+  // `active` is optional so presets saved before it was snapshotted still
+  // apply (treated as active, matching the column default).
+  images: Array<{ url: string; caption: string | null; active?: boolean }>;
 }
 interface BoardData {
   title: string | null;
@@ -58,11 +60,13 @@ export async function listPresets(category: PresetCategory): Promise<PresetSumma
 export async function snapshotContent(category: PresetCategory, showId: number | null): Promise<PresetData> {
   if (category === 'screensaver') {
     // Screensaver is a single global pool (shared library), so snapshots always
-    // come from the global images regardless of scope.
-    const rows = await sql<Array<{ url: string; caption: string | null }>>`
-      select url, caption from tv_images where show_id is null order by sort asc, id asc
+    // come from the global images regardless of scope. Parked (inactive) images
+    // are captured too, with their flag, so applying a preset restores the pool
+    // exactly as it was saved.
+    const rows = await sql<Array<{ url: string; caption: string | null; active: boolean }>>`
+      select url, caption, active from tv_images order by sort asc, id asc
     `;
-    return { images: rows.map((r) => ({ url: r.url, caption: r.caption })) };
+    return { images: rows.map((r) => ({ url: r.url, caption: r.caption, active: r.active })) };
   }
   if (category === 'board') {
     const [row] = await sql<Array<{ board_title: string | null; board_rows: unknown }>>`
@@ -135,14 +139,14 @@ export async function applyPreset(presetId: number, showId: number | null): Prom
   await sql.begin(async (tx) => {
     if (category === 'screensaver') {
       const images = (data as ScreensaverData).images ?? [];
-      await tx`delete from tv_images where show_id is null`;
+      await tx`delete from tv_images`;
       let i = 0;
       for (const img of images) {
         if (!img || typeof img.url !== 'string' || !img.url) continue;
         i += 1;
         await tx`
-          insert into tv_images (url, caption, sort)
-          values (${img.url}, ${typeof img.caption === 'string' ? img.caption : null}, ${i})
+          insert into tv_images (url, caption, sort, active)
+          values (${img.url}, ${typeof img.caption === 'string' ? img.caption : null}, ${i}, ${img.active !== false})
         `;
       }
     } else if (category === 'board') {
