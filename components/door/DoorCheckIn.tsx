@@ -116,13 +116,13 @@ export default function DoorCheckIn({ token, data }: { token: string; data: Door
 
   return (
     <main className="min-h-screen bg-[#171412] text-[#E8E0D0]">
-      {/* Big loud call-to-action so no one walks past the iPad */}
-      <div className="bg-[#c8a26a] text-[#171412] text-center px-5 py-6">
-        <div className="text-3xl sm:text-5xl font-extrabold tracking-tight leading-none">
-          Check in for the show!
+      {/* Working banner for the door person (this page is no longer guest-facing) */}
+      <div className="bg-[#c8a26a] text-[#171412] text-center px-5 py-4">
+        <div className="text-2xl sm:text-3xl font-extrabold tracking-tight leading-none">
+          Door check-in
         </div>
-        <div className="text-sm sm:text-lg font-semibold mt-2">
-          Tap your name below — or “Didn’t RSVP?” if you just walked in
+        <div className="text-sm sm:text-base font-semibold mt-1.5">
+          Tap + on a name for each person arriving · ✓ means they’ve already paid
         </div>
       </div>
 
@@ -170,9 +170,9 @@ export default function DoorCheckIn({ token, data }: { token: string; data: Door
         {/* Walk-in tally — for anyone who didn't RSVP. No name needed. */}
         <section className="border border-[#c8a26a]/40 bg-[#c8a26a]/[0.06] rounded-2xl px-5 py-4 flex items-center justify-between gap-4">
           <div className="min-w-0">
-            <div className="text-xl sm:text-2xl font-semibold">Didn’t RSVP?</div>
+            <div className="text-xl sm:text-2xl font-semibold">Walk-ins</div>
             <div className="text-base sm:text-lg text-[#E8E0D0]/70">
-              Tap the + for each person so that we can keep track of attendance
+              Tap + for each person arriving without an RSVP
             </div>
           </div>
           <div className="flex items-center gap-4">
@@ -206,7 +206,7 @@ export default function DoorCheckIn({ token, data }: { token: string; data: Door
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Find your name…"
+          placeholder="Search names…"
           className="w-full bg-[#2A2420] border border-[#E8E0D0]/20 rounded-xl px-4 py-3 text-lg focus:outline-none focus:border-[#E8E0D0]/50 placeholder:text-[#E8E0D0]/30"
         />
 
@@ -214,6 +214,7 @@ export default function DoorCheckIn({ token, data }: { token: string; data: Door
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {filtered.map((r) => {
             const here = r.arrivedCount > 0;
+            const prepaid = r.paid || r.ticketsBought > 0;
             return (
               <div
                 key={r.id}
@@ -232,6 +233,14 @@ export default function DoorCheckIn({ token, data }: { token: string; data: Door
                       </span>
                     ) : (
                       <>party of {r.guests}</>
+                    )}
+                    {prepaid && (
+                      <span className="text-emerald-300">
+                        {' · '}✓{' '}
+                        {r.ticketsBought > 0
+                          ? `${r.ticketsBought} ticket${r.ticketsBought === 1 ? '' : 's'}`
+                          : 'paid'}
+                      </span>
                     )}
                   </div>
                 </div>
@@ -259,7 +268,7 @@ export default function DoorCheckIn({ token, data }: { token: string; data: Door
         )}
 
         <p className="text-center text-xs text-[#E8E0D0]/30 pt-2 pb-8">
-          Tap your name once for each person in your group.
+          Tap + once for each person in the party. No ✓ = collect at the door.
         </p>
       </div>
     </main>

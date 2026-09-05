@@ -1,15 +1,21 @@
 import { sql } from './db';
 import { getShowIdByDoorToken } from './door-token';
+import { getShowPurchaseMatches } from './square';
 
-// Everything the door check-in kiosk renders, resolved by door token. Deliberately
-// omits emails — the kiosk sits in the open and may be handed to guests, so it only
-// ever exposes names + headcounts, never contact info.
+// Everything the door check-in page renders, resolved by door token. Used by the
+// door person (not guests), but the token is the only auth, so still keep the
+// payload lean: names, headcounts, and payment status reduced server-side to a
+// flag + ticket count — no emails or other contact info.
 
 export interface DoorRsvp {
   id: number;
   name: string;
   guests: number;
   arrivedCount: number;
+  // Admin-set "paid" flag (cash/comp/Venmo) — same as the Admin RSVPs toggle.
+  paid: boolean;
+  // Tickets bought through Square, matched by email. 0 = no purchase found.
+  ticketsBought: number;
 }
 
 export interface DoorData {
@@ -34,12 +40,21 @@ export async function getDoorData(token: string): Promise<DoorData | null> {
   `;
   if (!show) return null;
 
-  const rows = await sql<Array<{ id: number; name: string; guests: number; arrived_count: number }>>`
-    select id, name, guests, arrived_count
+  const rows = await sql<
+    Array<{ id: number; name: string; guests: number; arrived_count: number; paid: boolean; email: string; buyer_email: string | null }>
+  >`
+    select id, name, guests, arrived_count, paid, email, buyer_email
     from rsvps
     where show_id = ${showId}
     order by lower(name)
   `;
+
+  // Same Square-purchase matching the Admin RSVPs tab uses; best-effort (empty on
+  // failure). Emails feed the match here and never leave the server.
+  const { purchasesByEmail } = await getShowPurchaseMatches(
+    showId,
+    rows.map((r) => ({ email: r.email, buyerEmail: r.buyer_email })),
+  );
 
   return {
     showId,
@@ -52,6 +67,8 @@ export async function getDoorData(token: string): Promise<DoorData | null> {
       name: r.name,
       guests: r.guests,
       arrivedCount: Number(r.arrived_count),
+      paid: r.paid,
+      ticketsBought: purchasesByEmail[r.email.trim().toLowerCase()]?.quantity ?? 0,
     })),
   };
 }
