@@ -103,7 +103,6 @@ export default async function Home() {
           height={0}
           sizes="(max-width: 1152px) 100vw, 1088px"
           priority
-          unoptimized
           className="w-full h-auto rounded-lg mb-2"
         />
         <p className="text-xs text-[#E8E0D0]/40 text-right">Photo by Jeremy Nelson</p>
