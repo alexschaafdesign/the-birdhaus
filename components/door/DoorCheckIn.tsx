@@ -225,7 +225,17 @@ export default function DoorCheckIn({ token, data }: { token: string; data: Door
                 }`}
               >
                 <div className="min-w-0">
-                  <div className="text-lg font-semibold leading-tight truncate">{r.name}</div>
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div className="text-lg font-semibold leading-tight truncate">{r.name}</div>
+                    {prepaid && (
+                      <span className="shrink-0 rounded-full bg-emerald-400/15 border border-emerald-400/50 text-emerald-300 text-[11px] font-bold uppercase tracking-wide px-2.5 py-1 leading-none">
+                        ✓{' '}
+                        {r.ticketsBought > 0
+                          ? `${r.ticketsBought} ticket${r.ticketsBought === 1 ? '' : 's'}`
+                          : 'paid'}
+                      </span>
+                    )}
+                  </div>
                   <div className="text-xs text-[#E8E0D0]/45">
                     {here ? (
                       <span className="text-sky-300">
@@ -233,14 +243,6 @@ export default function DoorCheckIn({ token, data }: { token: string; data: Door
                       </span>
                     ) : (
                       <>party of {r.guests}</>
-                    )}
-                    {prepaid && (
-                      <span className="text-emerald-300">
-                        {' · '}✓{' '}
-                        {r.ticketsBought > 0
-                          ? `${r.ticketsBought} ticket${r.ticketsBought === 1 ? '' : 's'}`
-                          : 'paid'}
-                      </span>
                     )}
                   </div>
                 </div>
