@@ -6,12 +6,32 @@ import { Resend } from 'resend';
 import { SITE_URL } from './site';
 import { splitName } from './name';
 
-const BCC_EMAIL = 'alex@thebirdhaus.org';
+const NOTIFY_EMAIL = 'alex@thebirdhaus.org';
 
 function getResendClient(): Resend {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) throw new Error('RESEND_API_KEY is not set');
   return new Resend(apiKey);
+}
+
+// Token-free heads-up to the venue inbox when an invite/signup email goes out.
+// The member emails themselves must never be copied anywhere — their links set
+// the account's password — so admin visibility comes from this separate note
+// instead of a bcc. Best-effort: a failure here never blocks the real send.
+async function notifyAdminCopy(subject: string, line: string): Promise<void> {
+  const from = process.env.RESEND_FROM_EMAIL;
+  if (!from) return;
+  try {
+    const { error } = await getResendClient().emails.send({
+      from,
+      to: NOTIFY_EMAIL,
+      subject,
+      text: line,
+    });
+    if (error) console.error('[club-email] admin note failed:', error);
+  } catch (err) {
+    console.error('[club-email] admin note failed:', err);
+  }
 }
 
 function esc(s: string): string {
@@ -65,12 +85,12 @@ export async function sendClubInviteEmail({
   const { error } = await getResendClient().emails.send({
     from,
     to: email,
-    bcc: BCC_EMAIL,
     subject: "You're invited to the Song Club portal",
     html,
     text,
   });
   if (error) throw new Error(`Resend send failed: ${JSON.stringify(error)}`);
+  await notifyAdminCopy('Song Club invite sent', `Portal invite emailed to ${name} <${email}>.`);
 }
 
 // Invites someone to the Birdhaus crew: a login with full admin access, worded
@@ -119,12 +139,15 @@ export async function sendCrewInviteEmail({
   const { error } = await getResendClient().emails.send({
     from,
     to: email,
-    bcc: BCC_EMAIL,
     subject: "You're on the Birdhaus crew",
     html,
     text,
   });
   if (error) throw new Error(`Resend send failed: ${JSON.stringify(error)}`);
+  await notifyAdminCopy(
+    'Crew invite sent',
+    `Crew invite emailed to ${name} <${email}>${title ? ` (${title})` : ''}.`
+  );
 }
 
 // Notifies a track's uploader that someone commented. Best-effort: the caller
@@ -322,12 +345,12 @@ export async function sendClubSignupEmail({
   const { error } = await getResendClient().emails.send({
     from,
     to: email,
-    bcc: BCC_EMAIL,
     subject: 'Confirm your email to join Song Club',
     html,
     text,
   });
   if (error) throw new Error(`Resend send failed: ${JSON.stringify(error)}`);
+  await notifyAdminCopy('Song Club signup', `Signup confirmation emailed to ${name} <${email}>.`);
 }
 
 export async function sendClubPasswordResetEmail({
