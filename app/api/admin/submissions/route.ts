@@ -1,8 +1,11 @@
 import { NextResponse } from 'next/server';
 import { sql } from '@/lib/db';
 import { SUBMISSION_STATUSES, parseAvailability } from '@/lib/submissions';
+import { requireAdmin } from '@/lib/admin-session';
 
 export async function GET() {
+  const denied = await requireAdmin();
+  if (denied) return denied;
   const rows = await sql`select * from submissions order by created_at desc`;
   return NextResponse.json(rows);
 }
@@ -14,6 +17,8 @@ function nullableTrim(value: unknown): string | null {
 }
 
 export async function POST(request: Request) {
+  const denied = await requireAdmin();
+  if (denied) return denied;
   const body = await request.json().catch(() => null);
   const bandName = nullableTrim(body?.band_name);
   if (!bandName) {

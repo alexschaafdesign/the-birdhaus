@@ -2,9 +2,13 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { cloudinaryTransform } from '@/lib/cloudinary-url';
+
+// Minimal current-user summary the header fetches from /api/club/me. `undefined`
+// while loading (render nothing to avoid a flash), `null` when logged out.
+type HeaderMe = { name: string; firstName: string; avatarUrl: string | null; canAdmin: boolean };
 
 const LOGO_URL = cloudinaryTransform(
   'https://res.cloudinary.com/defdv9zw7/image/upload/v1780325979/Horiz_mkva70.png',
@@ -22,13 +26,13 @@ type NavItem = NavLink | NavDropdown;
 const navItems: NavItem[] = [
   { type: 'link', href: '/upcoming', label: 'Upcoming Shows' },
   { type: 'link', href: '/archive', label: 'Archive' },
+  { type: 'link', href: '/song-club', label: 'Song Club' },
   {
     type: 'dropdown',
     label: 'Projects',
     children: [
       { href: 'https://birdhausrecords.bandcamp.com', label: 'Birdhaus Records', external: true },
       { href: 'https://twinscene.org', label: 'Twin Scene', external: true },
-      { href: '/song-club', label: 'Song Club' },
       { href: '/fresh-cuts', label: 'Fresh Cuts' },
     ],
   },
@@ -37,8 +41,14 @@ const navItems: NavItem[] = [
 
 export default function Header({ isAdmin }: { isAdmin?: boolean }) {
   const pathname = usePathname();
+  const router = useRouter();
   const [openDropdown, setOpenDropdown] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Auth area (top-right): who's logged in, plus its own little dropdown.
+  const [me, setMe] = useState<HeaderMe | null | undefined>(undefined);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const userMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!openDropdown) return;
@@ -51,8 +61,45 @@ export default function Header({ isAdmin }: { isAdmin?: boolean }) {
     return () => document.removeEventListener('click', handleClick);
   }, [openDropdown]);
 
-  // The door check-in kiosk is a standalone full-screen view — no site chrome.
-  if (pathname.startsWith('/door')) return null;
+  // Load the current user once per mount. Best-effort — a failure just leaves
+  // the Log in button showing.
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/club/me', { cache: 'no-store' })
+      .then((res) => (res.ok ? res.json() : { member: null }))
+      .then((data) => {
+        if (!cancelled) setMe(data?.member ?? null);
+      })
+      .catch(() => {
+        if (!cancelled) setMe(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!userMenuOpen) return;
+    const handleClick = (e: MouseEvent) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
+        setUserMenuOpen(false);
+      }
+    };
+    document.addEventListener('click', handleClick);
+    return () => document.removeEventListener('click', handleClick);
+  }, [userMenuOpen]);
+
+  async function handleLogout() {
+    await fetch('/api/club/logout', { method: 'POST' }).catch(() => {});
+    setMe(null);
+    setUserMenuOpen(false);
+    router.push('/');
+    router.refresh();
+  }
+
+  // The door check-in kiosk and the in-venue TV are standalone full-screen
+  // views — no site chrome.
+  if (pathname.startsWith('/door') || pathname.startsWith('/tv')) return null;
 
   // The /redesign broadcast homepage carries its own header band and owns the
   // whole viewport — suppress the shared logo band + nav there.
@@ -69,11 +116,77 @@ export default function Header({ isAdmin }: { isAdmin?: boolean }) {
 
   const dividerClass = onPhoto ? 'bg-paper/30' : 'bg-ink/20';
 
+  const initial = me ? me.firstName.charAt(0).toUpperCase() || '?' : '?';
+  // The admin dashboard has its own nav + logout (AdminNav/LogoutButton), so
+  // skip the header's auth area there to avoid a duplicate account menu.
+  const showAuth = !pathname.startsWith('/admin');
+
   return (
     <header className="relative z-30 pb-5">
       {/* Ink band behind the cream logo — the "tape shell" above the paper
           label. On the photo-background home page the band is transparent. */}
       <div className={`px-8 pt-6 pb-6 ${onPhoto ? '' : 'bg-[#1A1712]'}`}>
+        {/* Auth area, top-right. The band (or photo scrim) is dark in both
+            header modes, so this keeps the cream-on-dark treatment. */}
+        <div className="absolute right-4 top-4 text-paper sm:right-8 sm:top-6">
+          {!showAuth || me === undefined ? null : me === null ? (
+            <Link
+              href="/login"
+              className="rounded border border-paper/30 px-3 py-1.5 text-sm transition-colors hover:border-paper hover:bg-paper/5"
+            >
+              Log in
+            </Link>
+          ) : (
+            <div className="relative" ref={userMenuRef}>
+              <button
+                type="button"
+                onClick={() => setUserMenuOpen((open) => !open)}
+                aria-expanded={userMenuOpen}
+                aria-label="Account menu"
+                className="flex items-center gap-2 rounded-full border border-paper/30 py-1 pl-1 pr-3 text-sm transition-colors hover:border-paper hover:bg-paper/5"
+              >
+                {me.avatarUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={me.avatarUrl} alt="" className="h-7 w-7 rounded-full object-cover" />
+                ) : (
+                  <span className="flex h-7 w-7 items-center justify-center rounded-full bg-paper/15 text-xs">
+                    {initial}
+                  </span>
+                )}
+                <span className="hidden sm:inline">{me.firstName}</span>
+              </button>
+              {userMenuOpen && (
+                <div className="absolute right-0 top-full z-40 pt-2">
+                  <div className="min-w-[10rem] whitespace-nowrap border-2 border-ink bg-paper py-1.5 text-ink shadow-hard">
+                    {me.canAdmin && (
+                      <Link
+                        href="/admin"
+                        className="block px-4 py-2 text-left text-sm hover:bg-ink hover:text-paper"
+                        onClick={() => setUserMenuOpen(false)}
+                      >
+                        Dashboard
+                      </Link>
+                    )}
+                    <Link
+                      href="/account"
+                      className="block px-4 py-2 text-left text-sm hover:bg-ink hover:text-paper"
+                      onClick={() => setUserMenuOpen(false)}
+                    >
+                      Account settings
+                    </Link>
+                    <button
+                      type="button"
+                      onClick={handleLogout}
+                      className="block w-full px-4 py-2 text-left text-sm hover:bg-ink hover:text-paper"
+                    >
+                      Log out
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
         <Link href="/" className="mx-auto block w-full max-w-sm">
           <Image
             src={LOGO_URL}

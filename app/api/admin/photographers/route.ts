@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { sql } from '@/lib/db';
+import { requireAdmin } from '@/lib/admin-session';
 
 // Auth is enforced centrally in proxy.ts for all /api/admin/* routes.
 
@@ -10,6 +11,8 @@ function nullableTrim(value: unknown): string | null {
 
 // Name typeahead (mirrors the sound-engineers route). Returns [] without a query.
 export async function GET(request: Request) {
+  const denied = await requireAdmin();
+  if (denied) return denied;
   const q = new URL(request.url).searchParams.get('q')?.trim() ?? '';
   if (!q) {
     return NextResponse.json([]);
@@ -27,6 +30,8 @@ export async function GET(request: Request) {
 // Create a photographer profile. Name is unique case-insensitively — a
 // collision returns 409.
 export async function POST(request: Request) {
+  const denied = await requireAdmin();
+  if (denied) return denied;
   const body = await request.json().catch(() => null);
   const name = nullableTrim(body?.name);
   if (!name) {

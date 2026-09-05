@@ -76,7 +76,10 @@ export default function ShowsBrowser({
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {listEntries.map((entry) =>
               entry.kind === 'show' ? (
-                <ShowCard key={`show-${entry.show.slug}`} show={entry.show} />
+                <ShowCard
+                  key={`${entry.show.type ?? 'show'}-${entry.show.slug}`}
+                  show={entry.show}
+                />
               ) : entry.kind === 'draft' ? (
                 <ShowCard key={`draft-${entry.show.id}`} show={entry.show} draft />
               ) : (

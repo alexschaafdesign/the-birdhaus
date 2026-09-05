@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { sql } from '@/lib/db';
 import { isPaidMethod, type PaidMethod } from '@/lib/settlements';
+import { requireAdmin } from '@/lib/admin-session';
 
 const DEAL_TYPES = ['straight_split', 'venue_guarantee_then_split'];
 
@@ -47,6 +48,8 @@ function isValidExtraLineItems(value: unknown): value is Array<{ type: string; l
 }
 
 export async function GET(request: Request, { params }: { params: Promise<{ showId: string }> }) {
+  const denied = await requireAdmin();
+  if (denied) return denied;
   const { showId: showIdParam } = await params;
   const showId = parseId(showIdParam);
   if (showId === null) {
@@ -63,6 +66,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ show
 // default, so show_id + the flag is enough. An optional paid-method (cash/venmo)
 // rides along with each flag; unmarking always clears it.
 export async function PATCH(request: Request, { params }: { params: Promise<{ showId: string }> }) {
+  const denied = await requireAdmin();
+  if (denied) return denied;
   const { showId: showIdParam } = await params;
   const showId = parseId(showIdParam);
   if (showId === null) {
@@ -114,6 +119,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ sh
 }
 
 export async function PUT(request: Request, { params }: { params: Promise<{ showId: string }> }) {
+  const denied = await requireAdmin();
+  if (denied) return denied;
   const { showId: showIdParam } = await params;
   const showId = parseId(showIdParam);
   if (showId === null) {
@@ -146,12 +153,15 @@ export async function PUT(request: Request, { params }: { params: Promise<{ show
   const photographerName = typeof body.photographerName === 'string' ? body.photographerName.trim() || null : null;
   const soundEngineerName =
     typeof body.soundEngineerName === 'string' ? body.soundEngineerName.trim() || null : null;
+  const doorPersonName = typeof body.doorPersonName === 'string' ? body.doorPersonName.trim() || null : null;
   const soundPaid = Boolean(body.soundPaid);
   const photographerPaid = Boolean(body.photographerPaid);
+  const doorPaid = Boolean(body.doorPaid);
   // A paid method only means something for a payment that happened.
   const soundPaidMethod = soundPaid && isPaidMethod(body.soundPaidMethod) ? body.soundPaidMethod : null;
   const photographerPaidMethod =
     photographerPaid && isPaidMethod(body.photographerPaidMethod) ? body.photographerPaidMethod : null;
+  const doorPaidMethod = doorPaid && isPaidMethod(body.doorPaidMethod) ? body.doorPaidMethod : null;
 
   try {
     const [row] = await sql`
@@ -161,16 +171,18 @@ export async function PUT(request: Request, { params }: { params: Promise<{ show
         exp_square_fees, exp_venmo_fees, exp_sound_engineer, exp_photos, exp_door_person,
         exp_ad_print, exp_ad_online, exp_snacks, exp_beer,
         beverage_income_venmo, beverage_income_cash,
-        extra_line_items, notes, attendance, photographer_name, sound_engineer_name,
-        sound_paid, photographer_paid, sound_paid_method, photographer_paid_method, updated_at
+        extra_line_items, notes, attendance, photographer_name, sound_engineer_name, door_person_name,
+        sound_paid, photographer_paid, door_paid,
+        sound_paid_method, photographer_paid_method, door_paid_method, updated_at
       ) values (
         ${showId}, ${dealType}, ${values.deal_threshold}, ${values.artist_split_pct}, ${values.venue_redirect_pct},
         ${values.income_square}, ${values.income_venmo}, ${values.income_cash},
         ${values.exp_square_fees}, ${values.exp_venmo_fees}, ${values.exp_sound_engineer}, ${values.exp_photos}, ${values.exp_door_person},
         ${values.exp_ad_print}, ${values.exp_ad_online}, ${values.exp_snacks}, ${values.exp_beer},
         ${values.beverage_income_venmo}, ${values.beverage_income_cash},
-        ${sql.json(extraLineItems)}, ${notes}, ${attendance}, ${photographerName}, ${soundEngineerName},
-        ${soundPaid}, ${photographerPaid}, ${soundPaidMethod}, ${photographerPaidMethod}, now()
+        ${sql.json(extraLineItems)}, ${notes}, ${attendance}, ${photographerName}, ${soundEngineerName}, ${doorPersonName},
+        ${soundPaid}, ${photographerPaid}, ${doorPaid},
+        ${soundPaidMethod}, ${photographerPaidMethod}, ${doorPaidMethod}, now()
       )
       on conflict (show_id) do update set
         deal_type = excluded.deal_type,
@@ -196,10 +208,13 @@ export async function PUT(request: Request, { params }: { params: Promise<{ show
         attendance = excluded.attendance,
         photographer_name = excluded.photographer_name,
         sound_engineer_name = excluded.sound_engineer_name,
+        door_person_name = excluded.door_person_name,
         sound_paid = excluded.sound_paid,
         photographer_paid = excluded.photographer_paid,
+        door_paid = excluded.door_paid,
         sound_paid_method = excluded.sound_paid_method,
         photographer_paid_method = excluded.photographer_paid_method,
+        door_paid_method = excluded.door_paid_method,
         updated_at = now()
       returning *
     `;

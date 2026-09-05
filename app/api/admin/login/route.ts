@@ -1,5 +1,11 @@
 import { NextResponse } from 'next/server';
-import { SESSION_COOKIE, SESSION_MAX_AGE_SECONDS, createSessionToken } from '@/lib/auth';
+import {
+  SESSION_COOKIE,
+  SESSION_MAX_AGE_SECONDS,
+  createOperatorSessionToken,
+  sha256Hex,
+  timingSafeEqual,
+} from '@/lib/auth';
 import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
 
 export async function POST(request: Request) {
@@ -16,11 +22,15 @@ export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
   const password = typeof body?.password === 'string' ? body.password : '';
 
-  if (!process.env.ADMIN_PASSWORD || password !== process.env.ADMIN_PASSWORD) {
+  // Compare digests, not the raw strings: constant-time and constant-length,
+  // so neither the characters nor the length of the real password leak through
+  // response timing.
+  const expected = process.env.ADMIN_PASSWORD;
+  if (!expected || !timingSafeEqual(await sha256Hex(password), await sha256Hex(expected))) {
     return NextResponse.json({ error: 'Incorrect password' }, { status: 401 });
   }
 
-  const token = await createSessionToken();
+  const token = await createOperatorSessionToken();
   const response = NextResponse.json({ ok: true });
   response.cookies.set(SESSION_COOKIE, token, {
     httpOnly: true,

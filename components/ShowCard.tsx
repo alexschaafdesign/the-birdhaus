@@ -14,10 +14,16 @@ function formatCardDate(dateStr: string) {
 
 export default function ShowCard({ show, draft }: { show: Show; draft?: boolean }) {
   const { day, weekday, month } = formatCardDate(show.date);
+  const isSongClub = show.type === 'song_club';
+  const href = draft
+    ? `/admin/shows/${show.id}`
+    : isSongClub
+      ? `/song-club/${show.slug}`
+      : `/shows/${show.slug}`;
 
   return (
     <Link
-      href={draft ? `/admin/shows/${show.id}` : `/shows/${show.slug}`}
+      href={href}
       className={`group relative flex flex-col overflow-hidden border-2 bg-paper transition-all ${
         draft
           ? 'border-dashed border-ink/50 hover:border-ink'
@@ -42,6 +48,11 @@ export default function ShowCard({ show, draft }: { show: Show; draft?: boolean 
         {draft && (
           <span className="absolute right-2 top-2 bg-ink px-1.5 py-0.5 font-mono text-[10px] font-bold uppercase tracking-wide text-paper">
             Draft
+          </span>
+        )}
+        {isSongClub && !draft && (
+          <span className="absolute left-2 top-2 bg-vhs-red px-1.5 py-0.5 font-mono text-[10px] font-bold uppercase tracking-wide text-paper">
+            Song Club
           </span>
         )}
       </div>

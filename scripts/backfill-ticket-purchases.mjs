@@ -163,7 +163,7 @@ try {
           ${p.amountCents}, ${line.quantity}, ${p.email}, ${p.createdAt},
           'backfill', now()
         )
-        on conflict (square_payment_id) do nothing
+        on conflict (square_payment_id, square_variation_id) do nothing
         returning id
       `;
       totalInserted += inserted.length;

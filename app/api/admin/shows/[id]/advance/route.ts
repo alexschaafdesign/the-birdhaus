@@ -4,6 +4,7 @@ import {
   saveShowAdvanceDraft,
   sendShowAdvance,
 } from '@/lib/advance';
+import { requireAdmin } from '@/lib/admin-session';
 
 // Auth is enforced centrally in proxy.ts for all /api/admin/* routes.
 
@@ -16,6 +17,8 @@ export async function GET(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const denied = await requireAdmin();
+  if (denied) return denied;
   const { id } = await params;
   const showId = parseId(id);
   if (showId === null) {
@@ -33,6 +36,8 @@ export async function PUT(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const denied = await requireAdmin();
+  if (denied) return denied;
   const { id } = await params;
   const showId = parseId(id);
   if (showId === null) {
@@ -51,6 +56,8 @@ export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const denied = await requireAdmin();
+  if (denied) return denied;
   const { id } = await params;
   const showId = parseId(id);
   if (showId === null) {

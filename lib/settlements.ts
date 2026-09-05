@@ -28,9 +28,9 @@ export const NUMERIC_FIELDS = [
 
 export type NumericField = (typeof NUMERIC_FIELDS)[number];
 
-export type PayeeNameField = 'photographerName' | 'soundEngineerName';
-export type PayeePaidField = 'photographerPaid' | 'soundPaid';
-export type PayeePaidMethodField = 'photographerPaidMethod' | 'soundPaidMethod';
+export type PayeeNameField = 'photographerName' | 'soundEngineerName' | 'doorPersonName';
+export type PayeePaidField = 'photographerPaid' | 'soundPaid' | 'doorPaid';
+export type PayeePaidMethodField = 'photographerPaidMethod' | 'soundPaidMethod' | 'doorPaidMethod';
 
 // How a payout was actually made. Null = unpaid, or paid before this was tracked.
 export type PaidMethod = 'cash' | 'venmo';
@@ -48,10 +48,13 @@ export type SettlementValues = {
   attendance: number | null;
   photographerName: string | null;
   soundEngineerName: string | null;
+  doorPersonName: string | null;
   soundPaid: boolean;
   photographerPaid: boolean;
+  doorPaid: boolean;
   soundPaidMethod: PaidMethod | null;
   photographerPaidMethod: PaidMethod | null;
+  doorPaidMethod: PaidMethod | null;
 } & Record<NumericField, number>;
 
 export const DEFAULT_SETTLEMENT_VALUES: SettlementValues = {
@@ -78,10 +81,13 @@ export const DEFAULT_SETTLEMENT_VALUES: SettlementValues = {
   attendance: null,
   photographerName: null,
   soundEngineerName: null,
+  doorPersonName: null,
   soundPaid: false,
   photographerPaid: false,
+  doorPaid: false,
   soundPaidMethod: null,
   photographerPaidMethod: null,
+  doorPaidMethod: null,
 };
 
 // Links an expense field to the payee-name field tracking who it was paid to,
@@ -108,6 +114,13 @@ export const PAYEE_EXPENSE_FIELDS: Array<{
     paidKey: 'soundPaid',
     methodKey: 'soundPaidMethod',
     label: 'Sound engineer',
+  },
+  {
+    amountKey: 'expDoorPerson',
+    nameKey: 'doorPersonName',
+    paidKey: 'doorPaid',
+    methodKey: 'doorPaidMethod',
+    label: 'Door person',
   },
 ];
 
@@ -166,16 +179,25 @@ export interface SettlementSummary {
   venueNet: number;
 }
 
-// `bandPayoutOverrides` is the per-band override for the *included* bands only —
-// one entry per band that shares the split, null where the band follows the even
-// split. When omitted (or all null) every band takes its computed share, so
-// bandPayout equals artistPool and there are no savings. When a band is paid less
-// than its share the difference is added to the venue net as profit (and a band
-// paid more reduces it), matching how the venue keeps the remainder in practice.
+// `bandPayoutOverrides` is the per-band manual dollar adjustment for the
+// *included* bands only — one entry per band, null where the band is paid exactly
+// what it's due. `bandPayoutPcts` is the parallel per-band *percentage of the
+// artist pool* (e.g. 50 for a 50% share) that sets what the band is due, null
+// where the band takes the even split. The two coexist: the percentage drives the
+// due amount and the override, when set, is the amount actually paid (its
+// difference from the due amount is the venue's saving). When both are omitted
+// (or all null) every band
+// takes the even per-band share, so bandPayout equals artistPool and there are no
+// savings. When a band is paid less than the even share the difference is added to
+// the venue net as profit (and a band paid more reduces it), matching how the
+// venue keeps the remainder in practice — so an uneven split whose percentages sum
+// to 100 distributes the whole pool with zero savings, while a sum under 100 leaves
+// the remainder with the venue.
 export function computeSettlementSummary(
   values: SettlementValues,
   bandCount: number,
-  bandPayoutOverrides?: (number | null)[]
+  bandPayoutOverrides?: (number | null)[],
+  bandPayoutPcts?: (number | null)[]
 ): SettlementSummary {
   const extraIncome = values.extraLineItems
     .filter((item) => item.type === 'income')
@@ -211,12 +233,22 @@ export function computeSettlementSummary(
   }
 
   const perBand = bandCount > 0 ? artistPool / bandCount : 0;
-  // Each included band is paid its override, or the even per-band share when it
-  // has none. With no overrides (undefined, or an empty list for a show with no
-  // bands to divide among) this stays at artistPool, so savings are 0.
-  const hasOverrideInfo = bandPayoutOverrides !== undefined && bandPayoutOverrides.length > 0;
+  // Each included band is paid its fixed override, else its percentage of the
+  // pool, else the even per-band share. With no per-band info (both arrays
+  // undefined or empty — e.g. a show with no bands to divide among) this stays at
+  // artistPool, so savings are 0.
+  const bandShareAt = (i: number): number => {
+    const override = bandPayoutOverrides?.[i];
+    if (override !== undefined && override !== null) return override;
+    const pct = bandPayoutPcts?.[i];
+    if (pct !== undefined && pct !== null) return artistPool * (pct / 100);
+    return perBand;
+  };
+  const hasOverrideInfo =
+    (bandPayoutOverrides !== undefined && bandPayoutOverrides.length > 0) ||
+    (bandPayoutPcts !== undefined && bandPayoutPcts.length > 0);
   const bandPayout = hasOverrideInfo
-    ? bandPayoutOverrides!.reduce((sum: number, override) => sum + (override ?? perBand), 0)
+    ? Array.from({ length: bandCount }, (_, i) => bandShareAt(i)).reduce((sum, share) => sum + share, 0)
     : artistPool;
   // Round to cents so the float dust from an even split (e.g. $100 / 3) doesn't
   // register as a stray sub-penny "saving".
@@ -241,6 +273,26 @@ export function computeSettlementSummary(
     bandPayoutSavings,
     venueNet,
   };
+}
+
+// What a band is *due* from the pool, before any manual dollar adjustment: its
+// percentage of the artist pool, or the even per-band share when it has no
+// percentage set.
+export function bandDue(summary: SettlementSummary, payoutPct: number | null): number {
+  if (payoutPct !== null) return summary.artistPool * (payoutPct / 100);
+  return summary.perBand;
+}
+
+// The dollar amount a single band is actually paid: the manual override when set,
+// otherwise what they're due. Mirrors `bandShareAt` inside computeSettlementSummary
+// so the settlement page and PDF display exactly what the totals were built from.
+export function bandShare(
+  summary: SettlementSummary,
+  payoutOverride: number | null,
+  payoutPct: number | null
+): number {
+  if (payoutOverride !== null) return payoutOverride;
+  return bandDue(summary, payoutPct);
 }
 
 export function formatCurrency(value: number): string {
@@ -319,10 +371,13 @@ export interface SettlementDbRow {
   attendance: number | null;
   photographer_name: string | null;
   sound_engineer_name: string | null;
+  door_person_name: string | null;
   sound_paid: boolean;
   photographer_paid: boolean;
+  door_paid: boolean;
   sound_paid_method: string | null;
   photographer_paid_method: string | null;
+  door_paid_method: string | null;
 }
 
 export function settlementValuesFromRow(row: SettlementDbRow): SettlementValues {
@@ -350,9 +405,12 @@ export function settlementValuesFromRow(row: SettlementDbRow): SettlementValues 
     attendance: row.attendance,
     photographerName: row.photographer_name,
     soundEngineerName: row.sound_engineer_name,
+    doorPersonName: row.door_person_name,
     soundPaid: row.sound_paid,
     photographerPaid: row.photographer_paid,
+    doorPaid: row.door_paid,
     soundPaidMethod: isPaidMethod(row.sound_paid_method) ? row.sound_paid_method : null,
     photographerPaidMethod: isPaidMethod(row.photographer_paid_method) ? row.photographer_paid_method : null,
+    doorPaidMethod: isPaidMethod(row.door_paid_method) ? row.door_paid_method : null,
   };
 }

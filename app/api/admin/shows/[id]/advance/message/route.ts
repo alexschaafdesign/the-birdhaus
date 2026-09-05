@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getShowAdvanceState, sendShowMessage } from '@/lib/advance';
+import { requireAdmin } from '@/lib/admin-session';
 
 // Auth is enforced centrally in proxy.ts for all /api/admin/* routes.
 
@@ -11,6 +12,8 @@ export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const denied = await requireAdmin();
+  if (denied) return denied;
   const { id } = await params;
   const showId = Number(id);
   if (!Number.isInteger(showId)) {

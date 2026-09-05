@@ -1,4 +1,5 @@
-import { getAllShows, getTodayCentral } from '@/lib/shows';
+import { getTodayCentral } from '@/lib/shows';
+import { getCombinedShows } from '@/lib/calendar';
 import { getAvailableDates } from '@/lib/available-dates';
 import { isAdminSession } from '@/lib/admin-session';
 import ShowsBrowser from '@/components/ShowsBrowser';
@@ -8,7 +9,9 @@ import ShowsBrowser from '@/components/ShowsBrowser';
 export const dynamic = 'force-dynamic';
 
 export default async function UpcomingShows() {
-  const shows = await getAllShows();
+  // House shows + published Song Club events, interleaved. Song Club events
+  // are adapted into the Show shape for display only (lib/calendar.ts).
+  const shows = await getCombinedShows();
 
   const today = getTodayCentral();
 

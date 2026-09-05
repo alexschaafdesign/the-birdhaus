@@ -19,16 +19,27 @@ export interface PhotographerFormInitialValues {
   instagram?: string | null;
   contactEmail?: string | null;
   paymentMethod?: string | null;
+  userId?: number | null;
+}
+
+export interface CrewOption {
+  id: number;
+  name: string;
+  email: string;
 }
 
 export default function PhotographerForm({
   mode,
   initialValues,
   linkedShows,
+  crewOptions = [],
 }: {
   mode: 'create' | 'edit';
   initialValues?: PhotographerFormInitialValues;
   linkedShows?: PhotographerShow[];
+  // Crew logins an admin can link this photographer to (their account then
+  // manages the profile and gets the Queue). Only shown when editing.
+  crewOptions?: CrewOption[];
 }) {
   const router = useRouter();
   const [name, setName] = useState(initialValues?.name ?? '');
@@ -37,6 +48,7 @@ export default function PhotographerForm({
   const [contactEmail, setContactEmail] = useState(initialValues?.contactEmail ?? '');
   const [paymentMethod, setPaymentMethod] = useState(initialValues?.paymentMethod ?? '');
   const [bio, setBio] = useState(initialValues?.bio ?? '');
+  const [userId, setUserId] = useState<number | null>(initialValues?.userId ?? null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -56,6 +68,9 @@ export default function PhotographerForm({
       contactEmail: contactEmail.trim() || null,
       paymentMethod: paymentMethod.trim() || null,
       bio: bio.trim() || null,
+      // Only the edit form links a login (create has no id yet); send even when
+      // null so unlinking persists.
+      ...(mode === 'edit' ? { userId } : {}),
     };
 
     setSubmitting(true);
@@ -143,6 +158,33 @@ export default function PhotographerForm({
             className={`${inputClass} w-full`}
           />
         </div>
+
+        {mode === 'edit' && (
+          <div>
+            <label className="block text-xs uppercase tracking-wide text-[#E8E0D0]/40 mb-1">
+              Linked crew account
+            </label>
+            <select
+              value={userId ?? ''}
+              onChange={(e) => setUserId(e.target.value ? Number(e.target.value) : null)}
+              className={`${inputClass} w-full`}
+            >
+              <option value="" className="text-[#2A2420]">
+                Not linked
+              </option>
+              {crewOptions.map((c) => (
+                <option key={c.id} value={c.id} className="text-[#2A2420]">
+                  {c.name} ({c.email})
+                </option>
+              ))}
+            </select>
+            <p className="mt-1 text-xs text-[#E8E0D0]/40 max-w-prose">
+              Connect this photographer to a crew login. They can then edit their own profile photo,
+              Instagram, and bio, and see a Queue of shows they&apos;re assigned to shoot. Manage crew
+              accounts under Crew.
+            </p>
+          </div>
+        )}
 
         <div>
           <label className="block text-xs uppercase tracking-wide text-[#E8E0D0]/40 mb-1">Contact email</label>

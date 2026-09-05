@@ -6,9 +6,11 @@ import Link from 'next/link';
 import BandNameInput, { type BandMatch, type TwinSceneBandOption } from './BandNameInput';
 import AddBandModal from './AddBandModal';
 import SoundEngineerNameInput, { type SoundEngineerMatch } from './SoundEngineerNameInput';
+import PhotographerNameInput, { type PhotographerMatch } from './PhotographerNameInput';
 import ImageUploadField from './ImageUploadField';
 import ShowDateAvailability from './ShowDateAvailability';
 import Section from './Section';
+import { downscaleImage } from '@/lib/downscale-image';
 
 const inputClass =
   'bg-transparent border border-[#E8E0D0]/30 rounded px-3 py-1.5 text-sm focus:outline-none focus:border-[#E8E0D0] placeholder:text-[#E8E0D0]/30';
@@ -116,6 +118,13 @@ interface Audio {
   title: string;
 }
 
+// One gallery photo: its URL plus the registry photographer it's credited to
+// (null = uncredited). Mirrors lib/shows' ShowPhoto.
+interface PhotoEntry {
+  url: string;
+  photographerId: number | null;
+}
+
 // Sound-engineer statuses from the API, kept in sync with lib/sound-engineers.ts.
 type SoundEngineerStatus = 'confirmed' | 'asked' | 'declined';
 
@@ -145,12 +154,21 @@ export interface ShowFormInitialValues {
   bands?: Array<{ name: string; instagram?: string; bio?: string; photo?: string; bandId?: number }> | string[];
   description?: string | null;
   photographer?: { name: string; instagram?: string } | null;
+  doorPersonName?: string | null;
   ticketUrl?: string | null;
   externalTicketUrl?: string | null;
+  ticketLimit?: number | null;
   rsvpForm?: boolean;
   videos?: Array<{ youtube: string; title: string; bandIds?: number[] }>;
   audio?: Array<{ bandcamp: string; title: string }>;
-  photos?: string[];
+  // Per-photo entries. photographerName is resolved server-side (from the
+  // registry) purely for display next to each thumbnail; only the id is saved.
+  // Legacy string[] rows are accepted and treated as uncredited.
+  photos?: Array<string | { url: string; photographerId?: number | null; photographerName?: string | null }>;
+  // Registry photographer booked to shoot this show (shows.photographer_id).
+  // Name is resolved server-side for display in the picker.
+  assignedPhotographerId?: number | null;
+  assignedPhotographerName?: string | null;
   photoFolder?: string | null;
   photoCredit?: string | null;
   content?: string;
@@ -173,14 +191,26 @@ interface FormState {
   flyer: string;
   bands: Band[];
   description: string;
-  photographerName: string;
-  photographerInstagram: string;
+  doorPersonName: string;
   ticketUrl: string;
   externalTicketUrl: string;
+  // Online ticket cap as a string ('' = no cap) so the input can be cleared.
+  ticketLimit: string;
   rsvpForm: boolean;
   videos: Video[];
   audio: Audio[];
-  photosText: string;
+  // Gallery photos with their per-photo photographer credit (id only; name is
+  // cached separately for display). Uploading is the only way to add.
+  photos: PhotoEntry[];
+  // Registry photographer booked to shoot this show (shows.photographer_id) —
+  // drives the crew photographer's Queue. Also seeds activePhotographer below so
+  // uploaded photos default to being credited to them.
+  assignedPhotographer: { id: number | null; name: string };
+  // The photographer newly uploaded photos are credited to, and the target for
+  // click-to-recredit. Not persisted on its own — it just drives new entries.
+  activePhotographer: { id: number | null; name: string };
+  // id → display name cache for showing credits without a lookup per render.
+  photographerNames: Record<number, string>;
   photoFolder: string;
   photoCredit: string;
   content: string;
@@ -213,10 +243,13 @@ function initFormState(initial?: ShowFormInitialValues): FormState {
           }
     ),
     description: initial?.description ?? '',
-    photographerName: initial?.photographer?.name ?? '',
-    photographerInstagram: initial?.photographer?.instagram ?? '',
+    doorPersonName: initial?.doorPersonName ?? '',
     ticketUrl: initial?.ticketUrl ?? '',
     externalTicketUrl: initial?.externalTicketUrl ?? '',
+    ticketLimit:
+      initial?.ticketLimit === null || initial?.ticketLimit === undefined
+        ? ''
+        : String(initial.ticketLimit),
     rsvpForm: initial?.rsvpForm ?? true,
     videos: (initial?.videos ?? []).map((v) => ({
       youtube: v.youtube,
@@ -231,7 +264,31 @@ function initFormState(initial?: ShowFormInitialValues): FormState {
         .filter((idx) => idx >= 0),
     })),
     audio: initial?.audio ?? [],
-    photosText: (initial?.photos ?? []).join('\n'),
+    photos: (initial?.photos ?? []).map((p) =>
+      typeof p === 'string'
+        ? { url: p, photographerId: null }
+        : { url: p.url, photographerId: p.photographerId ?? null }
+    ),
+    assignedPhotographer: {
+      id: initial?.assignedPhotographerId ?? null,
+      name: initial?.assignedPhotographerName ?? '',
+    },
+    // Uploads default to crediting the assigned photographer.
+    activePhotographer: {
+      id: initial?.assignedPhotographerId ?? null,
+      name: initial?.assignedPhotographerName ?? '',
+    },
+    photographerNames: (initial?.photos ?? []).reduce<Record<number, string>>(
+      (acc, p) => {
+        if (typeof p !== 'string' && p.photographerId != null && p.photographerName) {
+          acc[p.photographerId] = p.photographerName;
+        }
+        return acc;
+      },
+      initial?.assignedPhotographerId != null && initial?.assignedPhotographerName
+        ? { [initial.assignedPhotographerId]: initial.assignedPhotographerName }
+        : {}
+    ),
     photoFolder: initial?.photoFolder ?? '',
     photoCredit: initial?.photoCredit ?? '',
     content: initial?.content ?? '',
@@ -268,6 +325,10 @@ export default function ShowForm({
   );
   const photosFileInputRef = useRef<HTMLInputElement>(null);
   const [twinSceneBands, setTwinSceneBands] = useState<TwinSceneBandOption[]>([]);
+  // Full door-person roster for the door-person dropdown below, loaded once on
+  // mount. Best-effort: on a failed fetch the dropdown just shows whatever name
+  // is already saved (preserved as its own option) plus "Unassigned".
+  const [doorPersons, setDoorPersons] = useState<string[]>([]);
   // Which band row (index) opened the full band modal, and the name to prefill
   // it with. `editBandId` set → edit that existing band's Twin Scene profile;
   // absent → create a new band. null when the modal is closed.
@@ -300,6 +361,25 @@ export default function ShowForm({
       })
       .catch(() => {
         // degrade to local-only typeahead
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Load the door-person roster once for the dropdown. The query-less GET
+  // returns the full list ordered by name.
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/admin/door-persons')
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data) => {
+        if (!cancelled && Array.isArray(data)) {
+          setDoorPersons(data.map((d: { name: string }) => d.name));
+        }
+      })
+      .catch(() => {
+        // degrade to just the saved value + "Unassigned"
       });
     return () => {
       cancelled = true;
@@ -440,10 +520,10 @@ export default function ShowForm({
     }));
   }
 
-  // Uploads one or more files and appends their URLs as new lines, rather
-  // than replacing the textarea's existing content like ImageUploadField's
-  // single-value fields do. Uploads sequentially (not Promise.all) so
-  // photosUploadProgress advances one at a time instead of jumping at the end.
+  // Uploads one or more files and appends them to the gallery, each credited to
+  // the currently-selected photographer (form.activePhotographer). Uploads
+  // sequentially (not Promise.all) so photosUploadProgress advances one at a
+  // time instead of jumping at the end.
   async function handlePhotosUpload(files: FileList | File[]) {
     setError(null);
     const fileArray = Array.from(files);
@@ -454,10 +534,6 @@ export default function ShowForm({
         setError('Please choose image files only.');
         return;
       }
-      if (file.size > 8 * 1024 * 1024) {
-        setError(`"${file.name}" is too large (max 8MB).`);
-        return;
-      }
     }
 
     setPhotosUploading(true);
@@ -465,8 +541,12 @@ export default function ShowForm({
     try {
       const uploadedUrls: string[] = [];
       for (const file of fileArray) {
+        // Shrink big originals in the browser first; gallery photos open in a
+        // full-screen lightbox, so keep generous headroom. Server still does
+        // the final resize.
+        const prepared = await downscaleImage(file, { maxDim: 2400 });
         const formData = new FormData();
-        formData.append('file', file);
+        formData.append('file', prepared);
         formData.append('folder', 'photos');
         const res = await fetch('/api/admin/uploads', { method: 'POST', body: formData });
         const body = await res.json().catch(() => null);
@@ -476,9 +556,10 @@ export default function ShowForm({
       }
       setForm((prev) => ({
         ...prev,
-        photosText: prev.photosText
-          ? `${prev.photosText}\n${uploadedUrls.join('\n')}`
-          : uploadedUrls.join('\n'),
+        photos: [
+          ...prev.photos,
+          ...uploadedUrls.map((url) => ({ url, photographerId: prev.activePhotographer.id })),
+        ],
       }));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Upload failed');
@@ -556,16 +637,18 @@ export default function ShowForm({
       flyer: form.flyer.trim(),
       bands: bandsPayload,
       description: form.description.trim(),
-      photographer: form.photographerName.trim()
-        ? {
-            name: form.photographerName.trim(),
-            ...(form.photographerInstagram.trim()
-              ? { instagram: form.photographerInstagram.trim() }
-              : {}),
-          }
-        : null,
+      // Per-photo photographer credit lives on each `photos` entry now (see
+      // below). The legacy show-level `photographer` field is intentionally not
+      // sent: on create it defaults to null, and on edit an omitted key leaves
+      // any existing legacy credit untouched (the public page prefers per-photo
+      // credits over it anyway).
+      // Sent even when blank (empty string, not undefined) so clearing it on
+      // edit actually persists — both show routes normalize blank to null.
+      doorPersonName: form.doorPersonName.trim(),
       ticketUrl: form.ticketUrl.trim(),
       externalTicketUrl: form.externalTicketUrl.trim(),
+      // '' clears the cap (null = unlimited); otherwise the parsed integer.
+      ticketLimit: form.ticketLimit.trim() === '' ? null : Number(form.ticketLimit.trim()),
       rsvpForm: form.rsvpForm,
       videos: form.videos
         .filter((v) => v.youtube.trim() && v.title.trim())
@@ -582,10 +665,10 @@ export default function ShowForm({
           };
         }),
       audio: form.audio.filter((a) => a.bandcamp.trim() && a.title.trim()),
-      photos: form.photosText
-        .split('\n')
-        .map((line) => line.trim())
-        .filter(Boolean),
+      photos: form.photos
+        .map((p) => ({ url: p.url.trim(), photographerId: p.photographerId }))
+        .filter((p) => p.url),
+      assignedPhotographerId: form.assignedPhotographer.id,
       photoFolder: form.photoFolder.trim(),
       photoCredit: form.photoCredit.trim(),
       content: form.content,
@@ -658,6 +741,221 @@ export default function ShowForm({
       setSquareBusy(false);
     }
   }
+
+  // Combined Videos / Photos card. Rendered in one of two spots depending on
+  // whether the show is in the past: for past shows it moves up directly under
+  // Show details and opens by default (the gallery is the main post-show task);
+  // for upcoming shows it stays lower down and collapsed. Defined as a helper so
+  // the markup lives in exactly one place regardless of position.
+  const videosPhotosSection = (defaultOpen: boolean) => (
+    <Section
+      title="Videos / Photos"
+      collapsible
+      defaultOpen={defaultOpen}
+      action={
+        <button type="button" onClick={addVideo} className="text-xs border border-[#E8E0D0]/30 rounded px-2 py-1 hover:bg-[#E8E0D0]/10">
+          + add video
+        </button>
+      }
+    >
+      <div className="space-y-5">
+        <div className="space-y-2">
+          {form.videos.map((video, index) => (
+            <div key={index} className="border border-[#E8E0D0]/10 rounded p-3 space-y-2">
+              <div className="grid gap-2 sm:grid-cols-[1fr_1fr_auto] items-start">
+                <input
+                  placeholder="YouTube URL or video ID"
+                  value={video.youtube}
+                  onChange={(e) => updateVideo(index, 'youtube', e.target.value)}
+                  onBlur={(e) => updateVideo(index, 'youtube', extractYoutubeId(e.target.value))}
+                  className={`${inputClass} w-full`}
+                />
+                <input
+                  placeholder="Title"
+                  value={video.title}
+                  onChange={(e) => updateVideo(index, 'title', e.target.value)}
+                  className={`${inputClass} w-full`}
+                />
+                <button
+                  type="button"
+                  onClick={() => removeVideo(index)}
+                  className="text-red-400/70 hover:text-red-400 text-sm px-2"
+                >
+                  Remove
+                </button>
+              </div>
+              {form.bands.length > 0 && (
+                <div>
+                  <p className="text-xs text-[#E8E0D0]/40 mb-1.5">
+                    Which band(s) is this a video of? (optional)
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {form.bands.map((band, bandIdx) => {
+                      const selected = video.bandIndexes.includes(bandIdx);
+                      return (
+                        <button
+                          key={bandIdx}
+                          type="button"
+                          onClick={() => toggleVideoBand(index, bandIdx)}
+                          className={
+                            selected
+                              ? 'text-xs rounded-full px-2.5 py-1 border border-[#E8E0D0] bg-[#E8E0D0] text-[#2A2420]'
+                              : 'text-xs rounded-full px-2.5 py-1 border border-[#E8E0D0]/30 text-[#E8E0D0]/70 hover:border-[#E8E0D0]/60'
+                          }
+                        >
+                          {band.name || `Band ${bandIdx + 1}`}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
+          {form.videos.length === 0 && <p className="text-xs text-[#E8E0D0]/30">No videos added yet.</p>}
+        </div>
+
+        <div className="pt-4 border-t border-[#E8E0D0]/10 space-y-3">
+          <div>
+            <label className="block text-xs uppercase tracking-wide text-[#E8E0D0]/40 mb-1">
+              Assigned photographer
+            </label>
+            <PhotographerNameInput
+              value={form.assignedPhotographer.name}
+              onChange={(value) =>
+                setForm((prev) => ({ ...prev, assignedPhotographer: { id: null, name: value } }))
+              }
+              onSelect={(match: PhotographerMatch) =>
+                setForm((prev) => ({
+                  ...prev,
+                  assignedPhotographer: { id: match.id, name: match.name },
+                  photographerNames: { ...prev.photographerNames, [match.id]: match.name },
+                  // If no per-photo credit has been chosen yet, default uploads
+                  // to the assigned photographer.
+                  activePhotographer:
+                    prev.activePhotographer.id == null
+                      ? { id: match.id, name: match.name }
+                      : prev.activePhotographer,
+                }))
+              }
+              placeholder="Who's shooting this show?"
+              className={`${inputClass} w-full sm:max-w-sm`}
+            />
+            <p className="mt-1 text-xs text-[#E8E0D0]/40 max-w-prose">
+              Books a photographer to shoot this show. It shows up in their crew Queue, and past
+              shows with no photos yet get a “needs photos” flag on their end.
+            </p>
+          </div>
+          <div>
+            <label className="block text-xs uppercase tracking-wide text-[#E8E0D0]/40 mb-1">
+              Photographer for these photos
+            </label>
+            <PhotographerNameInput
+              value={form.activePhotographer.name}
+              onChange={(value) =>
+                setForm((prev) => ({ ...prev, activePhotographer: { id: null, name: value } }))
+              }
+              onSelect={(match: PhotographerMatch) =>
+                setForm((prev) => ({
+                  ...prev,
+                  activePhotographer: { id: match.id, name: match.name },
+                  photographerNames: { ...prev.photographerNames, [match.id]: match.name },
+                }))
+              }
+              placeholder="Choose or add a photographer…"
+              className={`${inputClass} w-full sm:max-w-sm`}
+            />
+            <p className="mt-1 text-xs text-[#E8E0D0]/40 max-w-prose">
+              Photos you upload are credited to this photographer (pulled from the Photographers
+              registry). Shooting a gallery with more than one? Upload each person&apos;s batch
+              under their name — or switch the name here and click a photo below to re-credit it.
+            </p>
+          </div>
+          <div className="flex items-center justify-between mb-1">
+            <label className="block text-xs uppercase tracking-wide text-[#E8E0D0]/40">
+              Photos
+            </label>
+            <button
+              type="button"
+              onClick={() => photosFileInputRef.current?.click()}
+              disabled={photosUploading}
+              className="text-xs border border-[#E8E0D0]/30 rounded px-2 py-1 hover:bg-[#E8E0D0]/10 disabled:opacity-50"
+            >
+              {photosUploadProgress
+                ? `Uploading ${photosUploadProgress.done}/${photosUploadProgress.total}...`
+                : '+ Upload photos'}
+            </button>
+            <input
+              ref={photosFileInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              className="hidden"
+              onChange={(e) => {
+                const files = e.target.files;
+                if (files && files.length > 0) handlePhotosUpload(files);
+                e.target.value = '';
+              }}
+            />
+          </div>
+          {form.photos.length === 0 ? (
+            <p className="text-xs text-[#E8E0D0]/30">
+              No photos yet — choose a photographer above, then use “Upload photos”.
+            </p>
+          ) : (
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+              {form.photos.map((photo, i) => {
+                const creditName =
+                  photo.photographerId != null ? form.photographerNames[photo.photographerId] : null;
+                return (
+                  <div
+                    key={`${photo.url}-${i}`}
+                    className="group relative overflow-hidden rounded border border-[#E8E0D0]/10"
+                  >
+                    <div className="relative aspect-square">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={photo.url} alt="" className="h-full w-full object-cover" />
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setForm((prev) => ({
+                            ...prev,
+                            photos: prev.photos.filter((_, j) => j !== i),
+                          }))
+                        }
+                        aria-label="Remove photo"
+                        className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-[#2A2420]/80 text-[#E8E0D0] opacity-0 transition-opacity hover:bg-red-500/80 group-hover:opacity-100"
+                      >
+                        ×
+                      </button>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setForm((prev) => {
+                          const photos = [...prev.photos];
+                          photos[i] = { ...photos[i], photographerId: prev.activePhotographer.id };
+                          return { ...prev, photos };
+                        })
+                      }
+                      title="Credit this photo to the photographer selected above"
+                      className="block w-full truncate px-2 py-1 text-left text-[11px] hover:bg-[#E8E0D0]/10"
+                    >
+                      {creditName ? (
+                        <span className="text-[#E8E0D0]/70">📷 {creditName}</span>
+                      ) : (
+                        <span className="text-[#E8E0D0]/35">Uncredited — click to credit</span>
+                      )}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+    </Section>
+  );
 
   return (
     <>
@@ -799,6 +1097,10 @@ export default function ShowForm({
       </div>
       </Section>
 
+      {/* For past shows the gallery is the priority, so surface it right here,
+          expanded. Upcoming shows render it lower down, collapsed. */}
+      {isPastShow && videosPhotosSection(true)}
+
       {!isPastShow && <ShowDateAvailability date={form.date} />}
 
       <Section
@@ -885,27 +1187,6 @@ export default function ShowForm({
         </div>
       </Section>
 
-      <Section title="Photographer" collapsible>
-        <div className="grid gap-3 sm:grid-cols-2">
-        <div>
-          <label className="block text-xs uppercase tracking-wide text-[#E8E0D0]/40 mb-1">Photographer name</label>
-          <input
-            value={form.photographerName}
-            onChange={(e) => set('photographerName', e.target.value)}
-            className={`${inputClass} w-full`}
-          />
-        </div>
-        <div>
-          <label className="block text-xs uppercase tracking-wide text-[#E8E0D0]/40 mb-1">Photographer Instagram</label>
-          <input
-            value={form.photographerInstagram}
-            onChange={(e) => set('photographerInstagram', e.target.value)}
-            className={`${inputClass} w-full`}
-          />
-        </div>
-        </div>
-      </Section>
-
       <Section
         title="Sound engineers"
         collapsible
@@ -972,6 +1253,43 @@ export default function ShowForm({
         </div>
       </Section>
 
+      <Section title="Door person" collapsible>
+        <div>
+          <label className="block text-xs uppercase tracking-wide text-[#E8E0D0]/40 mb-1">Door person name</label>
+          {(() => {
+            // Match the saved name to the roster case-insensitively so the
+            // dropdown highlights the registry's casing; keep an unmatched
+            // saved value (e.g. one typed before the roster existed) as its own
+            // option so it's never silently dropped on save.
+            const name = form.doorPersonName;
+            const matched = doorPersons.find(
+              (n) => n.trim().toLowerCase() === name.trim().toLowerCase()
+            );
+            return (
+              <select
+                value={matched ?? name}
+                onChange={(e) => set('doorPersonName', e.target.value)}
+                className={`${inputClass} w-full sm:max-w-sm`}
+              >
+                <option value="" className="text-[#2A2420]">Unassigned</option>
+                {name && !matched && (
+                  <option value={name} className="text-[#2A2420]">{name}</option>
+                )}
+                {doorPersons.map((n) => (
+                  <option key={n} value={n} className="text-[#2A2420]">
+                    {n}
+                  </option>
+                ))}
+              </select>
+            );
+          })()}
+          <p className="mt-1 text-xs text-[#E8E0D0]/30">
+            Who&apos;s working the door. Pre-fills the door-person payee on this show&apos;s{' '}
+            settlement — manage the roster under Crew → Door People.
+          </p>
+        </div>
+      </Section>
+
       <Section title="Tickets & visibility" collapsible>
         <div className="grid gap-3 sm:grid-cols-2">
         <div>
@@ -990,6 +1308,26 @@ export default function ShowForm({
             className={`${inputClass} w-full`}
           />
         </div>
+      </div>
+
+      <div className="mt-4">
+        <label className="block text-xs uppercase tracking-wide text-[#E8E0D0]/40 mb-1">
+          Online ticket limit
+        </label>
+        <input
+          type="number"
+          min={0}
+          inputMode="numeric"
+          placeholder="No limit"
+          value={form.ticketLimit}
+          onChange={(e) => set('ticketLimit', e.target.value.replace(/[^0-9]/g, ''))}
+          className={`${inputClass} w-40`}
+        />
+        <p className="text-xs text-[#E8E0D0]/40 mt-1 max-w-prose">
+          Max tickets sellable online (total, across all donation tiers). Leave blank for no cap.
+          Counts completed online sales only — door/cash sales aren&apos;t included. Once reached, the
+          tickets page shows “sold out” and points buyers to the door.
+        </p>
       </div>
 
       <div className="mt-4 pt-4 border-t border-[#E8E0D0]/10 flex flex-wrap gap-6">
@@ -1063,71 +1401,7 @@ export default function ShowForm({
         </Section>
       )}
 
-      <Section
-        title="Videos"
-        collapsible
-        action={
-          <button type="button" onClick={addVideo} className="text-xs border border-[#E8E0D0]/30 rounded px-2 py-1 hover:bg-[#E8E0D0]/10">
-            + add video
-          </button>
-        }
-      >
-        <div className="space-y-2">
-          {form.videos.map((video, index) => (
-            <div key={index} className="border border-[#E8E0D0]/10 rounded p-3 space-y-2">
-              <div className="grid gap-2 sm:grid-cols-[1fr_1fr_auto] items-start">
-                <input
-                  placeholder="YouTube URL or video ID"
-                  value={video.youtube}
-                  onChange={(e) => updateVideo(index, 'youtube', e.target.value)}
-                  onBlur={(e) => updateVideo(index, 'youtube', extractYoutubeId(e.target.value))}
-                  className={`${inputClass} w-full`}
-                />
-                <input
-                  placeholder="Title"
-                  value={video.title}
-                  onChange={(e) => updateVideo(index, 'title', e.target.value)}
-                  className={`${inputClass} w-full`}
-                />
-                <button
-                  type="button"
-                  onClick={() => removeVideo(index)}
-                  className="text-red-400/70 hover:text-red-400 text-sm px-2"
-                >
-                  Remove
-                </button>
-              </div>
-              {form.bands.length > 0 && (
-                <div>
-                  <p className="text-xs text-[#E8E0D0]/40 mb-1.5">
-                    Which band(s) is this a video of? (optional)
-                  </p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {form.bands.map((band, bandIdx) => {
-                      const selected = video.bandIndexes.includes(bandIdx);
-                      return (
-                        <button
-                          key={bandIdx}
-                          type="button"
-                          onClick={() => toggleVideoBand(index, bandIdx)}
-                          className={
-                            selected
-                              ? 'text-xs rounded-full px-2.5 py-1 border border-[#E8E0D0] bg-[#E8E0D0] text-[#2A2420]'
-                              : 'text-xs rounded-full px-2.5 py-1 border border-[#E8E0D0]/30 text-[#E8E0D0]/70 hover:border-[#E8E0D0]/60'
-                          }
-                        >
-                          {band.name || `Band ${bandIdx + 1}`}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-            </div>
-          ))}
-          {form.videos.length === 0 && <p className="text-xs text-[#E8E0D0]/30">No videos added yet.</p>}
-        </div>
-      </Section>
+      {!isPastShow && videosPhotosSection(false)}
 
       <Section
         title="Audio"
@@ -1171,41 +1445,6 @@ export default function ShowForm({
           Advanced (Cloudinary gallery · page content)
         </summary>
         <div className="mt-3 space-y-3">
-          <div>
-            <div className="flex items-center justify-between mb-1">
-              <label className="block text-xs uppercase tracking-wide text-[#E8E0D0]/40">
-                Photo URLs (one per line)
-              </label>
-              <button
-                type="button"
-                onClick={() => photosFileInputRef.current?.click()}
-                disabled={photosUploading}
-                className="text-xs border border-[#E8E0D0]/30 rounded px-2 py-1 hover:bg-[#E8E0D0]/10 disabled:opacity-50"
-              >
-                {photosUploadProgress
-                  ? `Uploading ${photosUploadProgress.done}/${photosUploadProgress.total}...`
-                  : '+ Upload photos'}
-              </button>
-              <input
-                ref={photosFileInputRef}
-                type="file"
-                accept="image/*"
-                multiple
-                className="hidden"
-                onChange={(e) => {
-                  const files = e.target.files;
-                  if (files && files.length > 0) handlePhotosUpload(files);
-                  e.target.value = '';
-                }}
-              />
-            </div>
-            <textarea
-              rows={4}
-              value={form.photosText}
-              onChange={(e) => set('photosText', e.target.value)}
-              className={`${inputClass} w-full resize-none font-mono`}
-            />
-          </div>
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
               <label className="block text-xs uppercase tracking-wide text-[#E8E0D0]/40 mb-1">

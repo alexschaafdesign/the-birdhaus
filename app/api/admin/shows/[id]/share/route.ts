@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getOrCreateShareToken, regenerateShareToken } from '@/lib/share-token';
 import { SITE_URL } from '@/lib/site';
+import { requireAdmin } from '@/lib/admin-session';
 
 // Auth is enforced centrally in proxy.ts for all /api/admin/* routes.
 
@@ -15,6 +16,8 @@ function urlFor(token: string): string {
 
 // Current share link (generating one on first use).
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const denied = await requireAdmin();
+  if (denied) return denied;
   const { id } = await params;
   const showId = parseId(id);
   if (showId === null) return NextResponse.json({ error: 'Invalid id' }, { status: 400 });
@@ -25,6 +28,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
 
 // Rotate the token — the old link stops working.
 export async function POST(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const denied = await requireAdmin();
+  if (denied) return denied;
   const { id } = await params;
   const showId = parseId(id);
   if (showId === null) return NextResponse.json({ error: 'Invalid id' }, { status: 400 });

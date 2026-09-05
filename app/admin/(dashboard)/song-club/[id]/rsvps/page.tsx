@@ -3,7 +3,9 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { getEventById } from '@/lib/song-club';
 import { getRsvpsForEvent } from '@/lib/song-club-rsvps';
+import { getEventSignups } from '@/lib/club-events';
 import SongClubRsvpBlast from '@/components/admin/SongClubRsvpBlast';
+import EventSignupsTable from '@/components/admin/EventSignupsTable';
 
 export const metadata: Metadata = {
   title: 'RSVPs',
@@ -29,6 +31,31 @@ export default async function SongClubRsvpsPage({
   const id = Number((await params).id);
   const event = Number.isInteger(id) ? await getEventById(id) : null;
   if (!event) notFound();
+
+  // Online (Song-a-day) events collect sign-ups via the participate flow, not
+  // the RSVP form — show that roster instead.
+  if (event.format === 'online') {
+    const signups = await getEventSignups(event.id);
+    return (
+      <main className="mx-auto w-full max-w-3xl px-6 py-8 text-[#E8E0D0]">
+        <Link
+          href="/admin/song-club"
+          className="text-sm text-[#E8E0D0]/50 transition hover:text-[#E8E0D0]"
+        >
+          ← All meetups
+        </Link>
+
+        <div className="mt-4 mb-6">
+          <h2 className="text-xl font-medium">Sign-ups — {event.title}</h2>
+          <p className="mt-1 text-sm text-[#E8E0D0]/60">
+            {signups.length} {signups.length === 1 ? 'sign-up' : 'sign-ups'}
+          </p>
+        </div>
+
+        <EventSignupsTable eventId={event.id} initialSignups={signups} />
+      </main>
+    );
+  }
 
   const { rsvps, totalCount, totalGuests } = await getRsvpsForEvent(event.id);
 

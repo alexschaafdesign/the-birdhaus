@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation';
 import { sql } from '@/lib/db';
-import { bandsJoinFragment, videosJoinFragment } from '@/lib/shows';
+import { bandsJoinFragment, videosJoinFragment, normalizePhotosInput } from '@/lib/shows';
+import { getPhotographerCredits } from '@/lib/photographers';
 import { soundEngineersJoinFragment, type ShowSoundEngineer } from '@/lib/sound-engineers';
 import { getOrCreateShareToken } from '@/lib/share-token';
 import { SITE_URL } from '@/lib/site';
@@ -20,6 +21,7 @@ interface ShowRow {
   bands: unknown;
   description: string | null;
   photographer: unknown;
+  photographer_id: number | null;
   rsvp_url: string | null;
   ticket_url: string | null;
   external_ticket_url: string | null;
@@ -33,9 +35,11 @@ interface ShowRow {
   announced: boolean;
   target_band_count: number;
   advance_sent: boolean;
+  door_person_name: string | null;
   sound_engineers: unknown;
   square_item_id: string | null;
   square_image_id: string | null;
+  ticket_limit: number | null;
 }
 
 export default async function EditShowPage({ params }: { params: Promise<{ id: string }> }) {
@@ -57,6 +61,16 @@ export default async function EditShowPage({ params }: { params: Promise<{ id: s
     order by amount_cents
   `;
 
+  // Resolve each photo's photographerId → name so the form can display the
+  // credit next to each thumbnail (only ids are stored on the row).
+  const photoEntries = normalizePhotosInput(row.photos);
+  const photoCredits = await getPhotographerCredits([
+    ...photoEntries.map((p) => p.photographerId).filter((n): n is number => n != null),
+    ...(row.photographer_id != null ? [row.photographer_id] : []),
+  ]);
+  const assignedPhotographerName =
+    row.photographer_id != null ? photoCredits.get(row.photographer_id)?.name ?? null : null;
+
   const initialValues: ShowFormInitialValues = {
     id: row.id,
     slug: row.slug,
@@ -68,12 +82,20 @@ export default async function EditShowPage({ params }: { params: Promise<{ id: s
     bands: (row.bands as ShowFormInitialValues['bands']) ?? [],
     description: row.description,
     photographer: (row.photographer as ShowFormInitialValues['photographer']) ?? null,
+    doorPersonName: row.door_person_name,
     ticketUrl: row.ticket_url,
     externalTicketUrl: row.external_ticket_url,
+    ticketLimit: row.ticket_limit,
     rsvpForm: row.rsvp_form,
     videos: (row.videos as ShowFormInitialValues['videos']) ?? [],
     audio: (row.audio as ShowFormInitialValues['audio']) ?? [],
-    photos: (row.photos as string[]) ?? [],
+    photos: photoEntries.map((p) => ({
+      url: p.url,
+      photographerId: p.photographerId,
+      photographerName: p.photographerId != null ? photoCredits.get(p.photographerId)?.name ?? null : null,
+    })),
+    assignedPhotographerId: row.photographer_id,
+    assignedPhotographerName,
     photoFolder: row.photo_folder,
     photoCredit: row.photo_credit,
     content: row.content_markdown,

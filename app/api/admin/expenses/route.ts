@@ -1,14 +1,19 @@
 import { NextResponse } from 'next/server';
 import { listExpenses, createExpense, buildExpenseInput, type ExpenseBody } from '@/lib/expenses';
+import { requireAdmin } from '@/lib/admin-session';
 
 // Admin-gated by proxy.ts (the /api/admin/* matcher).
 
 export async function GET() {
+  const denied = await requireAdmin();
+  if (denied) return denied;
   const expenses = await listExpenses();
   return NextResponse.json({ expenses });
 }
 
 export async function POST(request: Request) {
+  const denied = await requireAdmin();
+  if (denied) return denied;
   const body = (await request.json().catch(() => ({}))) as ExpenseBody;
   const input = buildExpenseInput(body);
   if ('error' in input) {

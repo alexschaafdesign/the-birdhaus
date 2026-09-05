@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { sql } from '@/lib/db';
 import { SUBMISSION_STATUSES, parseAvailability } from '@/lib/submissions';
+import { requireAdmin } from '@/lib/admin-session';
 
 const EDITABLE_TEXT_FIELDS = [
   'band_name',
@@ -19,6 +20,8 @@ function parseId(id: string): number | null {
 }
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const denied = await requireAdmin();
+  if (denied) return denied;
   const { id } = await params;
   const submissionId = parseId(id);
   if (submissionId === null) {
@@ -83,6 +86,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 }
 
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const denied = await requireAdmin();
+  if (denied) return denied;
   const { id } = await params;
   const submissionId = parseId(id);
   if (submissionId === null) {

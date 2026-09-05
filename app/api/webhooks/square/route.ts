@@ -1,5 +1,6 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { NextResponse } from 'next/server';
+import { revalidatePath } from 'next/cache';
 import { sql } from '@/lib/db';
 import { retrieveOrderLines } from '@/lib/square';
 import { sendTicketConfirmationEmail } from '@/lib/ticket-email';
@@ -70,8 +71,9 @@ export async function POST(request: Request) {
   }
   const type = event.type ?? '';
 
-  // Refunds: flip the matching purchase to 'refunded' so admin revenue stays
-  // honest. Any refund (even partial) marks the whole purchase — no partial math.
+  // Refunds: flip the matching purchase rows to 'refunded' so admin revenue
+  // stays honest. Any refund (even partial) marks the whole payment's rows —
+  // every show in a multi-show order — no partial math.
   if (type.startsWith('refund.')) {
     const refund = event.data?.object?.refund as { payment_id?: string } | undefined;
     if (refund?.payment_id) {
@@ -79,6 +81,9 @@ export async function POST(request: Request) {
         update ticket_purchases set status = 'refunded'
         where square_payment_id = ${refund.payment_id}
       `;
+      // A refund can drop a show back below its cap — regenerate show pages so a
+      // sold-out notice clears (and the tickets count updates).
+      revalidatePath('/shows/[slug]', 'page');
     }
     return NextResponse.json({ ok: true });
   }
@@ -88,10 +93,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, ignored: true });
   }
 
-  // Map payment → show: the order's line items carry the catalog variation ids
-  // that show_square_links ties to a show. A transient retrieve failure gets a
-  // 500 so Square redelivers and we pick the row up on a later attempt.
-  let match: { showId: number; variationId: string; quantity: number } | undefined;
+  // Map payment → show(s): the order's line items carry the catalog variation
+  // ids that show_square_links ties to shows. One order can span several shows
+  // (or a show + merch), so every matched line gets its own purchase row with
+  // its own line total — booking the whole payment to a single `limit 1` show
+  // used to skew both shows' settlements. A transient retrieve failure gets a
+  // 500 so Square redelivers and we pick the rows up on a later attempt.
+  let matches: { showId: number; variationId: string; quantity: number; amountCents: number }[] = [];
   try {
     const lines = await retrieveOrderLines(payment.order_id);
     const variationIds = lines.map((l) => l.catalogObjectId).filter((v): v is string => Boolean(v));
@@ -100,12 +108,23 @@ export async function POST(request: Request) {
         select show_id as "showId", square_variation_id as "variationId"
         from show_square_links
         where square_variation_id in ${sql(variationIds)} and show_id is not null
-        limit 1
       `;
-      if (rows[0]) {
-        const line = lines.find((l) => l.catalogObjectId === rows[0].variationId);
-        match = { showId: rows[0].showId, variationId: rows[0].variationId, quantity: line?.quantity ?? 1 };
-      }
+      const showByVariation = new Map(rows.map((r) => [r.variationId, r.showId]));
+      matches = lines.flatMap((line) => {
+        const showId = line.catalogObjectId ? showByVariation.get(line.catalogObjectId) : undefined;
+        if (showId === undefined || !line.catalogObjectId) return [];
+        return [
+          {
+            showId,
+            variationId: line.catalogObjectId,
+            quantity: line.quantity,
+            // Prefer the line's own total; if Square ever omits it and this is
+            // the payment's only matched line, the payment total is the truth.
+            amountCents:
+              line.totalCents ?? (lines.length === 1 ? (payment.amount_money?.amount ?? 0) : 0),
+          },
+        ];
+      });
     }
   } catch (err) {
     // Permanent failures — an order we can never fetch (Square's "Send test
@@ -120,28 +139,35 @@ export async function POST(request: Request) {
     console.error(`[square-webhook] order retrieve failed for payment ${payment.id}`, err);
     return NextResponse.json({ error: 'Order retrieve failed' }, { status: 500 });
   }
-  if (!match) {
+  if (matches.length === 0) {
     // A Square sale that isn't one of our show tiers (merch, misc) — not ours.
     return NextResponse.json({ ok: true, ignored: true });
   }
 
-  await sql`
-    insert into ticket_purchases (
-      show_id, square_payment_id, square_order_id, square_variation_id,
-      amount_cents, quantity, buyer_email, payment_created_at, raw, source
-    ) values (
-      ${match.showId}, ${payment.id}, ${payment.order_id}, ${match.variationId},
-      ${payment.amount_money?.amount ?? 0}, ${match.quantity},
-      ${payment.buyer_email_address ?? null},
-      ${payment.created_at ?? null}, cast(${JSON.stringify(payment)} as jsonb), 'webhook'
-    )
-    on conflict (square_payment_id) do nothing
-  `;
+  for (const match of matches) {
+    await sql`
+      insert into ticket_purchases (
+        show_id, square_payment_id, square_order_id, square_variation_id,
+        amount_cents, quantity, buyer_email, payment_created_at, raw, source
+      ) values (
+        ${match.showId}, ${payment.id}, ${payment.order_id}, ${match.variationId},
+        ${match.amountCents}, ${match.quantity},
+        ${payment.buyer_email_address ?? null},
+        ${payment.created_at ?? null}, cast(${JSON.stringify(payment)} as jsonb), 'webhook'
+      )
+      on conflict (square_payment_id, square_variation_id) do nothing
+    `;
+  }
 
-  // Confirmation email, idempotent via claim-first: mark the row before sending
+  // A new sale may have crossed the show's ticket cap — regenerate the (static)
+  // show pages so the RSVP form flips to the sold-out notice without a redeploy.
+  revalidatePath('/shows/[slug]', 'page');
+
+  // Confirmation emails, idempotent via claim-first: mark rows before sending
   // so a webhook redelivery can never double-email. Backfilled rows are excluded
-  // (source + pre-stamped sent_at), as are payments without a buyer email.
-  const [claimed] = await sql<
+  // (source + pre-stamped sent_at), as are payments without a buyer email. A
+  // multi-show payment claims one row per show → one confirmation per show.
+  const claimed = await sql<
     { showId: number; buyerEmail: string; quantity: number; amountCents: number }[]
   >`
     update ticket_purchases set confirmation_email_sent_at = now()
@@ -153,29 +179,29 @@ export async function POST(request: Request) {
     returning show_id as "showId", buyer_email as "buyerEmail",
       quantity, amount_cents as "amountCents"
   `;
-  if (claimed) {
+  for (const purchase of claimed) {
     try {
       const [show] = await sql<
         { title: string; date: string; doorsTime: string | null; showTime: string | null; slug: string }[]
       >`
         select title, date::text as date, doors_time as "doorsTime",
           show_time as "showTime", slug
-        from shows where id = ${claimed.showId}
+        from shows where id = ${purchase.showId}
       `;
       if (show) {
         await sendTicketConfirmationEmail({
-          to: claimed.buyerEmail,
+          to: purchase.buyerEmail,
           showTitle: show.title,
           showDate: show.date,
           doorsTime: show.doorsTime,
           showTime: show.showTime,
           slug: show.slug,
-          quantity: claimed.quantity,
-          amountCents: claimed.amountCents,
+          quantity: purchase.quantity,
+          amountCents: purchase.amountCents,
         });
       }
     } catch (err) {
-      // Never fail the webhook over email — the purchase row is already safe.
+      // Never fail the webhook over email — the purchase rows are already safe.
       console.error(`[square-webhook] confirmation email failed for payment ${payment.id}`, err);
     }
   }

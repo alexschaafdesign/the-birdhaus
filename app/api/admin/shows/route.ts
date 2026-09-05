@@ -6,7 +6,7 @@ import {
   isValidBandsInput,
   isValidVideosInput,
   isValidAudioInput,
-  isValidPhotosInput,
+  normalizePhotosInput,
   normalizePhotographerInput,
   normalizeBandIds,
   normalizeTargetBandCount,
@@ -27,8 +27,11 @@ import {
   setShowSoundEngineers,
   type ShowSoundEngineer,
 } from '@/lib/sound-engineers';
+import { requireAdmin } from '@/lib/admin-session';
 
 export async function GET() {
+  const denied = await requireAdmin();
+  if (denied) return denied;
   const rows = await sql`
     select *, date::text as date, ${bandsJoinFragment()}, ${videosJoinFragment()}
     from shows
@@ -44,6 +47,8 @@ function nullableTrim(value: unknown): string | null {
 }
 
 export async function POST(request: Request) {
+  const denied = await requireAdmin();
+  if (denied) return denied;
   const body = await request.json().catch(() => null);
 
   const title = nullableTrim(body?.title);
@@ -77,10 +82,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Invalid audio' }, { status: 400 });
   }
 
-  const photos = body?.photos === undefined ? [] : body.photos;
-  if (!isValidPhotosInput(photos)) {
-    return NextResponse.json({ error: 'Invalid photos' }, { status: 400 });
-  }
+  const photos = normalizePhotosInput(body?.photos);
 
   const soundEngineers = body?.soundEngineers ?? [];
   if (!isValidSoundEngineersInput(soundEngineers)) {
@@ -88,6 +90,10 @@ export async function POST(request: Request) {
   }
 
   const photographer = normalizePhotographerInput(body?.photographer);
+  const assignedPhotographerId =
+    typeof body?.assignedPhotographerId === 'number' && Number.isFinite(body.assignedPhotographerId)
+      ? body.assignedPhotographerId
+      : null;
   const rsvpForm = body?.rsvpForm === undefined ? true : Boolean(body.rsvpForm);
   const announced = Boolean(body?.announced);
   const targetBandCount = normalizeTargetBandCount(body?.targetBandCount);
@@ -114,19 +120,19 @@ export async function POST(request: Request) {
       const [row] = await tx`
         insert into shows (
           slug, title, date, doors_time, show_time, flyer, bands, description,
-          photographer, rsvp_url, ticket_url, external_ticket_url, rsvp_form,
+          photographer, photographer_id, rsvp_url, ticket_url, external_ticket_url, rsvp_form,
           videos, audio, photos, photo_folder, photo_credit, content_markdown, announced,
-          sound_engineer_name, target_band_count, advance_sent
+          sound_engineer_name, door_person_name, target_band_count, advance_sent
         )
         values (
           ${slug}, ${title}, ${date}, ${nullableTrim(body.doorsTime)}, ${nullableTrim(body.showTime)},
           ${nullableTrim(body.flyer)}, ${bandsJson}, ${nullableTrim(body.description)},
-          ${tx.json(photographer)}, ${nullableTrim(body.rsvpUrl)}, ${nullableTrim(body.ticketUrl)},
+          ${tx.json(photographer)}, ${assignedPhotographerId}, ${nullableTrim(body.rsvpUrl)}, ${nullableTrim(body.ticketUrl)},
           ${nullableTrim(body.externalTicketUrl)}, ${rsvpForm},
           ${videosJson}, ${tx.json(audio)}, ${tx.json(photos)},
           ${nullableTrim(body.photoFolder)}, ${nullableTrim(body.photoCredit)},
           ${typeof body.content === 'string' ? body.content : ''}, ${announced},
-          ${nullableTrim(body.soundEngineerName)}, ${targetBandCount}, ${advanceSent}
+          ${nullableTrim(body.soundEngineerName)}, ${nullableTrim(body.doorPersonName)}, ${targetBandCount}, ${advanceSent}
         )
         returning *, date::text as date
       `;

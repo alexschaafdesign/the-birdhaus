@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import { sql } from '@/lib/db';
+import { setPhotographerUser } from '@/lib/photographers';
+import { requireAdmin } from '@/lib/admin-session';
 
 // Auth is enforced centrally in proxy.ts for all /api/admin/* routes.
 
@@ -18,6 +20,8 @@ function parseId(id: string): number | null {
 }
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const denied = await requireAdmin();
+  if (denied) return denied;
   const { id } = await params;
   const photographerId = parseId(id);
   if (photographerId === null) {
@@ -41,25 +45,45 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     assignments.push(sql`${sql(column)} = ${trimmed}`);
   }
 
-  if (assignments.length === 0) {
+  // Linked login (photographers.user_id) is a numeric FK, not a text field, and
+  // needs a uniqueness sweep, so it's handled apart from the text loop.
+  const hasUserId = 'userId' in body;
+  const userIdValue: number | null = hasUserId
+    ? typeof body.userId === 'number' && Number.isFinite(body.userId)
+      ? body.userId
+      : null
+    : null;
+
+  if (assignments.length === 0 && !hasUserId) {
     return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 });
   }
 
-  const setClause = assignments.reduce(
-    (acc, fragment) => (acc === null ? fragment : sql`${acc}, ${fragment}`),
-    null
-  );
-
   try {
-    const [row] = await sql<Array<{ id: number }>>`
-      update photographers
-      set ${setClause}, updated_at = now()
-      where id = ${photographerId}
-      returning id
+    // Confirm the photographer exists (the text update below would 404 on its
+    // own, but a userId-only request skips it).
+    const [exists] = await sql<Array<{ id: number }>>`
+      select id from photographers where id = ${photographerId}
     `;
-    if (!row) {
+    if (!exists) {
       return NextResponse.json({ error: 'Not found' }, { status: 404 });
     }
+
+    if (assignments.length > 0) {
+      const setClause = assignments.reduce(
+        (acc, fragment) => (acc === null ? fragment : sql`${acc}, ${fragment}`),
+        null
+      );
+      await sql`
+        update photographers
+        set ${setClause}, updated_at = now()
+        where id = ${photographerId}
+      `;
+    }
+
+    if (hasUserId) {
+      await setPhotographerUser(photographerId, userIdValue);
+    }
+
     return NextResponse.json({ ok: true });
   } catch (error) {
     if (error instanceof Error && 'code' in error && error.code === '23505') {
@@ -70,6 +94,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 }
 
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const denied = await requireAdmin();
+  if (denied) return denied;
   const { id } = await params;
   const photographerId = parseId(id);
   if (photographerId === null) {

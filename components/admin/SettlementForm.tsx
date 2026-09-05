@@ -7,6 +7,8 @@ import {
   computeSettlementSummary,
   formatCurrency,
   formatPct,
+  bandShare,
+  bandDue,
   DEFAULT_SETTLEMENT_VALUES,
   FEE_INCOME_FIELDS,
   NUMERIC_FIELDS,
@@ -444,6 +446,9 @@ interface SettlementFormProps {
   // Same, for photographers.
   photographerPhotos?: Record<string, string>;
   photographers?: Array<{ name: string; photo: string | null; paymentMethod?: string | null }>;
+  // Same, for door people.
+  doorPersonPhotos?: Record<string, string>;
+  doorPersons?: Array<{ name: string; photo: string | null; paymentMethod?: string | null }>;
 }
 
 type FormState = {
@@ -453,10 +458,13 @@ type FormState = {
   attendance: string;
   photographerName: string;
   soundEngineerName: string;
+  doorPersonName: string;
   soundPaid: boolean;
   photographerPaid: boolean;
+  doorPaid: boolean;
   soundPaidMethod: PaidMethod | null;
   photographerPaidMethod: PaidMethod | null;
+  doorPaidMethod: PaidMethod | null;
   extraLineItems: FormExtraLineItem[];
 } & Record<NumericField, string>;
 
@@ -472,10 +480,13 @@ function toFormState(values: SettlementValues): FormState {
     attendance: values.attendance === null ? '' : String(values.attendance),
     photographerName: values.photographerName ?? '',
     soundEngineerName: values.soundEngineerName ?? '',
+    doorPersonName: values.doorPersonName ?? '',
     soundPaid: values.soundPaid,
     photographerPaid: values.photographerPaid,
+    doorPaid: values.doorPaid,
     soundPaidMethod: values.soundPaidMethod,
     photographerPaidMethod: values.photographerPaidMethod,
+    doorPaidMethod: values.doorPaidMethod,
     extraLineItems: values.extraLineItems.map((item) => ({ ...item, amount: String(item.amount) })),
   };
 }
@@ -498,6 +509,8 @@ export default function SettlementForm({
   soundEngineers = [],
   photographerPhotos = {},
   photographers = [],
+  doorPersonPhotos = {},
+  doorPersons = [],
 }: SettlementFormProps) {
   const router = useRouter();
   const [form, setForm] = useState<FormState>(() => toFormState(initialValues ?? DEFAULT_SETTLEMENT_VALUES));
@@ -506,6 +519,11 @@ export default function SettlementForm({
   // input is being typed into; on blur we commit and drop it, so the input falls
   // back to the stored override (or the live even split when there's none).
   const [payoutDrafts, setPayoutDrafts] = useState<Record<number, string>>({});
+  // In-progress percentage edits, keyed by bandId — same lifecycle as payoutDrafts
+  // but for the "% of pool" input.
+  const [pctDrafts, setPctDrafts] = useState<Record<number, string>>({});
+  // In-progress note edits, keyed by bandId — documents a manual dollar adjustment.
+  const [noteDrafts, setNoteDrafts] = useState<Record<number, string>>({});
   const [bandPayError, setBandPayError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -536,14 +554,59 @@ export default function SettlementForm({
   // the even split). Optimistic like the paid/excluded toggles: roll back on
   // failure. Excluding a band later clears any override server-side is not needed
   // — an excluded band is dropped from the split math regardless of its override.
+  // Persist a band's manual dollar adjustment (a number, or null to clear it and
+  // pay what it's due). Coexists with the percentage share. Clearing the override
+  // also clears its note, matching the server.
   async function persistBandPayout(bandId: number, override: number | null) {
     const previous = bands;
-    setBands((cur) => cur.map((b) => (b.bandId === bandId ? { ...b, payoutOverride: override } : b)));
+    setBands((cur) =>
+      cur.map((b) =>
+        b.bandId === bandId
+          ? { ...b, payoutOverride: override, payoutNote: override === null ? null : b.payoutNote }
+          : b
+      )
+    );
     try {
       const res = await fetch(`/api/admin/settlements/${showId}/bands/${bandId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ payoutOverride: override }),
+      });
+      if (!res.ok) throw new Error();
+    } catch {
+      setBands(previous);
+      setBandPayError('Failed to update — try again.');
+    }
+  }
+
+  // Persist a band's percentage share (a number, or null to clear it and follow
+  // the even split). Coexists with any manual dollar override.
+  async function persistBandPct(bandId: number, pct: number | null) {
+    const previous = bands;
+    setBands((cur) => cur.map((b) => (b.bandId === bandId ? { ...b, payoutPct: pct } : b)));
+    try {
+      const res = await fetch(`/api/admin/settlements/${showId}/bands/${bandId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ payoutPct: pct }),
+      });
+      if (!res.ok) throw new Error();
+    } catch {
+      setBands(previous);
+      setBandPayError('Failed to update — try again.');
+    }
+  }
+
+  // Persist a band's payout note (a string, or null/empty to clear it).
+  async function persistBandNote(bandId: number, note: string | null) {
+    const clean = note && note.trim() !== '' ? note.trim() : null;
+    const previous = bands;
+    setBands((cur) => cur.map((b) => (b.bandId === bandId ? { ...b, payoutNote: clean } : b)));
+    try {
+      const res = await fetch(`/api/admin/settlements/${showId}/bands/${bandId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ payoutNote: clean }),
       });
       if (!res.ok) throw new Error();
     } catch {
@@ -560,9 +623,26 @@ export default function SettlementForm({
     });
   }
 
-  // Commit whatever's in the draft input on blur. Empty clears the override
-  // (fall back to the even split); a valid number stores it rounded to cents; an
-  // unparseable entry is discarded, leaving the prior value intact.
+  function clearPctDraft(bandId: number) {
+    setPctDrafts((prev) => {
+      const next = { ...prev };
+      delete next[bandId];
+      return next;
+    });
+  }
+
+  function clearNoteDraft(bandId: number) {
+    setNoteDrafts((prev) => {
+      const next = { ...prev };
+      delete next[bandId];
+      return next;
+    });
+  }
+
+  // Commit the dollar-amount draft on blur. The field defaults to what the band is
+  // due (its % of the pool), so a value matching the due amount — or empty —
+  // clears the override; anything else stores it as the amount actually paid, and
+  // the difference is kept by the venue. An unparseable entry is discarded.
   function commitPayoutDraft(bandId: number) {
     const draft = payoutDrafts[bandId];
     clearPayoutDraft(bandId);
@@ -576,12 +656,51 @@ export default function SettlementForm({
     const num = Number(trimmed);
     if (!Number.isFinite(num)) return;
     const rounded = Math.round(num * 100) / 100;
+    // Typing the due amount back in means "no adjustment" — clear the override.
+    const due = band ? Math.round(bandDue(summary, band.payoutPct) * 100) / 100 : rounded;
+    if (rounded === due) {
+      if (band && band.payoutOverride !== null) persistBandPayout(bandId, null);
+      return;
+    }
     if (band && band.payoutOverride === rounded) return;
     persistBandPayout(bandId, rounded);
   }
 
-  function resetBandPayout(bandId: number) {
+  // Commit the note draft on blur — stores it, or clears when emptied.
+  function commitNoteDraft(bandId: number) {
+    const draft = noteDrafts[bandId];
+    clearNoteDraft(bandId);
+    if (draft === undefined) return;
+    const band = bands.find((b) => b.bandId === bandId);
+    const clean = draft.trim() === '' ? null : draft.trim();
+    if (band && (band.payoutNote ?? null) === clean) return;
+    persistBandNote(bandId, clean);
+  }
+
+  // Commit the percentage draft on blur. Empty clears the share (fall back to the
+  // even split); a valid non-negative number stores it; anything else is discarded.
+  function commitPctDraft(bandId: number) {
+    const draft = pctDrafts[bandId];
+    clearPctDraft(bandId);
+    if (draft === undefined) return;
+    const band = bands.find((b) => b.bandId === bandId);
+    const trimmed = draft.trim();
+    if (trimmed === '') {
+      if (band && band.payoutPct !== null) persistBandPct(bandId, null);
+      return;
+    }
+    const num = Number(trimmed);
+    if (!Number.isFinite(num) || num < 0) return;
+    const rounded = Math.round(num * 100) / 100;
+    if (band && band.payoutPct === rounded) return;
+    persistBandPct(bandId, rounded);
+  }
+
+  // Clear a band's manual dollar adjustment (and its note), paying it exactly what
+  // it's due. Leaves the percentage split untouched.
+  function resetBandOverride(bandId: number) {
     clearPayoutDraft(bandId);
+    clearNoteDraft(bandId);
     persistBandPayout(bandId, null);
   }
 
@@ -671,20 +790,25 @@ export default function SettlementForm({
       attendance: parseAttendance(form.attendance),
       photographerName: form.photographerName,
       soundEngineerName: form.soundEngineerName,
+      doorPersonName: form.doorPersonName,
       soundPaid: form.soundPaid,
       photographerPaid: form.photographerPaid,
+      doorPaid: form.doorPaid,
       soundPaidMethod: form.soundPaidMethod,
       photographerPaidMethod: form.photographerPaidMethod,
+      doorPaidMethod: form.doorPaidMethod,
       extraLineItems: form.extraLineItems.map((item) => ({
         type: item.type,
         label: item.label,
         amount: Number(item.amount) || 0,
       })),
     };
-    // Overrides for the bands that share the split, in the same order the pool is
-    // divided; nulls follow the even per-band share.
-    const includedOverrides = bands.filter((b) => !b.excluded).map((b) => b.payoutOverride);
-    return computeSettlementSummary(values, payoutBandCount, includedOverrides);
+    // Overrides / percentage shares for the bands that share the split, in the
+    // same order the pool is divided; nulls follow the even per-band share.
+    const includedBands = bands.filter((b) => !b.excluded);
+    const includedOverrides = includedBands.map((b) => b.payoutOverride);
+    const includedPcts = includedBands.map((b) => b.payoutPct);
+    return computeSettlementSummary(values, payoutBandCount, includedOverrides, includedPcts);
   }, [form, payoutBandCount, bands]);
 
   // At-a-glance deal terms shown in the collapsed section header.
@@ -708,10 +832,13 @@ export default function SettlementForm({
       attendance: parseAttendance(form.attendance),
       photographerName: form.photographerName.trim() || null,
       soundEngineerName: form.soundEngineerName.trim() || null,
+      doorPersonName: form.doorPersonName.trim() || null,
       soundPaid: form.soundPaid,
       photographerPaid: form.photographerPaid,
+      doorPaid: form.doorPaid,
       soundPaidMethod: form.soundPaidMethod,
       photographerPaidMethod: form.photographerPaidMethod,
+      doorPaidMethod: form.doorPaidMethod,
       extraLineItems: form.extraLineItems
         .filter((item) => item.label.trim())
         .map((item) => ({ type: item.type, label: item.label.trim(), amount: Number(item.amount) || 0 })),
@@ -967,7 +1094,9 @@ export default function SettlementForm({
                           ? { list: soundEngineers, photos: soundEngineerPhotos }
                           : payee?.nameKey === 'photographerName'
                             ? { list: photographers, photos: photographerPhotos }
-                            : null;
+                            : payee?.nameKey === 'doorPersonName'
+                              ? { list: doorPersons, photos: doorPersonPhotos }
+                              : null;
                       // Match the stored name to a registry entry (so the <select>
                       // highlights it with the registry's casing); keep an unmatched
                       // custom value as its own option so it's never lost.
@@ -1126,25 +1255,26 @@ export default function SettlementForm({
                     <p className="py-1 text-xs text-[#E8E0D0]/40">Excluded from split</p>
                   ) : (
                     <>
+                      {/* The star: the dollar amount to send. Defaults to what the
+                          band is due (its % of the pool); edit to record a different
+                          amount actually paid, and the difference is kept by the venue. */}
                       <div className="relative">
-                        <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-xs text-[#E8E0D0]/40">
+                        <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-sm text-[#E8E0D0]/45">
                           $
                         </span>
                         <input
                           type="number"
                           step="0.01"
                           inputMode="decimal"
-                          aria-label={`Payout for ${band.name}`}
+                          aria-label={`Amount to pay ${band.name}`}
                           title={
                             band.payoutOverride !== null
-                              ? 'Custom payout — the difference from the even split is kept as venue profit'
-                              : 'Even split — edit to set a custom payout'
+                              ? 'Adjusted payout — the difference from what they were due is kept by the venue'
+                              : 'Amount due from the split — edit to record a different amount actually paid'
                           }
                           value={
                             payoutDrafts[band.bandId] ??
-                            (band.payoutOverride !== null
-                              ? band.payoutOverride.toFixed(2)
-                              : summary.perBand.toFixed(2))
+                            bandShare(summary, band.payoutOverride, band.payoutPct).toFixed(2)
                           }
                           onChange={(e) =>
                             setPayoutDrafts((prev) => ({ ...prev, [band.bandId]: e.target.value }))
@@ -1156,20 +1286,75 @@ export default function SettlementForm({
                               e.currentTarget.blur();
                             }
                           }}
-                          className={`${numberInputClass} w-full pl-5 pr-2 text-right ${
+                          className={`${numberInputClass} w-full pl-6 pr-2 text-right text-lg font-semibold ${
                             band.payoutOverride !== null ? 'border-amber-400/60' : ''
                           }`}
                         />
                       </div>
+
+                      {/* The required driver, kept visually secondary: percentage of
+                          the pool. Empty it to fall back to the even split. */}
+                      <div className="flex items-center justify-center gap-1 text-[11px] text-[#E8E0D0]/50">
+                        <input
+                          type="number"
+                          step="0.01"
+                          inputMode="decimal"
+                          aria-label={`Percentage of pool for ${band.name}`}
+                          title="Percentage of the artist pool — drives the amount due"
+                          value={
+                            pctDrafts[band.bandId] ??
+                            (band.payoutPct !== null
+                              ? String(band.payoutPct)
+                              : payoutBandCount > 0
+                                ? (100 / payoutBandCount).toFixed(2)
+                                : '0')
+                          }
+                          onChange={(e) => setPctDrafts((prev) => ({ ...prev, [band.bandId]: e.target.value }))}
+                          onBlur={() => commitPctDraft(band.bandId)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              e.currentTarget.blur();
+                            }
+                          }}
+                          className={`${numberInputClass} w-14 rounded border border-[#E8E0D0]/20 bg-transparent px-1 py-0.5 text-right ${
+                            band.payoutPct !== null ? 'text-amber-300/90' : ''
+                          }`}
+                        />
+                        <span>% of pool</span>
+                      </div>
+
+                      {/* When the amount to send differs from what they're due, show
+                          the due amount for reference plus a note explaining why. */}
                       {band.payoutOverride !== null && (
-                        <button
-                          type="button"
-                          onClick={() => resetBandPayout(band.bandId)}
-                          title="Reset to even split"
-                          className="text-[10px] text-[#E8E0D0]/50 underline decoration-dotted hover:text-[#E8E0D0]"
-                        >
-                          reset to even split
-                        </button>
+                        <div className="space-y-1">
+                          <div className="flex items-center justify-center gap-2 text-[10px] text-[#E8E0D0]/45">
+                            <span>due {formatCurrency(bandDue(summary, band.payoutPct))}</span>
+                            <button
+                              type="button"
+                              onClick={() => resetBandOverride(band.bandId)}
+                              title="Reset to the amount due"
+                              className="underline decoration-dotted hover:text-[#E8E0D0]"
+                            >
+                              reset
+                            </button>
+                          </div>
+                          <input
+                            type="text"
+                            aria-label={`Note for ${band.name} payout`}
+                            placeholder="note (e.g. band said keep the rest)"
+                            value={noteDrafts[band.bandId] ?? band.payoutNote ?? ''}
+                            onChange={(e) => setNoteDrafts((prev) => ({ ...prev, [band.bandId]: e.target.value }))}
+                            onBlur={() => commitNoteDraft(band.bandId)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                e.currentTarget.blur();
+                              }
+                            }}
+                            className={`${inputClass} w-full px-2 py-1 text-[11px]`}
+                          />
+                        </div>
                       )}
                       <PaidToggle
                         paid={band.paid}

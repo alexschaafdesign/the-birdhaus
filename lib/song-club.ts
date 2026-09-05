@@ -10,15 +10,20 @@ export interface SongClubEvent {
   id: number;
   slug: string;
   title: string;
-  event_date: string; // "YYYY-MM-DD"
+  event_date: string; // "YYYY-MM-DD" — start date
+  end_date: string | null; // "YYYY-MM-DD" — optional end (multi-day events)
   start_time: string | null;
   end_time: string | null;
   venue_name: string | null;
   address: string | null;
   arrival_notes: string | null;
   description: string | null;
+  body: string | null;
   flyer_url: string | null;
   published: boolean;
+  playlist_id: number | null;
+  format: 'in_person' | 'online';
+  notified_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -27,21 +32,26 @@ export interface SongClubEvent {
 // supplied.
 export interface SongClubEventInput {
   title: string;
-  eventDate: string; // "YYYY-MM-DD"
+  eventDate: string; // "YYYY-MM-DD" — start
+  endDate: string | null; // "YYYY-MM-DD" — optional end
   startTime: string | null;
   endTime: string | null;
   venueName: string | null;
   address: string | null;
   arrivalNotes: string | null;
   description: string | null;
+  body: string | null;
   flyerUrl: string | null;
   published: boolean;
+  playlistId: number | null;
+  format: 'in_person' | 'online';
 }
 
 const COLUMNS = sql`
-  id, slug, title, event_date::text as event_date, start_time, end_time,
-  venue_name, address, arrival_notes, description, flyer_url, published,
-  created_at, updated_at
+  id, slug, title, event_date::text as event_date, end_date::text as end_date,
+  start_time, end_time, venue_name, address, arrival_notes, description, body,
+  flyer_url, published, playlist_id, format,
+  notified_at::text as notified_at, created_at, updated_at
 `;
 
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -50,14 +60,18 @@ const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 export interface SongClubEventBody {
   title?: unknown;
   eventDate?: unknown;
+  endDate?: unknown;
   startTime?: unknown;
   endTime?: unknown;
   venueName?: unknown;
   address?: unknown;
   arrivalNotes?: unknown;
   description?: unknown;
+  body?: unknown;
   flyerUrl?: unknown;
   published?: unknown;
+  playlistId?: unknown;
+  format?: unknown;
 }
 
 function optionalTrim(value: unknown): string | null {
@@ -78,17 +92,33 @@ export function buildEventInput(
   const eventDate = typeof body.eventDate === 'string' ? body.eventDate.trim() : '';
   if (!ISO_DATE_RE.test(eventDate)) return { error: 'A valid event date is required' };
 
+  // Optional end date for multi-day events; must be a valid date on/after start.
+  const endRaw = typeof body.endDate === 'string' ? body.endDate.trim() : '';
+  let endDate: string | null = null;
+  if (endRaw) {
+    if (!ISO_DATE_RE.test(endRaw)) return { error: 'The end date is invalid' };
+    if (endRaw < eventDate) return { error: 'The end date must be on or after the start date' };
+    endDate = endRaw === eventDate ? null : endRaw; // same day => single-day event
+  }
+
   return {
     title,
     eventDate,
+    endDate,
     startTime: optionalTrim(body.startTime),
     endTime: optionalTrim(body.endTime),
     venueName: optionalTrim(body.venueName),
     address: optionalTrim(body.address),
     arrivalNotes: optionalTrim(body.arrivalNotes),
     description: optionalTrim(body.description),
+    body: optionalTrim(body.body),
     flyerUrl: optionalTrim(body.flyerUrl),
     published: body.published === true,
+    playlistId:
+      typeof body.playlistId === 'number' && Number.isInteger(body.playlistId)
+        ? body.playlistId
+        : null,
+    format: body.format === 'online' ? 'online' : 'in_person',
   };
 }
 
@@ -154,13 +184,13 @@ export async function createEvent(input: SongClubEventInput): Promise<SongClubEv
   const slug = await uniqueSlug(slugify(`${input.eventDate}-${input.title}`));
   const [row] = await sql<SongClubEvent[]>`
     insert into song_club_events
-      (slug, title, event_date, start_time, end_time, venue_name, address,
-       arrival_notes, description, flyer_url, published)
+      (slug, title, event_date, end_date, start_time, end_time, venue_name, address,
+       arrival_notes, description, body, flyer_url, published, playlist_id, format)
     values
-      (${slug}, ${input.title}, ${input.eventDate}, ${input.startTime},
+      (${slug}, ${input.title}, ${input.eventDate}, ${input.endDate}, ${input.startTime},
        ${input.endTime}, ${input.venueName}, ${input.address},
-       ${input.arrivalNotes}, ${input.description}, ${input.flyerUrl},
-       ${input.published})
+       ${input.arrivalNotes}, ${input.description}, ${input.body}, ${input.flyerUrl},
+       ${input.published}, ${input.playlistId}, ${input.format})
     returning ${COLUMNS}
   `;
   return row;
@@ -176,14 +206,18 @@ export async function updateEvent(
       slug = ${slug},
       title = ${input.title},
       event_date = ${input.eventDate},
+      end_date = ${input.endDate},
       start_time = ${input.startTime},
       end_time = ${input.endTime},
       venue_name = ${input.venueName},
       address = ${input.address},
       arrival_notes = ${input.arrivalNotes},
       description = ${input.description},
+      body = ${input.body},
       flyer_url = ${input.flyerUrl},
       published = ${input.published},
+      playlist_id = ${input.playlistId},
+      format = ${input.format},
       updated_at = now()
     where id = ${id}
     returning ${COLUMNS}
@@ -193,5 +227,16 @@ export async function updateEvent(
 
 export async function deleteEvent(id: number): Promise<boolean> {
   const result = await sql`delete from song_club_events where id = ${id}`;
+  return result.count > 0;
+}
+
+// Atomically claim the one-time "new event" blast: stamps notified_at only if
+// it's still null, returning true to the single caller that won the race.
+// Prevents a double blast if publish is toggled/saved more than once.
+export async function claimEventNotification(id: number): Promise<boolean> {
+  const result = await sql`
+    update song_club_events set notified_at = now()
+    where id = ${id} and notified_at is null
+  `;
   return result.count > 0;
 }

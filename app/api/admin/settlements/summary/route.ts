@@ -9,6 +9,7 @@ import {
   type SettlementDbRow,
 } from '@/lib/settlements';
 import { paidTotalsByWorker } from '@/lib/timesheet';
+import { requireAdmin } from '@/lib/admin-session';
 
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -19,6 +20,8 @@ interface SettlementSummaryRow extends SettlementDbRow {
 }
 
 export async function GET(request: Request) {
+  const denied = await requireAdmin();
+  if (denied) return denied;
   const url = new URL(request.url);
   const yearParam = url.searchParams.get('year');
   const startParam = url.searchParams.get('start');
@@ -64,19 +67,26 @@ export async function GET(request: Request) {
   // shows.id is bigserial, so show_id comes back as a string from postgres.js —
   // normalize to a number for the map key so it matches the Number(row.show_id)
   // lookups below (a raw-string key silently misses, dropping every override).
-  const bandRows = await sql<{ show_id: string; excluded: boolean; payout_override: string | null }[]>`
-    select sb.show_id, sb.excluded, sb.payout_override
+  const bandRows = await sql<
+    { show_id: string; excluded: boolean; payout_override: string | null; payout_pct: string | null }[]
+  >`
+    select sb.show_id, sb.excluded, sb.payout_override, sb.payout_pct
     from show_bands sb
     join shows sh on sh.id = sb.show_id
     where sh.date >= ${rangeStart} and sh.date <= ${rangeEnd}
   `;
   const overridesByShow = new Map<number, (number | null)[]>();
+  const pctsByShow = new Map<number, (number | null)[]>();
   for (const b of bandRows) {
     if (b.excluded) continue;
     const showId = Number(b.show_id);
-    const list = overridesByShow.get(showId) ?? [];
-    list.push(b.payout_override === null ? null : Number(b.payout_override));
-    overridesByShow.set(showId, list);
+    // Push to both maps together so the per-show override/pct arrays stay index-aligned.
+    const overrides = overridesByShow.get(showId) ?? [];
+    overrides.push(b.payout_override === null ? null : Number(b.payout_override));
+    overridesByShow.set(showId, overrides);
+    const pcts = pctsByShow.get(showId) ?? [];
+    pcts.push(b.payout_pct === null ? null : Number(b.payout_pct));
+    pctsByShow.set(showId, pcts);
   }
 
   let grossIncome = 0;
@@ -112,7 +122,8 @@ export async function GET(request: Request) {
   const perShow = rows.map((row) => {
     const values = settlementValuesFromRow(row);
     const includedOverrides = overridesByShow.get(Number(row.show_id)) ?? [];
-    const summary = computeSettlementSummary(values, includedOverrides.length, includedOverrides);
+    const includedPcts = pctsByShow.get(Number(row.show_id)) ?? [];
+    const summary = computeSettlementSummary(values, includedOverrides.length, includedOverrides, includedPcts);
 
     grossIncome += summary.totalIncome;
     // Actual paid to bands after any overrides (equals the pool when none apply).

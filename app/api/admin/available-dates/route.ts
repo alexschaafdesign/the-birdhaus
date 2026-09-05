@@ -1,15 +1,20 @@
 import { NextResponse } from 'next/server';
 import { sql } from '@/lib/db';
 import { getAvailableDates } from '@/lib/available-dates';
+import { requireAdmin } from '@/lib/admin-session';
 
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 export async function GET() {
+  const denied = await requireAdmin();
+  if (denied) return denied;
   const rows = await getAvailableDates();
   return NextResponse.json(rows);
 }
 
 export async function POST(request: Request) {
+  const denied = await requireAdmin();
+  if (denied) return denied;
   const body = await request.json().catch(() => null);
   const date = typeof body?.date === 'string' ? body.date : '';
   if (!ISO_DATE_RE.test(date)) {

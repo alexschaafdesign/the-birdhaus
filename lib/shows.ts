@@ -2,6 +2,18 @@ import { remark } from 'remark';
 import html from 'remark-html';
 import { sql } from './db';
 
+// One entry in a show's photo gallery. `photographerId` references the
+// photographers registry (050_photographers.sql); null means uncredited.
+// Stored in the `photos` jsonb column — legacy rows hold bare URL strings and
+// are normalized to this shape on read (see normalizePhotosInput).
+// A type alias (not an interface) so it satisfies the DB layer's JSONValue
+// constraint when written to the `photos` jsonb column — interfaces lack the
+// implicit index signature that structural check requires.
+export type ShowPhoto = {
+  url: string;
+  photographerId: number | null;
+};
+
 export interface Show {
   id: number;
   slug: string;
@@ -10,7 +22,7 @@ export interface Show {
   doorsTime?: string;
   showTime?: string;
   flyer?: string;
-  bands: Array<{ name: string; instagram?: string; bio?: string; photo?: string; bandId?: number }> | string[];
+  bands: Array<{ name: string; instagram?: string; bio?: string; photo?: string; bandId?: number; setStart?: string; setEnd?: string }> | string[];
   description?: string;
   photographer?: string | { name: string; instagram?: string };
   rsvpUrl?: string;
@@ -19,15 +31,27 @@ export interface Show {
   rsvpForm?: boolean;
   videos: Array<{ youtube: string; title: string; bandIds?: number[] }>;
   audio?: Array<{ bandcamp: string; title: string }>;
-  photos?: string[];
+  photos?: ShowPhoto[];
   photoFolder?: string;
   photoCredit?: string;
   content: string;
   announced?: boolean;
   soundEngineerName?: string;
+  doorPersonName?: string;
   targetBandCount: number;
   ignoredHealthChecks: string[];
   advanceSent?: boolean;
+  // Cap on online ticket sales. undefined = no cap. See migration 073 and
+  // getTicketAvailability().
+  ticketLimit?: number;
+  // Discriminates a house show from a Song Club event when the two are shown
+  // in one combined calendar/list (see lib/calendar.ts). Undefined = house
+  // show. Song Club events are ADAPTED into this shape for rendering only —
+  // they still live in their own table (song_club_events).
+  type?: 'show' | 'song_club';
+  // The line shown under the flyer for a Song Club event (venue, etc.), in
+  // place of the band names a house show carries.
+  subtitle?: string;
 }
 
 interface ShowRow {
@@ -53,9 +77,11 @@ interface ShowRow {
   content_markdown: string;
   announced: boolean;
   sound_engineer_name: string | null;
+  door_person_name: string | null;
   target_band_count: number;
   ignored_health_checks: unknown;
   advance_sent: boolean;
+  ticket_limit: number | null;
 }
 
 async function renderMarkdown(markdown: string): Promise<string> {
@@ -85,15 +111,76 @@ async function rowToShow(row: ShowRow, renderContent = false): Promise<Show> {
     rsvpForm: row.rsvp_form,
     videos: (row.videos as Show['videos']) ?? [],
     audio: (row.audio as Show['audio']) ?? [],
-    photos: (row.photos as string[]) ?? [],
+    photos: normalizePhotosInput(row.photos),
     photoFolder: row.photo_folder ?? undefined,
     photoCredit: row.photo_credit ?? undefined,
     content: renderContent ? await renderMarkdown(row.content_markdown) : '',
     announced: row.announced,
     soundEngineerName: row.sound_engineer_name ?? undefined,
+    doorPersonName: row.door_person_name ?? undefined,
     targetBandCount: row.target_band_count,
     ignoredHealthChecks: (row.ignored_health_checks as string[]) ?? [],
     advanceSent: row.advance_sent,
+    ticketLimit: row.ticket_limit ?? undefined,
+  };
+}
+
+// Online ticket availability for a show. `sold` is the sum of completed
+// ticket_purchases quantities (the same source as the admin "tickets sold"
+// pill); door/cash sales aren't tracked here so they don't count. `credited` is
+// the extra heads from per-RSVP manual credits — for each RSVP the admin marked
+// with credited_tickets, max(0, credited − what that RSVP actually bought) —
+// covering people who RSVP'd for a bigger party than they bought tickets for.
+// `effective` = sold + credited, which is what capacity is measured against.
+// `limit` is the show's cap (null when uncapped). `remaining` is null when
+// uncapped, else clamped at 0. `soldOut` is true only when a cap is set and
+// effective reaches it.
+export type TicketAvailability = {
+  limit: number | null;
+  sold: number;
+  credited: number;
+  effective: number;
+  remaining: number | null;
+  soldOut: boolean;
+};
+
+export async function getTicketAvailability(
+  showId: number,
+  limit: number | null | undefined,
+): Promise<TicketAvailability> {
+  const [row] = await sql<{ sold: number; credited: number }[]>`
+    select
+      coalesce((
+        select sum(quantity) from ticket_purchases
+        where show_id = ${showId} and status = 'completed'
+      ), 0)::int as sold,
+      coalesce((
+        select sum(greatest(0, r.credited_tickets - coalesce(b.bought, 0)))
+        from rsvps r
+        left join lateral (
+          select sum(tp.quantity) as bought
+          from ticket_purchases tp
+          where tp.show_id = ${showId} and tp.status = 'completed'
+            and (
+              lower(tp.buyer_email) = lower(r.email)
+              or (r.buyer_email is not null and lower(tp.buyer_email) = r.buyer_email)
+            )
+        ) b on true
+        where r.show_id = ${showId} and r.credited_tickets is not null
+      ), 0)::int as credited
+  `;
+  const sold = row?.sold ?? 0;
+  const credited = row?.credited ?? 0;
+  const effective = sold + credited;
+  const cap = typeof limit === 'number' ? limit : null;
+  const remaining = cap === null ? null : Math.max(0, cap - effective);
+  return {
+    limit: cap,
+    sold,
+    credited,
+    effective,
+    remaining,
+    soldOut: remaining !== null && remaining <= 0,
   };
 }
 
@@ -107,7 +194,8 @@ export function bandsJoinFragment() {
   return sql`
     coalesce((
       select json_strip_nulls(json_agg(json_build_object(
-        'bandId', b.id, 'name', b.name, 'instagram', b.instagram, 'bio', b.bio, 'photo', b.photo
+        'bandId', b.id, 'name', b.name, 'instagram', b.instagram, 'bio', b.bio, 'photo', b.photo,
+        'setStart', sb.set_start, 'setEnd', sb.set_end
       ) order by sb.sort_order))
       from show_bands sb
       join bands b on b.id = sb.band_id
@@ -275,8 +363,30 @@ export function isValidAudioInput(input: unknown): input is NonNullable<Show['au
   );
 }
 
-export function isValidPhotosInput(input: unknown): input is string[] {
-  return Array.isArray(input) && input.every((photo) => typeof photo === 'string');
+// Normalizes an incoming photos value into the ShowPhoto[] shape stored in the
+// `photos` jsonb column. Accepts both the legacy `string[]` form (bare URLs,
+// mapped to uncredited entries) and the current `[{ url, photographerId }]`
+// form. Entries missing a usable url are dropped rather than rejected, and a
+// non-numeric photographerId falls back to null (uncredited). Used on both the
+// write path (validating admin input) and the read path (rowToShow).
+export function normalizePhotosInput(input: unknown): ShowPhoto[] {
+  if (!Array.isArray(input)) return [];
+  const out: ShowPhoto[] = [];
+  for (const entry of input) {
+    if (typeof entry === 'string') {
+      const url = entry.trim();
+      if (url) out.push({ url, photographerId: null });
+    } else if (entry && typeof entry === 'object') {
+      const obj = entry as Record<string, unknown>;
+      const url = typeof obj.url === 'string' ? obj.url.trim() : '';
+      if (!url) continue;
+      const pid = obj.photographerId;
+      const photographerId =
+        typeof pid === 'number' && Number.isFinite(pid) ? pid : null;
+      out.push({ url, photographerId });
+    }
+  }
+  return out;
 }
 
 export function isValidIgnoredHealthChecksInput(input: unknown): input is string[] {

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { sql } from '@/lib/db';
 import { syncShowToSquare, attachShowFlyerToSquare, isSquareSyncEnabled } from '@/lib/square';
 import { SITE_URL } from '@/lib/site';
+import { requireAdmin } from '@/lib/admin-session';
 
 // Manual, admin-triggered Square sync for a single show (the "Create Square
 // links" button on the Edit form). Create-once for the item + payment links; a
@@ -24,6 +25,8 @@ async function loadLinks(showId: number): Promise<LinkRow[]> {
 }
 
 export async function POST(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const denied = await requireAdmin();
+  if (denied) return denied;
   const { id } = await params;
   const showId = parseId(id);
   if (showId === null) {

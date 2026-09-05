@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { sql } from '@/lib/db';
 import { updateSoundEngineerEmail } from '@/lib/sound-engineers';
+import { requireAdmin } from '@/lib/admin-session';
 
 // Auth is enforced centrally in proxy.ts for all /api/admin/* routes.
 
@@ -24,6 +25,8 @@ function parseId(id: string): number | null {
 //   { email }                    — legacy, from the Advance tab (contact email only)
 //   { name?, photo?, bio?, ... } — full profile edit, from the admin section
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const denied = await requireAdmin();
+  if (denied) return denied;
   const { id } = await params;
   const engineerId = parseId(id);
   if (engineerId === null) {
@@ -82,6 +85,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 }
 
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const denied = await requireAdmin();
+  if (denied) return denied;
   const { id } = await params;
   const engineerId = parseId(id);
   if (engineerId === null) {

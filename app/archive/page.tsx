@@ -31,6 +31,7 @@ export default async function ArchivePage() {
     bands: bandNames(show),
     flyer: show.flyer,
     videos: (show.videos ?? []).map((v) => ({ youtube: v.youtube, title: v.title })),
+    photos: (show.photos ?? []).map((p) => p.url),
   }));
 
   const videoCount = timeline.reduce((sum, g) => sum + g.videos.length, 0);

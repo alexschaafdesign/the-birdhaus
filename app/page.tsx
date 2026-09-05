@@ -62,7 +62,6 @@ export default async function Home() {
           fill
           sizes="100vw"
           priority
-          unoptimized
           className="object-cover"
         />
         <div className="absolute inset-0 bg-[#1A1712]/70" />

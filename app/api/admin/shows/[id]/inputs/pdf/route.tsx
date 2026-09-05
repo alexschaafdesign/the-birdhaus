@@ -3,6 +3,7 @@ import { renderToBuffer } from '@react-pdf/renderer';
 import { sql } from '@/lib/db';
 import { getShowInputsState } from '@/lib/inputs';
 import InputsPdfDocument from '@/components/admin/InputsPdfDocument';
+import { requireAdmin } from '@/lib/admin-session';
 
 // Auth is enforced centrally in proxy.ts for all /api/admin/* routes.
 export const runtime = 'nodejs';
@@ -13,6 +14,8 @@ function parseId(id: string): number | null {
 }
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const denied = await requireAdmin();
+  if (denied) return denied;
   const { id } = await params;
   const showId = parseId(id);
   if (showId === null) {

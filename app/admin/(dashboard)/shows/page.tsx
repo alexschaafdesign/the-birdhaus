@@ -20,7 +20,9 @@ async function getShows(): Promise<ShowListItem[]> {
       coalesce(vc.bands_with_video_count, 0)::int as bands_with_video_count,
       coalesce(ii.bands_missing_inputs, 0)::int as bands_missing_inputs,
       coalesce(tp.tickets_sold, 0)::int as tickets_sold,
-      coalesce(tp.revenue_cents, 0)::int as revenue_cents
+      coalesce(tp.revenue_cents, 0)::int as revenue_cents,
+      s.ticket_limit,
+      coalesce(ce.credited_extra, 0)::int as credited_extra
     from shows s
     left join (
       select show_id, count(*) as band_count
@@ -67,6 +69,25 @@ async function getShows(): Promise<ShowListItem[]> {
       where status = 'completed' and show_id is not null
       group by show_id
     ) tp on tp.show_id = s.id
+    left join (
+      -- Extra heads from per-RSVP manual credits: for each credited RSVP,
+      -- max(0, credited_tickets − what that RSVP actually bought). Added to
+      -- tickets sold for the effective attendance shown on the pill.
+      select r.show_id,
+        sum(greatest(0, r.credited_tickets - coalesce(b.bought, 0))) as credited_extra
+      from rsvps r
+      left join lateral (
+        select sum(tp2.quantity) as bought
+        from ticket_purchases tp2
+        where tp2.show_id = r.show_id and tp2.status = 'completed'
+          and (
+            lower(tp2.buyer_email) = lower(r.email)
+            or (r.buyer_email is not null and lower(tp2.buyer_email) = r.buyer_email)
+          )
+      ) b on true
+      where r.credited_tickets is not null
+      group by r.show_id
+    ) ce on ce.show_id = s.id
     order by s.date desc
   `;
   return rows;

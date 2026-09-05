@@ -30,6 +30,8 @@ export interface ShowListItem {
   bands_missing_inputs?: number;
   tickets_sold?: number;
   revenue_cents?: number;
+  ticket_limit?: number | null;
+  credited_extra?: number;
 }
 
 interface Issue {
@@ -420,10 +422,10 @@ export default function ShowsList({ initialShows, today }: { initialShows: ShowL
             {selectMode ? 'Cancel selection' : 'Ask an engineer…'}
           </button>
           <Link
-            href="/admin/shows/new"
+            href="/admin/events/new"
             className="border border-[#E8E0D0]/40 rounded px-4 py-1.5 text-sm hover:bg-[#E8E0D0]/10 transition-colors"
           >
-            + New show
+            + New event
           </Link>
         </div>
       </div>
@@ -621,13 +623,34 @@ function ShowGroup({
                       {show.guest_count === 1 ? '' : 's'}
                     </span>
                   )}
-                  {!!show.tickets_sold && (
-                    // Advance ticket sales recorded by the Square webhook/backfill.
-                    <span className="text-xs px-2 py-0.5 rounded-full border border-amber-400/40 text-amber-300 whitespace-nowrap">
-                      {show.tickets_sold} ticket{show.tickets_sold === 1 ? '' : 's'} · $
-                      {Math.round((show.revenue_cents ?? 0) / 100)}
-                    </span>
-                  )}
+                  {(!!show.tickets_sold ||
+                    typeof show.ticket_limit === 'number' ||
+                    (show.credited_extra ?? 0) > 0) &&
+                    (() => {
+                      // Effective attendance = online sales + extra heads from
+                      // per-RSVP credits; the cap measures against this.
+                      const sold = show.tickets_sold ?? 0;
+                      const adj = show.credited_extra ?? 0;
+                      const effective = sold + adj;
+                      const capped = typeof show.ticket_limit === 'number';
+                      const soldOut = capped && effective >= (show.ticket_limit as number);
+                      return (
+                        <span
+                          className={`text-xs px-2 py-0.5 rounded-full border whitespace-nowrap ${
+                            soldOut
+                              ? 'border-red-400/50 text-red-300'
+                              : 'border-amber-400/40 text-amber-300'
+                          }`}
+                        >
+                          {sold}
+                          {adj > 0 ? ` +${adj}` : ''}
+                          {capped ? `/${show.ticket_limit}` : ''} ticket
+                          {sold === 1 && adj === 0 && !capped ? '' : 's'} · $
+                          {Math.round((show.revenue_cents ?? 0) / 100)}
+                          {soldOut ? ' · SOLD OUT' : ''}
+                        </span>
+                      );
+                    })()}
                   {clusters.map((cluster, clusterIndex) => (
                     <span key={clusterIndex} className="flex items-center gap-1.5 flex-wrap">
                       {clusterIndex > 0 && <span className="w-px h-4 bg-[#E8E0D0]/15" />}

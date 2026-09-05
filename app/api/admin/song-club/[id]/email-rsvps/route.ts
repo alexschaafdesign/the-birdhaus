@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getEventById } from '@/lib/song-club';
 import { getRsvpsForEvent } from '@/lib/song-club-rsvps';
 import { sendRsvpBlast } from '@/lib/rsvp-email';
+import { requireAdmin } from '@/lib/admin-session';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -15,6 +16,8 @@ function parseId(id: string): number | null {
 // needed here. Mirrors the show blast (app/api/admin/shows/[id]/email-rsvps),
 // minus the Square "not-bought" audience — Song Club events don't sell tickets.
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const denied = await requireAdmin();
+  if (denied) return denied;
   const { id } = await params;
   const eventId = parseId(id);
   if (eventId === null) {

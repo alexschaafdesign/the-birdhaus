@@ -2,6 +2,7 @@
 
 import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { downscaleImage } from '@/lib/downscale-image';
 
 // Mirrors app/api/admin/uploads/route.ts's limits — checked here too so an
 // oversized/wrong-type file never has to make a round trip just to be rejected.
@@ -15,15 +16,19 @@ const ALLOWED_FLYER_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'i
 export interface SongClubEventFormValues {
   id?: number;
   title: string;
-  eventDate: string; // yyyy-mm-dd
+  eventDate: string; // yyyy-mm-dd (start)
+  endDate: string; // yyyy-mm-dd, optional
   startTime: string;
   endTime: string;
   venueName: string;
   address: string;
   arrivalNotes: string;
   description: string;
+  body: string;
   flyerUrl: string;
   published: boolean;
+  playlistId: number | null;
+  format: 'in_person' | 'online';
 }
 
 const inputClass =
@@ -43,22 +48,28 @@ function Field({ label, children, hint }: { label: string; children: React.React
 export default function SongClubEventForm({
   mode,
   initial,
+  rounds = [],
 }: {
   mode: 'add' | 'edit';
   initial?: Partial<SongClubEventFormValues>;
+  rounds?: Array<{ id: number; title: string }>;
 }) {
   const router = useRouter();
   const [v, setV] = useState<SongClubEventFormValues>({
     title: initial?.title ?? '',
     eventDate: initial?.eventDate ?? '',
+    endDate: initial?.endDate ?? '',
     startTime: initial?.startTime ?? '',
     endTime: initial?.endTime ?? '',
     venueName: initial?.venueName ?? '',
     address: initial?.address ?? '',
     arrivalNotes: initial?.arrivalNotes ?? '',
     description: initial?.description ?? '',
+    body: initial?.body ?? '',
     flyerUrl: initial?.flyerUrl ?? '',
     published: initial?.published ?? false,
+    playlistId: initial?.playlistId ?? null,
+    format: initial?.format ?? 'in_person',
   });
   const [status, setStatus] = useState<'idle' | 'saving' | 'error'>('idle');
   const [error, setError] = useState('');
@@ -73,7 +84,7 @@ export default function SongClubEventForm({
     (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
       setV((prev) => ({ ...prev, [k]: e.target.value }));
 
-  function handleFlyerChange(e: React.ChangeEvent<HTMLInputElement>) {
+  async function handleFlyerChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
     const input = e.target;
@@ -83,16 +94,20 @@ export default function SongClubEventForm({
       input.value = '';
       return;
     }
-    if (file.size > MAX_FLYER_BYTES) {
-      const mb = (file.size / (1024 * 1024)).toFixed(1);
+
+    // Shrink big originals in the browser; the server still does the final
+    // resize. Only complain if it's somehow still too big after that.
+    const prepared = await downscaleImage(file);
+    if (prepared.size > MAX_FLYER_BYTES) {
+      const mb = (prepared.size / (1024 * 1024)).toFixed(1);
       setFlyerError(`That image is ${mb}MB — please use a file under 8MB`);
       input.value = '';
       return;
     }
 
     setFlyerError('');
-    setFlyerFile(file);
-    setFlyerPreview(URL.createObjectURL(file));
+    setFlyerFile(prepared);
+    setFlyerPreview(URL.createObjectURL(prepared));
   }
 
   function removeFlyer() {
@@ -127,14 +142,18 @@ export default function SongClubEventForm({
       const payload = {
         title: v.title,
         eventDate: v.eventDate,
+        endDate: v.endDate,
         startTime: v.startTime,
         endTime: v.endTime,
         venueName: v.venueName,
         address: v.address,
         arrivalNotes: v.arrivalNotes,
         description: v.description,
+        body: v.body,
         flyerUrl,
         published: v.published,
+        playlistId: v.playlistId,
+        format: v.format,
       };
 
       const res =
@@ -171,10 +190,45 @@ export default function SongClubEventForm({
         <input className={inputClass} value={v.title} onChange={set('title')} required />
       </Field>
 
-      <div className="grid gap-4 sm:grid-cols-3">
-        <Field label="Date">
+      <Field
+        label="Format"
+        hint={
+          v.format === 'online'
+            ? 'Online / Song-a-day: no RSVP — members "Sign me up" to join in the portal.'
+            : 'In-person: public RSVP form + "I participated" to unlock the round.'
+        }
+      >
+        <div className="inline-flex rounded-lg border border-[#E8E0D0]/20 p-1">
+          {([
+            ['in_person', 'In-person'],
+            ['online', 'Online / Song-a-day'],
+          ] as const).map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => setV((prev) => ({ ...prev, format: value }))}
+              className={`rounded-md px-4 py-1.5 text-sm font-medium transition ${
+                v.format === value
+                  ? 'bg-[#E8E0D0] text-[#2A2420]'
+                  : 'text-[#E8E0D0]/60 hover:text-[#E8E0D0]'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </Field>
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field label="Start date">
           <input type="date" className={inputClass} value={v.eventDate} onChange={set('eventDate')} required />
         </Field>
+        <Field label="End date" hint="Optional — for multi-day events like a 10-day Song-a-day">
+          <input type="date" className={inputClass} value={v.endDate} onChange={set('endDate')} min={v.eventDate || undefined} />
+        </Field>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Start time" hint='e.g. "7:00 PM"'>
           <input className={inputClass} value={v.startTime} onChange={set('startTime')} placeholder="7:00 PM" />
         </Field>
@@ -183,17 +237,24 @@ export default function SongClubEventForm({
         </Field>
       </div>
 
-      <Field label="Venue name">
-        <input className={inputClass} value={v.venueName} onChange={set('venueName')} />
-      </Field>
-      <Field label="Address" hint="Emailed to attendees who RSVP">
-        <input className={inputClass} value={v.address} onChange={set('address')} placeholder="123 Main St, Minneapolis MN 55407" />
-      </Field>
-      <Field label="Arrival notes" hint="Parking, how to find the door, etc. — included in the email">
-        <textarea className={`${inputClass} min-h-16`} value={v.arrivalNotes} onChange={set('arrivalNotes')} />
-      </Field>
-      <Field label="Description / theme" hint="Shown on the event page and included in the confirmation email">
+      {v.format === 'in_person' && (
+        <>
+          <Field label="Venue name">
+            <input className={inputClass} value={v.venueName} onChange={set('venueName')} />
+          </Field>
+          <Field label="Address" hint="Emailed to attendees who RSVP">
+            <input className={inputClass} value={v.address} onChange={set('address')} placeholder="123 Main St, Minneapolis MN 55407" />
+          </Field>
+          <Field label="Arrival notes" hint="Parking, how to find the door, etc. — included in the email">
+            <textarea className={`${inputClass} min-h-16`} value={v.arrivalNotes} onChange={set('arrivalNotes')} />
+          </Field>
+        </>
+      )}
+      <Field label="Description / theme" hint="Short blurb — shown on the event page and included in the confirmation email">
         <textarea className={`${inputClass} min-h-24`} value={v.description} onChange={set('description')} />
+      </Field>
+      <Field label="Body text" hint="Optional — a paragraph or two of main copy shown on the event page (not emailed). Blank lines separate paragraphs.">
+        <textarea className={`${inputClass} min-h-40`} value={v.body} onChange={set('body')} />
       </Field>
       <Field label="Flyer" hint="Optional — JPG, PNG, WebP, or GIF.">
         <div className="flex items-center gap-3">
@@ -224,6 +285,28 @@ export default function SongClubEventForm({
           </button>
         )}
       </Field>
+
+      {rounds.length > 0 && (
+        <Field label="Song Club round" hint="Optional — links the public event page to this round in the members' portal">
+          <select
+            className={inputClass}
+            value={v.playlistId ?? ''}
+            onChange={(e) =>
+              setV((prev) => ({
+                ...prev,
+                playlistId: e.target.value ? Number(e.target.value) : null,
+              }))
+            }
+          >
+            <option value="">None</option>
+            {rounds.map((r) => (
+              <option key={r.id} value={r.id}>
+                {r.title}
+              </option>
+            ))}
+          </select>
+        </Field>
+      )}
 
       <label className="flex items-center gap-2 text-sm text-[#E8E0D0]/85">
         <input

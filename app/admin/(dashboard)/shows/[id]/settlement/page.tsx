@@ -21,9 +21,16 @@ export default async function SettlementPage({ params }: { params: Promise<{ id:
   if (!Number.isInteger(showId)) notFound();
 
   const [show] = await sql<
-    { id: number; title: string; date: string; sound_engineer_name: string | null; walkin_count: number }[]
+    {
+      id: number;
+      title: string;
+      date: string;
+      sound_engineer_name: string | null;
+      door_person_name: string | null;
+      walkin_count: number;
+    }[]
   >`
-    select id, title, date::text as date, sound_engineer_name, walkin_count from shows where id = ${showId}
+    select id, title, date::text as date, sound_engineer_name, door_person_name, walkin_count from shows where id = ${showId}
   `;
   if (!show) notFound();
 
@@ -74,6 +81,20 @@ export default async function SettlementPage({ params }: { params: Promise<{ id:
     paymentMethod: row.payment_method,
   }));
 
+  // Door-person registry — same treatment as sound engineers / photographers.
+  const doorPersonRows = await sql<{ name: string; photo: string | null; payment_method: string | null }[]>`
+    select name, photo, payment_method from door_persons order by name asc
+  `;
+  const doorPersonPhotos: Record<string, string> = {};
+  for (const row of doorPersonRows) {
+    if (row.photo) doorPersonPhotos[row.name.trim().toLowerCase()] = row.photo;
+  }
+  const doorPersons = doorPersonRows.map((row) => ({
+    name: row.name,
+    photo: row.photo,
+    paymentMethod: row.payment_method,
+  }));
+
   // Live advance ticket-sales total from Square (matched RSVP purchases + any
   // unmatched buyers), same figure the RSVP admin shows. Best-effort: 0 when
   // Square is off or the show was never synced. Used to pre-fill the Square income
@@ -95,6 +116,7 @@ export default async function SettlementPage({ params }: { params: Promise<{ id:
     : {
         ...DEFAULT_SETTLEMENT_VALUES,
         soundEngineerName: show.sound_engineer_name,
+        doorPersonName: show.door_person_name,
         attendance: doorAttendance,
         incomeSquare: advanceTicketSalesDollars ?? DEFAULT_SETTLEMENT_VALUES.incomeSquare,
         expSquareFees: advanceTicketSalesDollars
@@ -112,7 +134,8 @@ export default async function SettlementPage({ params }: { params: Promise<{ id:
         computeSettlementSummary(
           initialValues,
           payoutBandCount,
-          includedBands.map((b) => b.payoutOverride)
+          includedBands.map((b) => b.payoutOverride),
+          includedBands.map((b) => b.payoutPct)
         ),
         payoutBandCount
       )
@@ -148,6 +171,8 @@ export default async function SettlementPage({ params }: { params: Promise<{ id:
         soundEngineers={soundEngineers}
         photographerPhotos={photographerPhotos}
         photographers={photographers}
+        doorPersonPhotos={doorPersonPhotos}
+        doorPersons={doorPersons}
       />
     </div>
   );

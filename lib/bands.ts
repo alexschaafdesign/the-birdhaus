@@ -164,10 +164,19 @@ export interface ShowBandPaidStatus {
   // Private payout handle (Venmo, etc.), shown on the settlement tab so it's on
   // hand when paying out. Admin-only — never leaves the Birdhaus admin.
   paymentMethod: string | null;
-  // Per-band payout override (show_bands.payout_override). null = follow the
-  // computed even split; a set value fixes this band's payout and sends the
-  // difference from its computed share to the venue net as profit.
+  // Per-band manual dollar adjustment (show_bands.payout_override). null = pay the
+  // band exactly what it's due (its percentage share, or the even split); a set
+  // value is the amount actually paid, and the difference from what it's due flows
+  // to the venue net as profit.
   payoutOverride: number | null;
+  // Per-band percentage of the artist pool (show_bands.payout_pct). null = even
+  // split; a set value (e.g. 50) makes this band due that share of the pool — the
+  // knob behind an uneven split like 50/25/25. Coexists with payoutOverride: the
+  // percentage sets what's due, the override sets what's paid.
+  payoutPct: number | null;
+  // Free-text note explaining a manual dollar adjustment (show_bands.payout_note),
+  // e.g. "band said pay them $50 and keep the rest". null when there's no note.
+  payoutNote: string | null;
   // Band photo URL (bands.photo), shown as an avatar on the payout checklist.
   photo: string | null;
 }
@@ -184,10 +193,12 @@ export async function getShowBandsPaidStatus(showId: number): Promise<ShowBandPa
       excluded: boolean;
       payment_method: string | null;
       payout_override: string | null;
+      payout_pct: string | null;
+      payout_note: string | null;
       photo: string | null;
     }>
   >`
-    select b.id as band_id, b.name, sb.paid, sb.paid_method, sb.excluded, b.payment_method, sb.payout_override, b.photo
+    select b.id as band_id, b.name, sb.paid, sb.paid_method, sb.excluded, b.payment_method, sb.payout_override, sb.payout_pct, sb.payout_note, b.photo
     from show_bands sb
     join bands b on b.id = sb.band_id
     where sb.show_id = ${showId}
@@ -202,6 +213,8 @@ export async function getShowBandsPaidStatus(showId: number): Promise<ShowBandPa
     paymentMethod: r.payment_method,
     // numeric comes back as a string from postgres.js; null stays null.
     payoutOverride: r.payout_override === null ? null : Number(r.payout_override),
+    payoutPct: r.payout_pct === null ? null : Number(r.payout_pct),
+    payoutNote: r.payout_note,
     photo: r.photo,
   }));
 }
@@ -244,23 +257,66 @@ export async function setShowBandExcluded(
   return row ? row.excluded : null;
 }
 
-// Sets (or clears) a band's payout override for a show. Pass null to clear the
-// override and let the band fall back to the computed even split. Like the paid/
-// excluded setters, a standalone write on show_bands. Returns the stored override
-// (null when cleared) on success, or `undefined` if the show/band pairing
-// doesn't exist — distinct from a successfully-stored null.
+// Sets (or clears) a band's manual dollar adjustment for a show. Pass null to
+// clear it and pay the band exactly what it's due (its percentage share, or the
+// even split). Coexists with the percentage share — the pct sets what's due, this
+// sets what's actually paid. Like the paid/excluded setters, a standalone write on
+// show_bands. Returns the stored override (null when cleared) on success, or
+// `undefined` if the show/band pairing doesn't exist — distinct from a
+// successfully-stored null.
 export async function setShowBandPayoutOverride(
   showId: number,
   bandId: number,
   override: number | null
 ): Promise<number | null | undefined> {
+  // Clearing the override drops any note with it — the note only documents an
+  // adjustment, so it's meaningless once the band is paid its due amount again.
   const [row] = await sql<Array<{ payout_override: string | null }>>`
-    update show_bands set payout_override = ${override}
+    update show_bands
+      set payout_override = ${override},
+          payout_note = case when ${override}::numeric is null then null else payout_note end
     where show_id = ${showId} and band_id = ${bandId}
     returning payout_override
   `;
   if (!row) return undefined;
   return row.payout_override === null ? null : Number(row.payout_override);
+}
+
+// Sets (or clears) a band's percentage-of-pool share for a show. Pass null to
+// clear it and fall back to the even split. Coexists with any manual dollar
+// override. Standalone write on show_bands; returns the stored percentage (null
+// when cleared), or `undefined` if the show/band pairing doesn't exist.
+export async function setShowBandPayoutPct(
+  showId: number,
+  bandId: number,
+  pct: number | null
+): Promise<number | null | undefined> {
+  const [row] = await sql<Array<{ payout_pct: string | null }>>`
+    update show_bands set payout_pct = ${pct}
+    where show_id = ${showId} and band_id = ${bandId}
+    returning payout_pct
+  `;
+  if (!row) return undefined;
+  return row.payout_pct === null ? null : Number(row.payout_pct);
+}
+
+// Sets (or clears) the free-text note explaining a band's manual payout
+// adjustment. Pass null or an empty string to clear it. Standalone write on
+// show_bands; returns the stored note (null when cleared), or `undefined` if the
+// show/band pairing doesn't exist.
+export async function setShowBandPayoutNote(
+  showId: number,
+  bandId: number,
+  note: string | null
+): Promise<string | null | undefined> {
+  const trimmed = note && note.trim() !== '' ? note.trim() : null;
+  const [row] = await sql<Array<{ payout_note: string | null }>>`
+    update show_bands set payout_note = ${trimmed}
+    where show_id = ${showId} and band_id = ${bandId}
+    returning payout_note
+  `;
+  if (!row) return undefined;
+  return row.payout_note;
 }
 
 export interface BandVideo {

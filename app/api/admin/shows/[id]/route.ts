@@ -6,7 +6,7 @@ import {
   isValidBandsInput,
   isValidVideosInput,
   isValidAudioInput,
-  isValidPhotosInput,
+  normalizePhotosInput,
   isValidIgnoredHealthChecksInput,
   normalizePhotographerInput,
   normalizeBandIds,
@@ -28,6 +28,7 @@ import {
   type ShowSoundEngineer,
 } from '@/lib/sound-engineers';
 import { SITE_URL } from '@/lib/site';
+import { requireAdmin } from '@/lib/admin-session';
 
 // Maps the camelCase keys the client sends (matching the `Show` interface) to
 // their snake_case columns for the plain text/URL fields. Fields with their own
@@ -45,6 +46,7 @@ const TEXT_FIELD_MAP: Record<string, string> = {
   photoFolder: 'photo_folder',
   photoCredit: 'photo_credit',
   content: 'content_markdown',
+  doorPersonName: 'door_person_name',
 };
 
 function parseId(id: string): number | null {
@@ -53,6 +55,8 @@ function parseId(id: string): number | null {
 }
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const denied = await requireAdmin();
+  if (denied) return denied;
   const { id } = await params;
   const showId = parseId(id);
   if (showId === null) {
@@ -152,10 +156,15 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   }
 
   if ('photos' in body) {
-    if (!isValidPhotosInput(body.photos)) {
-      return NextResponse.json({ error: 'Invalid photos' }, { status: 400 });
-    }
-    updates.push({ column: 'photos', value: body.photos, json: true });
+    updates.push({ column: 'photos', value: normalizePhotosInput(body.photos), json: true });
+  }
+
+  if ('assignedPhotographerId' in body) {
+    const value =
+      typeof body.assignedPhotographerId === 'number' && Number.isFinite(body.assignedPhotographerId)
+        ? body.assignedPhotographerId
+        : null;
+    updates.push({ column: 'photographer_id', value, json: false });
   }
 
   if ('photographer' in body) {
@@ -176,6 +185,20 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
   if ('targetBandCount' in body) {
     updates.push({ column: 'target_band_count', value: normalizeTargetBandCount(body.targetBandCount) });
+  }
+
+  if ('ticketLimit' in body) {
+    // null / '' clears the cap (unlimited). Otherwise a non-negative integer.
+    const raw = body.ticketLimit;
+    if (raw === null || raw === '') {
+      updates.push({ column: 'ticket_limit', value: null });
+    } else {
+      const n = Number(raw);
+      if (!Number.isInteger(n) || n < 0) {
+        return NextResponse.json({ error: 'Invalid ticketLimit' }, { status: 400 });
+      }
+      updates.push({ column: 'ticket_limit', value: n });
+    }
   }
 
   if ('ignoredHealthChecks' in body) {
@@ -280,6 +303,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 }
 
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const denied = await requireAdmin();
+  if (denied) return denied;
   const { id } = await params;
   const showId = parseId(id);
   if (showId === null) {

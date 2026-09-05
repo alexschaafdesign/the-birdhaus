@@ -1,4 +1,5 @@
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import crypto from 'crypto';
 import sharp from 'sharp';
 
@@ -30,7 +31,7 @@ function getClient(): S3Client {
 
 // Whitelist of upload destinations — keeps the object key's folder under our
 // control rather than letting a request pick an arbitrary path.
-export const ALLOWED_UPLOAD_FOLDERS = ['bands', 'flyers', 'photos', 'song-club', 'sound-engineers', 'photographers'] as const;
+export const ALLOWED_UPLOAD_FOLDERS = ['bands', 'flyers', 'photos', 'song-club', 'sound-engineers', 'photographers', 'door-persons', 'tv'] as const;
 export type UploadFolder = (typeof ALLOWED_UPLOAD_FOLDERS)[number];
 
 // Folders for non-image uploads that don't go through the image-only route —
@@ -42,6 +43,20 @@ export const ADVANCE_ATTACHMENTS_FOLDER = 'advance-attachments';
 // as-is (no image re-encoding, since a PDF must survive intact). Uploaded via
 // app/api/admin/expenses/receipt using uploadFileToR2.
 export const RECEIPTS_FOLDER = 'receipts';
+
+// Files members pin on the Song Club portal (lyric sheets, PDFs, images) —
+// arbitrary types via uploadFileToR2, same as advance attachments.
+export const SONG_CLUB_FILES_FOLDER = 'song-club-files';
+
+// Song Club member track uploads (audio). These go DIRECT to R2 via presigned
+// PUT URLs — audio blows past Vercel's ~4.5 MB request-body cap, so the file
+// never touches a route handler. Requires a CORS rule on the bucket allowing
+// PUT from the site origins.
+export const SONG_CLUB_TRACKS_FOLDER = 'song-club-tracks';
+
+// Yellow Ostrich in-progress song versions (audio). Same direct-to-R2
+// presigned PUT flow — and the same bucket, so the existing CORS rule covers it.
+export const BAND_SONGS_FOLDER = 'band-songs';
 
 const EXTENSION_FOR_TYPE: Record<string, string> = {
   'image/jpeg': 'jpg',
@@ -68,6 +83,11 @@ const MAX_DIMENSION: Record<UploadFolder, number> = {
   'sound-engineers': 1000,
   // Photographer headshots — same as engineers.
   photographers: 1000,
+  // Door-person headshots — same as engineers.
+  'door-persons': 1000,
+  // /tv idle-pool images. The tube stage is 640px and the feed re-encodes to a
+  // 640px variant anyway, so the stored original only needs headroom for that.
+  tv: 1280,
 };
 
 // Matches the site's dark background (app/layout.tsx) so a transparent PNG
@@ -159,6 +179,34 @@ function extensionFor(filename: string | null | undefined, contentType: string):
 // content type — used for inbound band advance attachments, which can be any
 // format. The folder is a plain string (not the image UploadFolder whitelist),
 // so callers must pass a controlled constant, never user input.
+// Mints a short-lived presigned PUT URL so the browser can upload straight to
+// R2. The key (and therefore folder) is server-generated exactly like the
+// other upload paths — the client only chooses the file. Callers validate the
+// content type BEFORE calling this; the signed URL locks it in (a PUT with a
+// different Content-Type fails the signature).
+export async function createPresignedUploadUrl(
+  folder: string,
+  contentType: string,
+  filename?: string | null
+): Promise<{ key: string; uploadUrl: string; publicUrl: string }> {
+  const bucket = process.env.R2_BUCKET_NAME;
+  const publicBase = process.env.R2_PUBLIC_URL_BASE;
+  if (!bucket || !publicBase) {
+    throw new Error('R2_BUCKET_NAME / R2_PUBLIC_URL_BASE are not set. See .env.example.');
+  }
+
+  const extension = extensionFor(filename, contentType);
+  const key = `${folder}/${Date.now()}-${crypto.randomBytes(4).toString('hex')}.${extension}`;
+
+  const uploadUrl = await getSignedUrl(
+    getClient(),
+    new PutObjectCommand({ Bucket: bucket, Key: key, ContentType: contentType }),
+    { expiresIn: 600 }
+  );
+
+  return { key, uploadUrl, publicUrl: `${publicBase.replace(/\/$/, '')}/${key}` };
+}
+
 export async function uploadFileToR2(
   folder: string,
   body: Buffer,

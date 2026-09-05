@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { ALLOWED_UPLOAD_FOLDERS, isAllowedImageType, uploadToR2, type UploadFolder } from '@/lib/r2';
+import { requireAdmin } from '@/lib/admin-session';
 
 const MAX_SIZE_BYTES = 8 * 1024 * 1024; // 8MB
 
@@ -8,6 +9,8 @@ function isUploadFolder(value: unknown): value is UploadFolder {
 }
 
 export async function POST(request: Request) {
+  const denied = await requireAdmin();
+  if (denied) return denied;
   const formData = await request.formData().catch(() => null);
   if (!formData) {
     return NextResponse.json({ error: 'Invalid form data' }, { status: 400 });

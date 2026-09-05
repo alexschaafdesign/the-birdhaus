@@ -35,6 +35,7 @@ export default function RsvpSummary({
   showId,
   showTitle,
   showDate,
+  ticketLimit = null,
   doorToken = null,
   rsvps: initialRsvps,
   purchasesByEmail = {},
@@ -43,6 +44,7 @@ export default function RsvpSummary({
   showId: number;
   showTitle: string;
   showDate: string;
+  ticketLimit?: number | null;
   doorToken?: string | null;
   purchasesByEmail?: Record<string, { totalCents: number; count: number; quantity: number }>;
   unmatchedBuyers?: { email: string; amountCents: number; quantity: number; purchasedAt: string }[];
@@ -100,6 +102,46 @@ export default function RsvpSummary({
     Object.values(purchases).reduce((sum, p) => sum + p.totalCents, 0) +
     unmatched.reduce((sum, b) => sum + b.amountCents, 0);
   const hasPurchases = boughtCount > 0 || unmatched.length > 0;
+
+  // Tickets a matched RSVP actually bought (0 if none), by lowercased email.
+  const boughtFor = (r: Rsvp) => purchases[r.email.trim().toLowerCase()]?.quantity ?? 0;
+
+  // Extra heads already granted via per-RSVP credits (what drives the cap on top
+  // of ticket sales): for each credited RSVP, credit minus what they bought.
+  const creditedExtra = rsvps.reduce(
+    (sum, r) => (r.credited_tickets != null ? sum + Math.max(0, r.credited_tickets - boughtFor(r)) : sum),
+    0,
+  );
+  // Buyers who RSVP'd for more than they bought and haven't been credited yet —
+  // the ones worth reviewing.
+  const uncreditedShortfall = rsvps.filter(
+    (r) => r.credited_tickets == null && boughtFor(r) > 0 && r.guests > boughtFor(r),
+  ).length;
+  const effectiveCount = ticketCount + creditedExtra;
+
+  const [creditBusyId, setCreditBusyId] = useState<number | null>(null);
+
+  // Set (or clear, with null) a person's manual attendance credit.
+  async function setCredit(id: number, credited: number | null) {
+    const previous = rsvps;
+    setCreditBusyId(id);
+    setRsvps((prev) => prev.map((r) => (r.id === id ? { ...r, credited_tickets: credited } : r)));
+    try {
+      const res = await fetch(`/api/admin/rsvps/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ creditedTickets: credited }),
+      });
+      if (!res.ok) throw new Error();
+      const updated = (await res.json().catch(() => null)) as Rsvp | null;
+      if (updated) setRsvps((prev) => prev.map((r) => (r.id === id ? updated : r)));
+    } catch {
+      setRsvps(previous);
+      setError('Failed to update credit — try again.');
+    } finally {
+      setCreditBusyId(null);
+    }
+  }
 
   // One row per buyer email (a buyer can have several separate purchases).
   const unmatchedGroups: {
@@ -502,6 +544,46 @@ export default function RsvpSummary({
         </div>
       </div>
 
+      {(hasPurchases || ticketLimit !== null || creditedExtra > 0) && (
+        <div className="mb-4 border border-[#E8E0D0]/15 rounded-lg p-4 bg-[#E8E0D0]/[0.03]">
+          <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 mb-2">
+            <h3 className="text-sm font-semibold text-[#E8E0D0]/80">Effective attendance</h3>
+            <span className="text-sm">
+              <span className="font-bold text-[#E8E0D0]">{effectiveCount}</span>
+              {ticketLimit !== null && (
+                <span className="text-[#E8E0D0]/50"> / {ticketLimit} cap</span>
+              )}
+              {ticketLimit !== null && effectiveCount >= ticketLimit && (
+                <span className="ml-2 text-xs px-2 py-0.5 rounded-full border border-red-400/50 text-red-300">
+                  SOLD OUT
+                </span>
+              )}
+            </span>
+          </div>
+
+          <p className="text-xs text-[#E8E0D0]/50">
+            {ticketCount} ticket{ticketCount === 1 ? '' : 's'} sold online
+            {creditedExtra > 0 && (
+              <>
+                {' '}
+                + <span className="text-[#E8E0D0]/80">{creditedExtra}</span> credited RSVP head
+                {creditedExtra === 1 ? '' : 's'}
+              </>
+            )}{' '}
+            = <span className="text-[#E8E0D0]/80">{effectiveCount}</span> expected.
+            {ticketLimit !== null && ' This is what the sold-out cap counts.'}
+          </p>
+
+          {uncreditedShortfall > 0 && (
+            <p className="text-xs text-amber-300/70 mt-2 max-w-prose">
+              {uncreditedShortfall} buyer{uncreditedShortfall === 1 ? '' : 's'} RSVP&apos;d for a
+              bigger party than they bought tickets for. Use “Count as N” on their row below to count
+              those extra heads toward capacity.
+            </p>
+          )}
+        </div>
+      )}
+
       {composing && (
         <form
           onSubmit={handleSendBlast}
@@ -727,6 +809,11 @@ export default function RsvpSummary({
                       </span>
                     ) : null;
                   })()}
+                  {rsvp.credited_tickets != null && (
+                    <span className="text-xs px-2 py-0.5 rounded-full border border-purple-400/50 text-purple-300 whitespace-nowrap">
+                      Counted as {rsvp.credited_tickets}
+                    </span>
+                  )}
                   {rsvp.email_list_opt_in && (
                     <span className="text-xs px-2 py-0.5 rounded-full border border-green-400/40 text-green-300">
                       Email list
@@ -738,6 +825,38 @@ export default function RsvpSummary({
                 <span>
                   {rsvp.guests} guest{rsvp.guests === 1 ? '' : 's'}
                 </span>
+                {(() => {
+                  const bought = boughtFor(rsvp);
+                  // Credited: offer to undo (back to their actual purchase count).
+                  if (rsvp.credited_tickets != null) {
+                    return (
+                      <button
+                        type="button"
+                        onClick={() => setCredit(rsvp.id, null)}
+                        disabled={creditBusyId === rsvp.id}
+                        className="text-xs px-2.5 py-1 rounded-full border border-purple-400/50 bg-purple-400/10 text-purple-300 hover:bg-purple-400/20 transition-colors whitespace-nowrap disabled:opacity-50"
+                      >
+                        Undo credit
+                      </button>
+                    );
+                  }
+                  // Bought fewer tickets than they RSVP'd for → offer to count the
+                  // whole party toward capacity.
+                  if (bought > 0 && rsvp.guests > bought) {
+                    return (
+                      <button
+                        type="button"
+                        onClick={() => setCredit(rsvp.id, rsvp.guests)}
+                        disabled={creditBusyId === rsvp.id}
+                        className="text-xs px-2.5 py-1 rounded-full border border-[#E8E0D0]/25 text-[#E8E0D0]/60 hover:bg-[#E8E0D0]/10 transition-colors whitespace-nowrap disabled:opacity-50"
+                        title={`They bought ${bought} but RSVP'd for ${rsvp.guests} — count as ${rsvp.guests}`}
+                      >
+                        Count as {rsvp.guests}
+                      </button>
+                    );
+                  }
+                  return null;
+                })()}
                 <button
                   type="button"
                   onClick={() => toggleFlag(rsvp.id, 'arrived', !rsvp.arrived)}

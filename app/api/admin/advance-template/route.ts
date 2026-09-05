@@ -3,15 +3,20 @@ import {
   getDefaultAdvanceTemplate,
   updateDefaultAdvanceTemplate,
 } from '@/lib/advance';
+import { requireAdmin } from '@/lib/admin-session';
 
 // Auth is enforced centrally in proxy.ts for all /api/admin/* routes.
 
 export async function GET() {
+  const denied = await requireAdmin();
+  if (denied) return denied;
   const template = await getDefaultAdvanceTemplate();
   return NextResponse.json(template);
 }
 
 export async function PUT(request: Request) {
+  const denied = await requireAdmin();
+  if (denied) return denied;
   const body = await request.json().catch(() => null);
   const subject = typeof body?.subject === 'string' ? body.subject.trim() : '';
   const templateBody = typeof body?.body === 'string' ? body.body : '';

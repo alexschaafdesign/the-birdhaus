@@ -1,5 +1,6 @@
-import { getShowBySlug, getAllShows } from '@/lib/shows';
+import { getShowBySlug, getAllShows, getTicketAvailability, slugify } from '@/lib/shows';
 import { getPhotosFromFolder } from '@/lib/cloudinary';
+import { getPhotographerCredits, getPhotographerProfileBySlug } from '@/lib/photographers';
 import { getAllBands } from '@/lib/bands';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
@@ -69,6 +70,39 @@ export default async function ShowPage({ params }: { params: Promise<{ slug: str
   const galleryPhotos = show.photoFolder
     ? await getPhotosFromFolder(show.photoFolder)
     : [];
+
+  // Resolve each uploaded photo's photographerId → name/instagram for per-photo
+  // credit in the lightbox. Also derive a single gallery-wide credit when every
+  // photo shares one photographer (the common case), falling back to the legacy
+  // show-level `show.photographer` only when there are no per-photo credits.
+  const showPhotos = show.photos ?? [];
+  const photoCredits = await getPhotographerCredits(
+    showPhotos.map((p) => p.photographerId).filter((n): n is number => n != null)
+  );
+  const photosWithCredit = showPhotos.map((p) => ({
+    url: p.url,
+    credit: p.photographerId != null ? photoCredits.get(p.photographerId) ?? null : null,
+  }));
+  const creditedIds = new Set(
+    showPhotos.map((p) => p.photographerId).filter((n): n is number => n != null)
+  );
+  const uniformCredit =
+    creditedIds.size === 1 && showPhotos.every((p) => p.photographerId != null)
+      ? photoCredits.get([...creditedIds][0]) ?? null
+      : null;
+  // Legacy galleries (no per-photo ids) fall back to the show-level photographer
+  // name. Link it to that photographer's profile page when they're in the
+  // registry; otherwise render plain text (never the stored instagram value as
+  // an href — it may be malformed and 404 relative to /shows/).
+  const legacyName =
+    creditedIds.size === 0
+      ? typeof show.photographer === 'string'
+        ? show.photographer
+        : show.photographer?.name ?? null
+      : null;
+  const legacyProfile = legacyName
+    ? await getPhotographerProfileBySlug(slugify(legacyName))
+    : null;
   // Per-show band entries can override name/bio/photo/instagram, but almost
   // never do in practice — the band's own profile (curated centrally via
   // /admin/bands) is where this actually gets filled in. Fall back to that.
@@ -79,6 +113,12 @@ export default async function ShowPage({ params }: { params: Promise<{ slug: str
   const [year, month, day] = show.date.split('-').map(Number);
   const showDate = new Date(year, month - 1, day);
   const isPast = showDate < today;
+
+  // When a show hits its online ticket cap, the RSVP form is replaced by a
+  // sold-out notice. Only relevant for upcoming, capped shows. The webhook
+  // revalidates this page as sales land, so it flips on its own at the cap.
+  const soldOut =
+    !isPast && (await getTicketAvailability(show.id, show.ticketLimit ?? null)).soldOut;
 
   // Format date nicely
   const dateObj = new Date(show.date + 'T00:00:00');
@@ -141,7 +181,7 @@ export default async function ShowPage({ params }: { params: Promise<{ slug: str
         )}
 
         {/* Flyer + RSVP/tickets side by side */}
-        {(show.flyer || (!isPast && (show.rsvpForm || show.externalTicketUrl))) && (
+        {(show.flyer || (!isPast && (soldOut || show.rsvpForm || show.externalTicketUrl))) && (
           <div className="grid md:grid-cols-2 gap-8 mb-10 items-start">
             {show.flyer && (
               <Image
@@ -156,7 +196,19 @@ export default async function ShowPage({ params }: { params: Promise<{ slug: str
               />
             )}
 
-            {!isPast && show.rsvpForm && (
+            {/* Sold out: enough advance tickets sold that we're at capacity.
+                Replaces the RSVP form once the ticket cap is reached. */}
+            {!isPast && soldOut && (
+              <div className="border-2 border-[#E8E0D0]/20 rounded-lg p-6 bg-[#E8E0D0]/5">
+                <h2 className="text-xl font-bold mb-2">This show is sold out</h2>
+                <p className="text-sm text-[#E8E0D0]/70">
+                  Enough people have bought advance tickets (not just a free RSVP) that we&apos;re at
+                  capacity. Thanks!
+                </p>
+              </div>
+            )}
+
+            {!isPast && !soldOut && show.rsvpForm && (
               <div className="aspect-square">
                 <RSVPForm
                   showId={show.id}
@@ -166,7 +218,7 @@ export default async function ShowPage({ params }: { params: Promise<{ slug: str
             )}
 
             {/* External ticket link (e.g. promoter's ticket page) */}
-            {!isPast && !show.rsvpForm && show.externalTicketUrl && (
+            {!isPast && !soldOut && !show.rsvpForm && show.externalTicketUrl && (
               <div className="border-2 border-ink bg-paper-deep p-6 shadow-hard">
                 <h2 className="text-lg font-bold mb-2">Tickets</h2>
                 <p className="text-sm text-ink/70 mb-6">
@@ -290,29 +342,41 @@ export default async function ShowPage({ params }: { params: Promise<{ slug: str
         )}
 
         {/* Photos */}
-        {show.photos && show.photos.length > 0 && (
-          <div className="mb-12">
+        {photosWithCredit.length > 0 && (
+          <div id="photos" className="mb-12 scroll-mt-24">
             <h2 className="text-2xl font-bold mb-2">Photos</h2>
-            {show.photographer && (
+            {uniformCredit ? (
+              // Every photo is by the same photographer — one gallery-wide line
+              // linking to their Birdhaus profile page (which carries their IG).
               <p className="text-sm text-ink/70 mb-6">
                 Photos by{' '}
-                {typeof show.photographer === 'string' ? (
-                  show.photographer
-                ) : show.photographer.instagram ? (
-                  <a
-                    href={show.photographer.instagram}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                <Link
+                  href={`/photos/${slugify(uniformCredit.name)}`}
+                  className="hover:text-vhs-red underline"
+                >
+                  {uniformCredit.name}
+                </Link>
+              </p>
+            ) : legacyName ? (
+              // No per-photo credits (legacy show) — fall back to the show-level
+              // photographer name, linked to their profile if they're in the
+              // registry.
+              <p className="text-sm text-ink/70 mb-6">
+                Photos by{' '}
+                {legacyProfile ? (
+                  <Link
+                    href={`/photos/${slugify(legacyName)}`}
                     className="hover:text-vhs-red underline"
                   >
-                    {show.photographer.name}
-                  </a>
+                    {legacyName}
+                  </Link>
                 ) : (
-                  show.photographer.name
+                  legacyName
                 )}
               </p>
-            )}
-            <PhotoGallery photos={show.photos} showTitle={show.title} />
+            ) : null}
+            {/* Mixed credits (more than one photographer) show per-photo in the lightbox. */}
+            <PhotoGallery photos={photosWithCredit} showTitle={show.title} />
           </div>
         )}
 
