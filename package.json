@@ -4,7 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "node scripts/predeploy-migrate.mjs && next build",
+    "build": "node scripts/predeploy-migrate.mjs && node scripts/check-admin-guards.mjs && next build",
+    "check:guards": "node scripts/check-admin-guards.mjs",
     "start": "next start",
     "lint": "eslint",
     "db:migrate": "node scripts/migrate.mjs",
