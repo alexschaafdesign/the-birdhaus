@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getBandActor } from '@/lib/club-members';
-import { createPresignedUploadUrl, BAND_SONGS_FOLDER } from '@/lib/r2';
+import { BAND_SONGS_FOLDER } from '@/lib/r2';
+import { createPrivatePresignedUploadUrl, createUploadGrant } from '@/lib/r2-private';
 import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
 
 // Audio only. Some browsers report no MIME type for audio files, so the
@@ -54,10 +55,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Uploads can be up to 250 MB.' }, { status: 400 });
   }
 
-  const { key, uploadUrl } = await createPresignedUploadUrl(
+  // Private bucket, size signed into the PUT; the grant binds the key to
+  // this actor for the register step. (Mirrors the club track route.)
+  const { key, uploadUrl } = await createPrivatePresignedUploadUrl(
     BAND_SONGS_FOLDER,
     contentType,
+    sizeBytes,
     filename
   );
-  return NextResponse.json({ key, uploadUrl, contentType });
+  const uploadToken = createUploadGrant(key, 'admin' in actor ? 'admin' : actor.memberId);
+  return NextResponse.json({ key, uploadUrl, contentType, uploadToken });
 }

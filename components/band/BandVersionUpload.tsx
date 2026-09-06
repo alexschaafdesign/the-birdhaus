@@ -105,9 +105,9 @@ export default function BandVersionUpload({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           key: urlData.key,
+          uploadToken: urlData.uploadToken,
           label: label.trim() || file.name.replace(/\.[^.]+$/, ''),
           contentType: urlData.contentType,
-          sizeBytes: file.size,
           peaks,
           durationSeconds,
         }),

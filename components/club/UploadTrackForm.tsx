@@ -108,10 +108,10 @@ export default function UploadTrackForm({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           key: urlData.key,
+          uploadToken: urlData.uploadToken,
           title: title.trim() || file.name.replace(/\.[^.]+$/, ''),
           notes,
           contentType: urlData.contentType,
-          sizeBytes: file.size,
           playlistId: playlistId ? Number(playlistId) : null,
           peaks,
           durationSeconds,

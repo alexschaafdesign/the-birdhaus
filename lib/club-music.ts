@@ -249,7 +249,10 @@ export async function createTrack(input: {
   actor: ClubActor;
   title: string;
   notes?: string | null;
-  url: string;
+  // Private-bucket uploads set r2Key and no url; url remains for anything
+  // legacy-shaped. At least one must be present.
+  url?: string | null;
+  r2Key?: string | null;
   contentType?: string | null;
   sizeBytes?: number | null;
   playlistId?: number | null;
@@ -266,11 +269,13 @@ export async function createTrack(input: {
       ? (sql.json(input.peaks.map((n) => (Number.isFinite(n) ? Math.max(0, Math.min(1, n)) : 0)) as unknown as Parameters<typeof sql.json>[0]))
       : null;
 
+  if (!input.url && !input.r2Key) return null;
+
   const [row] = await sql<Array<{ id: number }>>`
     insert into song_club_tracks
-      (member_id, from_admin, title, notes, url, content_type, size_bytes, peaks, duration_seconds)
+      (member_id, from_admin, title, notes, url, r2_key, content_type, size_bytes, peaks, duration_seconds)
     values (${fromAdmin ? null : (input.actor as { memberId: number }).memberId}, ${fromAdmin},
-            ${title}, ${notes}, ${input.url},
+            ${title}, ${notes}, ${input.url ?? null}, ${input.r2Key ?? null},
             ${input.contentType ?? null}, ${input.sizeBytes ?? null}, ${peaks},
             ${typeof input.durationSeconds === 'number' && input.durationSeconds > 0 ? input.durationSeconds : null})
     returning id

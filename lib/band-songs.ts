@@ -284,7 +284,10 @@ export async function createVersion(input: {
   actor: BandActor;
   songId: number;
   label: string;
-  url: string;
+  // Private-bucket uploads set r2Key and no url; url remains for anything
+  // legacy-shaped. At least one must be present.
+  url?: string | null;
+  r2Key?: string | null;
   contentType?: string | null;
   sizeBytes?: number | null;
   peaks?: number[] | null;
@@ -302,10 +305,12 @@ export async function createVersion(input: {
       ? (sql.json(input.peaks.map((n) => (Number.isFinite(n) ? Math.max(0, Math.min(1, n)) : 0)) as unknown as Parameters<typeof sql.json>[0]))
       : null;
 
+  if (!input.url && !input.r2Key) return null;
+
   const [row] = await sql<Array<{ id: number }>>`
     insert into band_song_versions
-      (song_id, label, url, content_type, size_bytes, peaks, duration_seconds, uploaded_by)
-    values (${input.songId}, ${label}, ${input.url},
+      (song_id, label, url, r2_key, content_type, size_bytes, peaks, duration_seconds, uploaded_by)
+    values (${input.songId}, ${label}, ${input.url ?? null}, ${input.r2Key ?? null},
             ${input.contentType ?? null}, ${input.sizeBytes ?? null}, ${peaks},
             ${typeof input.durationSeconds === 'number' && input.durationSeconds > 0 ? input.durationSeconds : null},
             ${actorMemberId(input.actor)})

@@ -159,7 +159,7 @@ export async function uploadToR2(
 // extension (bands' attachments are arbitrary types — pdf, png, heic, txt…),
 // falling back to a small content-type map, then to "bin". Only [a-z0-9] is kept
 // so the extension can't smuggle path separators or other junk into the key.
-function extensionFor(filename: string | null | undefined, contentType: string): string {
+export function extensionFor(filename: string | null | undefined, contentType: string): string {
   const fromName = filename?.split('.').pop()?.toLowerCase().replace(/[^a-z0-9]/g, '');
   if (fromName && fromName.length <= 8) return fromName;
   const fromType: Record<string, string> = {

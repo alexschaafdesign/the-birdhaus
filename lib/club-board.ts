@@ -154,20 +154,28 @@ export async function createPin(input: {
   author: number | 'admin';
   kind: ClubPinKind;
   title: string;
-  url: string;
+  // File pins uploaded to the private bucket carry r2Key and no url;
+  // embed/link pins (and legacy files) carry a real http(s) url.
+  url?: string | null;
+  r2Key?: string | null;
   contentType?: string | null;
   sizeBytes?: number | null;
   featured?: boolean;
 }): Promise<boolean> {
   const title = input.title.trim().slice(0, 200);
-  if (!title || !isValidHttpUrl(input.url)) return false;
+  if (!title) return false;
+  if (input.kind === 'file') {
+    if (!input.r2Key && !isValidHttpUrl(input.url ?? '')) return false;
+  } else if (!isValidHttpUrl(input.url ?? '')) {
+    return false;
+  }
   // Only the admin curates the featured slot at the top of the portal.
   const featured = input.author === 'admin' && input.featured === true;
   await sql`
     insert into song_club_pins
-      (member_id, from_admin, kind, title, url, content_type, size_bytes, featured)
+      (member_id, from_admin, kind, title, url, r2_key, content_type, size_bytes, featured)
     values (${input.author === 'admin' ? null : input.author}, ${input.author === 'admin'},
-            ${input.kind}, ${title}, ${input.url},
+            ${input.kind}, ${title}, ${input.url ?? null}, ${input.r2Key ?? null},
             ${input.contentType ?? null}, ${input.sizeBytes ?? null}, ${featured})
   `;
   return true;
