@@ -106,7 +106,8 @@ export async function getPins(): Promise<ClubPin[]> {
       member_name: string | null;
       kind: ClubPinKind;
       title: string;
-      url: string;
+      url: string | null;
+      r2_key: string | null;
       content_type: string | null;
       size_bytes: number | null;
       featured: boolean;
@@ -114,7 +115,7 @@ export async function getPins(): Promise<ClubPin[]> {
     }>
   >`
     select p.id, p.member_id, p.from_admin, m.name as member_name, p.kind,
-           p.title, p.url, p.content_type, p.size_bytes, p.featured,
+           p.title, p.url, p.r2_key, p.content_type, p.size_bytes, p.featured,
            p.created_at::text as created_at
     from song_club_pins p
     left join users m on m.id = p.member_id
@@ -127,12 +128,26 @@ export async function getPins(): Promise<ClubPin[]> {
     authorName: r.from_admin ? 'the Birdhaus' : r.member_name ?? 'Former member',
     kind: r.kind,
     title: r.title,
-    url: r.url,
+    // Migrated file pins download through the session-gated route; embeds and
+    // links (and un-migrated files) keep their stored URL.
+    url: r.kind === 'file' && r.r2_key ? `/api/club/file/${Number(r.id)}` : r.url ?? '',
     contentType: r.content_type,
     sizeBytes: r.size_bytes === null ? null : Number(r.size_bytes),
     featured: r.featured,
     createdAt: r.created_at,
   }));
+}
+
+// For the gated file route: storage pointers of a FILE pin (null for
+// embed/link pins — those aren't ours to serve).
+export async function getPinFileRef(
+  id: number
+): Promise<{ r2Key: string | null; url: string | null } | null> {
+  const [row] = await sql<Array<{ kind: string; r2_key: string | null; url: string | null }>>`
+    select kind, r2_key, url from song_club_pins where id = ${id}
+  `;
+  if (!row || row.kind !== 'file') return null;
+  return { r2Key: row.r2_key, url: row.url };
 }
 
 export async function createPin(input: {

@@ -227,7 +227,8 @@ interface VersionRow {
   id: number;
   song_id: number;
   label: string;
-  url: string;
+  url: string | null;
+  r2_key: string | null;
   size_bytes: number | null;
   peaks: number[] | null;
   duration_seconds: number | null;
@@ -237,7 +238,7 @@ interface VersionRow {
 }
 
 const VERSION_SELECT = sql`
-  select v.id, v.song_id, v.label, v.url, v.size_bytes, v.peaks,
+  select v.id, v.song_id, v.label, v.url, v.r2_key, v.size_bytes, v.peaks,
          v.duration_seconds, v.uploaded_by, u.name as uploader_name,
          v.created_at::text as created_at
   from band_song_versions v
@@ -249,7 +250,9 @@ function mapVersion(r: VersionRow): BandSongVersion {
     id: Number(r.id),
     songId: Number(r.song_id),
     label: r.label,
-    url: r.url,
+    // Migrated versions play through the session-gated route (302 → presigned
+    // GET on the private bucket); un-migrated ones use the legacy public URL.
+    url: r.r2_key ? `/api/ostrich/audio/${Number(r.id)}` : r.url ?? '',
     sizeBytes: r.size_bytes === null ? null : Number(r.size_bytes),
     peaks: Array.isArray(r.peaks) ? r.peaks : null,
     durationSeconds: r.duration_seconds === null ? null : Number(r.duration_seconds),
@@ -257,6 +260,16 @@ function mapVersion(r: VersionRow): BandSongVersion {
     uploaderName: r.uploader_name ?? (r.uploaded_by === null ? 'the Birdhaus' : 'Former member'),
     createdAt: r.created_at,
   };
+}
+
+// For the gated audio route: just the storage pointers, no joins.
+export async function getVersionAudioRef(
+  id: number
+): Promise<{ r2Key: string | null; url: string | null } | null> {
+  const [row] = await sql<Array<{ r2_key: string | null; url: string | null }>>`
+    select r2_key, url from band_song_versions where id = ${id}
+  `;
+  return row ? { r2Key: row.r2_key, url: row.url } : null;
 }
 
 export async function songVersions(songId: number): Promise<BandSongVersion[]> {

@@ -52,7 +52,8 @@ interface TrackRow {
   member_name: string | null;
   title: string;
   notes: string | null;
-  url: string;
+  url: string | null;
+  r2_key: string | null;
   peaks: number[] | null;
   duration_seconds: number | null;
   created_at: string;
@@ -61,7 +62,7 @@ interface TrackRow {
 
 const TRACK_SELECT = sql`
   select t.id, t.member_id, t.from_admin, m.name as member_name, t.title,
-         t.notes, t.url, t.peaks, t.duration_seconds, t.created_at::text as created_at,
+         t.notes, t.url, t.r2_key, t.peaks, t.duration_seconds, t.created_at::text as created_at,
          (select count(*)::int from song_club_track_comments c where c.track_id = t.id)
            as comment_count
   from song_club_tracks t
@@ -76,7 +77,10 @@ function mapTrack(r: TrackRow): ClubTrack {
     uploaderName: r.from_admin ? 'the Birdhaus' : r.member_name ?? 'Former member',
     title: r.title,
     notes: r.notes,
-    url: r.url,
+    // Migrated tracks play through the session-gated route (which 302s to a
+    // presigned GET on the private bucket); un-migrated ones fall back to the
+    // legacy public URL so nothing breaks mid-migration.
+    url: r.r2_key ? `/api/club/audio/${Number(r.id)}` : r.url ?? '',
     peaks: Array.isArray(r.peaks) ? r.peaks : null,
     durationSeconds: r.duration_seconds === null ? null : Number(r.duration_seconds),
     createdAt: r.created_at,
@@ -224,6 +228,16 @@ export async function standaloneTracks(): Promise<ClubTrack[]> {
     order by t.created_at desc, t.id desc
   `;
   return rows.map(mapTrack);
+}
+
+// For the gated audio route: just the storage pointers, no joins.
+export async function getTrackAudioRef(
+  id: number
+): Promise<{ r2Key: string | null; url: string | null } | null> {
+  const [row] = await sql<Array<{ r2_key: string | null; url: string | null }>>`
+    select r2_key, url from song_club_tracks where id = ${id}
+  `;
+  return row ? { r2Key: row.r2_key, url: row.url } : null;
 }
 
 export async function getTrack(id: number): Promise<ClubTrack | null> {
