@@ -95,7 +95,13 @@ try {
         console.log(`   !!  #${row.id}: r2_key set but object MISSING in private bucket — re-copying`);
       }
 
-      if (!APPLY) { console.log(`   plan #${row.id}: copy ${key}`); planned++; continue; }
+      if (!APPLY) {
+        const h = await fetch(row.url, { method: 'HEAD' }).catch(() => null);
+        const size = h?.ok ? Number(h.headers.get('content-length')) : null;
+        console.log(`   plan #${row.id}: copy ${key}${size ? ` (${(size / 1024 / 1024).toFixed(1)} MB)` : ' (size unknown)'}`);
+        planned++;
+        continue;
+      }
 
       const res = await fetch(row.url);
       if (!res.ok) { console.error(`   FAIL #${row.id}: GET ${row.url} → ${res.status}`); failed++; continue; }
