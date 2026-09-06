@@ -524,6 +524,9 @@ export default function SettlementForm({
   const [pctDrafts, setPctDrafts] = useState<Record<number, string>>({});
   // In-progress note edits, keyed by bandId — documents a manual dollar adjustment.
   const [noteDrafts, setNoteDrafts] = useState<Record<number, string>>({});
+  // In-progress payment-handle edits, keyed by bandId — the band's Venmo etc.
+  // Saved to the band itself (not show_bands), so it prefills future settlements.
+  const [handleDrafts, setHandleDrafts] = useState<Record<number, string>>({});
   const [bandPayError, setBandPayError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -615,6 +618,24 @@ export default function SettlementForm({
     }
   }
 
+  // Persist a band's payment handle (a string, or null/empty to clear it).
+  async function persistBandHandle(bandId: number, handle: string | null) {
+    const clean = handle && handle.trim() !== '' ? handle.trim() : null;
+    const previous = bands;
+    setBands((cur) => cur.map((b) => (b.bandId === bandId ? { ...b, paymentMethod: clean } : b)));
+    try {
+      const res = await fetch(`/api/admin/settlements/${showId}/bands/${bandId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ paymentMethod: clean }),
+      });
+      if (!res.ok) throw new Error();
+    } catch {
+      setBands(previous);
+      setBandPayError('Failed to update — try again.');
+    }
+  }
+
   function clearPayoutDraft(bandId: number) {
     setPayoutDrafts((prev) => {
       const next = { ...prev };
@@ -675,6 +696,21 @@ export default function SettlementForm({
     const clean = draft.trim() === '' ? null : draft.trim();
     if (band && (band.payoutNote ?? null) === clean) return;
     persistBandNote(bandId, clean);
+  }
+
+  // Commit the payment-handle draft on blur — stores it, or clears when emptied.
+  function commitHandleDraft(bandId: number) {
+    const draft = handleDrafts[bandId];
+    setHandleDrafts((prev) => {
+      const next = { ...prev };
+      delete next[bandId];
+      return next;
+    });
+    if (draft === undefined) return;
+    const band = bands.find((b) => b.bandId === bandId);
+    const clean = draft.trim() === '' ? null : draft.trim();
+    if (band && (band.paymentMethod ?? null) === clean) return;
+    persistBandHandle(bandId, clean);
   }
 
   // Commit the percentage draft on blur. Empty clears the share (fall back to the
@@ -1244,11 +1280,28 @@ export default function SettlementForm({
                 <span className={`mt-2 text-sm font-medium leading-tight ${band.excluded ? 'line-through' : ''}`}>
                   {band.name}
                 </span>
-                {band.paymentMethod ? (
-                  <span className="mt-0.5 text-xs text-[#E8E0D0]/45">{band.paymentMethod}</span>
-                ) : (
-                  <span className="mt-0.5 text-xs text-[#E8E0D0]/25">no payment method</span>
-                )}
+                {/* Editable payment handle — saved to the band itself, so it's
+                    prefilled here (and on every future show) once on file. */}
+                <input
+                  type="text"
+                  aria-label={`Payment handle for ${band.name}`}
+                  title="The band's Venmo (or other) payment handle — saved to the band and prefilled on future settlements"
+                  placeholder="add Venmo…"
+                  value={handleDrafts[band.bandId] ?? band.paymentMethod ?? ''}
+                  onChange={(e) =>
+                    setHandleDrafts((prev) => ({ ...prev, [band.bandId]: e.target.value }))
+                  }
+                  onBlur={() => commitHandleDraft(band.bandId)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      e.currentTarget.blur();
+                    }
+                  }}
+                  className={`${inputClass} mt-1 w-full px-2 py-0.5 text-center text-xs ${
+                    band.paymentMethod ? 'text-[#E8E0D0]/70' : 'placeholder:text-[#E8E0D0]/25'
+                  }`}
+                />
 
                 <div className="mt-3 w-full space-y-2">
                   {band.excluded ? (

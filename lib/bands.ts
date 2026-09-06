@@ -319,6 +319,27 @@ export async function setShowBandPayoutNote(
   return row.payout_note;
 }
 
+// Sets (or clears) a band's private payout handle (bands.payment_method — Venmo
+// etc.). Unlike the setters above this writes the *band*, not show_bands, so the
+// handle sticks and prefills every future settlement. Still guarded by the
+// show/band pairing since it's edited from a show's settlement tab; returns the
+// stored handle (null when cleared), or `undefined` if the pairing doesn't exist.
+export async function setBandPaymentMethod(
+  showId: number,
+  bandId: number,
+  paymentMethod: string | null
+): Promise<string | null | undefined> {
+  const trimmed = paymentMethod && paymentMethod.trim() !== '' ? paymentMethod.trim() : null;
+  const [row] = await sql<Array<{ payment_method: string | null }>>`
+    update bands set payment_method = ${trimmed}, updated_at = now()
+    where id = ${bandId}
+      and exists (select 1 from show_bands where show_id = ${showId} and band_id = ${bandId})
+    returning payment_method
+  `;
+  if (!row) return undefined;
+  return row.payment_method;
+}
+
 export interface BandVideo {
   showSlug: string;
   showTitle: string;

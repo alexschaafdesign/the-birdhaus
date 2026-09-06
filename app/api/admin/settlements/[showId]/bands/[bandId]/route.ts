@@ -5,6 +5,7 @@ import {
   setShowBandPayoutOverride,
   setShowBandPayoutPct,
   setShowBandPayoutNote,
+  setBandPaymentMethod,
 } from '@/lib/bands';
 import { isPaidMethod } from '@/lib/settlements';
 import { requireAdmin } from '@/lib/admin-session';
@@ -96,6 +97,20 @@ export async function PATCH(
       return NextResponse.json({ error: 'Show/band not found' }, { status: 404 });
     }
     return NextResponse.json({ payoutNote });
+  }
+
+  // `paymentMethod` accepts a string (the band's Venmo/handle) or null to clear
+  // it. Writes bands.payment_method — band-global, so it prefills future shows.
+  if ('paymentMethod' in body) {
+    const raw = body.paymentMethod;
+    if (raw !== null && typeof raw !== 'string') {
+      return NextResponse.json({ error: 'Invalid paymentMethod' }, { status: 400 });
+    }
+    const paymentMethod = await setBandPaymentMethod(showId, bandId, raw);
+    if (paymentMethod === undefined) {
+      return NextResponse.json({ error: 'Show/band not found' }, { status: 404 });
+    }
+    return NextResponse.json({ paymentMethod });
   }
 
   return NextResponse.json({ error: 'Invalid body' }, { status: 400 });
