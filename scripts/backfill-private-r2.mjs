@@ -50,9 +50,9 @@ function getPrivate() {
 }
 
 const TARGETS = [
-  { table: 'song_club_tracks', folder: 'song-club-tracks', where: sqlv => sqlv`` },
-  { table: 'band_song_versions', folder: 'band-songs', where: sqlv => sqlv`` },
-  { table: 'song_club_pins', folder: 'song-club-files', where: sqlv => sqlv`and kind = 'file'` },
+  { table: 'song_club_tracks', folder: 'song-club-tracks', titleCol: 'title', where: sqlv => sqlv`` },
+  { table: 'band_song_versions', folder: 'band-songs', titleCol: 'label', where: sqlv => sqlv`` },
+  { table: 'song_club_pins', folder: 'song-club-files', titleCol: 'title', where: sqlv => sqlv`and kind = 'file'` },
 ];
 
 const sql = postgres(dbUrl, { ssl: sslOptionFor(dbUrl), max: 1 });
@@ -74,7 +74,7 @@ let copied = 0, skipped = 0, planned = 0, failed = 0;
 try {
   for (const t of TARGETS) {
     const rows = await sql`
-      select id, url, r2_key from ${sql(t.table)}
+      select id, url, r2_key, ${sql(t.titleCol)} as title from ${sql(t.table)}
       where url is not null ${t.where(sql)}
       order by id asc
     `;
@@ -104,7 +104,11 @@ try {
       }
 
       const res = await fetch(row.url);
-      if (!res.ok) { console.error(`   FAIL #${row.id}: GET ${row.url} → ${res.status}`); failed++; continue; }
+      if (!res.ok) {
+        console.error(`   FAIL ${t.table} #${row.id} "${row.title}": GET ${row.url} → ${res.status} — row left untouched`);
+        failed++;
+        continue;
+      }
       const buf = Buffer.from(await res.arrayBuffer());
       const md5 = createHash('md5').update(buf).digest('hex');
       const contentType = res.headers.get('content-type') ?? 'application/octet-stream';
