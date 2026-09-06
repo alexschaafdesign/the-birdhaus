@@ -26,8 +26,8 @@ export default async function ClubPlaylistPage({
 }) {
   const member = await getClubPortalMember();
   const admin = member ? false : await isAdminSession();
-  // Guests may glimpse a standalone round read-only; event-linked rounds stay
-  // behind their event's participation gate (below).
+  // Members-only: logged-out visitors land on the public /song-club landing.
+  if (!member && !admin) redirect('/song-club');
 
   const id = Number((await params).id);
   if (!Number.isInteger(id)) notFound();

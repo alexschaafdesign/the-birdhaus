@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import Link from 'next/link';
 import { getEventBySlug, getTodayCentral } from '@/lib/song-club';
 import { getClubPortalMember } from '@/lib/club-members';
@@ -71,7 +71,9 @@ export default async function SongClubEventPage({
   const event = await getEventBySlug((await params).slug);
   const member = await getClubPortalMember();
   const admin = member ? false : await isAdminSession();
-  // Drafts are admin-only; everything else is publicly glimpsable.
+  // Members-only: logged-out visitors land on the public /song-club landing
+  // (never a bare 401) — event links in emails/cards resolve there.
+  if (!member && !admin) redirect('/song-club');
   if (!event || (!event.published && !admin)) notFound();
 
   // Post-auth auto-join: a member who arrived from "sign up to join" (?join=1)

@@ -17,12 +17,42 @@ export const metadata: Metadata = {
 export const dynamic = 'force-dynamic';
 
 // The centralized Song Club page: events, music, pinned items, and the group
-// chat. Anyone can glimpse it read-only; taking any action prompts a login.
-// Members and the admin session see the full portal with composers/uploads.
+// chat — members and the admin session only. Logged-out visitors get the
+// public landing below (the one Song Club URL that renders for guests, so
+// every link into the club resolves somewhere friendly): what the club is,
+// log in, and sign up. Login/signup/invite-accept stay public alongside it.
 export default async function SongClubPage() {
   const member = await getClubPortalMember();
   const admin = member ? false : await isAdminSession();
   const canAct = Boolean(member) || admin;
+
+  if (!canAct) {
+    return (
+      <main className="mx-auto w-full max-w-xl px-5 py-16 text-center text-[#E8E0D0] sm:px-8">
+        <SongClubLogo className="mx-auto h-20 w-20" />
+        <h1 className="mt-5 text-3xl font-semibold">Song Club</h1>
+        <p className="mx-auto mt-3 max-w-md text-[15px] leading-relaxed text-[#E8E0D0]/70">
+          A Birdhaus songwriting community — song-a-day rounds, monthly meetups,
+          and a place to share works in progress. What&apos;s shared here stays
+          between members.
+        </p>
+        <div className="mt-8 flex items-center justify-center gap-3">
+          <Link
+            href="/song-club/signup"
+            className="rounded-md bg-[#E8E0D0] px-5 py-2.5 text-sm font-semibold text-[#2A2420] transition hover:bg-white"
+          >
+            Sign up
+          </Link>
+          <Link
+            href="/song-club/login"
+            className="rounded-md border border-[#E8E0D0]/30 px-5 py-2.5 text-sm font-semibold transition hover:border-[#E8E0D0]/60 hover:bg-[#E8E0D0]/[0.06]"
+          >
+            Log in
+          </Link>
+        </div>
+      </main>
+    );
+  }
 
   const [pins, posts, events] = await Promise.all([
     getPins(),
