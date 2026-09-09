@@ -303,7 +303,7 @@ export async function getPhotographerGalleries(
   >`
     select slug, title, date::text as date, photos, photographer
     from shows
-    where photos @> ${JSON.stringify([{ photographerId }])}::jsonb
+    where photos @> ${sql.json([{ photographerId }])}
        or lower(photographer->>'name') = lower(${name})
     order by date desc
   `;
