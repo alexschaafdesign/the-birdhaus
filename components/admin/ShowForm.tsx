@@ -1062,6 +1062,18 @@ export default function ShowForm({
           ))}
           {form.bands.length === 0 && <p className="text-xs text-[#E8E0D0]/30">No bands added yet.</p>}
         </div>
+        {mode === 'edit' && initialValues?.id && (
+          <p className="mt-3 text-xs text-[#E8E0D0]/40">
+            Band emails &amp; payout handles are on the{' '}
+            <Link
+              href={`/admin/shows/${initialValues.id}/crew`}
+              className="underline decoration-dotted underline-offset-2 hover:text-[#E8E0D0]"
+            >
+              Crew tab
+            </Link>
+            .
+          </p>
+        )}
       </Section>
 
       {mode === 'edit' && initialValues?.id && (

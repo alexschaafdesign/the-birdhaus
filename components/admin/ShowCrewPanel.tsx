@@ -430,7 +430,15 @@ export default function ShowCrewPanel({
         Each row saves on its own.
       </p>
 
-      <Section title="Bands" subtitle="Lineup for this show. Saves to the band profile.">
+      <Section
+        title="Bands"
+        subtitle="Contact & payout for the lineup — saves to each band's profile. Add or reorder bands on Details."
+        action={
+          <Link href={`/admin/shows/${showId}`} className="text-xs text-[#E8E0D0]/50 hover:text-[#E8E0D0] underline">
+            Edit lineup →
+          </Link>
+        }
+      >
         {bands.length === 0 ? (
           <p className="text-sm text-[#E8E0D0]/40">No bands on this show yet — add them on Details.</p>
         ) : (
