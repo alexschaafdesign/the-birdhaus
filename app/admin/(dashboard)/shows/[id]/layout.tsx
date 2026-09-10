@@ -2,6 +2,15 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { sql } from '@/lib/db';
 import ShowTabs from '@/components/admin/ShowTabs';
+import ShowPrevNav, { type ShowNeighbor } from '@/components/admin/ShowPrevNav';
+
+// Short "Mon D" label + title for a prev/next neighbor.
+function neighborLabel(row: { title: string; date: string | null }): string {
+  const date = row.date
+    ? new Date(`${row.date}T00:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+    : null;
+  return date ? `${date} · ${row.title}` : row.title;
+}
 
 export const dynamic = 'force-dynamic';
 
@@ -22,6 +31,27 @@ export default async function ShowLayout({
     select id, title, date::text as date from shows where id = ${showId}
   `;
   if (!show) notFound();
+
+  // Chronological neighbors (by date, then id) for prev/next navigation. Only
+  // computed when this show has a date; null-dated shows are ignored on both ends.
+  let prev: ShowNeighbor | null = null;
+  let next: ShowNeighbor | null = null;
+  if (show.date) {
+    const [[p], [n]] = await Promise.all([
+      sql<{ id: number; title: string; date: string | null }[]>`
+        select id, title, date::text as date from shows
+        where date is not null and (date, id) < (${show.date}::date, ${showId})
+        order by date desc, id desc limit 1
+      `,
+      sql<{ id: number; title: string; date: string | null }[]>`
+        select id, title, date::text as date from shows
+        where date is not null and (date, id) > (${show.date}::date, ${showId})
+        order by date asc, id asc limit 1
+      `,
+    ]);
+    prev = p ? { id: Number(p.id), label: neighborLabel(p) } : null;
+    next = n ? { id: Number(n.id), label: neighborLabel(n) } : null;
+  }
 
   // At-a-glance progress for the tab bar so the workspace reads as a checklist:
   // whether the invite went out, how many bands have submitted inputs, the RSVP
@@ -75,6 +105,7 @@ export default async function ShowLayout({
           <h1 className="text-2xl font-bold">{show.title}</h1>
           {prettyDate && <p className="text-sm text-[#E8E0D0]/50">{prettyDate}</p>}
         </div>
+        <ShowPrevNav currentId={showId} prev={prev} next={next} />
         <ShowTabs id={showId} badges={badges} />
       </div>
       {children}
