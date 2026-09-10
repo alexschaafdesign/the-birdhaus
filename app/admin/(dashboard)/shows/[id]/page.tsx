@@ -7,6 +7,7 @@ import { getOrCreateShareToken } from '@/lib/share-token';
 import { SITE_URL } from '@/lib/site';
 import ShowForm, { type ShowFormInitialValues } from '@/components/admin/ShowForm';
 import ShareLinkBox from '@/components/admin/ShareLinkBox';
+import ShowOverview from '@/components/admin/ShowOverview';
 
 export const dynamic = 'force-dynamic';
 
@@ -61,6 +62,28 @@ export default async function EditShowPage({ params }: { params: Promise<{ id: s
     order by amount_cents
   `;
 
+  // Lifecycle status for the top-of-tab Overview checklist. One round-trip; each
+  // subquery degrades to 0/false when that subsystem has no rows yet.
+  const [overview] = await sql<
+    {
+      invite_sent: boolean;
+      band_total: number;
+      bands_with_inputs: number;
+      rsvp_count: number;
+      settlement_saved: boolean;
+    }[]
+  >`
+    select
+      exists(select 1 from show_advances where show_id = ${showId} and status = 'sent') as invite_sent,
+      (select count(*)::int from show_bands sb where sb.show_id = ${showId} and not sb.excluded) as band_total,
+      (select count(distinct band_id)::int from show_input_items where show_id = ${showId}) as bands_with_inputs,
+      (select count(*)::int from rsvps where show_id = ${showId}) as rsvp_count,
+      exists(select 1 from settlements where show_id = ${showId}) as settlement_saved
+  `;
+  const engineers = (row.sound_engineers as Array<{ name: string; status: string }> | null) ?? [];
+  const confirmedEngineer = engineers.find((e) => e.status === 'confirmed')?.name ?? null;
+  const isPastShow = row.date < new Date().toLocaleDateString('en-CA'); // en-CA = YYYY-MM-DD, local
+
   // Resolve each photo's photographerId → name so the form can display the
   // credit next to each thumbnail (only ids are stored on the row).
   const photoEntries = normalizePhotosInput(row.photos);
@@ -113,6 +136,20 @@ export default async function EditShowPage({ params }: { params: Promise<{ id: s
 
   return (
     <div className="space-y-6">
+      <ShowOverview
+        showId={showId}
+        isPast={isPastShow}
+        announced={row.announced}
+        bandCount={overview?.band_total ?? 0}
+        targetBandCount={row.target_band_count}
+        inviteSent={overview?.invite_sent ?? false}
+        bandsWithInputs={overview?.bands_with_inputs ?? 0}
+        confirmedEngineer={confirmedEngineer}
+        doorPerson={row.door_person_name?.trim() || null}
+        photographerAssigned={row.photographer_id != null}
+        rsvpCount={overview?.rsvp_count ?? 0}
+        settlementSaved={overview?.settlement_saved ?? false}
+      />
       {shareUrl && <ShareLinkBox showId={showId} initialUrl={shareUrl} />}
       <ShowForm mode="edit" embedded initialValues={initialValues} />
     </div>
