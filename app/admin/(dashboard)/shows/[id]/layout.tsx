@@ -98,13 +98,15 @@ export default async function ShowLayout({
   return (
     <main className="max-w-4xl mx-auto px-6 pb-16 pt-6 space-y-6">
       <div className="space-y-3">
-        <Link
-          href="/admin/shows"
-          className="inline-flex items-center gap-1 text-sm text-[#E8E0D0]/55 hover:text-[#E8E0D0] transition-colors"
-        >
-          ← Back to shows
-        </Link>
-        <ShowPrevNav currentId={showId} prev={prev} next={next} />
+        <div className="flex items-center justify-between gap-3">
+          <Link
+            href="/admin/shows"
+            className="inline-flex items-center gap-1 text-sm text-[#E8E0D0]/55 hover:text-[#E8E0D0] transition-colors"
+          >
+            ← Back to shows
+          </Link>
+          <ShowPrevNav currentId={showId} prev={prev} next={next} />
+        </div>
         <div>
           <h1 className="text-2xl font-bold">{show.title}</h1>
           {prettyDate && <p className="text-sm text-[#E8E0D0]/50">{prettyDate}</p>}

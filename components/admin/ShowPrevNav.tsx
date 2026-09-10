@@ -26,28 +26,30 @@ export default function ShowPrevNav({
   const linkTo = (id: number) => `/admin/shows/${id}${suffix}`;
 
   const linkCls =
-    'flex min-w-0 items-center gap-1.5 text-sm text-[#E8E0D0]/60 hover:text-[#E8E0D0] transition-colors';
-  const endCls = 'flex items-center gap-1.5 text-sm text-[#E8E0D0]/25 cursor-default';
+    'flex min-w-0 items-center gap-1 text-xs text-[#E8E0D0]/60 hover:text-[#E8E0D0] transition-colors';
+  const endCls = 'flex items-center gap-1 text-xs text-[#E8E0D0]/25 cursor-default';
+  const labelCls = 'truncate max-w-[9rem] sm:max-w-[11rem]';
 
   return (
-    <div className="flex items-center justify-between gap-3 rounded-lg border border-[#E8E0D0]/12 bg-[#E8E0D0]/[0.03] px-3 py-1.5">
+    <div className="inline-flex shrink-0 items-center gap-2 rounded-lg border border-[#E8E0D0]/12 bg-[#E8E0D0]/[0.03] px-2.5 py-1">
       {prev ? (
         <Link href={linkTo(prev.id)} className={linkCls} title={prev.label}>
           <span aria-hidden>←</span>
-          <span className="truncate">{prev.label}</span>
+          <span className={labelCls}>{prev.label}</span>
         </Link>
       ) : (
         <span className={endCls}>
           <span aria-hidden>←</span> Earliest
         </span>
       )}
+      <span aria-hidden className="text-[#E8E0D0]/15">|</span>
       {next ? (
-        <Link href={linkTo(next.id)} className={`${linkCls} justify-end text-right`} title={next.label}>
-          <span className="truncate">{next.label}</span>
+        <Link href={linkTo(next.id)} className={linkCls} title={next.label}>
+          <span className={labelCls}>{next.label}</span>
           <span aria-hidden>→</span>
         </Link>
       ) : (
-        <span className={`${endCls} justify-end`}>
+        <span className={endCls}>
           Latest <span aria-hidden>→</span>
         </span>
       )}
