@@ -85,7 +85,6 @@ export default async function ShowCrewPage({ params }: { params: Promise<{ id: s
   // a roster row (case-insensitive) so we know whose profile to edit. An unmatched
   // custom name is kept so the picker doesn't silently drop it.
   const assignedDoorName = show.door_person_name?.trim() ?? '';
-  const assignedPhotographer = photographers.find((p) => p.id === show.photographer_id) ?? null;
 
   return (
     <ShowCrewPanel
@@ -96,7 +95,6 @@ export default async function ShowCrewPage({ params }: { params: Promise<{ id: s
       assignedDoorName={assignedDoorName}
       photographers={photographers}
       assignedPhotographerId={show.photographer_id}
-      assignedPhotographerName={assignedPhotographer?.name ?? ''}
     />
   );
 }

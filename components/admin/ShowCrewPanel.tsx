@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import PhotographerNameInput, { type PhotographerMatch } from './PhotographerNameInput';
 
 const inputClass =
   'bg-transparent border border-[#E8E0D0]/30 rounded px-3 py-1.5 text-sm focus:outline-none focus:border-[#E8E0D0] placeholder:text-[#E8E0D0]/30';
@@ -169,7 +168,6 @@ export default function ShowCrewPanel({
   assignedDoorName,
   photographers,
   assignedPhotographerId,
-  assignedPhotographerName,
 }: {
   showId: number;
   bands: CrewBand[];
@@ -178,7 +176,6 @@ export default function ShowCrewPanel({
   assignedDoorName: string;
   photographers: CrewRegistryEntry[];
   assignedPhotographerId: number | null;
-  assignedPhotographerName: string;
 }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
@@ -223,13 +220,11 @@ export default function ShowCrewPanel({
   }
 
   // --- Photographer assignment (shows.photographer_id) ---
-  const [photographerName, setPhotographerName] = useState(assignedPhotographerName);
   const [savingPhotographer, setSavingPhotographer] = useState(false);
   const assignedPhotographer =
     photographers.find((p) => p.id === assignedPhotographerId) ?? null;
 
   async function assignPhotographer(id: number | null, name: string) {
-    setPhotographerName(name);
     setSavingPhotographer(true);
     setError(null);
     setNotice(null);
@@ -398,25 +393,28 @@ export default function ShowCrewPanel({
         }
       >
         <div className="space-y-3">
-          <div className="flex flex-wrap items-center gap-2">
-            <PhotographerNameInput
-              value={photographerName}
-              onChange={(v) => setPhotographerName(v)}
-              onSelect={(m: PhotographerMatch) => assignPhotographer(m.id, m.name)}
-              placeholder="Who's shooting this show?"
-              className={`${inputClass} w-full sm:max-w-sm`}
-            />
-            {assignedPhotographerId != null && (
-              <button
-                type="button"
-                onClick={() => assignPhotographer(null, '')}
-                disabled={savingPhotographer}
-                className={buttonClass}
-              >
-                Clear
-              </button>
-            )}
-          </div>
+          <select
+            value={assignedPhotographerId ?? ''}
+            onChange={(e) => {
+              const v = e.target.value;
+              if (v === '') {
+                assignPhotographer(null, '');
+              } else {
+                const id = Number(v);
+                assignPhotographer(id, photographers.find((p) => p.id === id)?.name ?? '');
+              }
+            }}
+            disabled={savingPhotographer}
+            className={`${inputClass} w-full sm:max-w-sm disabled:opacity-50`}
+            aria-label="Assign photographer"
+          >
+            <option value="" className="text-[#2A2420]">Unassigned</option>
+            {photographers.map((p) => (
+              <option key={p.id} value={p.id} className="text-[#2A2420]">
+                {p.name}
+              </option>
+            ))}
+          </select>
           {assignedPhotographer && (
             <ul>
               <ContactRow
