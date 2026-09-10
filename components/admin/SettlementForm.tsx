@@ -1196,7 +1196,7 @@ export default function SettlementForm({
                             matched?.paymentMethod ? (
                               <span className="mt-1 text-xs text-[#E8E0D0]/45">{matched.paymentMethod}</span>
                             ) : (
-                              <span className="mt-1 text-xs text-[#E8E0D0]/25">no payment method</span>
+                              <span className="mt-1 text-xs text-[#E8E0D0]/25">no payout handle</span>
                             )
                           )}
 
@@ -1284,9 +1284,9 @@ export default function SettlementForm({
                     prefilled here (and on every future show) once on file. */}
                 <input
                   type="text"
-                  aria-label={`Payment handle for ${band.name}`}
-                  title="The band's Venmo (or other) payment handle — saved to the band and prefilled on future settlements"
-                  placeholder="add Venmo…"
+                  aria-label={`Payout handle for ${band.name}`}
+                  title="The band's payout handle (Venmo or other) — saved on the band's profile and prefilled on every future settlement"
+                  placeholder="+ payout handle…"
                   value={handleDrafts[band.bandId] ?? band.paymentMethod ?? ''}
                   onChange={(e) =>
                     setHandleDrafts((prev) => ({ ...prev, [band.bandId]: e.target.value }))

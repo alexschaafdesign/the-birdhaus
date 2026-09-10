@@ -318,6 +318,7 @@ export default function ShowForm({
   const router = useRouter();
   const [form, setForm] = useState<FormState>(() => initFormState(initialValues));
   const [submitting, setSubmitting] = useState(false);
+  const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [photosUploading, setPhotosUploading] = useState(false);
   const [photosUploadProgress, setPhotosUploadProgress] = useState<{ done: number; total: number } | null>(
@@ -691,8 +692,17 @@ export default function ShowForm({
       });
       const body = await res.json().catch(() => null);
       if (!res.ok) throw new Error(body?.error || 'Failed to save show');
-      router.push('/admin/shows');
-      router.refresh();
+      // Editing inside the per-show workspace: stay put and refresh so the tab
+      // badges and other tabs pick up the change — no more bouncing to the shows
+      // list mid-edit. Creating a show (or the standalone form) still navigates.
+      if (mode === 'edit' && embedded) {
+        router.refresh();
+        setSaved(true);
+        setTimeout(() => setSaved(false), 2500);
+      } else {
+        router.push('/admin/shows');
+        router.refresh();
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save show');
     } finally {
@@ -1008,24 +1018,14 @@ export default function ShowForm({
       <Section
         title="Show details"
         action={
-          <div className="flex items-center gap-4">
-            <label className="flex items-center gap-1.5 text-xs text-[#E8E0D0]/70 whitespace-nowrap">
-              <input
-                type="checkbox"
-                checked={form.announced}
-                onChange={(e) => set('announced', e.target.checked)}
-              />
-              Announced
-            </label>
-            <label className="flex items-center gap-1.5 text-xs text-[#E8E0D0]/70 whitespace-nowrap">
-              <input
-                type="checkbox"
-                checked={form.advanceSent}
-                onChange={(e) => set('advanceSent', e.target.checked)}
-              />
-              Advanced via email
-            </label>
-          </div>
+          <label className="flex items-center gap-1.5 text-xs text-[#E8E0D0]/70 whitespace-nowrap">
+            <input
+              type="checkbox"
+              checked={form.announced}
+              onChange={(e) => set('announced', e.target.checked)}
+            />
+            Announced
+          </label>
         }
       >
       <div className="grid gap-3 sm:grid-cols-2">
@@ -1489,13 +1489,16 @@ export default function ShowForm({
         ) : (
           <span />
         )}
-        <button
-          type="submit"
-          disabled={submitting}
-          className="bg-[#E8E0D0] text-[#2A2420] border border-[#E8E0D0] rounded px-6 py-2 text-sm font-medium hover:bg-[#E8E0D0]/90 transition-colors disabled:opacity-50"
-        >
-          {submitting ? 'Saving...' : mode === 'create' ? 'Create show' : 'Save changes'}
-        </button>
+        <div className="flex items-center gap-3">
+          {saved && <span className="text-sm text-emerald-300">Saved ✓</span>}
+          <button
+            type="submit"
+            disabled={submitting}
+            className="bg-[#E8E0D0] text-[#2A2420] border border-[#E8E0D0] rounded px-6 py-2 text-sm font-medium hover:bg-[#E8E0D0]/90 transition-colors disabled:opacity-50"
+          >
+            {submitting ? 'Saving...' : mode === 'create' ? 'Create show' : 'Save changes'}
+          </button>
+        </div>
       </div>
     </form>
     </>

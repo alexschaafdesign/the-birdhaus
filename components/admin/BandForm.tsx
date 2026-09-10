@@ -176,7 +176,7 @@ export default function BandForm({
 
         <div>
           <label className="block text-xs uppercase tracking-wide text-[#E8E0D0]/40 mb-1">
-            Payment method
+            Payout handle (Venmo)
           </label>
           <input
             value={paymentMethod}
@@ -185,7 +185,8 @@ export default function BandForm({
             className={`${inputClass} w-full`}
           />
           <p className="text-xs text-[#E8E0D0]/30 mt-1">
-            Private — Venmo username or other payout method. Admin-only, never shown publicly.
+            Saved on the band&rsquo;s profile — shared across every show and prefilled on each
+            settlement. Private, admin-only, never shown publicly.
           </p>
         </div>
 
