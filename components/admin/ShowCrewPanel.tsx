@@ -80,8 +80,9 @@ function Section({
 
 // A person's contact + payout, saved to their own profile (bands / sound_engineers
 // / door_persons / photographers) via the given PATCH endpoint. Only changed
-// fields are sent, so an untouched blank never clears the other value. Optimistic
-// notice via the parent's onSaved/onError.
+// fields are sent, so an untouched blank never clears the other value. Self-contained:
+// shows its own inline "Saved ✓" / error next to the row, and advances its saved
+// baseline in state so the confirmation isn't wiped by a re-render.
 function ContactRow({
   name,
   photo,
@@ -89,8 +90,6 @@ function ContactRow({
   email: initialEmail,
   payout: initialPayout,
   badge,
-  onSaved,
-  onError,
 }: {
   name: string;
   photo: string | null;
@@ -98,18 +97,24 @@ function ContactRow({
   email: string | null;
   payout: string | null;
   badge?: React.ReactNode;
-  onSaved: (msg: string) => void;
-  onError: (msg: string) => void;
 }) {
   const [email, setEmail] = useState(initialEmail ?? '');
   const [payout, setPayout] = useState(initialPayout ?? '');
+  // The saved baseline lives in state (not props) so a successful save can advance
+  // it without a remount — that keeps the inline "Saved ✓" visible instead of
+  // being wiped by a re-render.
+  const [baseEmail, setBaseEmail] = useState(initialEmail ?? '');
+  const [basePayout, setBasePayout] = useState(initialPayout ?? '');
   const [saving, setSaving] = useState(false);
-  const emailDirty = email.trim() !== (initialEmail ?? '');
-  const payoutDirty = payout.trim() !== (initialPayout ?? '');
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const emailDirty = email.trim() !== baseEmail;
+  const payoutDirty = payout.trim() !== basePayout;
   const dirty = emailDirty || payoutDirty;
 
   async function save() {
     setSaving(true);
+    setError(null);
     try {
       const payload: { contactEmail?: string; paymentMethod?: string } = {};
       if (emailDirty) payload.contactEmail = email;
@@ -123,39 +128,50 @@ function ContactRow({
         const d = await res.json().catch(() => null);
         throw new Error(d?.error ?? `Save failed (${res.status})`);
       }
-      onSaved(`Saved ${name}'s contact details.`);
+      const trimmedEmail = email.trim();
+      const trimmedPayout = payout.trim();
+      setEmail(trimmedEmail);
+      setPayout(trimmedPayout);
+      setBaseEmail(trimmedEmail);
+      setBasePayout(trimmedPayout);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
     } catch (e) {
-      onError(e instanceof Error ? e.message : 'Save failed');
+      setError(e instanceof Error ? e.message : 'Save failed');
     } finally {
       setSaving(false);
     }
   }
 
   return (
-    <li className="flex flex-wrap items-center gap-3 rounded-lg bg-black/10 p-3">
-      <Avatar name={name} photo={photo} />
-      <div className="min-w-[8rem] flex-1 basis-40">
-        <span className="text-sm text-[#E8E0D0]">{name}</span>
-        {badge && <span className="ml-2 align-middle">{badge}</span>}
+    <li className="rounded-lg bg-black/10 p-3">
+      <div className="flex flex-wrap items-center gap-3">
+        <Avatar name={name} photo={photo} />
+        <div className="min-w-[8rem] flex-1 basis-40">
+          <span className="text-sm text-[#E8E0D0]">{name}</span>
+          {badge && <span className="ml-2 align-middle">{badge}</span>}
+        </div>
+        <input
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="contact email"
+          className={`${inputClass} min-w-[13rem] flex-1`}
+          aria-label={`${name} contact email`}
+        />
+        <input
+          value={payout}
+          onChange={(e) => setPayout(e.target.value)}
+          placeholder="Payout handle (Venmo)"
+          className={`${inputClass} min-w-[11rem] flex-1`}
+          aria-label={`${name} payout handle`}
+        />
+        {saved && <span className="text-xs text-emerald-300 whitespace-nowrap">Saved ✓</span>}
+        <button type="button" onClick={save} disabled={saving || !dirty} className={buttonClass}>
+          {saving ? 'Saving…' : 'Save'}
+        </button>
       </div>
-      <input
-        type="email"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        placeholder="contact email"
-        className={`${inputClass} min-w-[13rem] flex-1`}
-        aria-label={`${name} contact email`}
-      />
-      <input
-        value={payout}
-        onChange={(e) => setPayout(e.target.value)}
-        placeholder="Payout handle (Venmo)"
-        className={`${inputClass} min-w-[11rem] flex-1`}
-        aria-label={`${name} payout handle`}
-      />
-      <button type="button" onClick={save} disabled={saving || !dirty} className={buttonClass}>
-        {saving ? 'Saving…' : 'Save'}
-      </button>
+      {error && <p className="mt-1.5 text-xs text-red-300">{error}</p>}
     </li>
   );
 }
@@ -178,22 +194,12 @@ export default function ShowCrewPanel({
   assignedPhotographerId: number | null;
 }) {
   const router = useRouter();
-  const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
-
-  function onSaved(msg: string) {
-    setNotice(msg);
-    setError(null);
-    router.refresh();
-  }
-  function onError(msg: string) {
-    setError(msg);
-    setNotice(null);
-  }
 
   // --- Door person assignment (free text on the show; matched to a roster row) ---
   const [doorName, setDoorName] = useState(assignedDoorName);
   const [savingDoor, setSavingDoor] = useState(false);
+  const [doorSaved, setDoorSaved] = useState(false);
+  const [doorError, setDoorError] = useState<string | null>(null);
   const doorMatch = doorPersons.find(
     (d) => d.name.trim().toLowerCase() === doorName.trim().toLowerCase()
   );
@@ -201,8 +207,8 @@ export default function ShowCrewPanel({
   async function assignDoor(name: string) {
     setDoorName(name);
     setSavingDoor(true);
-    setError(null);
-    setNotice(null);
+    setDoorError(null);
+    setDoorSaved(false);
     try {
       const res = await fetch(`/api/admin/shows/${showId}`, {
         method: 'PATCH',
@@ -210,10 +216,12 @@ export default function ShowCrewPanel({
         body: JSON.stringify({ doorPersonName: name }),
       });
       if (!res.ok) throw new Error(`Save failed (${res.status})`);
-      setNotice(name ? `Door person set to ${name}.` : 'Door person cleared.');
+      setDoorSaved(true);
+      setTimeout(() => setDoorSaved(false), 2000);
+      // Refresh so the matched roster row's contact fields load below.
       router.refresh();
     } catch (e) {
-      onError(e instanceof Error ? e.message : 'Save failed');
+      setDoorError(e instanceof Error ? e.message : 'Save failed');
     } finally {
       setSavingDoor(false);
     }
@@ -221,13 +229,15 @@ export default function ShowCrewPanel({
 
   // --- Photographer assignment (shows.photographer_id) ---
   const [savingPhotographer, setSavingPhotographer] = useState(false);
+  const [photographerSaved, setPhotographerSaved] = useState(false);
+  const [photographerError, setPhotographerError] = useState<string | null>(null);
   const assignedPhotographer =
     photographers.find((p) => p.id === assignedPhotographerId) ?? null;
 
-  async function assignPhotographer(id: number | null, name: string) {
+  async function assignPhotographer(id: number | null) {
     setSavingPhotographer(true);
-    setError(null);
-    setNotice(null);
+    setPhotographerError(null);
+    setPhotographerSaved(false);
     try {
       const res = await fetch(`/api/admin/shows/${showId}`, {
         method: 'PATCH',
@@ -236,10 +246,12 @@ export default function ShowCrewPanel({
         body: JSON.stringify({ assignedPhotographerId: id ?? null }),
       });
       if (!res.ok) throw new Error(`Save failed (${res.status})`);
-      setNotice(id ? `Photographer set to ${name}.` : 'Photographer cleared.');
+      setPhotographerSaved(true);
+      setTimeout(() => setPhotographerSaved(false), 2000);
+      // Refresh so the assigned photographer's contact fields load below.
       router.refresh();
     } catch (e) {
-      onError(e instanceof Error ? e.message : 'Save failed');
+      setPhotographerError(e instanceof Error ? e.message : 'Save failed');
     } finally {
       setSavingPhotographer(false);
     }
@@ -250,21 +262,8 @@ export default function ShowCrewPanel({
       <p className="text-sm text-[#E8E0D0]/50 max-w-2xl">
         Everyone you contact or pay for this show. Email and payout handle save to each
         person&apos;s profile — the same values used on the settlement and every future show.
+        Each row saves on its own.
       </p>
-
-      {error && (
-        <div className="border border-red-400/40 bg-red-400/10 text-red-300 text-sm rounded px-4 py-2 flex justify-between items-center">
-          <span>{error}</span>
-          <button type="button" onClick={() => setError(null)} className="text-red-300/70 hover:text-red-300">
-            dismiss
-          </button>
-        </div>
-      )}
-      {notice && (
-        <div className="border border-green-400/40 bg-green-400/10 text-green-200 text-sm rounded px-4 py-2">
-          {notice}
-        </div>
-      )}
 
       <Section title="Bands" subtitle="Lineup for this show. Saves to the band profile.">
         {bands.length === 0 ? (
@@ -273,7 +272,7 @@ export default function ShowCrewPanel({
           <ul className="space-y-2">
             {bands.map((b) => (
               <ContactRow
-                key={`${b.bandId}:${b.email ?? ''}:${b.payoutHandle ?? ''}`}
+                key={b.bandId}
                 name={b.name}
                 photo={b.photo}
                 endpoint={`/api/admin/bands/${b.bandId}`}
@@ -286,8 +285,6 @@ export default function ShowCrewPanel({
                     </span>
                   ) : undefined
                 }
-                onSaved={onSaved}
-                onError={onError}
               />
             ))}
           </ul>
@@ -311,7 +308,7 @@ export default function ShowCrewPanel({
           <ul className="space-y-2">
             {engineers.map((e) => (
               <ContactRow
-                key={`${e.id}:${e.email ?? ''}:${e.payoutHandle ?? ''}`}
+                key={e.id}
                 name={e.name}
                 photo={e.photo}
                 endpoint={`/api/admin/sound-engineers/${e.id}`}
@@ -322,8 +319,6 @@ export default function ShowCrewPanel({
                     {e.status}
                   </span>
                 }
-                onSaved={onSaved}
-                onError={onError}
               />
             ))}
           </ul>
@@ -340,34 +335,37 @@ export default function ShowCrewPanel({
         }
       >
         <div className="space-y-3">
-          <select
-            value={doorMatch ? doorMatch.name : doorName}
-            onChange={(e) => assignDoor(e.target.value)}
-            disabled={savingDoor}
-            className={`${inputClass} w-full sm:max-w-sm disabled:opacity-50`}
-            aria-label="Assign door person"
-          >
-            <option value="" className="text-[#2A2420]">Unassigned</option>
-            {doorName && !doorMatch && (
-              <option value={doorName} className="text-[#2A2420]">{doorName}</option>
-            )}
-            {doorPersons.map((d) => (
-              <option key={d.id} value={d.name} className="text-[#2A2420]">
-                {d.name}
-              </option>
-            ))}
-          </select>
+          <div className="flex flex-wrap items-center gap-3">
+            <select
+              value={doorMatch ? doorMatch.name : doorName}
+              onChange={(e) => assignDoor(e.target.value)}
+              disabled={savingDoor}
+              className={`${inputClass} w-full sm:max-w-sm disabled:opacity-50`}
+              aria-label="Assign door person"
+            >
+              <option value="" className="text-[#2A2420]">Unassigned</option>
+              {doorName && !doorMatch && (
+                <option value={doorName} className="text-[#2A2420]">{doorName}</option>
+              )}
+              {doorPersons.map((d) => (
+                <option key={d.id} value={d.name} className="text-[#2A2420]">
+                  {d.name}
+                </option>
+              ))}
+            </select>
+            {savingDoor && <span className="text-xs text-[#E8E0D0]/50">Saving…</span>}
+            {doorSaved && <span className="text-xs text-emerald-300">Saved ✓</span>}
+            {doorError && <span className="text-xs text-red-300">{doorError}</span>}
+          </div>
           {doorMatch ? (
             <ul>
               <ContactRow
-                key={`${doorMatch.id}:${doorMatch.email ?? ''}:${doorMatch.payoutHandle ?? ''}`}
+                key={doorMatch.id}
                 name={doorMatch.name}
                 photo={doorMatch.photo}
                 endpoint={`/api/admin/door-persons/${doorMatch.id}`}
                 email={doorMatch.email}
                 payout={doorMatch.payoutHandle}
-                onSaved={onSaved}
-                onError={onError}
               />
             </ul>
           ) : doorName ? (
@@ -393,39 +391,37 @@ export default function ShowCrewPanel({
         }
       >
         <div className="space-y-3">
-          <select
-            value={assignedPhotographerId ?? ''}
-            onChange={(e) => {
-              const v = e.target.value;
-              if (v === '') {
-                assignPhotographer(null, '');
-              } else {
-                const id = Number(v);
-                assignPhotographer(id, photographers.find((p) => p.id === id)?.name ?? '');
-              }
-            }}
-            disabled={savingPhotographer}
-            className={`${inputClass} w-full sm:max-w-sm disabled:opacity-50`}
-            aria-label="Assign photographer"
-          >
-            <option value="" className="text-[#2A2420]">Unassigned</option>
-            {photographers.map((p) => (
-              <option key={p.id} value={p.id} className="text-[#2A2420]">
-                {p.name}
-              </option>
-            ))}
-          </select>
+          <div className="flex flex-wrap items-center gap-3">
+            <select
+              value={assignedPhotographerId ?? ''}
+              onChange={(e) => {
+                const v = e.target.value;
+                assignPhotographer(v === '' ? null : Number(v));
+              }}
+              disabled={savingPhotographer}
+              className={`${inputClass} w-full sm:max-w-sm disabled:opacity-50`}
+              aria-label="Assign photographer"
+            >
+              <option value="" className="text-[#2A2420]">Unassigned</option>
+              {photographers.map((p) => (
+                <option key={p.id} value={p.id} className="text-[#2A2420]">
+                  {p.name}
+                </option>
+              ))}
+            </select>
+            {savingPhotographer && <span className="text-xs text-[#E8E0D0]/50">Saving…</span>}
+            {photographerSaved && <span className="text-xs text-emerald-300">Saved ✓</span>}
+            {photographerError && <span className="text-xs text-red-300">{photographerError}</span>}
+          </div>
           {assignedPhotographer && (
             <ul>
               <ContactRow
-                key={`${assignedPhotographer.id}:${assignedPhotographer.email ?? ''}:${assignedPhotographer.payoutHandle ?? ''}`}
+                key={assignedPhotographer.id}
                 name={assignedPhotographer.name}
                 photo={assignedPhotographer.photo}
                 endpoint={`/api/admin/photographers/${assignedPhotographer.id}`}
                 email={assignedPhotographer.email}
                 payout={assignedPhotographer.payoutHandle}
-                onSaved={onSaved}
-                onError={onError}
               />
             </ul>
           )}
