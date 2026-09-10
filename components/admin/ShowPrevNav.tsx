@@ -30,7 +30,7 @@ export default function ShowPrevNav({
   const endCls = 'flex items-center gap-1.5 text-sm text-[#E8E0D0]/25 cursor-default';
 
   return (
-    <div className="flex items-center justify-between gap-3">
+    <div className="flex items-center justify-between gap-3 rounded-lg border border-[#E8E0D0]/12 bg-[#E8E0D0]/[0.03] px-3 py-1.5">
       {prev ? (
         <Link href={linkTo(prev.id)} className={linkCls} title={prev.label}>
           <span aria-hidden>←</span>

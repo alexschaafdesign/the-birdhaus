@@ -4,12 +4,15 @@ import { sql } from '@/lib/db';
 import ShowTabs from '@/components/admin/ShowTabs';
 import ShowPrevNav, { type ShowNeighbor } from '@/components/admin/ShowPrevNav';
 
-// Short "Mon D" label + title for a prev/next neighbor.
+// Short "Mon D · First Band" label for a prev/next neighbor. Titles are usually
+// "Band A / Band B / Band C", so keep only the first band to stay compact; a title
+// with no slash is used as-is.
 function neighborLabel(row: { title: string; date: string | null }): string {
+  const firstBand = row.title.split('/')[0].trim() || row.title;
   const date = row.date
     ? new Date(`${row.date}T00:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
     : null;
-  return date ? `${date} · ${row.title}` : row.title;
+  return date ? `${date} · ${firstBand}` : firstBand;
 }
 
 export const dynamic = 'force-dynamic';
