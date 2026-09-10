@@ -104,11 +104,11 @@ export default async function ShowLayout({
         >
           ← Back to shows
         </Link>
+        <ShowPrevNav currentId={showId} prev={prev} next={next} />
         <div>
           <h1 className="text-2xl font-bold">{show.title}</h1>
           {prettyDate && <p className="text-sm text-[#E8E0D0]/50">{prettyDate}</p>}
         </div>
-        <ShowPrevNav currentId={showId} prev={prev} next={next} />
         <ShowTabs id={showId} badges={badges} />
       </div>
       {children}
