@@ -63,13 +63,20 @@ function initialEditItems(band: HubBand): EditItem[] {
 // band's saved data. Writes only its own band via the token-gated /api/hub routes.
 export default function HubSubmission({
   token,
-  band,
+  band: bandProp,
   schedule,
+  disabled = false,
 }: {
   token: string;
-  band: HubBand;
+  // Null when no band is selected yet: the form still renders (so bands see what
+  // they'll need to fill in) but every control is disabled via the fieldset below.
+  band: HubBand | null;
   schedule: ScheduleRows;
+  disabled?: boolean;
 }) {
+  // Placeholder band for the disabled preview so the seed/state helpers have a
+  // shape to read. Its id is never used to write — the fieldset blocks all input.
+  const band: HubBand = bandProp ?? { bandId: -1, name: '', items: [], stagePlotAttachments: [] };
   const [rows, setRows] = useState<EditItem[]>(() => initialEditItems(band));
   const [savedSnapshot, setSavedSnapshot] = useState(() => snapshot(toEditItems(band)));
   const [files, setFiles] = useState<Attachment[]>(band.stagePlotAttachments);
@@ -151,7 +158,13 @@ export default function HubSubmission({
   }
 
   return (
-    <div className="space-y-6">
+    // A disabled fieldset natively blocks every nested control (inputs, selects,
+    // file upload, buttons) — one switch to lock the whole form until a band is
+    // picked, with a dimmed look to match.
+    <fieldset
+      disabled={disabled}
+      className={`space-y-6 ${disabled ? 'opacity-45 select-none' : ''}`}
+    >
       {error && (
         <div className="border border-red-400/40 bg-red-400/10 text-red-200 text-sm rounded px-4 py-2">
           {error}
@@ -310,7 +323,7 @@ export default function HubSubmission({
         <h3 className="text-sm font-semibold text-[#E8E0D0]">The schedule</h3>
         <ScheduleTask token={token} bandId={band.bandId} schedule={schedule} />
       </div>
-    </div>
+    </fieldset>
   );
 }
 

@@ -61,7 +61,9 @@ export default async function ShowHubPage({
       <div className="max-w-2xl mx-auto space-y-8">
         {adminState && <HubAdminBar state={adminState} />}
         <Header data={data} />
-        <QuickFacts data={data} />
+        {/* The advance submission sits directly under the header (below the
+            flyer) so bands see the thing they need to do before scanning the
+            read-only show details. */}
         <HubPortal
           token={token}
           bands={data.inputsByBand}
@@ -70,6 +72,7 @@ export default async function ShowHubPage({
           isAdmin={isAdmin}
           adminShowId={adminState?.showId ?? null}
         />
+        <QuickFacts data={data} />
         {(data.schedule.length > 0 || data.soundcheckNotes || adminState) && (
           <ScheduleSection data={data} adminState={adminState} />
         )}
