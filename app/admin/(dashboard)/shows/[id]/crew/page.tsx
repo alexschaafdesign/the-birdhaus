@@ -23,6 +23,10 @@ export default async function ShowCrewPage({ params }: { params: Promise<{ id: s
   `;
   if (!show) notFound();
 
+  // bigint columns come back as strings from the driver; normalize the assigned
+  // photographer id to a number so it matches the (also-numeric) roster ids below.
+  const assignedPhotographerId = show.photographer_id != null ? Number(show.photographer_id) : null;
+
   const [bandRows, engineerRows, doorRoster, photographerRoster] = await Promise.all([
     sql<
       { band_id: number; name: string; contact_email: string | null; payment_method: string | null; photo: string | null; excluded: boolean }[]
@@ -94,7 +98,7 @@ export default async function ShowCrewPage({ params }: { params: Promise<{ id: s
       doorPersons={doorPersons}
       assignedDoorName={assignedDoorName}
       photographers={photographers}
-      assignedPhotographerId={show.photographer_id}
+      assignedPhotographerId={assignedPhotographerId}
     />
   );
 }

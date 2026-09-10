@@ -77,7 +77,7 @@ export default async function SettlementPage({ params }: { params: Promise<{ id:
   // just like the sound engineer and door person do.
   const assignedPhotographerName =
     show.photographer_id != null
-      ? photographerRows.find((p) => Number(p.id) === show.photographer_id)?.name ?? null
+      ? photographerRows.find((p) => Number(p.id) === Number(show.photographer_id))?.name ?? null
       : null;
   const photographerPhotos: Record<string, string> = {};
   for (const row of photographerRows) {
