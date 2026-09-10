@@ -27,10 +27,11 @@ export default async function SettlementPage({ params }: { params: Promise<{ id:
       date: string;
       sound_engineer_name: string | null;
       door_person_name: string | null;
+      photographer_id: number | null;
       walkin_count: number;
     }[]
   >`
-    select id, title, date::text as date, sound_engineer_name, door_person_name, walkin_count from shows where id = ${showId}
+    select id, title, date::text as date, sound_engineer_name, door_person_name, photographer_id, walkin_count from shows where id = ${showId}
   `;
   if (!show) notFound();
 
@@ -68,9 +69,16 @@ export default async function SettlementPage({ params }: { params: Promise<{ id:
   }));
 
   // Photographers registry — same treatment as sound engineers.
-  const photographerRows = await sql<{ name: string; photo: string | null; payment_method: string | null }[]>`
-    select name, photo, payment_method from photographers order by name asc
+  const photographerRows = await sql<{ id: number; name: string; photo: string | null; payment_method: string | null }[]>`
+    select id, name, photo, payment_method from photographers order by name asc
   `;
+  // The photographer booked to shoot this show (shows.photographer_id, set on the
+  // Crew tab) → their name, so a fresh settlement pre-fills the photographer payee
+  // just like the sound engineer and door person do.
+  const assignedPhotographerName =
+    show.photographer_id != null
+      ? photographerRows.find((p) => Number(p.id) === show.photographer_id)?.name ?? null
+      : null;
   const photographerPhotos: Record<string, string> = {};
   for (const row of photographerRows) {
     if (row.photo) photographerPhotos[row.name.trim().toLowerCase()] = row.photo;
@@ -117,6 +125,7 @@ export default async function SettlementPage({ params }: { params: Promise<{ id:
         ...DEFAULT_SETTLEMENT_VALUES,
         soundEngineerName: show.sound_engineer_name,
         doorPersonName: show.door_person_name,
+        photographerName: assignedPhotographerName,
         attendance: doorAttendance,
         incomeSquare: advanceTicketSalesDollars ?? DEFAULT_SETTLEMENT_VALUES.incomeSquare,
         expSquareFees: advanceTicketSalesDollars
