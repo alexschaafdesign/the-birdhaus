@@ -311,6 +311,14 @@ export default function ShowForm({
   const [submitting, setSubmitting] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // The Details form is split into two focused views over one shared form/save:
+  // "Show & lineup" (identity, bands, engineers) and "Public page & tickets"
+  // (tickets, media, page content). Past shows default to the public view since
+  // the gallery is the main post-show task.
+  const [view, setView] = useState<'show' | 'public'>(() => {
+    const d = initialValues?.date;
+    return d && /^\d{4}-\d{2}-\d{2}$/.test(d) && d < todayISODate() ? 'public' : 'show';
+  });
   const [photosUploading, setPhotosUploading] = useState(false);
   const [photosUploadProgress, setPhotosUploadProgress] = useState<{ done: number; total: number } | null>(
     null
@@ -544,10 +552,12 @@ export default function ShowForm({
 
     if (!form.title.trim()) {
       setError('Title is required');
+      setView('show');
       return;
     }
     if (!/^\d{4}-\d{2}-\d{2}$/.test(form.date)) {
       setError('Date is required');
+      setView('show');
       return;
     }
 
@@ -949,6 +959,28 @@ export default function ShowForm({
         </div>
       )}
 
+      <div className="inline-flex rounded-lg border border-[#E8E0D0]/25 p-0.5 text-sm">
+        {([
+          ['show', 'Show & lineup'],
+          ['public', 'Public page & tickets'],
+        ] as const).map(([value, label]) => (
+          <button
+            key={value}
+            type="button"
+            onClick={() => setView(value)}
+            className={`rounded-md px-3 py-1.5 transition-colors ${
+              view === value
+                ? 'bg-[#E8E0D0] text-[#2A2420] font-medium'
+                : 'text-[#E8E0D0]/60 hover:text-[#E8E0D0]'
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {view === 'show' && (
+      <>
       <Section
         title="Show details"
         action={
@@ -1032,10 +1064,6 @@ export default function ShowForm({
         </div>
       </div>
       </Section>
-
-      {/* For past shows the gallery is the priority, so surface it right here,
-          expanded. Upcoming shows render it lower down, collapsed. */}
-      {isPastShow && videosPhotosSection(true)}
 
       {!isPastShow && <ShowDateAvailability date={form.date} />}
 
@@ -1188,7 +1216,11 @@ export default function ShowForm({
           )}
         </div>
       </Section>
+      </>
+      )}
 
+      {view === 'public' && (
+      <>
       <Section title="Tickets & visibility" collapsible>
         <div className="grid gap-3 sm:grid-cols-2">
         <div>
@@ -1300,7 +1332,7 @@ export default function ShowForm({
         </Section>
       )}
 
-      {!isPastShow && videosPhotosSection(false)}
+      {videosPhotosSection(isPastShow)}
 
       <Section
         title="Audio"
@@ -1377,6 +1409,8 @@ export default function ShowForm({
           </div>
         </div>
       </details>
+      </>
+      )}
 
       <div className="flex items-center justify-between pt-2 border-t border-[#E8E0D0]/10">
         {mode === 'edit' ? (
