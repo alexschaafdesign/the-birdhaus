@@ -651,7 +651,9 @@ export default function ShowForm({
       ticketLimit: form.ticketLimit.trim() === '' ? null : Number(form.ticketLimit.trim()),
       rsvpForm: form.rsvpForm,
       videos: form.videos
-        .filter((v) => v.youtube.trim() && v.title.trim())
+        // Title is optional — keep any row that has a YouTube URL so a
+        // blank title no longer silently drops the video on save.
+        .filter((v) => v.youtube.trim())
         .map((v) => {
           // Remap each selected band from its original lineup position to where
           // it lands in the filtered (non-empty) bands array the server resolves.
