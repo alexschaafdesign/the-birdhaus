@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import SoundEngineerNameInput, { type SoundEngineerMatch } from './SoundEngineerNameInput';
 
 const inputClass =
   'bg-transparent border border-[#E8E0D0]/30 rounded px-3 py-1.5 text-sm focus:outline-none focus:border-[#E8E0D0] placeholder:text-[#E8E0D0]/30';
@@ -34,12 +35,6 @@ export interface CrewRegistryEntry {
   payoutHandle: string | null;
   photo: string | null;
 }
-
-const STATUS_STYLE: Record<CrewEngineer['status'], string> = {
-  confirmed: 'border-green-400/40 bg-green-400/10 text-green-300',
-  asked: 'border-[#E8E0D0]/25 bg-[#E8E0D0]/[0.06] text-[#E8E0D0]/60',
-  declined: 'border-red-400/30 bg-red-400/10 text-red-300/80',
-};
 
 function Avatar({ name, photo }: { name: string; photo: string | null }) {
   if (photo) {
@@ -90,6 +85,7 @@ function ContactRow({
   email: initialEmail,
   payout: initialPayout,
   badge,
+  onRemove,
 }: {
   name: string;
   photo: string | null;
@@ -97,6 +93,8 @@ function ContactRow({
   email: string | null;
   payout: string | null;
   badge?: React.ReactNode;
+  // When provided, renders a Remove control (used for the engineer roster).
+  onRemove?: () => void;
 }) {
   const [email, setEmail] = useState(initialEmail ?? '');
   const [payout, setPayout] = useState(initialPayout ?? '');
@@ -170,9 +168,176 @@ function ContactRow({
         <button type="button" onClick={save} disabled={saving || !dirty} className={buttonClass}>
           {saving ? 'Saving…' : 'Save'}
         </button>
+        {onRemove && (
+          <button
+            type="button"
+            onClick={onRemove}
+            className="text-xs text-red-400/70 hover:text-red-400 px-1"
+            aria-label={`Remove ${name}`}
+          >
+            Remove
+          </button>
+        )}
       </div>
       {error && <p className="mt-1.5 text-xs text-red-300">{error}</p>}
     </li>
+  );
+}
+
+const ENGINEER_STATUSES: CrewEngineer['status'][] = ['asked', 'confirmed', 'declined'];
+
+// Live roster + status editor for a show's sound engineers, replacing the old
+// section on the Details form. Status/remove save optimistically; adding an
+// engineer refreshes so the new row hydrates (photo + any saved contact info).
+// The whole set is PUT on every change (the shows route replaces it wholesale and
+// keeps shows.sound_engineer_name — the confirmed engineer — in sync).
+function CrewEngineers({
+  showId,
+  engineers: propEngineers,
+}: {
+  showId: number;
+  engineers: CrewEngineer[];
+}) {
+  const router = useRouter();
+  const [engineers, setEngineers] = useState<CrewEngineer[]>(propEngineers);
+  const [draftName, setDraftName] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Re-seed from the server whenever its list changes (e.g. after an add's refresh
+  // brings the new engineer in fully hydrated). Status/remove don't refresh, so
+  // this doesn't clobber their optimistic edits.
+  const propKey = propEngineers.map((e) => `${e.id}:${e.status}`).join('|');
+  useEffect(() => {
+    setEngineers(propEngineers);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [propKey]);
+
+  function toPayload(list: Array<{ id: number | null; name: string; status: CrewEngineer['status'] }>) {
+    return list.map((e) => ({ soundEngineerId: e.id, name: e.name, status: e.status }));
+  }
+
+  async function put(
+    payload: Array<{ id: number | null; name: string; status: CrewEngineer['status'] }>,
+    optimistic: CrewEngineer[] | null,
+    refresh: boolean
+  ) {
+    const prev = engineers;
+    if (optimistic) setEngineers(optimistic);
+    setSaving(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/admin/shows/${showId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ soundEngineers: toPayload(payload) }),
+      });
+      if (!res.ok) throw new Error(`Save failed (${res.status})`);
+      if (refresh) router.refresh();
+    } catch (e) {
+      if (optimistic) setEngineers(prev);
+      setError(e instanceof Error ? e.message : 'Save failed');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function changeStatus(id: number, status: CrewEngineer['status']) {
+    // Only one confirmed engineer per show — promoting one demotes any other.
+    const next = engineers.map((e) =>
+      e.id === id
+        ? { ...e, status }
+        : status === 'confirmed' && e.status === 'confirmed'
+          ? { ...e, status: 'asked' as const }
+          : e
+    );
+    put(next, next, false);
+  }
+
+  function removeEngineer(id: number) {
+    const next = engineers.filter((e) => e.id !== id);
+    put(next, next, false);
+  }
+
+  // Add an engineer — an existing one (id from the typeahead) or a brand-new name
+  // (id null; the shows route resolves/creates it). Refreshes so the new row
+  // hydrates from the server.
+  function addEngineer(entry: { id: number | null; name: string }) {
+    const name = entry.name.trim();
+    if (!name) return;
+    setDraftName('');
+    if (
+      (entry.id != null && engineers.some((e) => e.id === entry.id)) ||
+      engineers.some((e) => e.name.trim().toLowerCase() === name.toLowerCase())
+    ) {
+      return;
+    }
+    const payload = [
+      ...engineers.map((e) => ({ id: e.id as number | null, name: e.name, status: e.status })),
+      { id: entry.id, name, status: 'asked' as const },
+    ];
+    put(payload, null, true);
+  }
+
+  return (
+    <div className="space-y-3">
+      {error && (
+        <p className="text-xs text-red-300">{error}</p>
+      )}
+      {engineers.length > 0 ? (
+        <ul className="space-y-2">
+          {engineers.map((e) => (
+            <ContactRow
+              key={e.id}
+              name={e.name}
+              photo={e.photo}
+              endpoint={`/api/admin/sound-engineers/${e.id}`}
+              email={e.email}
+              payout={e.payoutHandle}
+              badge={
+                <select
+                  value={e.status}
+                  onChange={(ev) => changeStatus(e.id, ev.target.value as CrewEngineer['status'])}
+                  disabled={saving}
+                  aria-label={`${e.name} status`}
+                  className={`${inputClass} py-0.5 text-xs capitalize disabled:opacity-50`}
+                >
+                  {ENGINEER_STATUSES.map((s) => (
+                    <option key={s} value={s} className="text-[#2A2420] capitalize">
+                      {s}
+                    </option>
+                  ))}
+                </select>
+              }
+              onRemove={() => removeEngineer(e.id)}
+            />
+          ))}
+        </ul>
+      ) : (
+        <p className="text-sm text-[#E8E0D0]/40">
+          No sound engineers yet — add whoever you&apos;ve reached out to and mark one confirmed.
+        </p>
+      )}
+
+      <div className="flex flex-wrap items-center gap-2 pt-1">
+        <SoundEngineerNameInput
+          value={draftName}
+          onChange={setDraftName}
+          onSelect={(m: SoundEngineerMatch) => addEngineer({ id: m.id, name: m.name })}
+          placeholder="Add an engineer — pick or type a new name…"
+          className={`${inputClass} w-full sm:max-w-sm`}
+        />
+        <button
+          type="button"
+          onClick={() => addEngineer({ id: null, name: draftName })}
+          disabled={saving || !draftName.trim()}
+          className={buttonClass}
+        >
+          + Add
+        </button>
+        {saving && <span className="text-xs text-[#E8E0D0]/50">Saving…</span>}
+      </div>
+    </div>
   );
 }
 
@@ -293,36 +458,14 @@ export default function ShowCrewPanel({
 
       <Section
         title="Sound engineers"
-        subtitle="Who's been asked, and who's confirmed. Manage the lineup and statuses on Details."
+        subtitle="Everyone you've asked, and who's confirmed. At most one can be confirmed — picking a new one steps the others back to asked."
         action={
-          <Link href={`/admin/shows/${showId}`} className="text-xs text-[#E8E0D0]/50 hover:text-[#E8E0D0] underline">
-            Manage on Details →
+          <Link href="/admin/crew" className="text-xs text-[#E8E0D0]/50 hover:text-[#E8E0D0] underline">
+            Manage roster →
           </Link>
         }
       >
-        {engineers.length === 0 ? (
-          <p className="text-sm text-[#E8E0D0]/40">
-            No sound engineers yet — add them on Details and mark one confirmed.
-          </p>
-        ) : (
-          <ul className="space-y-2">
-            {engineers.map((e) => (
-              <ContactRow
-                key={e.id}
-                name={e.name}
-                photo={e.photo}
-                endpoint={`/api/admin/sound-engineers/${e.id}`}
-                email={e.email}
-                payout={e.payoutHandle}
-                badge={
-                  <span className={`rounded-full border px-1.5 text-[10px] capitalize ${STATUS_STYLE[e.status]}`}>
-                    {e.status}
-                  </span>
-                }
-              />
-            ))}
-          </ul>
-        )}
+        <CrewEngineers showId={showId} engineers={engineers} />
       </Section>
 
       <Section
