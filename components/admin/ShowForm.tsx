@@ -191,7 +191,6 @@ interface FormState {
   flyer: string;
   bands: Band[];
   description: string;
-  doorPersonName: string;
   ticketUrl: string;
   externalTicketUrl: string;
   // Online ticket cap as a string ('' = no cap) so the input can be cleared.
@@ -202,10 +201,6 @@ interface FormState {
   // Gallery photos with their per-photo photographer credit (id only; name is
   // cached separately for display). Uploading is the only way to add.
   photos: PhotoEntry[];
-  // Registry photographer booked to shoot this show (shows.photographer_id) —
-  // drives the crew photographer's Queue. Also seeds activePhotographer below so
-  // uploaded photos default to being credited to them.
-  assignedPhotographer: { id: number | null; name: string };
   // The photographer newly uploaded photos are credited to, and the target for
   // click-to-recredit. Not persisted on its own — it just drives new entries.
   activePhotographer: { id: number | null; name: string };
@@ -243,7 +238,6 @@ function initFormState(initial?: ShowFormInitialValues): FormState {
           }
     ),
     description: initial?.description ?? '',
-    doorPersonName: initial?.doorPersonName ?? '',
     ticketUrl: initial?.ticketUrl ?? '',
     externalTicketUrl: initial?.externalTicketUrl ?? '',
     ticketLimit:
@@ -269,11 +263,8 @@ function initFormState(initial?: ShowFormInitialValues): FormState {
         ? { url: p, photographerId: null }
         : { url: p.url, photographerId: p.photographerId ?? null }
     ),
-    assignedPhotographer: {
-      id: initial?.assignedPhotographerId ?? null,
-      name: initial?.assignedPhotographerName ?? '',
-    },
-    // Uploads default to crediting the assigned photographer.
+    // Uploads default to crediting the show's assigned photographer (set on the
+    // Crew tab); the photographer booking itself lives there now.
     activePhotographer: {
       id: initial?.assignedPhotographerId ?? null,
       name: initial?.assignedPhotographerName ?? '',
@@ -326,10 +317,6 @@ export default function ShowForm({
   );
   const photosFileInputRef = useRef<HTMLInputElement>(null);
   const [twinSceneBands, setTwinSceneBands] = useState<TwinSceneBandOption[]>([]);
-  // Full door-person roster for the door-person dropdown below, loaded once on
-  // mount. Best-effort: on a failed fetch the dropdown just shows whatever name
-  // is already saved (preserved as its own option) plus "Unassigned".
-  const [doorPersons, setDoorPersons] = useState<string[]>([]);
   // Which band row (index) opened the full band modal, and the name to prefill
   // it with. `editBandId` set → edit that existing band's Twin Scene profile;
   // absent → create a new band. null when the modal is closed.
@@ -362,25 +349,6 @@ export default function ShowForm({
       })
       .catch(() => {
         // degrade to local-only typeahead
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  // Load the door-person roster once for the dropdown. The query-less GET
-  // returns the full list ordered by name.
-  useEffect(() => {
-    let cancelled = false;
-    fetch('/api/admin/door-persons')
-      .then((res) => (res.ok ? res.json() : []))
-      .then((data) => {
-        if (!cancelled && Array.isArray(data)) {
-          setDoorPersons(data.map((d: { name: string }) => d.name));
-        }
-      })
-      .catch(() => {
-        // degrade to just the saved value + "Unassigned"
       });
     return () => {
       cancelled = true;
@@ -643,9 +611,6 @@ export default function ShowForm({
       // sent: on create it defaults to null, and on edit an omitted key leaves
       // any existing legacy credit untouched (the public page prefers per-photo
       // credits over it anyway).
-      // Sent even when blank (empty string, not undefined) so clearing it on
-      // edit actually persists — both show routes normalize blank to null.
-      doorPersonName: form.doorPersonName.trim(),
       ticketUrl: form.ticketUrl.trim(),
       externalTicketUrl: form.externalTicketUrl.trim(),
       // '' clears the cap (null = unlimited); otherwise the parsed integer.
@@ -671,7 +636,6 @@ export default function ShowForm({
       photos: form.photos
         .map((p) => ({ url: p.url.trim(), photographerId: p.photographerId }))
         .filter((p) => p.url),
-      assignedPhotographerId: form.assignedPhotographer.id,
       photoFolder: form.photoFolder.trim(),
       photoCredit: form.photoCredit.trim(),
       content: form.content,
@@ -828,36 +792,6 @@ export default function ShowForm({
         </div>
 
         <div className="pt-4 border-t border-[#E8E0D0]/10 space-y-3">
-          <div>
-            <label className="block text-xs uppercase tracking-wide text-[#E8E0D0]/40 mb-1">
-              Assigned photographer
-            </label>
-            <PhotographerNameInput
-              value={form.assignedPhotographer.name}
-              onChange={(value) =>
-                setForm((prev) => ({ ...prev, assignedPhotographer: { id: null, name: value } }))
-              }
-              onSelect={(match: PhotographerMatch) =>
-                setForm((prev) => ({
-                  ...prev,
-                  assignedPhotographer: { id: match.id, name: match.name },
-                  photographerNames: { ...prev.photographerNames, [match.id]: match.name },
-                  // If no per-photo credit has been chosen yet, default uploads
-                  // to the assigned photographer.
-                  activePhotographer:
-                    prev.activePhotographer.id == null
-                      ? { id: match.id, name: match.name }
-                      : prev.activePhotographer,
-                }))
-              }
-              placeholder="Who's shooting this show?"
-              className={`${inputClass} w-full sm:max-w-sm`}
-            />
-            <p className="mt-1 text-xs text-[#E8E0D0]/40 max-w-prose">
-              Books a photographer to shoot this show. It shows up in their crew Queue, and past
-              shows with no photos yet get a “needs photos” flag on their end.
-            </p>
-          </div>
           <div>
             <label className="block text-xs uppercase tracking-wide text-[#E8E0D0]/40 mb-1">
               Photographer for these photos
@@ -1252,43 +1186,6 @@ export default function ShowForm({
               &ldquo;Confirmed&rdquo; once they&apos;re locked in.
             </p>
           )}
-        </div>
-      </Section>
-
-      <Section title="Door person" collapsible>
-        <div>
-          <label className="block text-xs uppercase tracking-wide text-[#E8E0D0]/40 mb-1">Door person name</label>
-          {(() => {
-            // Match the saved name to the roster case-insensitively so the
-            // dropdown highlights the registry's casing; keep an unmatched
-            // saved value (e.g. one typed before the roster existed) as its own
-            // option so it's never silently dropped on save.
-            const name = form.doorPersonName;
-            const matched = doorPersons.find(
-              (n) => n.trim().toLowerCase() === name.trim().toLowerCase()
-            );
-            return (
-              <select
-                value={matched ?? name}
-                onChange={(e) => set('doorPersonName', e.target.value)}
-                className={`${inputClass} w-full sm:max-w-sm`}
-              >
-                <option value="" className="text-[#2A2420]">Unassigned</option>
-                {name && !matched && (
-                  <option value={name} className="text-[#2A2420]">{name}</option>
-                )}
-                {doorPersons.map((n) => (
-                  <option key={n} value={n} className="text-[#2A2420]">
-                    {n}
-                  </option>
-                ))}
-              </select>
-            );
-          })()}
-          <p className="mt-1 text-xs text-[#E8E0D0]/30">
-            Who&apos;s working the door. Pre-fills the door-person payee on this show&apos;s{' '}
-            settlement — manage the roster under Crew → Door People.
-          </p>
         </div>
       </Section>
 
