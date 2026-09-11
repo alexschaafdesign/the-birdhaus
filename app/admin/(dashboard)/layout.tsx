@@ -1,5 +1,4 @@
 import { redirect } from 'next/navigation';
-import LogoutButton from '@/components/admin/LogoutButton';
 import AdminNav from '@/components/admin/AdminNav';
 import { isAdminSession } from '@/lib/admin-session';
 
@@ -14,10 +13,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   return (
     <div className="min-h-screen">
       <div className="max-w-6xl mx-auto px-6 pt-8">
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold">Birdhaus Admin</h1>
-          <LogoutButton />
-        </div>
+        <h1 className="text-2xl font-bold">Birdhaus Admin</h1>
         <AdminNav />
       </div>
       {children}
