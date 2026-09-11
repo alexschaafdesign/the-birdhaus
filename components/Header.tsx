@@ -134,7 +134,7 @@ export default function Header({ isAdmin = false }: { isAdmin?: boolean }) {
                 <path d="M3 10.5 12 3l9 7.5" />
                 <path d="M5 9.5V21h14V9.5" />
               </svg>
-              Home
+              Admin
             </Link>
             <button
               type="button"
