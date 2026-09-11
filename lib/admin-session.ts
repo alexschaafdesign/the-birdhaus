@@ -6,17 +6,15 @@ import { SESSION_COOKIE, verifyAdminToken } from '@/lib/auth';
 // Split from lib/auth.ts so next/headers and the DB client (Node-only) don't
 // get pulled into proxy.ts's Edge middleware bundle.
 
-export type AdminSession = { kind: 'operator' } | { kind: 'staff'; userId: number };
+export type AdminSession = { kind: 'staff'; userId: number };
 
-// The verified admin session for the current request, or null. Operator tokens
-// are pure HMAC (no DB); staff tokens are re-checked against the users table so
-// a disabled account or bumped session_epoch locks the holder out immediately,
-// signed cookie or not.
+// The verified admin session for the current request, or null. Staff tokens are
+// re-checked against the users table so a disabled account or bumped
+// session_epoch locks the holder out immediately, signed cookie or not.
 export async function getAdminSession(): Promise<AdminSession | null> {
   const token = (await cookies()).get(SESSION_COOKIE)?.value;
   const info = await verifyAdminToken(token);
   if (!info) return null;
-  if (info.kind === 'operator') return { kind: 'operator' };
 
   const [row] = await sql<Array<{ status: string; session_epoch: number }>>`
     select status, session_epoch from users where id = ${info.userId}

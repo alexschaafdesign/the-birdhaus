@@ -5,7 +5,9 @@ import { SESSION_COOKIE, verifyAdminToken } from '@/lib/auth';
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  const isLoginRoute = pathname === '/admin/login' || pathname === '/api/admin/login';
+  // /admin/login is now just a redirect shim to the unified /login; leave it
+  // ungated so it can forward without a middleware loop.
+  const isLoginRoute = pathname === '/admin/login';
   const isAdminPage = pathname.startsWith('/admin') && !isLoginRoute;
   const isAdminApi = pathname.startsWith('/api/admin') && !isLoginRoute;
 
@@ -25,7 +27,7 @@ export async function proxy(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const loginUrl = new URL('/admin/login', request.url);
+  const loginUrl = new URL('/login', request.url);
   loginUrl.searchParams.set('next', pathname);
   return NextResponse.redirect(loginUrl);
 }
