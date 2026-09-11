@@ -39,7 +39,7 @@ const navItems: NavItem[] = [
   { type: 'link', href: '/contact', label: 'Contact' },
 ];
 
-export default function Header() {
+export default function Header({ isAdmin = false }: { isAdmin?: boolean }) {
   const pathname = usePathname();
   const router = useRouter();
   const [openDropdown, setOpenDropdown] = useState(false);
@@ -112,7 +112,69 @@ export default function Header() {
   return (
     <header className="relative pt-12 pb-8 px-8">
       <div className="absolute right-4 top-4 sm:right-8 sm:top-6">
-        {!showAuth || me === undefined ? null : me === null ? (
+        {isAdmin ? (
+          // Admins get a yellow split control on every page (this replaces the
+          // old admin banner): the left half jumps to the dashboard, the caret
+          // opens Account settings + Log out. Never the club Log in button.
+          <div className="relative flex items-stretch" ref={userMenuRef}>
+            <Link
+              href="/admin"
+              className="inline-flex items-center gap-1.5 rounded-l-full bg-yellow-500 py-1.5 pl-3 pr-2.5 text-sm font-semibold text-black transition-colors hover:bg-yellow-400"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                className="h-4 w-4"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M3 10.5 12 3l9 7.5" />
+                <path d="M5 9.5V21h14V9.5" />
+              </svg>
+              Home
+            </Link>
+            <button
+              type="button"
+              onClick={() => setUserMenuOpen((open) => !open)}
+              aria-expanded={userMenuOpen}
+              aria-label="Account menu"
+              className="flex items-center rounded-r-full border-l border-black/20 bg-yellow-500 px-2 text-black transition-colors hover:bg-yellow-400"
+            >
+              <svg
+                viewBox="0 0 12 8"
+                className={`h-2.5 w-2.5 fill-current transition-transform ${userMenuOpen ? 'rotate-180' : ''}`}
+                aria-hidden="true"
+              >
+                <path d="M1 1.5 6 6.5 11 1.5" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </button>
+            {userMenuOpen && (
+              <div className="absolute right-0 top-full z-40 pt-2">
+                <div className="min-w-[10rem] whitespace-nowrap rounded-lg border border-[#E8E0D0]/20 bg-[#3A322B] py-1.5 shadow-[0_12px_24px_-8px_rgba(0,0,0,0.7)]">
+                  {me && (
+                    <Link
+                      href="/account"
+                      className="block px-4 py-2 text-left text-sm hover:bg-[#E8E0D0]/10"
+                      onClick={() => setUserMenuOpen(false)}
+                    >
+                      Account settings
+                    </Link>
+                  )}
+                  <button
+                    type="button"
+                    onClick={handleLogout}
+                    className="block w-full px-4 py-2 text-left text-sm hover:bg-[#E8E0D0]/10"
+                  >
+                    Log out
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        ) : !showAuth || me === undefined ? null : me === null ? (
           <Link
             href="/login"
             className="rounded border border-[#E8E0D0]/30 px-3 py-1.5 text-sm transition-colors hover:border-[#E8E0D0] hover:bg-[#E8E0D0]/5"
