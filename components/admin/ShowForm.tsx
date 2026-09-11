@@ -201,6 +201,41 @@ interface FormState {
 }
 
 function initFormState(initial?: ShowFormInitialValues): FormState {
+  const bands = (initial?.bands ?? []).map((b) =>
+    typeof b === 'string'
+      ? { bandId: null, name: b, instagram: '', bio: '', photo: '' }
+      : {
+          bandId: b.bandId ?? null,
+          name: b.name,
+          instagram: b.instagram ?? '',
+          bio: b.bio ?? '',
+          photo: b.photo ?? '',
+        }
+  );
+
+  const existingVideos: Video[] = (initial?.videos ?? []).map((v) => ({
+    youtube: v.youtube,
+    title: v.title,
+    // Reverse-map each stored bandId back to a position in the bands list
+    // above so the pickers pre-select correctly. Bands no longer in this
+    // show's lineup are dropped.
+    bandIndexes: (v.bandIds ?? [])
+      .map((id) =>
+        (initial?.bands ?? []).findIndex((b) => typeof b !== 'string' && b.bandId === Number(id))
+      )
+      .filter((idx) => idx >= 0),
+  }));
+
+  // For a past show that has no videos yet, seed one empty video row per band
+  // (pre-tagged to that band) so filling in the recap is a matter of pasting
+  // links, not adding rows one at a time. Blank rows are dropped on save, and
+  // "+ add video" still works for shows that need more.
+  const isPast = /^\d{4}-\d{2}-\d{2}$/.test(initial?.date ?? '') && (initial?.date ?? '') < todayISODate();
+  const videos: Video[] =
+    isPast && existingVideos.length === 0 && bands.length > 0
+      ? bands.map((_, i) => ({ youtube: '', title: '', bandIndexes: [i] }))
+      : existingVideos;
+
   return {
     slug: initial?.slug ?? '',
     slugTouched: Boolean(initial?.slug),
@@ -209,17 +244,7 @@ function initFormState(initial?: ShowFormInitialValues): FormState {
     doorsTime: initial?.doorsTime ?? '',
     showTime: initial?.showTime ?? '',
     flyer: initial?.flyer ?? '',
-    bands: (initial?.bands ?? []).map((b) =>
-      typeof b === 'string'
-        ? { bandId: null, name: b, instagram: '', bio: '', photo: '' }
-        : {
-            bandId: b.bandId ?? null,
-            name: b.name,
-            instagram: b.instagram ?? '',
-            bio: b.bio ?? '',
-            photo: b.photo ?? '',
-          }
-    ),
+    bands,
     description: initial?.description ?? '',
     ticketUrl: initial?.ticketUrl ?? '',
     externalTicketUrl: initial?.externalTicketUrl ?? '',
@@ -228,18 +253,7 @@ function initFormState(initial?: ShowFormInitialValues): FormState {
         ? ''
         : String(initial.ticketLimit),
     rsvpForm: initial?.rsvpForm ?? true,
-    videos: (initial?.videos ?? []).map((v) => ({
-      youtube: v.youtube,
-      title: v.title,
-      // Reverse-map each stored bandId back to a position in the bands list
-      // above so the pickers pre-select correctly. Bands no longer in this
-      // show's lineup are dropped.
-      bandIndexes: (v.bandIds ?? [])
-        .map((id) =>
-          (initial?.bands ?? []).findIndex((b) => typeof b !== 'string' && b.bandId === Number(id))
-        )
-        .filter((idx) => idx >= 0),
-    })),
+    videos,
     audio: initial?.audio ?? [],
     photos: (initial?.photos ?? []).map((p) =>
       typeof p === 'string'
