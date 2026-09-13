@@ -11,6 +11,7 @@ import {
   createGroups,
   deleteGroup,
   distributeUnassigned,
+  getGroup,
   listGroupRoster,
   listGroups,
 } from '@/lib/club-groups';
@@ -68,9 +69,22 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   }
 
   if (typeof body?.deleteGroupId === 'number') {
-    const { ok, freed } = await deleteGroup(eventId, body.deleteGroupId);
-    if (!ok) return NextResponse.json({ error: 'Group not found' }, { status: 404 });
-    return refreshed({ freed });
+    const result = await deleteGroup(eventId, body.deleteGroupId);
+    if (!result.ok) {
+      if (result.reason === 'has_posts') {
+        const group = await getGroup(body.deleteGroupId);
+        const name = group?.name ?? 'This group';
+        const posts = result.postCount === 1 ? '1 post' : `${result.postCount} posts`;
+        return NextResponse.json(
+          {
+            error: `${name} has ${posts} on its board and can't be removed. Remove the posts first.`,
+          },
+          { status: 409 }
+        );
+      }
+      return NextResponse.json({ error: 'Group not found' }, { status: 404 });
+    }
+    return refreshed({ freed: result.freed });
   }
 
   if (typeof body?.daysOpen === 'string') {

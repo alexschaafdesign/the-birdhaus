@@ -112,20 +112,30 @@ export async function createGroups(
 // Remove a group. Nothing is deleted beyond the group row itself: its members'
 // group_id resets to null (the FK is ON DELETE SET NULL, migration 083), so
 // they become unassigned and — because a track's group is DERIVED from its
-// uploader's group_id — their songs move to the Unassigned section. Any posts
-// on the group's board likewise fall back to the event board. Returns the
-// number of members that were freed, for the confirmation the caller shows.
+// uploader's group_id — their songs move to the Unassigned section.
+//
+// BUT the posts FK is also ON DELETE SET NULL, which would silently relocate
+// the group's private board chat onto the event-wide announcement board. We
+// refuse rather than do that: a group with any board posts can't be removed
+// until the posts are cleared. Returns { ok:false, postCount } in that case so
+// the caller can explain why; { ok:true, freed } (member count) on success.
 export async function deleteGroup(
   eventId: number,
   groupId: number
-): Promise<{ ok: boolean; freed: number }> {
-  const [g] = await sql<Array<{ member_count: number }>>`
+): Promise<{ ok: true; freed: number } | { ok: false; reason: 'not_found' | 'has_posts'; postCount: number }> {
+  const [g] = await sql<Array<{ member_count: number; post_count: number }>>`
     select (
       select count(*)::int from song_club_event_attendees a where a.group_id = ${groupId}
-    ) as member_count
+    ) as member_count,
+    (
+      select count(*)::int from song_club_posts p where p.group_id = ${groupId}
+    ) as post_count
     from song_club_groups where id = ${groupId} and event_id = ${eventId}
   `;
-  if (!g) return { ok: false, freed: 0 };
+  if (!g) return { ok: false, reason: 'not_found', postCount: 0 };
+  if (Number(g.post_count) > 0) {
+    return { ok: false, reason: 'has_posts', postCount: Number(g.post_count) };
+  }
   await sql`delete from song_club_groups where id = ${groupId} and event_id = ${eventId}`;
   return { ok: true, freed: Number(g.member_count) };
 }
