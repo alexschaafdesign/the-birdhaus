@@ -70,11 +70,34 @@ export async function getGroup(id: number): Promise<ClubGroup | null> {
 // Create the event's groups in one go, auto-named Group A…. No-ops (returns
 // the existing set) if the event already has groups — the admin UI offers
 // creation only when there are none.
-export async function createGroups(eventId: number, count: number): Promise<ClubGroup[]> {
+//
+// A group always collects songs, so making the event's first group also
+// ensures the event has a (locked, uploads-closed) playlist — created and
+// linked in the SAME transaction as the groups. Pass ensurePlaylistTitle (the
+// event title) to enable this; if the event already has a playlist it's a
+// no-op, leaving existing events untouched.
+export async function createGroups(
+  eventId: number,
+  count: number,
+  ensurePlaylistTitle?: string
+): Promise<ClubGroup[]> {
   const n = Math.max(2, Math.min(GROUP_NAMES.length, Math.floor(count)));
   const existing = await listGroups(eventId);
   if (existing.length > 0) return existing;
   await sql.begin(async (tx) => {
+    if (ensurePlaylistTitle !== undefined) {
+      const [ev] = await tx<Array<{ playlist_id: number | null }>>`
+        select playlist_id from song_club_events where id = ${eventId} for update
+      `;
+      if (ev && ev.playlist_id == null) {
+        const title = ensurePlaylistTitle.trim().slice(0, 200) || 'Songs';
+        const [pl] = await tx<Array<{ id: number }>>`
+          insert into song_club_playlists (title, locked) values (${title}, true)
+          returning id
+        `;
+        await tx`update song_club_events set playlist_id = ${pl.id} where id = ${eventId}`;
+      }
+    }
     for (let i = 0; i < n; i++) {
       await tx`
         insert into song_club_groups (event_id, name, position, slug)
@@ -84,6 +107,37 @@ export async function createGroups(eventId: number, count: number): Promise<Club
     }
   });
   return listGroups(eventId);
+}
+
+// Remove a group. Nothing is deleted beyond the group row itself: its members'
+// group_id resets to null (the FK is ON DELETE SET NULL, migration 083), so
+// they become unassigned and — because a track's group is DERIVED from its
+// uploader's group_id — their songs move to the Unassigned section.
+//
+// BUT the posts FK is also ON DELETE SET NULL, which would silently relocate
+// the group's private board chat onto the event-wide announcement board. We
+// refuse rather than do that: a group with any board posts can't be removed
+// until the posts are cleared. Returns { ok:false, postCount } in that case so
+// the caller can explain why; { ok:true, freed } (member count) on success.
+export async function deleteGroup(
+  eventId: number,
+  groupId: number
+): Promise<{ ok: true; freed: number } | { ok: false; reason: 'not_found' | 'has_posts'; postCount: number }> {
+  const [g] = await sql<Array<{ member_count: number; post_count: number }>>`
+    select (
+      select count(*)::int from song_club_event_attendees a where a.group_id = ${groupId}
+    ) as member_count,
+    (
+      select count(*)::int from song_club_posts p where p.group_id = ${groupId}
+    ) as post_count
+    from song_club_groups where id = ${groupId} and event_id = ${eventId}
+  `;
+  if (!g) return { ok: false, reason: 'not_found', postCount: 0 };
+  if (Number(g.post_count) > 0) {
+    return { ok: false, reason: 'has_posts', postCount: Number(g.post_count) };
+  }
+  await sql`delete from song_club_groups where id = ${groupId} and event_id = ${eventId}`;
+  return { ok: true, freed: Number(g.member_count) };
 }
 
 // The viewer's group for an event (null = unassigned or not an attendee).

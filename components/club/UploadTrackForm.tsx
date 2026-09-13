@@ -63,8 +63,16 @@ export default function UploadTrackForm({
   const [file, setFile] = useState<File | null>(null);
   const [title, setTitle] = useState('');
   const [notes, setNotes] = useState('');
+  // Show the destination picker only when there's a real choice — two or more
+  // playlists to pick among. With a single playlist the song goes there
+  // implicitly; with none it's just a single. Either way, no needless field.
+  const showPlaylistPicker = playlists.length >= 2;
   const [playlistId, setPlaylistId] = useState<string>(
-    defaultPlaylistId ? String(defaultPlaylistId) : ''
+    defaultPlaylistId
+      ? String(defaultPlaylistId)
+      : playlists.length === 1
+        ? String(playlists[0].id)
+        : ''
   );
   // '' = "use the default" (today, clamped into the event's range) so the
   // right day stays selected when switching rounds.
@@ -229,24 +237,26 @@ export default function UploadTrackForm({
         />
       </div>
 
-      <div>
-        <label htmlFor="track-playlist" className={labelClass}>
-          Add to a round
-        </label>
-        <select
-          id="track-playlist"
-          value={playlistId}
-          onChange={(e) => setPlaylistId(e.target.value)}
-          className={inputBase}
-        >
-          <option value="">None — just a single</option>
-          {playlists.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.title}
-            </option>
-          ))}
-        </select>
-      </div>
+      {showPlaylistPicker && (
+        <div>
+          <label htmlFor="track-playlist" className={labelClass}>
+            Add to a playlist
+          </label>
+          <select
+            id="track-playlist"
+            value={playlistId}
+            onChange={(e) => setPlaylistId(e.target.value)}
+            className={inputBase}
+          >
+            <option value="">None — just a single</option>
+            {playlists.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.title}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
 
       {range && dayOptions.length > 0 && (
         <div>
@@ -296,7 +306,7 @@ export default function UploadTrackForm({
         disabled={busy || !file}
         className="w-full rounded-md bg-[#E8E0D0] px-6 py-2.5 text-sm font-semibold text-[#2A2420] transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
       >
-        {busy ? 'Uploading…' : 'Upload track'}
+        {busy ? 'Uploading…' : 'Upload song'}
       </button>
     </form>
   );

@@ -9,7 +9,9 @@ import {
 import {
   assignAttendeeGroup,
   createGroups,
+  deleteGroup,
   distributeUnassigned,
+  getGroup,
   listGroupRoster,
   listGroups,
 } from '@/lib/club-groups';
@@ -20,6 +22,7 @@ import {
 //   { create: { count } }                make the event's groups (Group A…)
 //   { assign: { userId, groupId } }      move one attendee (groupId null = unassign)
 //   { distribute: true }                 spread ONLY unassigned attendees evenly
+//   { deleteGroupId: number }            remove a group (members -> unassigned)
 //   { daysOpen: 'current' | ... }        how many day sections open by default
 //
 // Every shape returns the refreshed groups + per-attendee assignments so the
@@ -28,7 +31,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   const denied = await requireAdmin();
   if (denied) return denied;
   const eventId = Number((await params).id);
-  if (!Number.isInteger(eventId) || !(await getEventById(eventId))) {
+  const event = Number.isInteger(eventId) ? await getEventById(eventId) : null;
+  if (!event) {
     return NextResponse.json({ error: 'Event not found' }, { status: 404 });
   }
 
@@ -44,7 +48,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   }
 
   if (body?.create && typeof body.create.count === 'number') {
-    await createGroups(eventId, body.create.count);
+    // Ensure the event has a playlist first (a group always collects songs);
+    // idempotent for events that already have one.
+    await createGroups(eventId, body.create.count, event.title);
     return refreshed();
   }
 
@@ -60,6 +66,25 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   if (body?.distribute === true) {
     const assigned = await distributeUnassigned(eventId);
     return refreshed({ assigned });
+  }
+
+  if (typeof body?.deleteGroupId === 'number') {
+    const result = await deleteGroup(eventId, body.deleteGroupId);
+    if (!result.ok) {
+      if (result.reason === 'has_posts') {
+        const group = await getGroup(body.deleteGroupId);
+        const name = group?.name ?? 'This group';
+        const posts = result.postCount === 1 ? '1 post' : `${result.postCount} posts`;
+        return NextResponse.json(
+          {
+            error: `${name} has ${posts} on its board and can't be removed. Remove the posts first.`,
+          },
+          { status: 409 }
+        );
+      }
+      return NextResponse.json({ error: 'Group not found' }, { status: 404 });
+    }
+    return refreshed({ freed: result.freed });
   }
 
   if (typeof body?.daysOpen === 'string') {

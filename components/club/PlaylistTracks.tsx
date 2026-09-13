@@ -280,7 +280,7 @@ export default function PlaylistTracks({
               onClick={() => removeFromRound(track.id)}
               className="transition hover:text-[#F5A3A3]"
             >
-              remove from round
+              remove
             </button>
           </div>
         )}
@@ -304,7 +304,7 @@ export default function PlaylistTracks({
   if (tracks.length === 0 || (sections && sections.length === 0)) {
     return (
       <p className="text-sm text-[#E8E0D0]/40">
-        No tracks in this round yet — be the first to upload one.
+        No songs yet — be the first to upload one.
       </p>
     );
   }

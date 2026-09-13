@@ -11,7 +11,7 @@ import ClubUserMenu from '@/components/club/ClubUserMenu';
 
 export const metadata: Metadata = {
   title: 'Song Club',
-  description: 'A Birdhaus songwriting community — events, rounds, and the group thread.',
+  description: 'A Birdhaus songwriting community — events, songs, and the group thread.',
 };
 
 export const dynamic = 'force-dynamic';
@@ -32,7 +32,7 @@ export default async function SongClubPage() {
         <SongClubLogo className="mx-auto h-20 w-20" />
         <h1 className="mt-5 text-3xl font-semibold">Song Club</h1>
         <p className="mx-auto mt-3 max-w-md text-[15px] leading-relaxed text-[#E8E0D0]/70">
-          A Birdhaus songwriting community — song-a-day rounds, monthly meetups,
+          A Birdhaus songwriting community — song-a-day challenges, monthly meetups,
           and a place to share works in progress. What&apos;s shared here stays
           between members.
         </p>
@@ -69,7 +69,7 @@ export default async function SongClubPage() {
             <h1 className="text-2xl font-semibold sm:text-3xl">Song Club</h1>
             <p className="mt-1 text-sm text-[#E8E0D0]/60">
               {canAct
-                ? 'Events, rounds, and the group thread.'
+                ? 'Events, songs, and the group thread.'
                 : 'Take a look around — log in to post, upload, or join an event.'}
             </p>
           </div>
@@ -128,7 +128,7 @@ export default async function SongClubPage() {
                   </div>
                   <div className="mt-1 text-sm text-[#E8E0D0]/55">
                     {[
-                      e.playlistId ? `${e.trackCount} track${e.trackCount === 1 ? '' : 's'}` : null,
+                      e.playlistId ? `${e.trackCount} song${e.trackCount === 1 ? '' : 's'}` : null,
                       e.attendeeCount
                         ? `${e.attendeeCount} musician${e.attendeeCount === 1 ? '' : 's'}`
                         : null,

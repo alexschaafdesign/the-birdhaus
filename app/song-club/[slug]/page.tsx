@@ -145,6 +145,20 @@ export default async function SongClubEventPage({
         <h1 className="mt-1 text-2xl font-semibold sm:text-3xl">{event.title}</h1>
       </header>
 
+      {/* Admin controls — always available, no matter whether songs are
+          enabled or any groups exist yet. Group management lives one click
+          away; the song-uploads control sits with the songs below. */}
+      {unlocked && admin && online && (
+        <div className="mt-4 flex flex-wrap items-center gap-4">
+          <Link
+            href={`/admin/song-club/${event.id}/rsvps`}
+            className="text-[11px] text-[#E8E0D0]/50 underline-offset-2 transition hover:text-[#E8E0D0] hover:underline"
+          >
+            Manage groups
+          </Link>
+        </div>
+      )}
+
       {/* Group directory — when the event is split into groups. */}
       {unlocked && hasGroups && (
         <>
@@ -182,7 +196,7 @@ export default async function SongClubEventPage({
                   href={`/song-club/upload?playlist=${round.id}`}
                   className="mt-3 inline-block rounded-md bg-[#E8E0D0] px-3.5 py-1.5 text-sm font-semibold text-[#2A2420] transition hover:bg-white"
                 >
-                  + Upload your track
+                  + Upload your song
                 </Link>
               )}
             </section>
@@ -193,15 +207,9 @@ export default async function SongClubEventPage({
               <h2 className="text-xs font-semibold uppercase tracking-wide text-[#E8E0D0]/45">
                 {viewerGroup ? 'Pop over to the other groups' : 'Groups'}
               </h2>
-              {admin && (
+              {admin && round && (
                 <span className="flex items-center gap-3">
-                  {round && <RoundLockToggle playlistId={round.id} locked={round.locked} />}
-                  <Link
-                    href={`/admin/song-club/${event.id}/rsvps`}
-                    className="text-[11px] text-[#E8E0D0]/50 underline-offset-2 transition hover:text-[#E8E0D0] hover:underline"
-                  >
-                    Manage groups
-                  </Link>
+                  <RoundLockToggle playlistId={round.id} locked={round.locked} />
                 </span>
               )}
             </div>
@@ -280,10 +288,10 @@ export default async function SongClubEventPage({
           <div className="mb-3 flex items-start justify-between gap-3">
             <div className="min-w-0">
               <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-[#c8a26a]/90">
-                The round
+                Songs
                 {round.locked && (
                   <span className="rounded bg-[#c8a26a]/20 px-1.5 py-0.5 text-[10px] normal-case tracking-normal">
-                    🔒 Locked
+                    🔒 Uploads closed
                   </span>
                 )}
               </div>
@@ -298,14 +306,14 @@ export default async function SongClubEventPage({
                   href={`/song-club/upload?playlist=${round.id}`}
                   className="rounded-md bg-[#E8E0D0] px-3.5 py-1.5 text-sm font-semibold text-[#2A2420] transition hover:bg-white"
                 >
-                  + Upload your track
+                  + Upload your song
                 </Link>
               )}
             </div>
           </div>
           {round.locked && !admin && (
             <p className="mb-3 text-sm text-[#E8E0D0]/60">
-              Uploads open when the round starts — you&apos;ll be able to add your track then.
+              Uploads aren&apos;t open yet — check back soon.
             </p>
           )}
           <PlaylistTracks
@@ -348,7 +356,7 @@ export default async function SongClubEventPage({
           <section className="mt-8 rounded-lg border border-[#c8a26a]/30 bg-[#c8a26a]/[0.06] p-5">
             <h2 className="text-lg font-medium">Join this Song-a-day</h2>
             <p className="mb-4 mt-1 text-sm text-[#E8E0D0]/60">
-              Sign up to share your tracks and hear everyone else&apos;s.
+              Sign up to share your songs and hear everyone else&apos;s.
             </p>
             {member ? (
               <ParticipateButton eventId={event.id} label="Sign me up" />
@@ -375,8 +383,8 @@ export default async function SongClubEventPage({
             <section className="mt-6 rounded-lg border border-[#c8a26a]/30 bg-[#c8a26a]/[0.06] p-5">
               <h2 className="text-lg font-medium">Were you part of this?</h2>
               <p className="mb-4 mt-1 text-sm text-[#E8E0D0]/60">
-                Unlock the round and the conversation to listen, share your track,
-                and comment with everyone who took part.
+                Join to listen, share your song, and comment with everyone who
+                took part.
               </p>
               {member ? (
                 <ParticipateButton eventId={event.id} />

@@ -96,12 +96,12 @@ export default async function SongClubGroupPage({
               href={`/song-club/upload?playlist=${round.id}`}
               className="shrink-0 rounded-md bg-[#E8E0D0] px-3.5 py-1.5 text-sm font-semibold text-[#2A2420] transition hover:bg-white"
             >
-              + Upload your track
+              + Upload your song
             </Link>
           )}
         </div>
         {!round ? (
-          <p className="text-sm text-[#E8E0D0]/50">This event has no round yet.</p>
+          <p className="text-sm text-[#E8E0D0]/50">No songs yet.</p>
         ) : tracks.length === 0 ? (
           <p className="text-sm text-[#E8E0D0]/50">
             No songs from {group.name} yet
