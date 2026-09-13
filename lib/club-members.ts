@@ -340,6 +340,22 @@ export async function getNotificationRecipients(
   `;
 }
 
+// Recipients for a GROUP board email: only that group's assigned members —
+// never the full event roster, never the whole club. Same announcement
+// opt-out applies.
+export async function getGroupNotificationRecipients(
+  groupId: number
+): Promise<Array<{ id: number; email: string; name: string }>> {
+  return sql<Array<{ id: number; email: string; name: string }>>`
+    select u.id, u.email, u.name
+    from song_club_event_attendees a
+    join users u on u.id = a.user_id
+    join user_roles r on r.user_id = u.id and r.role = 'song_club'
+    where a.group_id = ${groupId}
+      and u.status = 'active' and u.notify_announcements = true
+  `;
+}
+
 // --- self-service account settings (/account) ---
 
 export async function updateProfile(

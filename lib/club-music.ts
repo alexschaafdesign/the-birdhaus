@@ -19,6 +19,11 @@ export interface ClubTrack {
   durationSeconds: number | null;
   createdAt: string;
   commentCount: number;
+  // Round-scoped (from song_club_playlist_tracks): which song-a-day day the
+  // track was filed under, and the admin's highlight star. null/false outside
+  // a round context (standalone/single-track queries).
+  day: string | null;
+  isHighlight: boolean;
 }
 
 export interface ClubPlaylist {
@@ -58,11 +63,25 @@ interface TrackRow {
   duration_seconds: number | null;
   created_at: string;
   comment_count: number;
+  day?: string | null;
+  is_highlight?: boolean;
 }
 
 const TRACK_SELECT = sql`
   select t.id, t.member_id, t.from_admin, m.name as member_name, t.title,
          t.notes, t.url, t.r2_key, t.peaks, t.duration_seconds, t.created_at::text as created_at,
+         (select count(*)::int from song_club_track_comments c where c.track_id = t.id)
+           as comment_count
+  from song_club_tracks t
+  left join users m on m.id = t.member_id
+`;
+
+// Same, plus the round-scoped columns — for queries that join
+// song_club_playlist_tracks as `pt` (day + highlight live on the join row).
+const TRACK_SELECT_IN_ROUND = sql`
+  select t.id, t.member_id, t.from_admin, m.name as member_name, t.title,
+         t.notes, t.url, t.r2_key, t.peaks, t.duration_seconds, t.created_at::text as created_at,
+         pt.day::text as day, pt.is_highlight,
          (select count(*)::int from song_club_track_comments c where c.track_id = t.id)
            as comment_count
   from song_club_tracks t
@@ -85,6 +104,8 @@ function mapTrack(r: TrackRow): ClubTrack {
     durationSeconds: r.duration_seconds === null ? null : Number(r.duration_seconds),
     createdAt: r.created_at,
     commentCount: Number(r.comment_count),
+    day: r.day ?? null,
+    isHighlight: r.is_highlight === true,
   };
 }
 
@@ -145,16 +166,60 @@ export async function listStandaloneRounds(): Promise<ClubPlaylist[]> {
   return rows.map(mapPlaylist);
 }
 
-// The event (if any) that links to this round — its flyer is the round's cover.
-export async function getRoundEvent(
-  playlistId: number
-): Promise<{ id: number; slug: string; title: string; flyerUrl: string | null } | null> {
-  const [r] = await sql<Array<{ id: number; slug: string; title: string; flyer_url: string | null }>>`
-    select id, slug, title, flyer_url from song_club_events
+// The event (if any) that links to this round — its flyer is the round's
+// cover, and its date range drives the upload form's day picker.
+export async function getRoundEvent(playlistId: number): Promise<{
+  id: number;
+  slug: string;
+  title: string;
+  flyerUrl: string | null;
+  eventDate: string;
+  endDate: string | null;
+} | null> {
+  const [r] = await sql<
+    Array<{
+      id: number;
+      slug: string;
+      title: string;
+      flyer_url: string | null;
+      event_date: string;
+      end_date: string | null;
+    }>
+  >`
+    select id, slug, title, flyer_url, event_date::text as event_date,
+           end_date::text as end_date
+    from song_club_events
     where playlist_id = ${playlistId}
     order by id asc limit 1
   `;
-  return r ? { id: Number(r.id), slug: r.slug, title: r.title, flyerUrl: r.flyer_url } : null;
+  return r
+    ? {
+        id: Number(r.id),
+        slug: r.slug,
+        title: r.title,
+        flyerUrl: r.flyer_url,
+        eventDate: r.event_date,
+        endDate: r.end_date,
+      }
+    : null;
+}
+
+// Date ranges of every event-linked round, keyed by playlist id — drives the
+// upload form's day picker (rounds without an event get no picker).
+export async function listRoundEventRanges(): Promise<
+  Record<number, { start: string; end: string }>
+> {
+  const rows = await sql<Array<{ playlist_id: number; start_day: string; end_day: string }>>`
+    select playlist_id, event_date::text as start_day,
+           coalesce(end_date, event_date)::text as end_day
+    from song_club_events
+    where playlist_id is not null
+  `;
+  const ranges: Record<number, { start: string; end: string }> = {};
+  for (const r of rows) {
+    ranges[Number(r.playlist_id)] = { start: r.start_day, end: r.end_day };
+  }
+  return ranges;
 }
 
 export async function createPlaylist(input: {
@@ -210,12 +275,59 @@ export async function updatePlaylist(
 
 export async function playlistTracks(playlistId: number): Promise<ClubTrack[]> {
   const rows = await sql<TrackRow[]>`
-    ${TRACK_SELECT}
+    ${TRACK_SELECT_IN_ROUND}
     join song_club_playlist_tracks pt on pt.track_id = t.id
     where pt.playlist_id = ${playlistId}
     order by pt.position asc, t.id asc
   `;
   return rows.map(mapTrack);
+}
+
+// A group's slice of an event round. The group is DERIVED from each track's
+// uploader: their group_id on song_club_event_attendees for this event.
+// groupId null = the "unassigned" slice — uploaders with no group yet, plus
+// tracks whose uploader isn't (or is no longer) on the roster, so nothing is
+// ever invisible. Ordered for day-header rendering: day ascending (undated
+// last), then round position.
+export async function playlistTracksByGroup(
+  playlistId: number,
+  eventId: number,
+  groupId: number | null
+): Promise<ClubTrack[]> {
+  const rows = await sql<TrackRow[]>`
+    ${TRACK_SELECT_IN_ROUND}
+    join song_club_playlist_tracks pt on pt.track_id = t.id
+    left join song_club_event_attendees a
+      on a.user_id = t.member_id and a.event_id = ${eventId}
+    where pt.playlist_id = ${playlistId}
+      and ${groupId === null ? sql`a.group_id is null` : sql`a.group_id = ${groupId}`}
+    order by pt.day asc nulls last, pt.position asc, t.id asc
+  `;
+  return rows.map(mapTrack);
+}
+
+// The admin-starred tracks of a round, for the event page's Highlights block.
+export async function highlightTracks(playlistId: number): Promise<ClubTrack[]> {
+  const rows = await sql<TrackRow[]>`
+    ${TRACK_SELECT_IN_ROUND}
+    join song_club_playlist_tracks pt on pt.track_id = t.id
+    where pt.playlist_id = ${playlistId} and pt.is_highlight = true
+    order by pt.position asc, t.id asc
+  `;
+  return rows.map(mapTrack);
+}
+
+// Admin-only (routes enforce it): star/unstar a track within a round.
+export async function setTrackHighlight(
+  playlistId: number,
+  trackId: number,
+  isHighlight: boolean
+): Promise<boolean> {
+  const result = await sql`
+    update song_club_playlist_tracks set is_highlight = ${isHighlight}
+    where playlist_id = ${playlistId} and track_id = ${trackId}
+  `;
+  return result.count > 0;
 }
 
 // Tracks that aren't in any playlist — the "Singles" shelf on the portal.
@@ -256,6 +368,9 @@ export async function createTrack(input: {
   contentType?: string | null;
   sizeBytes?: number | null;
   playlistId?: number | null;
+  // Which song-a-day day this upload files under (YYYY-MM-DD; routes validate
+  // against the event's range). Only meaningful with a playlistId.
+  day?: string | null;
   peaks?: number[] | null;
   durationSeconds?: number | null;
 }): Promise<ClubTrack | null> {
@@ -285,9 +400,9 @@ export async function createTrack(input: {
   if (input.playlistId) {
     // Appends to the round; a bogus playlistId just leaves the track standalone.
     await sql`
-      insert into song_club_playlist_tracks (playlist_id, track_id, position)
+      insert into song_club_playlist_tracks (playlist_id, track_id, position, day)
       select ${input.playlistId}, ${trackId},
-             coalesce(max(position), 0) + 1
+             coalesce(max(position), 0) + 1, ${input.day ?? null}
       from song_club_playlist_tracks where playlist_id = ${input.playlistId}
       on conflict do nothing
     `.catch(() => {});

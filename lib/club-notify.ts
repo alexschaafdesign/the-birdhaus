@@ -4,10 +4,11 @@
 // action (posting, publishing). Recipient counts are small (a club), so plain
 // sequential-ish sends via allSettled are fine.
 
+import { sql } from './db';
 import { SITE_URL } from './site';
-import { getNotificationRecipients } from './club-members';
+import { getGroupNotificationRecipients, getNotificationRecipients } from './club-members';
 import { sendAnnouncementEmail, sendClubEventEmail } from './club-email';
-import { claimEventNotification, type SongClubEvent } from './song-club';
+import { claimEventNotification, slugify, type SongClubEvent } from './song-club';
 
 const PORTAL_URL = `${SITE_URL}/song-club`;
 
@@ -40,6 +41,27 @@ export async function notifyAnnouncement(body: string): Promise<number> {
     )
   );
   return logFailures('announcement', results);
+}
+
+// A group-board post's email goes to THAT GROUP's members only (opt-out
+// respected), and the button links straight to the group's page — never the
+// club-wide announcement list.
+export async function notifyGroupPost(groupId: number, body: string): Promise<number> {
+  const [group] = await sql<Array<{ name: string; slug: string }>>`
+    select g.name, e.slug
+    from song_club_groups g
+    join song_club_events e on e.id = g.event_id
+    where g.id = ${groupId}
+  `;
+  if (!group) return 0;
+  const groupUrl = `${SITE_URL}/song-club/${group.slug}/${slugify(group.name)}`;
+  const recipients = await getGroupNotificationRecipients(groupId);
+  const results = await Promise.allSettled(
+    recipients.map((r) =>
+      sendAnnouncementEmail({ to: r.email, recipientName: r.name, body, portalUrl: groupUrl })
+    )
+  );
+  return logFailures('group-post', results);
 }
 
 export async function notifyNewEvent(input: {

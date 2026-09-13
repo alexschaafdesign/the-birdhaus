@@ -23,9 +23,26 @@ export interface SongClubEvent {
   published: boolean;
   playlist_id: number | null;
   format: 'in_person' | 'online';
+  days_open_default: DaysOpenDefault;
   notified_at: string | null;
   created_at: string;
   updated_at: string;
+}
+
+// How much of a song-a-day's day list opens by default (migration 084).
+export type DaysOpenDefault = 'current' | 'current_and_previous' | 'all';
+
+export const DAYS_OPEN_VALUES: DaysOpenDefault[] = ['current', 'current_and_previous', 'all'];
+
+export async function setDaysOpenDefault(
+  eventId: number,
+  value: DaysOpenDefault
+): Promise<boolean> {
+  if (!DAYS_OPEN_VALUES.includes(value)) return false;
+  const result = await sql`
+    update song_club_events set days_open_default = ${value} where id = ${eventId}
+  `;
+  return result.count > 0;
 }
 
 // The shape the admin form posts / the API layer accepts. Slug is derived, not
@@ -50,7 +67,7 @@ export interface SongClubEventInput {
 const COLUMNS = sql`
   id, slug, title, event_date::text as event_date, end_date::text as end_date,
   start_time, end_time, venue_name, address, arrival_notes, description, body,
-  flyer_url, published, playlist_id, format,
+  flyer_url, published, playlist_id, format, days_open_default,
   notified_at::text as notified_at, created_at, updated_at
 `;
 

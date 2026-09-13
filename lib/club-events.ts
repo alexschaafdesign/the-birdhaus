@@ -92,15 +92,17 @@ export interface EventSignup {
   name: string;
   email: string;
   added_at: string;
+  groupId: number | null;
 }
 
 // Sign-ups for an online event: the attendee roster with contact info, for the
-// admin sign-ups view. Newest first. Admin-gated by callers.
+// admin sign-ups view (which is also the group-assignment panel). Newest
+// first. Admin-gated by callers.
 export async function getEventSignups(eventId: number): Promise<EventSignup[]> {
   const rows = await sql<
-    Array<{ id: number; name: string; email: string; added_at: string }>
+    Array<{ id: number; name: string; email: string; added_at: string; group_id: number | null }>
   >`
-    select u.id, u.name, u.email, a.added_at
+    select u.id, u.name, u.email, a.added_at, a.group_id
     from song_club_event_attendees a
     join users u on u.id = a.user_id
     where a.event_id = ${eventId}
@@ -111,6 +113,7 @@ export async function getEventSignups(eventId: number): Promise<EventSignup[]> {
     name: r.name,
     email: r.email,
     added_at: r.added_at,
+    groupId: r.group_id == null ? null : Number(r.group_id),
   }));
 }
 

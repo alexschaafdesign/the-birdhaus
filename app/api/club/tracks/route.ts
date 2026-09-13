@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getClubActor } from '@/lib/club-members';
-import { createTrack, getPlaylist } from '@/lib/club-music';
+import { createTrack, getPlaylist, getRoundEvent } from '@/lib/club-music';
+import { isEventAttendee } from '@/lib/club-events';
 import { SONG_CLUB_TRACKS_FOLDER } from '@/lib/r2';
 import { headPrivateObject, verifyUploadGrant } from '@/lib/r2-private';
 
@@ -22,6 +23,9 @@ export async function POST(request: Request) {
   const contentType = typeof body?.contentType === 'string' ? body.contentType : null;
   const playlistIdNum = Number(body?.playlistId);
   const playlistId = Number.isInteger(playlistIdNum) && playlistIdNum > 0 ? playlistIdNum : null;
+  const dayRaw = typeof body?.day === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(body.day)
+    ? body.day
+    : null;
   const peaks = Array.isArray(body?.peaks) ? (body.peaks as number[]) : null;
   const durationSeconds = typeof body?.durationSeconds === 'number' ? body.durationSeconds : null;
 
@@ -53,6 +57,36 @@ export async function POST(request: Request) {
       );
     }
   }
+
+  // Event rounds: only that event's attendees upload into them (admin exempt),
+  // and the chosen day must fall in the event's date range. Both re-derived
+  // server-side — the client's word is never enough. Any attendee can file to
+  // any in-range day: posting at 12:30am for "yesterday" is expected.
+  let day: string | null = null;
+  if (playlistId) {
+    const roundEvent = await getRoundEvent(playlistId);
+    if (roundEvent) {
+      if (!('admin' in actor) && !(await isEventAttendee(roundEvent.id, actor.memberId))) {
+        return NextResponse.json(
+          { error: 'Join this event to upload into its round.' },
+          { status: 403 }
+        );
+      }
+      if (dayRaw) {
+        const first = roundEvent.eventDate;
+        const last = roundEvent.endDate ?? roundEvent.eventDate;
+        // YYYY-MM-DD compares lexicographically — no Date parsing needed.
+        if (dayRaw < first || dayRaw > last) {
+          return NextResponse.json(
+            { error: 'That day is outside this event.' },
+            { status: 400 }
+          );
+        }
+        day = dayRaw;
+      }
+    }
+  }
+
   const track = await createTrack({
     actor,
     title,
@@ -61,6 +95,7 @@ export async function POST(request: Request) {
     contentType: head.contentType ?? contentType,
     sizeBytes: head.sizeBytes,
     playlistId,
+    day,
     peaks,
     durationSeconds,
   });
