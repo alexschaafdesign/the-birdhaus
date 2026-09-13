@@ -4,9 +4,16 @@ import Link from 'next/link';
 import { getEventBySlug, getTodayCentral } from '@/lib/song-club';
 import { getClubPortalMember } from '@/lib/club-members';
 import { isAdminSession } from '@/lib/admin-session';
-import { getPlaylist, playlistComments, playlistTracks } from '@/lib/club-music';
+import {
+  getPlaylist,
+  highlightTracks,
+  playlistComments,
+  playlistTracks,
+  playlistTracksByGroup,
+} from '@/lib/club-music';
 import { getPosts } from '@/lib/club-board';
 import { getEventAttendees, isEventAttendee } from '@/lib/club-events';
+import { getAttendeeGroupId, listGroups } from '@/lib/club-groups';
 import SongClubRSVPForm from '@/components/SongClubRSVPForm';
 import ClubTopBar from '@/components/club/ClubTopBar';
 import PlaylistTracks from '@/components/club/PlaylistTracks';
@@ -94,16 +101,35 @@ export default async function SongClubEventPage({
 
   const unlocked = admin || (member ? await isEventAttendee(event.id, member.id) : false);
 
-  const [round, attendees, posts] = unlocked
+  const [round, attendees, posts, groups] = unlocked
     ? await Promise.all([
         event.playlist_id ? getPlaylist(event.playlist_id) : Promise.resolve(null),
         getEventAttendees(event.id),
         getPosts(event.id),
+        listGroups(event.id),
       ])
-    : [null, [], []];
-  const [roundTracks, roundComments] = round
-    ? await Promise.all([playlistTracks(round.id), playlistComments(round.id)])
-    : [[], {}];
+    : [null, [], [], []];
+
+  // With groups, this page becomes the directory: your group pinned on top,
+  // the others below, Highlights + any unassigned uploads inline, and the
+  // event-wide board as announcements. No groups → exactly the old page.
+  const hasGroups = groups.length > 0;
+  const viewerGroupId =
+    hasGroups && member ? await getAttendeeGroupId(event.id, member.id) : null;
+  const viewerGroup = groups.find((g) => g.id === viewerGroupId) ?? null;
+
+  const [roundTracks, roundComments] =
+    round && !hasGroups
+      ? await Promise.all([playlistTracks(round.id), playlistComments(round.id)])
+      : [[], {}];
+  const [highlights, unassignedTracks, groupModeComments] =
+    round && hasGroups
+      ? await Promise.all([
+          highlightTracks(round.id),
+          playlistTracksByGroup(round.id, event.id, null),
+          playlistComments(round.id),
+        ])
+      : [[], [], {}];
 
   return (
     <main className="mx-auto w-full max-w-3xl px-5 py-6 text-[#E8E0D0] sm:px-8 sm:py-8">
@@ -119,8 +145,143 @@ export default async function SongClubEventPage({
         <h1 className="mt-1 text-2xl font-semibold sm:text-3xl">{event.title}</h1>
       </header>
 
+      {/* Group directory — when the event is split into groups. */}
+      {unlocked && hasGroups && (
+        <>
+          {viewerGroup && (
+            <section className="mt-6 rounded-xl border border-[#c8a26a]/40 bg-[#c8a26a]/[0.06] p-4 sm:p-5">
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="text-xs font-medium uppercase tracking-wide text-[#c8a26a]/90">
+                    Your group
+                  </div>
+                  <div className="mt-0.5 text-lg font-semibold">{viewerGroup.name}</div>
+                  <div className="mt-0.5 text-xs text-[#E8E0D0]/50">
+                    {viewerGroup.memberCount}{' '}
+                    {viewerGroup.memberCount === 1 ? 'songwriter' : 'songwriters'}
+                  </div>
+                </div>
+                <Link
+                  href={`/song-club/${event.slug}/${viewerGroup.slug}`}
+                  className="shrink-0 rounded-md bg-[#E8E0D0] px-4 py-2 text-sm font-semibold text-[#2A2420] transition hover:bg-white"
+                >
+                  Go to your group →
+                </Link>
+              </div>
+            </section>
+          )}
+
+          {member && !viewerGroup && !admin && (
+            <section className="mt-6 rounded-xl border border-[#c8a26a]/40 bg-[#c8a26a]/[0.06] p-4 sm:p-5">
+              <div className="text-sm text-[#E8E0D0]/80">
+                You&apos;re in — you&apos;ll be placed in a group soon. You can start uploading
+                now; your songs will land on your group&apos;s page once you&apos;re assigned.
+              </div>
+              {round && !round.locked && (
+                <Link
+                  href={`/song-club/upload?playlist=${round.id}`}
+                  className="mt-3 inline-block rounded-md bg-[#E8E0D0] px-3.5 py-1.5 text-sm font-semibold text-[#2A2420] transition hover:bg-white"
+                >
+                  + Upload your track
+                </Link>
+              )}
+            </section>
+          )}
+
+          <section className="mt-6">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <h2 className="text-xs font-semibold uppercase tracking-wide text-[#E8E0D0]/45">
+                {viewerGroup ? 'Pop over to the other groups' : 'Groups'}
+              </h2>
+              {admin && (
+                <span className="flex items-center gap-3">
+                  {round && <RoundLockToggle playlistId={round.id} locked={round.locked} />}
+                  <Link
+                    href={`/admin/song-club/${event.id}/rsvps`}
+                    className="text-[11px] text-[#E8E0D0]/50 underline-offset-2 transition hover:text-[#E8E0D0] hover:underline"
+                  >
+                    Manage groups
+                  </Link>
+                </span>
+              )}
+            </div>
+            <ul className="grid gap-3 sm:grid-cols-2">
+              {groups
+                .filter((g) => g.id !== viewerGroup?.id)
+                .map((g) => (
+                  <li key={g.id}>
+                    <Link
+                      href={`/song-club/${event.slug}/${g.slug}`}
+                      className="flex items-center justify-between gap-3 rounded-lg border border-[#E8E0D0]/15 bg-[#E8E0D0]/[0.03] p-4 transition hover:border-[#E8E0D0]/35"
+                    >
+                      <span className="min-w-0">
+                        <span className="block truncate font-semibold">{g.name}</span>
+                        <span className="mt-0.5 block text-xs text-[#E8E0D0]/50">
+                          {g.memberCount} {g.memberCount === 1 ? 'songwriter' : 'songwriters'} —
+                          take a listen
+                        </span>
+                      </span>
+                      <span aria-hidden className="shrink-0 text-[#E8E0D0]/40">
+                        →
+                      </span>
+                    </Link>
+                  </li>
+                ))}
+            </ul>
+          </section>
+
+          {round && (highlights.length > 0 || admin) && (
+            <section className="mt-8 rounded-xl border border-[#c8a26a]/40 bg-[#c8a26a]/[0.06] p-4 sm:p-5">
+              <h2 className="mb-3 text-xs font-medium uppercase tracking-wide text-[#c8a26a]/90">
+                ~Highlights~
+              </h2>
+              {highlights.length === 0 ? (
+                <p className="text-sm text-[#E8E0D0]/50">
+                  Nothing starred yet — hit ☆ on any track to feature it here.
+                </p>
+              ) : (
+                <PlaylistTracks
+                  playlistId={round.id}
+                  initialTracks={highlights}
+                  commentsByTrack={groupModeComments}
+                  viewerMemberId={member?.id ?? null}
+                  isAdmin={admin}
+                  groupByDay
+                  eventStartDate={event.event_date}
+                  eventEndDate={event.end_date}
+                  today={getTodayCentral()}
+                  daysOpenDefault={event.days_open_default}
+                  storageKey={`${event.id}:highlights`}
+                />
+              )}
+            </section>
+          )}
+
+          {round && unassignedTracks.length > 0 && (
+            <section className="mt-8">
+              <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-[#E8E0D0]/45">
+                Unassigned — songs from folks not yet in a group
+              </h2>
+              <PlaylistTracks
+                playlistId={round.id}
+                initialTracks={unassignedTracks}
+                commentsByTrack={groupModeComments}
+                viewerMemberId={member?.id ?? null}
+                isAdmin={admin}
+                groupByDay
+                eventStartDate={event.event_date}
+                eventEndDate={event.end_date}
+                today={getTodayCentral()}
+                daysOpenDefault={event.days_open_default}
+                storageKey={`${event.id}:unassigned`}
+              />
+            </section>
+          )}
+        </>
+      )}
+
       {/* The round — its own distinct, gold-accented card, above the flyer. */}
-      {unlocked && round && (
+      {unlocked && round && !hasGroups && (
         <section className="mt-6 rounded-xl border border-[#c8a26a]/40 bg-[#c8a26a]/[0.06] p-4 sm:p-5">
           <div className="mb-3 flex items-start justify-between gap-3">
             <div className="min-w-0">
@@ -167,11 +328,13 @@ export default async function SongClubEventPage({
         <CreateRoundForEvent eventId={event.id} defaultTitle={event.title} />
       )}
 
-      {/* Event chat — above the flyer. */}
+      {/* Event chat — above the flyer. With groups it's the announcement
+          channel that reaches everyone; day-to-day chatter moves to the
+          group boards. */}
       {unlocked && (
         <section className="mt-8">
           <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-[#E8E0D0]/45">
-            Event chat
+            {hasGroups ? 'Announcements — everyone' : 'Event chat'}
           </h2>
           <ClubBoard
             initialPosts={posts}

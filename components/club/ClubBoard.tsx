@@ -11,21 +11,32 @@ export default function ClubBoard({
   viewerMemberId,
   isAdmin,
   eventId = null,
+  groupId = null,
+  canPost = true,
+  readOnlyNote,
 }: {
   initialPosts: ClubPost[];
   viewerMemberId: number | null; // null when the viewer is the admin session
   isAdmin: boolean;
   // null = the general Song Club board; a value = a specific event's board.
   eventId?: number | null;
+  // Narrows an event board to one group's board.
+  groupId?: number | null;
+  // Group boards are readable by every attendee but writable only by that
+  // group's members — the page decides and passes canPost (admin always may).
+  canPost?: boolean;
+  readOnlyNote?: string;
 }) {
   const [posts, setPosts] = useState<ClubPost[]>(initialPosts);
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  // Admin default: also email the club, so an announcement reaches inboxes
-  // rather than waiting for people to revisit. Members never email the board.
-  const [emailToo, setEmailToo] = useState(true);
+  // Admin default: announcement boards email the club by default so a post
+  // reaches inboxes; GROUP boards default to no email (casual chat — the
+  // server scopes any email to that group's members only). Members never
+  // email the board.
+  const [emailToo, setEmailToo] = useState(groupId === null);
 
   async function send() {
     const body = draft.trim();
@@ -37,7 +48,7 @@ export default function ClubBoard({
       const res = await fetch('/api/club/posts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ body, email: isAdmin && emailToo, eventId }),
+        body: JSON.stringify({ body, email: isAdmin && emailToo, eventId, groupId }),
       });
       const data = await res.json().catch(() => null);
       if (!res.ok) throw new Error(data?.error ?? `Couldn't post (${res.status})`);
@@ -115,6 +126,10 @@ export default function ClubBoard({
         >
           Log in to post
         </a>
+      ) : !(isAdmin || canPost) ? (
+        <p className="text-xs text-[#E8E0D0]/40">
+          {readOnlyNote ?? 'Only members of this group can post here.'}
+        </p>
       ) : (
       <div className="space-y-2">
         <textarea
@@ -151,7 +166,9 @@ export default function ClubBoard({
                 onChange={(e) => setEmailToo(e.target.checked)}
                 className="accent-[#c8a26a]"
               />
-              Also email members who want announcements
+              {groupId !== null
+                ? "Also email this group's members"
+                : 'Also email members who want announcements'}
             </label>
           )}
         </div>

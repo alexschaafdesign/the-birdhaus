@@ -7,6 +7,43 @@ const inputBase =
   'w-full rounded-md border border-[#E8E0D0]/20 bg-[#E8E0D0]/[0.03] px-3 py-2 text-sm text-[#E8E0D0] placeholder:text-[#E8E0D0]/30 focus:border-[#E8E0D0]/50 focus:outline-none transition';
 const labelClass = 'mb-1 block text-xs font-medium uppercase tracking-wide text-[#E8E0D0]/55';
 
+// Parse "YYYY-MM-DD" as LOCAL midnight — a bare date string parses as UTC
+// midnight and would label the previous day.
+function localDate(day: string): Date {
+  return new Date(day + 'T00:00:00');
+}
+
+// Today as "YYYY-MM-DD" in Song Club's home timezone, so a 12:30am upload
+// still defaults sensibly (and can be flipped back to "yesterday" by hand —
+// that's expected, not an edge case).
+function todayCentral(): string {
+  return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Chicago' });
+}
+
+// Every date of the event, start through end inclusive.
+function enumerateDays(start: string, end: string): string[] {
+  const days: string[] = [];
+  const d = localDate(start);
+  // Hard cap keeps a bad range from looping forever (song-a-days run ~10 days).
+  for (let i = 0; i < 62; i++) {
+    const iso = d.toLocaleDateString('en-CA');
+    if (iso > end) break;
+    days.push(iso);
+    d.setDate(d.getDate() + 1);
+  }
+  return days;
+}
+
+function dayOptionLabel(day: string, start: string): string {
+  const n = Math.round((localDate(day).getTime() - localDate(start).getTime()) / 86400000) + 1;
+  const label = localDate(day).toLocaleDateString('en-US', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+  });
+  return `Day ${n} — ${label}`;
+}
+
 // Three-step upload: ask the API for a presigned URL, PUT the audio straight
 // to R2 (XHR, for upload progress — the file never touches Vercel), then
 // register the uploaded key as a track. Lands on the round (or the track's
@@ -14,9 +51,13 @@ const labelClass = 'mb-1 block text-xs font-medium uppercase tracking-wide text-
 export default function UploadTrackForm({
   playlists,
   defaultPlaylistId,
+  eventRanges = {},
 }: {
   playlists: Array<{ id: number; title: string }>;
   defaultPlaylistId?: number;
+  // Date range of each event-linked round, keyed by playlist id — rounds in
+  // here get the "which day" picker.
+  eventRanges?: Record<number, { start: string; end: string }>;
 }) {
   const router = useRouter();
   const [file, setFile] = useState<File | null>(null);
@@ -25,9 +66,23 @@ export default function UploadTrackForm({
   const [playlistId, setPlaylistId] = useState<string>(
     defaultPlaylistId ? String(defaultPlaylistId) : ''
   );
+  // '' = "use the default" (today, clamped into the event's range) so the
+  // right day stays selected when switching rounds.
+  const [day, setDay] = useState<string>('');
   const [progress, setProgress] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const range = playlistId ? eventRanges[Number(playlistId)] : undefined;
+  const dayOptions = range ? enumerateDays(range.start, range.end) : [];
+  const defaultDay = range
+    ? todayCentral() < range.start
+      ? range.start
+      : todayCentral() > range.end
+        ? range.end
+        : todayCentral()
+    : '';
+  const selectedDay = day && dayOptions.includes(day) ? day : defaultDay;
 
   // Decode the audio in-browser and downsample to a compact peak array (+
   // duration) so the player can draw the waveform without re-downloading and
@@ -113,6 +168,7 @@ export default function UploadTrackForm({
           notes,
           contentType: urlData.contentType,
           playlistId: playlistId ? Number(playlistId) : null,
+          day: selectedDay || null,
           peaks,
           durationSeconds,
         }),
@@ -191,6 +247,29 @@ export default function UploadTrackForm({
           ))}
         </select>
       </div>
+
+      {range && dayOptions.length > 0 && (
+        <div>
+          <label htmlFor="track-day" className={labelClass}>
+            Which day is this for?
+          </label>
+          <select
+            id="track-day"
+            value={selectedDay}
+            onChange={(e) => setDay(e.target.value)}
+            className={inputBase}
+          >
+            {dayOptions.map((d) => (
+              <option key={d} value={d}>
+                {dayOptionLabel(d, range.start)}
+              </option>
+            ))}
+          </select>
+          <p className="mt-1 text-[11px] text-[#E8E0D0]/40">
+            Finishing last night&apos;s song after midnight? Just pick yesterday.
+          </p>
+        </div>
+      )}
 
       {progress !== null && (
         <div>
