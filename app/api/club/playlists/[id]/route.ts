@@ -5,6 +5,7 @@ import {
   removeTrackFromPlaylist,
   reorderPlaylist,
   setPlaylistLocked,
+  setTrackHighlight,
   updatePlaylist,
 } from '@/lib/club-music';
 
@@ -15,6 +16,7 @@ import {
 //   { reorder: number[] }           full track-id order
 //   { removeTrackId: number }       drop a track from the round (track survives)
 //   { locked: boolean }             lock/open the round's uploads
+//   { highlightTrackId, isHighlight }  star/unstar a track (event Highlights)
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -37,6 +39,13 @@ export async function PATCH(
 
   if (typeof body?.removeTrackId === 'number') {
     if (!(await removeTrackFromPlaylist(id, body.removeTrackId))) {
+      return NextResponse.json({ error: 'Not in this playlist' }, { status: 404 });
+    }
+    return NextResponse.json({ ok: true });
+  }
+
+  if (typeof body?.highlightTrackId === 'number' && typeof body?.isHighlight === 'boolean') {
+    if (!(await setTrackHighlight(id, body.highlightTrackId, body.isHighlight))) {
       return NextResponse.json({ error: 'Not in this playlist' }, { status: 404 });
     }
     return NextResponse.json({ ok: true });

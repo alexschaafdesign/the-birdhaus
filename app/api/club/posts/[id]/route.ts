@@ -25,5 +25,5 @@ export async function DELETE(
   if (!deleted) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 });
   }
-  return NextResponse.json({ posts: await getPosts(deleted.eventId) });
+  return NextResponse.json({ posts: await getPosts(deleted.eventId, deleted.groupId) });
 }
