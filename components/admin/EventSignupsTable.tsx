@@ -77,6 +77,20 @@ export default function EventSignupsTable({
     }
   }
 
+  function removeGroup(group: ClubGroup) {
+    const members =
+      group.memberCount === 1 ? '1 member becomes' : `${group.memberCount} members become`;
+    if (
+      !confirm(
+        `Remove ${group.name}? Its ${members} unassigned and their songs move to the ` +
+          `Unassigned section. Nothing is deleted.`
+      )
+    ) {
+      return;
+    }
+    void patchGroups({ deleteGroupId: group.id });
+  }
+
   async function saveDaysOpen(value: DaysOpenDefault) {
     const previous = daysOpen;
     setDaysOpen(value);
@@ -158,9 +172,21 @@ export default function EventSignupsTable({
               {groups.map((g) => (
                 <li
                   key={g.id}
-                  className="rounded-full border border-[#c8a26a]/40 bg-[#c8a26a]/10 px-3 py-1 text-sm"
+                  className="flex items-center gap-1.5 rounded-full border border-[#c8a26a]/40 bg-[#c8a26a]/10 px-3 py-1 text-sm"
                 >
-                  {g.name} · {g.memberCount}
+                  <span>
+                    {g.name} · {g.memberCount}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => removeGroup(g)}
+                    disabled={groupsBusy}
+                    title={`Remove ${g.name}`}
+                    aria-label={`Remove ${g.name}`}
+                    className="-mr-1 rounded-full px-1 text-[#E8E0D0]/40 transition hover:text-[#F5A3A3] disabled:opacity-50"
+                  >
+                    ×
+                  </button>
                 </li>
               ))}
               {unassignedCount > 0 && (

@@ -109,6 +109,27 @@ export async function createGroups(
   return listGroups(eventId);
 }
 
+// Remove a group. Nothing is deleted beyond the group row itself: its members'
+// group_id resets to null (the FK is ON DELETE SET NULL, migration 083), so
+// they become unassigned and — because a track's group is DERIVED from its
+// uploader's group_id — their songs move to the Unassigned section. Any posts
+// on the group's board likewise fall back to the event board. Returns the
+// number of members that were freed, for the confirmation the caller shows.
+export async function deleteGroup(
+  eventId: number,
+  groupId: number
+): Promise<{ ok: boolean; freed: number }> {
+  const [g] = await sql<Array<{ member_count: number }>>`
+    select (
+      select count(*)::int from song_club_event_attendees a where a.group_id = ${groupId}
+    ) as member_count
+    from song_club_groups where id = ${groupId} and event_id = ${eventId}
+  `;
+  if (!g) return { ok: false, freed: 0 };
+  await sql`delete from song_club_groups where id = ${groupId} and event_id = ${eventId}`;
+  return { ok: true, freed: Number(g.member_count) };
+}
+
 // The viewer's group for an event (null = unassigned or not an attendee).
 export async function getAttendeeGroupId(eventId: number, userId: number): Promise<number | null> {
   const [row] = await sql<Array<{ group_id: number | null }>>`
