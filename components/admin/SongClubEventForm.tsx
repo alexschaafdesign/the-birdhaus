@@ -195,7 +195,7 @@ export default function SongClubEventForm({
         hint={
           v.format === 'online'
             ? 'Online / Song-a-day: no RSVP — members "Sign me up" to join in the portal.'
-            : 'In-person: public RSVP form + "I participated" to unlock the songs.'
+            : 'In-person: public RSVP form + "I participated" to see the songs.'
         }
       >
         <div className="inline-flex rounded-lg border border-[#E8E0D0]/20 p-1">

@@ -313,7 +313,7 @@ export default async function SongClubEventPage({
           </div>
           {round.locked && !admin && (
             <p className="mb-3 text-sm text-[#E8E0D0]/60">
-              Uploads open when the event starts — you&apos;ll be able to add your song then.
+              Uploads aren&apos;t open yet — check back soon.
             </p>
           )}
           <PlaylistTracks
