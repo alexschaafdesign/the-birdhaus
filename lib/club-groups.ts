@@ -12,7 +12,7 @@ export interface ClubGroup {
   eventId: number;
   name: string;
   position: number;
-  slug: string; // derived from name, e.g. "Group A" -> "group-a"
+  slug: string; // stored at creation (migration 085), never rewritten on rename
   memberCount: number;
 }
 
@@ -23,6 +23,7 @@ interface GroupRow {
   event_id: number;
   name: string;
   position: number;
+  slug: string;
   member_count: number;
 }
 
@@ -32,14 +33,14 @@ function mapGroup(r: GroupRow): ClubGroup {
     eventId: Number(r.event_id),
     name: r.name,
     position: Number(r.position),
-    slug: slugify(r.name),
+    slug: r.slug,
     memberCount: Number(r.member_count),
   };
 }
 
 export async function listGroups(eventId: number): Promise<ClubGroup[]> {
   const rows = await sql<GroupRow[]>`
-    select g.id, g.event_id, g.name, g.position,
+    select g.id, g.event_id, g.name, g.position, g.slug,
            (select count(*)::int from song_club_event_attendees a
              where a.group_id = g.id) as member_count
     from song_club_groups g
@@ -49,8 +50,8 @@ export async function listGroups(eventId: number): Promise<ClubGroup[]> {
   return rows.map(mapGroup);
 }
 
-// Group pages address groups by slugified name ("group-a"). Names are
-// admin-chosen; on the off chance two slugify the same, first position wins.
+// Group pages address groups by their stored slug. It's fixed at creation, so
+// a rename never changes the URL and never breaks links already shared.
 export async function getGroupBySlug(eventId: number, slug: string): Promise<ClubGroup | null> {
   const groups = await listGroups(eventId);
   return groups.find((g) => g.slug === slug) ?? null;
@@ -58,7 +59,7 @@ export async function getGroupBySlug(eventId: number, slug: string): Promise<Clu
 
 export async function getGroup(id: number): Promise<ClubGroup | null> {
   const rows = await sql<GroupRow[]>`
-    select g.id, g.event_id, g.name, g.position,
+    select g.id, g.event_id, g.name, g.position, g.slug,
            (select count(*)::int from song_club_event_attendees a
              where a.group_id = g.id) as member_count
     from song_club_groups g where g.id = ${id}
@@ -76,8 +77,8 @@ export async function createGroups(eventId: number, count: number): Promise<Club
   await sql.begin(async (tx) => {
     for (let i = 0; i < n; i++) {
       await tx`
-        insert into song_club_groups (event_id, name, position)
-        values (${eventId}, ${GROUP_NAMES[i]}, ${i + 1})
+        insert into song_club_groups (event_id, name, position, slug)
+        values (${eventId}, ${GROUP_NAMES[i]}, ${i + 1}, ${slugify(GROUP_NAMES[i])})
         on conflict (event_id, position) do nothing
       `;
     }
