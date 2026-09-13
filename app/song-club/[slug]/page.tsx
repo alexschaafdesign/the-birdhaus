@@ -240,18 +240,15 @@ export default async function SongClubEventPage({
                   Nothing starred yet — hit ☆ on any track to feature it here.
                 </p>
               ) : (
+                // Flat and always visible — a curated shortlist, not a
+                // day-by-day feed; collapsing belongs on group rounds.
                 <PlaylistTracks
                   playlistId={round.id}
                   initialTracks={highlights}
                   commentsByTrack={groupModeComments}
                   viewerMemberId={member?.id ?? null}
                   isAdmin={admin}
-                  groupByDay
-                  eventStartDate={event.event_date}
-                  eventEndDate={event.end_date}
-                  today={getTodayCentral()}
-                  daysOpenDefault={event.days_open_default}
-                  storageKey={`${event.id}:highlights`}
+                  allowReorder={false}
                 />
               )}
             </section>
@@ -262,18 +259,15 @@ export default async function SongClubEventPage({
               <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-[#E8E0D0]/45">
                 Unassigned — songs from folks not yet in a group
               </h2>
+              {/* Flat and always visible — these need to be SEEN so people
+                  get assigned; collapsing belongs on group rounds. */}
               <PlaylistTracks
                 playlistId={round.id}
                 initialTracks={unassignedTracks}
                 commentsByTrack={groupModeComments}
                 viewerMemberId={member?.id ?? null}
                 isAdmin={admin}
-                groupByDay
-                eventStartDate={event.event_date}
-                eventEndDate={event.end_date}
-                today={getTodayCentral()}
-                daysOpenDefault={event.days_open_default}
-                storageKey={`${event.id}:unassigned`}
+                allowReorder={false}
               />
             </section>
           )}

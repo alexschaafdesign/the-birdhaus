@@ -57,6 +57,7 @@ export default function PlaylistTracks({
   today = null,
   daysOpenDefault = 'current',
   storageKey = null,
+  allowReorder = true,
 }: {
   playlistId: number;
   initialTracks: ClubTrack[];
@@ -72,6 +73,9 @@ export default function PlaylistTracks({
   // sessionStorage key for this list's per-viewer toggles — key it by event
   // AND group so Group A and Group B don't share state.
   storageKey?: string | null;
+  // Off for SUBSET views of a round (Highlights, Unassigned): reordering a
+  // subset would rewrite the full round's positions from partial data.
+  allowReorder?: boolean;
 }) {
   const router = useRouter();
   const [tracks, setTracks] = useState<ClubTrack[]>(initialTracks);
@@ -251,7 +255,7 @@ export default function PlaylistTracks({
             >
               {track.isHighlight ? '★ highlighted' : '☆ highlight'}
             </button>
-            {!groupByDay && (
+            {!groupByDay && allowReorder && (
               <>
                 <button
                   type="button"
