@@ -165,6 +165,54 @@ export default function EventSignupsTable({
     }
   }
 
+  // Drop-target handlers for a column/lane (groupId null == Unassigned).
+  function dropProps(groupId: number | null) {
+    const key = colKey(groupId);
+    return {
+      onDragOver: (e: React.DragEvent<HTMLDivElement>) => {
+        e.preventDefault();
+        setDragOverCol(key);
+      },
+      onDragLeave: (e: React.DragEvent<HTMLDivElement>) => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+          setDragOverCol((c) => (c === key ? null : c));
+        }
+      },
+      onDrop: (e: React.DragEvent<HTMLDivElement>) => {
+        e.preventDefault();
+        const id = Number(e.dataTransfer.getData('text/plain'));
+        setDragOverCol(null);
+        setDraggingId(null);
+        if (Number.isInteger(id)) void assignPerson(id, groupId);
+      },
+    };
+  }
+
+  const chipEl = (p: EventSignup, currentGroupId: number | null) => (
+    <Chip
+      key={p.id}
+      person={p}
+      columns={columns}
+      currentGroupId={currentGroupId}
+      dragging={draggingId === p.id}
+      menuOpen={openMenuId === p.id}
+      removing={removingId === p.id}
+      error={chipErrors[p.id]}
+      onDragStart={() => setDraggingId(p.id)}
+      onDragEnd={() => {
+        setDraggingId(null);
+        setDragOverCol(null);
+      }}
+      onToggleMenu={() => setOpenMenuId((cur) => (cur === p.id ? null : p.id))}
+      onCloseMenu={() => setOpenMenuId(null)}
+      onMove={(gid) => assignPerson(p.id, gid)}
+      onRemove={() => removeAttendee(p.id)}
+    />
+  );
+
+  const sortedGroups = [...groups].sort((a, b) => a.position - b.position);
+  const unassigned = signups.filter((s) => s.groupId === null).sort(byName);
+
   return (
     <>
       {/* Above the board: create the groups (none yet) or top up assignments. */}
@@ -218,44 +266,58 @@ export default function EventSignupsTable({
         </div>
       )}
 
-      {/* The board. Columns wrap on narrow screens rather than scrolling. */}
-      <div className="grid items-start gap-3 [grid-template-columns:repeat(auto-fill,minmax(220px,1fr))]">
-        {columns.map((col) => {
-          const people = signups.filter((s) => s.groupId === col.groupId).sort(byName);
-          const isOver = dragOverCol === colKey(col.groupId);
-          const group = col.groupId === null ? null : groups.find((g) => g.id === col.groupId);
-          return (
-            <div
-              key={colKey(col.groupId)}
-              data-col={colKey(col.groupId)}
-              onDragOver={(e) => {
-                e.preventDefault();
-                setDragOverCol(colKey(col.groupId));
-              }}
-              onDragLeave={(e) => {
-                if (!e.currentTarget.contains(e.relatedTarget as Node)) {
-                  setDragOverCol((c) => (c === colKey(col.groupId) ? null : c));
-                }
-              }}
-              onDrop={(e) => {
-                e.preventDefault();
-                const id = Number(e.dataTransfer.getData('text/plain'));
-                setDragOverCol(null);
-                setDraggingId(null);
-                if (Number.isInteger(id)) void assignPerson(id, col.groupId);
-              }}
-              className={`flex min-h-[120px] flex-col rounded-lg border p-2 transition ${
-                isOver
-                  ? 'border-[#c8a26a] bg-[#c8a26a]/10'
-                  : 'border-[#E8E0D0]/12 bg-[#E8E0D0]/[0.02]'
-              }`}
-            >
-              <div className="mb-2 flex items-center justify-between gap-2 px-1">
-                <div className="min-w-0 text-xs font-semibold uppercase tracking-wide text-[#E8E0D0]/60">
-                  <span className="truncate">{col.label}</span>{' '}
-                  <span className="text-[#E8E0D0]/35">· {people.length}</span>
-                </div>
-                {group && (
+      {/* Unassigned — a full-width horizontal lane above the groups, so it
+          stays slim (not a wasted column) once everyone's assigned. Still a
+          drop target: drag someone here to pull them back out of a group. */}
+      <div
+        data-col="unassigned"
+        {...dropProps(null)}
+        className={`mb-3 rounded-lg border p-2 transition ${
+          dragOverCol === 'unassigned'
+            ? 'border-[#c8a26a] bg-[#c8a26a]/10'
+            : 'border-[#E8E0D0]/12 bg-[#E8E0D0]/[0.02]'
+        }`}
+      >
+        <div className="mb-2 px-1 text-xs font-semibold uppercase tracking-wide text-[#E8E0D0]/60">
+          Unassigned <span className="text-[#E8E0D0]/35">· {unassigned.length}</span>
+        </div>
+        {unassigned.length === 0 ? (
+          <p className="px-1 py-1.5 text-[11px] text-[#E8E0D0]/30">
+            Everyone is assigned — drop someone here to pull them back out.
+          </p>
+        ) : (
+          <div className="flex flex-wrap gap-1.5">
+            {unassigned.map((p) => (
+              <div key={p.id} className="w-full sm:w-[220px]">
+                {chipEl(p, null)}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Group columns — wrap on narrow screens rather than scrolling. */}
+      {sortedGroups.length > 0 && (
+        <div className="grid items-start gap-3 [grid-template-columns:repeat(auto-fill,minmax(220px,1fr))]">
+          {sortedGroups.map((group) => {
+            const people = signups.filter((s) => s.groupId === group.id).sort(byName);
+            const isOver = dragOverCol === colKey(group.id);
+            return (
+              <div
+                key={colKey(group.id)}
+                data-col={colKey(group.id)}
+                {...dropProps(group.id)}
+                className={`flex min-h-[120px] flex-col rounded-lg border p-2 transition ${
+                  isOver
+                    ? 'border-[#c8a26a] bg-[#c8a26a]/10'
+                    : 'border-[#E8E0D0]/12 bg-[#E8E0D0]/[0.02]'
+                }`}
+              >
+                <div className="mb-2 flex items-center justify-between gap-2 px-1">
+                  <div className="min-w-0 text-xs font-semibold uppercase tracking-wide text-[#E8E0D0]/60">
+                    <span className="truncate">{group.name}</span>{' '}
+                    <span className="text-[#E8E0D0]/35">· {people.length}</span>
+                  </div>
                   <button
                     type="button"
                     onClick={() => removeGroup(group)}
@@ -266,42 +328,22 @@ export default function EventSignupsTable({
                   >
                     ×
                   </button>
-                )}
-              </div>
+                </div>
 
-              <div className="flex flex-col gap-1.5">
-                {people.length === 0 ? (
-                  <p className="px-1 py-3 text-center text-[11px] text-[#E8E0D0]/25">
-                    {col.groupId === null ? 'Everyone is assigned' : 'Drop people here'}
-                  </p>
-                ) : (
-                  people.map((p) => (
-                    <Chip
-                      key={p.id}
-                      person={p}
-                      columns={columns}
-                      currentGroupId={col.groupId}
-                      dragging={draggingId === p.id}
-                      menuOpen={openMenuId === p.id}
-                      removing={removingId === p.id}
-                      error={chipErrors[p.id]}
-                      onDragStart={() => setDraggingId(p.id)}
-                      onDragEnd={() => {
-                        setDraggingId(null);
-                        setDragOverCol(null);
-                      }}
-                      onToggleMenu={() => setOpenMenuId((cur) => (cur === p.id ? null : p.id))}
-                      onCloseMenu={() => setOpenMenuId(null)}
-                      onMove={(gid) => assignPerson(p.id, gid)}
-                      onRemove={() => removeAttendee(p.id)}
-                    />
-                  ))
-                )}
+                <div className="flex flex-col gap-1.5">
+                  {people.length === 0 ? (
+                    <p className="px-1 py-3 text-center text-[11px] text-[#E8E0D0]/25">
+                      Drop people here
+                    </p>
+                  ) : (
+                    people.map((p) => chipEl(p, group.id))
+                  )}
+                </div>
               </div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* Tabular fallback — same data, no separate fetch. */}
       <details
