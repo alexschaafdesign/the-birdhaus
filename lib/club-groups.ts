@@ -70,11 +70,34 @@ export async function getGroup(id: number): Promise<ClubGroup | null> {
 // Create the event's groups in one go, auto-named Group A…. No-ops (returns
 // the existing set) if the event already has groups — the admin UI offers
 // creation only when there are none.
-export async function createGroups(eventId: number, count: number): Promise<ClubGroup[]> {
+//
+// A group always collects songs, so making the event's first group also
+// ensures the event has a (locked, uploads-closed) playlist — created and
+// linked in the SAME transaction as the groups. Pass ensurePlaylistTitle (the
+// event title) to enable this; if the event already has a playlist it's a
+// no-op, leaving existing events untouched.
+export async function createGroups(
+  eventId: number,
+  count: number,
+  ensurePlaylistTitle?: string
+): Promise<ClubGroup[]> {
   const n = Math.max(2, Math.min(GROUP_NAMES.length, Math.floor(count)));
   const existing = await listGroups(eventId);
   if (existing.length > 0) return existing;
   await sql.begin(async (tx) => {
+    if (ensurePlaylistTitle !== undefined) {
+      const [ev] = await tx<Array<{ playlist_id: number | null }>>`
+        select playlist_id from song_club_events where id = ${eventId} for update
+      `;
+      if (ev && ev.playlist_id == null) {
+        const title = ensurePlaylistTitle.trim().slice(0, 200) || 'Songs';
+        const [pl] = await tx<Array<{ id: number }>>`
+          insert into song_club_playlists (title, locked) values (${title}, true)
+          returning id
+        `;
+        await tx`update song_club_events set playlist_id = ${pl.id} where id = ${eventId}`;
+      }
+    }
     for (let i = 0; i < n; i++) {
       await tx`
         insert into song_club_groups (event_id, name, position, slug)

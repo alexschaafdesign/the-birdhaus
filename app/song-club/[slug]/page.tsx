@@ -145,6 +145,20 @@ export default async function SongClubEventPage({
         <h1 className="mt-1 text-2xl font-semibold sm:text-3xl">{event.title}</h1>
       </header>
 
+      {/* Admin controls — always available, no matter whether songs are
+          enabled or any groups exist yet. Group management lives one click
+          away; the song-uploads control sits with the songs below. */}
+      {unlocked && admin && online && (
+        <div className="mt-4 flex flex-wrap items-center gap-4">
+          <Link
+            href={`/admin/song-club/${event.id}/rsvps`}
+            className="text-[11px] text-[#E8E0D0]/50 underline-offset-2 transition hover:text-[#E8E0D0] hover:underline"
+          >
+            Manage groups
+          </Link>
+        </div>
+      )}
+
       {/* Group directory — when the event is split into groups. */}
       {unlocked && hasGroups && (
         <>
@@ -193,15 +207,9 @@ export default async function SongClubEventPage({
               <h2 className="text-xs font-semibold uppercase tracking-wide text-[#E8E0D0]/45">
                 {viewerGroup ? 'Pop over to the other groups' : 'Groups'}
               </h2>
-              {admin && (
+              {admin && round && (
                 <span className="flex items-center gap-3">
-                  {round && <RoundLockToggle playlistId={round.id} locked={round.locked} />}
-                  <Link
-                    href={`/admin/song-club/${event.id}/rsvps`}
-                    className="text-[11px] text-[#E8E0D0]/50 underline-offset-2 transition hover:text-[#E8E0D0] hover:underline"
-                  >
-                    Manage groups
-                  </Link>
+                  <RoundLockToggle playlistId={round.id} locked={round.locked} />
                 </span>
               )}
             </div>

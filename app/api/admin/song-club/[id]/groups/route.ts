@@ -28,7 +28,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   const denied = await requireAdmin();
   if (denied) return denied;
   const eventId = Number((await params).id);
-  if (!Number.isInteger(eventId) || !(await getEventById(eventId))) {
+  const event = Number.isInteger(eventId) ? await getEventById(eventId) : null;
+  if (!event) {
     return NextResponse.json({ error: 'Event not found' }, { status: 404 });
   }
 
@@ -44,7 +45,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   }
 
   if (body?.create && typeof body.create.count === 'number') {
-    await createGroups(eventId, body.create.count);
+    // Ensure the event has a playlist first (a group always collects songs);
+    // idempotent for events that already have one.
+    await createGroups(eventId, body.create.count, event.title);
     return refreshed();
   }
 
