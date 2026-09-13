@@ -3,6 +3,16 @@
 import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { downscaleImage } from '@/lib/downscale-image';
+import type { DaysOpenDefault } from '@/lib/song-club';
+
+// Day sections that open by default on a grouped song-a-day (earlier days
+// collapse to a header viewers can still expand). An event setting — lives here,
+// not on the roster board.
+const DAYS_OPEN_LABELS: Array<{ value: DaysOpenDefault; label: string }> = [
+  { value: 'current', label: 'Current day only' },
+  { value: 'current_and_previous', label: 'Current + previous day' },
+  { value: 'all', label: 'All days so far' },
+];
 
 // Mirrors app/api/admin/uploads/route.ts's limits — checked here too so an
 // oversized/wrong-type file never has to make a round trip just to be rejected.
@@ -29,6 +39,7 @@ export interface SongClubEventFormValues {
   published: boolean;
   playlistId: number | null;
   format: 'in_person' | 'online';
+  daysOpenDefault: DaysOpenDefault;
 }
 
 const inputClass =
@@ -70,6 +81,7 @@ export default function SongClubEventForm({
     published: initial?.published ?? false,
     playlistId: initial?.playlistId ?? null,
     format: initial?.format ?? 'in_person',
+    daysOpenDefault: initial?.daysOpenDefault ?? 'current',
   });
   const [status, setStatus] = useState<'idle' | 'saving' | 'error'>('idle');
   const [error, setError] = useState('');
@@ -154,6 +166,7 @@ export default function SongClubEventForm({
         published: v.published,
         playlistId: v.playlistId,
         format: v.format,
+        daysOpenDefault: v.daysOpenDefault,
       };
 
       const res =
@@ -302,6 +315,27 @@ export default function SongClubEventForm({
             {rounds.map((r) => (
               <option key={r.id} value={r.id}>
                 {r.title}
+              </option>
+            ))}
+          </select>
+        </Field>
+      )}
+
+      {v.format === 'online' && (
+        <Field
+          label="Days open by default"
+          hint="For grouped song-a-days: earlier days collapse to a header; viewers can still open any day themselves."
+        >
+          <select
+            className={inputClass}
+            value={v.daysOpenDefault}
+            onChange={(e) =>
+              setV((prev) => ({ ...prev, daysOpenDefault: e.target.value as DaysOpenDefault }))
+            }
+          >
+            {DAYS_OPEN_LABELS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
               </option>
             ))}
           </select>

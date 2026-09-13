@@ -44,6 +44,7 @@ export default async function EditSongClubEventPage({
           published: event.published,
           playlistId: event.playlist_id,
           format: event.format,
+          daysOpenDefault: event.days_open_default,
         }}
       />
     </main>

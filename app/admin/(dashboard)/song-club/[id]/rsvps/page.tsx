@@ -60,7 +60,6 @@ export default async function SongClubRsvpsPage({
           eventId={event.id}
           initialSignups={signups}
           initialGroups={groups}
-          initialDaysOpen={event.days_open_default}
         />
       </main>
     );

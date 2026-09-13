@@ -93,18 +93,36 @@ export interface EventSignup {
   email: string;
   added_at: string;
   groupId: number | null;
+  // How many songs this person has uploaded into the event's playlist — drives
+  // the "moving them moves N songs" badge on the assignment board.
+  songCount: number;
 }
 
 // Sign-ups for an online event: the attendee roster with contact info, for the
-// admin sign-ups view (which is also the group-assignment panel). Newest
-// first. Admin-gated by callers.
+// admin sign-ups view (which is also the group-assignment board). Newest
+// first. songCount is per-member uploads into the event's own playlist (0 when
+// the event has no playlist yet). Admin-gated by callers.
 export async function getEventSignups(eventId: number): Promise<EventSignup[]> {
   const rows = await sql<
-    Array<{ id: number; name: string; email: string; added_at: string; group_id: number | null }>
+    Array<{
+      id: number;
+      name: string;
+      email: string;
+      added_at: string;
+      group_id: number | null;
+      song_count: number;
+    }>
   >`
-    select u.id, u.name, u.email, a.added_at, a.group_id
+    select u.id, u.name, u.email, a.added_at, a.group_id,
+           coalesce((
+             select count(*)::int
+             from song_club_playlist_tracks pt
+             join song_club_tracks t on t.id = pt.track_id
+             where pt.playlist_id = e.playlist_id and t.member_id = u.id
+           ), 0) as song_count
     from song_club_event_attendees a
     join users u on u.id = a.user_id
+    join song_club_events e on e.id = a.event_id
     where a.event_id = ${eventId}
     order by a.added_at desc, u.id desc
   `;
@@ -114,6 +132,7 @@ export async function getEventSignups(eventId: number): Promise<EventSignup[]> {
     email: r.email,
     added_at: r.added_at,
     groupId: r.group_id == null ? null : Number(r.group_id),
+    songCount: Number(r.song_count),
   }));
 }
 
