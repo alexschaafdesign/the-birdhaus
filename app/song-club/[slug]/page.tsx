@@ -196,7 +196,7 @@ export default async function SongClubEventPage({
                   href={`/song-club/upload?playlist=${round.id}`}
                   className="mt-3 inline-block rounded-md bg-[#E8E0D0] px-3.5 py-1.5 text-sm font-semibold text-[#2A2420] transition hover:bg-white"
                 >
-                  + Upload your track
+                  + Upload your song
                 </Link>
               )}
             </section>
@@ -288,10 +288,10 @@ export default async function SongClubEventPage({
           <div className="mb-3 flex items-start justify-between gap-3">
             <div className="min-w-0">
               <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-[#c8a26a]/90">
-                The round
+                Songs
                 {round.locked && (
                   <span className="rounded bg-[#c8a26a]/20 px-1.5 py-0.5 text-[10px] normal-case tracking-normal">
-                    🔒 Locked
+                    🔒 Uploads closed
                   </span>
                 )}
               </div>
@@ -306,14 +306,14 @@ export default async function SongClubEventPage({
                   href={`/song-club/upload?playlist=${round.id}`}
                   className="rounded-md bg-[#E8E0D0] px-3.5 py-1.5 text-sm font-semibold text-[#2A2420] transition hover:bg-white"
                 >
-                  + Upload your track
+                  + Upload your song
                 </Link>
               )}
             </div>
           </div>
           {round.locked && !admin && (
             <p className="mb-3 text-sm text-[#E8E0D0]/60">
-              Uploads open when the round starts — you&apos;ll be able to add your track then.
+              Uploads open when the event starts — you&apos;ll be able to add your song then.
             </p>
           )}
           <PlaylistTracks
@@ -356,7 +356,7 @@ export default async function SongClubEventPage({
           <section className="mt-8 rounded-lg border border-[#c8a26a]/30 bg-[#c8a26a]/[0.06] p-5">
             <h2 className="text-lg font-medium">Join this Song-a-day</h2>
             <p className="mb-4 mt-1 text-sm text-[#E8E0D0]/60">
-              Sign up to share your tracks and hear everyone else&apos;s.
+              Sign up to share your songs and hear everyone else&apos;s.
             </p>
             {member ? (
               <ParticipateButton eventId={event.id} label="Sign me up" />
@@ -383,8 +383,8 @@ export default async function SongClubEventPage({
             <section className="mt-6 rounded-lg border border-[#c8a26a]/30 bg-[#c8a26a]/[0.06] p-5">
               <h2 className="text-lg font-medium">Were you part of this?</h2>
               <p className="mb-4 mt-1 text-sm text-[#E8E0D0]/60">
-                Unlock the round and the conversation to listen, share your track,
-                and comment with everyone who took part.
+                Join to listen, share your song, and comment with everyone who
+                took part.
               </p>
               {member ? (
                 <ParticipateButton eventId={event.id} />

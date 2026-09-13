@@ -195,7 +195,7 @@ export default function SongClubEventForm({
         hint={
           v.format === 'online'
             ? 'Online / Song-a-day: no RSVP — members "Sign me up" to join in the portal.'
-            : 'In-person: public RSVP form + "I participated" to unlock the round.'
+            : 'In-person: public RSVP form + "I participated" to unlock the songs.'
         }
       >
         <div className="inline-flex rounded-lg border border-[#E8E0D0]/20 p-1">
@@ -287,7 +287,7 @@ export default function SongClubEventForm({
       </Field>
 
       {rounds.length > 0 && (
-        <Field label="Song Club round" hint="Optional — links the public event page to this round in the members' portal">
+        <Field label="Song Club playlist" hint="Optional — links the public event page to this playlist in the members' portal">
           <select
             className={inputClass}
             value={v.playlistId ?? ''}

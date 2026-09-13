@@ -7,7 +7,7 @@ import UploadTrackForm from '@/components/club/UploadTrackForm';
 import ClubTopBar from '@/components/club/ClubTopBar';
 
 export const metadata: Metadata = {
-  title: 'Song Club — upload a track',
+  title: 'Song Club — upload a song',
   robots: { index: false, follow: false },
 };
 
@@ -32,7 +32,7 @@ export default async function ClubUploadPage({
   return (
     <main className="mx-auto w-full max-w-sm px-5 py-8 text-[#E8E0D0] sm:py-10">
       <ClubTopBar />
-      <h1 className="mt-3 text-2xl font-semibold">Upload a track</h1>
+      <h1 className="mt-3 text-2xl font-semibold">Upload a song</h1>
       <p className="mt-1 text-sm text-[#E8E0D0]/60">
         Goes straight to the club — only members can hear it.
       </p>

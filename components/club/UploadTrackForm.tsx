@@ -231,7 +231,7 @@ export default function UploadTrackForm({
 
       <div>
         <label htmlFor="track-playlist" className={labelClass}>
-          Add to a round
+          Add to a playlist
         </label>
         <select
           id="track-playlist"
@@ -296,7 +296,7 @@ export default function UploadTrackForm({
         disabled={busy || !file}
         className="w-full rounded-md bg-[#E8E0D0] px-6 py-2.5 text-sm font-semibold text-[#2A2420] transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
       >
-        {busy ? 'Uploading…' : 'Upload track'}
+        {busy ? 'Uploading…' : 'Upload song'}
       </button>
     </form>
   );

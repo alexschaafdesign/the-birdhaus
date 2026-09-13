@@ -12,7 +12,7 @@ import ClubTopBar from '@/components/club/ClubTopBar';
 import RoundLockToggle from '@/components/club/RoundLockToggle';
 
 export const metadata: Metadata = {
-  title: 'Song Club — round',
+  title: 'Song Club — playlist',
   robots: { index: false, follow: false },
 };
 
@@ -65,10 +65,10 @@ export default async function ClubPlaylistPage({
         <div className="flex items-start justify-between gap-4">
           <div>
             <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-[#c8a26a]/80">
-              Round · {playlist.trackCount} track{playlist.trackCount === 1 ? '' : 's'}
+              Playlist · {playlist.trackCount} song{playlist.trackCount === 1 ? '' : 's'}
               {playlist.locked && (
                 <span className="rounded bg-[#c8a26a]/20 px-1.5 py-0.5 text-[10px] normal-case tracking-normal">
-                  🔒 Locked
+                  🔒 Uploads closed
                 </span>
               )}
             </div>
@@ -80,7 +80,7 @@ export default async function ClubPlaylistPage({
                 href={`/song-club/upload?playlist=${playlist.id}`}
                 className="rounded-md bg-[#E8E0D0] px-3.5 py-1.5 text-sm font-semibold text-[#2A2420] transition hover:bg-white"
               >
-                + Upload to this round
+                + Upload to this playlist
               </Link>
             )}
             {admin && <RoundLockToggle playlistId={playlist.id} locked={playlist.locked} />}

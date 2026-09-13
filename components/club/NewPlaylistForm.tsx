@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 
-// Admin-only (v1): create a round. Collapsed behind a "+ New round" link.
+// Admin-only (v1): create a round. Collapsed behind a "+ New playlist" link.
 export default function NewPlaylistForm() {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -39,7 +39,7 @@ export default function NewPlaylistForm() {
         onClick={() => setOpen(true)}
         className="text-xs text-[#c8a26a]/80 underline-offset-2 transition hover:text-[#c8a26a] hover:underline"
       >
-        + New round
+        + New playlist
       </button>
     );
   }
@@ -53,7 +53,7 @@ export default function NewPlaylistForm() {
         type="text"
         required
         autoFocus
-        placeholder='Round title — e.g. "SOD #5 // OCT 2026"'
+        placeholder='Playlist title — e.g. "SOD #5 // OCT 2026"'
         value={title}
         onChange={(e) => setTitle(e.target.value)}
         className="w-full rounded-md border border-[#E8E0D0]/20 bg-[#E8E0D0]/[0.03] px-3 py-2 text-sm text-[#E8E0D0] placeholder:text-[#E8E0D0]/30 focus:border-[#E8E0D0]/50 focus:outline-none"
@@ -76,7 +76,7 @@ export default function NewPlaylistForm() {
           disabled={busy}
           className="rounded border border-[#E8E0D0] bg-[#E8E0D0] px-4 py-1.5 text-sm font-medium text-[#2A2420] transition-colors hover:bg-[#E8E0D0]/90 disabled:opacity-50"
         >
-          {busy ? 'Creating…' : 'Create round'}
+          {busy ? 'Creating…' : 'Create playlist'}
         </button>
         <button
           type="button"
