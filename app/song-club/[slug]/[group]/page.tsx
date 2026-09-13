@@ -114,7 +114,7 @@ export default async function SongClubGroupPage({
             commentsByTrack={comments}
             viewerMemberId={member?.id ?? null}
             isAdmin={admin}
-            groupByDay
+            collapseByDay
             eventStartDate={event.event_date}
             eventEndDate={event.end_date}
             today={getTodayCentral()}

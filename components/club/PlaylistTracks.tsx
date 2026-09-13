@@ -39,7 +39,7 @@ const UNDATED = '9999-99-99';
 // others, and when a track ends the next one starts. Admin gets reorder
 // (up/down), remove-from-round, and highlight-star controls per track.
 //
-// groupByDay renders song-a-day style: tracks under Day headers in date order
+// collapseByDay renders song-a-day style: tracks under Day headers in date order
 // (undated last). When `today` (from getTodayCentral) + `storageKey` are also
 // given, the day sections COLLAPSE: days that haven't happened yet aren't
 // rendered at all, the event's days_open_default decides which past days start
@@ -51,7 +51,7 @@ export default function PlaylistTracks({
   commentsByTrack,
   viewerMemberId,
   isAdmin,
-  groupByDay = false,
+  collapseByDay = false,
   eventStartDate = null,
   eventEndDate = null,
   today = null,
@@ -64,7 +64,7 @@ export default function PlaylistTracks({
   commentsByTrack: Record<number, ClubTrackComment[]>;
   viewerMemberId: number | null;
   isAdmin: boolean;
-  groupByDay?: boolean;
+  collapseByDay?: boolean;
   eventStartDate?: string | null;
   eventEndDate?: string | null;
   // "YYYY-MM-DD" in Central time, computed server-side (getTodayCentral).
@@ -84,7 +84,7 @@ export default function PlaylistTracks({
   const [overrides, setOverrides] = useState<Record<string, boolean>>({});
   const controlsRef = useRef<Map<number, TrackControls>>(new Map());
 
-  const collapsible = groupByDay && !!today && !!eventStartDate && !!storageKey;
+  const collapsible = collapseByDay && !!today && !!eventStartDate && !!storageKey;
   const storageId = `sc-days:${storageKey ?? ''}`;
 
   // The day "in focus": today clamped into the event's range — before the
@@ -99,15 +99,15 @@ export default function PlaylistTracks({
   // grouping; the round's own position order otherwise. Days after the focus
   // day haven't happened — they don't render at all.
   const ordered = useMemo(() => {
-    if (!groupByDay) return tracks;
+    if (!collapseByDay) return tracks;
     const shown = focusDay ? tracks.filter((t) => !t.day || t.day <= focusDay) : tracks;
     return [...shown].sort((a, b) =>
       (a.day ?? UNDATED) < (b.day ?? UNDATED) ? -1 : (a.day ?? UNDATED) > (b.day ?? UNDATED) ? 1 : 0
     );
-  }, [tracks, groupByDay, focusDay]);
+  }, [tracks, collapseByDay, focusDay]);
 
   const sections = useMemo(() => {
-    if (!groupByDay) return null;
+    if (!collapseByDay) return null;
     const out: Array<{ day: string | null; tracks: ClubTrack[] }> = [];
     for (const t of ordered) {
       const last = out[out.length - 1];
@@ -115,7 +115,7 @@ export default function PlaylistTracks({
       else out.push({ day: t.day ?? null, tracks: [t] });
     }
     return out;
-  }, [groupByDay, ordered]);
+  }, [collapseByDay, ordered]);
 
   function defaultOpen(day: string | null): boolean {
     if (!collapsible || day === null) return true; // undated: always start open
@@ -242,7 +242,7 @@ export default function PlaylistTracks({
     return (
       // The anchor id only exists in day-grouped mode (deep links into
       // collapsed days) — flat rounds render exactly as they always have.
-      <div key={track.id} id={groupByDay ? `track-${track.id}` : undefined}>
+      <div key={track.id} id={collapseByDay ? `track-${track.id}` : undefined}>
         {isAdmin && (
           <div className="mb-1 flex items-center justify-end gap-2 text-[10px] text-[#E8E0D0]/40">
             <button
@@ -255,7 +255,7 @@ export default function PlaylistTracks({
             >
               {track.isHighlight ? '★ highlighted' : '☆ highlight'}
             </button>
-            {!groupByDay && allowReorder && (
+            {!collapseByDay && allowReorder && (
               <>
                 <button
                   type="button"
