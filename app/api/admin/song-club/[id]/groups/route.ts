@@ -7,6 +7,7 @@ import {
   type DaysOpenDefault,
 } from '@/lib/song-club';
 import {
+  addGroup,
   assignAttendeeGroup,
   createGroups,
   deleteGroup,
@@ -20,6 +21,7 @@ import {
 //
 // PATCH accepts one of (mirrors the playlists route's multi-shape PATCH):
 //   { create: { count } }                make the event's groups (Group A…)
+//   { addGroup: true }                   append one more group (Group E, F…)
 //   { assign: { userId, groupId } }      move one attendee (groupId null = unassign)
 //   { distribute: true }                 spread ONLY unassigned attendees evenly
 //   { deleteGroupId: number }            remove a group (members -> unassigned)
@@ -51,6 +53,17 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     // Ensure the event has a playlist first (a group always collects songs);
     // idempotent for events that already have one.
     await createGroups(eventId, body.create.count, event.title);
+    return refreshed();
+  }
+
+  if (body?.addGroup === true) {
+    const result = await addGroup(eventId, event.title);
+    if (!result.ok) {
+      return NextResponse.json(
+        { error: 'This event already has the maximum number of groups.' },
+        { status: 400 }
+      );
+    }
     return refreshed();
   }
 

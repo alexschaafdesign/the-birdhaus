@@ -109,6 +109,59 @@ export async function createGroups(
   return listGroups(eventId);
 }
 
+// A song-a-day event tops out at 26 groups (A…Z) — well past any real use, but
+// a hard ceiling so a stuck click can't spawn hundreds.
+const MAX_GROUPS = 26;
+
+// Position 1 → "Group A", 2 → "Group B"… continuing past the hardcoded
+// GROUP_NAMES list (which only reaches F) by walking the alphabet, then falling
+// back to the number if we ever blow past Z.
+function groupNameForPosition(position: number): string {
+  return position >= 1 && position <= 26
+    ? `Group ${String.fromCharCode(64 + position)}`
+    : `Group ${position}`;
+}
+
+// Append ONE more group to an event that already has some (the admin UI's
+// "+ Add group", available once the initial set exists — createGroups only ever
+// makes the whole A… set from scratch). Auto-named by its position so it
+// continues the sequence; position is max(existing)+1, so a prior delete leaves
+// no collision on the (event_id, position) unique index. Ensures the event's
+// (locked) song playlist exists too, mirroring createGroups, so a fresh group
+// always has somewhere to collect songs. Returns { ok:false, reason:'at_max' }
+// at the ceiling.
+export async function addGroup(
+  eventId: number,
+  ensurePlaylistTitle?: string
+): Promise<{ ok: true; group: ClubGroup } | { ok: false; reason: 'at_max' }> {
+  const existing = await listGroups(eventId);
+  if (existing.length >= MAX_GROUPS) return { ok: false, reason: 'at_max' };
+  const position = existing.reduce((max, g) => Math.max(max, g.position), 0) + 1;
+  const name = groupNameForPosition(position);
+  const row = await sql.begin(async (tx) => {
+    if (ensurePlaylistTitle !== undefined) {
+      const [ev] = await tx<Array<{ playlist_id: number | null }>>`
+        select playlist_id from song_club_events where id = ${eventId} for update
+      `;
+      if (ev && ev.playlist_id == null) {
+        const title = ensurePlaylistTitle.trim().slice(0, 200) || 'Songs';
+        const [pl] = await tx<Array<{ id: number }>>`
+          insert into song_club_playlists (title, locked) values (${title}, true)
+          returning id
+        `;
+        await tx`update song_club_events set playlist_id = ${pl.id} where id = ${eventId}`;
+      }
+    }
+    const [inserted] = await tx<GroupRow[]>`
+      insert into song_club_groups (event_id, name, position, slug)
+      values (${eventId}, ${name}, ${position}, ${slugify(name)})
+      returning id, event_id, name, position, slug, 0 as member_count
+    `;
+    return inserted;
+  });
+  return { ok: true, group: mapGroup(row) };
+}
+
 // Remove a group. Nothing is deleted beyond the group row itself: its members'
 // group_id resets to null (the FK is ON DELETE SET NULL, migration 083), so
 // they become unassigned and — because a track's group is DERIVED from its

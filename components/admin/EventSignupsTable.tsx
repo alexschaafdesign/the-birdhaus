@@ -253,8 +253,16 @@ export default function EventSignupsTable({
             >
               {groupsBusy ? 'Working…' : `Distribute ${unassignedCount} unassigned evenly`}
             </button>
+            <button
+              type="button"
+              onClick={() => patchGroups({ addGroup: true })}
+              disabled={groupsBusy}
+              className="rounded border border-[#E8E0D0]/40 px-4 py-1.5 text-sm font-medium text-[#E8E0D0] transition hover:border-[#E8E0D0] disabled:opacity-50"
+            >
+              + Add group
+            </button>
             <span className="text-xs text-[#E8E0D0]/45">
-              Only touches unassigned people — safe to re-run as sign-ups arrive.
+              Distribute only touches unassigned people — safe to re-run as sign-ups arrive.
             </span>
           </div>
         )}
