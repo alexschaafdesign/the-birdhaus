@@ -445,7 +445,12 @@ export async function getClubPortalMember(): Promise<ClubMember | null> {
 export type ClubActor = { memberId: number } | { admin: true };
 
 export async function getClubActor(): Promise<ClubActor | null> {
-  const member = await getClubMember();
+  // Portal-role-gated: a staff-only login (Alex's unified account, which holds
+  // `staff` but not `song_club`) has a valid club session yet isn't a portal
+  // member, so it must resolve to "the Birdhaus" — matching how the /club pages
+  // decide identity (getClubPortalMember, else admin). Using the un-gated
+  // getClubMember here misidentified staff as a bare member post-auth-unification.
+  const member = await getClubPortalMember();
   if (member) return { memberId: member.id };
   return (await isAdminSession()) ? { admin: true } : null;
 }

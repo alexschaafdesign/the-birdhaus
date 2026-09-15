@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getClubMember } from '@/lib/club-members';
+import { getClubPortalMember } from '@/lib/club-members';
 import { isAdminSession } from '@/lib/admin-session';
 import { deletePost, getPosts } from '@/lib/club-board';
 
@@ -13,7 +13,7 @@ export async function DELETE(
     return NextResponse.json({ error: 'Invalid id' }, { status: 400 });
   }
 
-  const member = await getClubMember();
+  const member = await getClubPortalMember();
   const by = member
     ? { memberId: member.id }
     : (await isAdminSession())

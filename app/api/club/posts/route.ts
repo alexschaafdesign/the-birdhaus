@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getClubMember } from '@/lib/club-members';
+import { getClubPortalMember } from '@/lib/club-members';
 import { isAdminSession } from '@/lib/admin-session';
 import { createPost, getPosts } from '@/lib/club-board';
 import { notifyAnnouncement, notifyGroupPost } from '@/lib/club-notify';
@@ -11,7 +11,9 @@ import { getAttendeeGroupId, getGroup } from '@/lib/club-groups';
 // (hub-portal pattern) so the UI can swap it in. Admin posts may also blast
 // the post to members who opted into announcement emails.
 export async function POST(request: Request) {
-  const member = await getClubMember();
+  // Portal member acts as themselves; a staff-only login (no song_club role)
+  // resolves to the admin/"the Birdhaus" author — same identity the page uses.
+  const member = await getClubPortalMember();
   const author = member ? member.id : (await isAdminSession()) ? ('admin' as const) : null;
   if (author === null) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getClubMember } from '@/lib/club-members';
+import { getClubPortalMember } from '@/lib/club-members';
 import { isAdminSession } from '@/lib/admin-session';
 import { createPin, getPins, type ClubPinKind } from '@/lib/club-board';
 import { isValidHttpUrl } from '@/lib/club-embed';
@@ -15,7 +15,7 @@ const MAX_FILE_BYTES = 4 * 1024 * 1024;
 //  - multipart/form-data with `file` + `title`  -> re-hosted in R2, kind 'file'
 //  - JSON { kind: 'embed' | 'link', title, url } -> stored as-is
 export async function POST(request: Request) {
-  const member = await getClubMember();
+  const member = await getClubPortalMember();
   const author = member ? member.id : (await isAdminSession()) ? ('admin' as const) : null;
   if (author === null) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
