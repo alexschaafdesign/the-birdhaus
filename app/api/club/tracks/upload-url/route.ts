@@ -4,19 +4,32 @@ import { SONG_CLUB_TRACKS_FOLDER } from '@/lib/r2';
 import { createPrivatePresignedUploadUrl, createUploadGrant } from '@/lib/r2-private';
 import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
 
-// Audio only. Some browsers report no MIME type for audio files, so the
-// extension is the fallback source of truth.
+// Audio only, and only formats EVERY member's browser can play back:
+// aiff won't play in Chrome/Firefox, ogg/opus won't play on iPhones — an
+// upload in those formats looks fine to the uploader and is a dead track
+// for half the club. Some browsers report no MIME type for audio files, so
+// the extension is the source of truth.
 const TYPE_FOR_EXTENSION: Record<string, string> = {
   mp3: 'audio/mpeg',
   m4a: 'audio/mp4',
   wav: 'audio/wav',
-  aif: 'audio/aiff',
-  aiff: 'audio/aiff',
   flac: 'audio/flac',
-  ogg: 'audio/ogg',
-  oga: 'audio/ogg',
-  opus: 'audio/opus',
 };
+
+// Declared MIME variants browsers actually send for the allowed extensions.
+const ALLOWED_DECLARED_TYPES = new Set([
+  'audio/mpeg',
+  'audio/mp3',
+  'audio/mp4',
+  'audio/x-m4a',
+  'audio/m4a',
+  'audio/aac',
+  'audio/wav',
+  'audio/x-wav',
+  'audio/wave',
+  'audio/flac',
+  'audio/x-flac',
+]);
 
 const MAX_TRACK_BYTES = 250 * 1024 * 1024; // plenty for a WAV, still a sanity cap
 
@@ -41,12 +54,17 @@ export async function POST(request: Request) {
   const sizeBytes = typeof body?.sizeBytes === 'number' ? body.sizeBytes : 0;
 
   const extension = filename.split('.').pop()?.toLowerCase() ?? '';
-  const contentType = declaredType.startsWith('audio/')
-    ? declaredType
-    : TYPE_FOR_EXTENSION[extension];
+  const extensionType = TYPE_FOR_EXTENSION[extension];
+  // The extension gates the allowlist; the declared type is kept when it's a
+  // known variant (it's what playback serves as Content-Type).
+  const contentType =
+    extensionType && ALLOWED_DECLARED_TYPES.has(declaredType) ? declaredType : extensionType;
   if (!contentType) {
     return NextResponse.json(
-      { error: 'That doesn’t look like an audio file (mp3, m4a, wav, aiff, flac, ogg).' },
+      {
+        error:
+          'Upload an mp3, m4a, wav, or flac — other formats (aiff, ogg) don’t play in every member’s browser.',
+      },
       { status: 400 }
     );
   }

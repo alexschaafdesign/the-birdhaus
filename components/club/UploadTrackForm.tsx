@@ -206,12 +206,28 @@ export default function UploadTrackForm({
         <input
           type="file"
           required
-          accept="audio/*,.mp3,.m4a,.wav,.aif,.aiff,.flac,.ogg,.opus"
-          onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+          accept=".mp3,.m4a,.wav,.flac,audio/mpeg,audio/mp4,audio/x-m4a,audio/wav,audio/flac"
+          onChange={(e) => {
+            const f = e.target.files?.[0] ?? null;
+            // Formats every member's browser can play — aiff dies in
+            // Chrome/Firefox, ogg dies on iPhones. Reject here with a real
+            // explanation instead of a server error at submit time.
+            const ext = f?.name.split('.').pop()?.toLowerCase() ?? '';
+            if (f && !['mp3', 'm4a', 'wav', 'flac'].includes(ext)) {
+              setFile(null);
+              e.target.value = '';
+              setError(
+                `.${ext} files don't play in every member's browser — export an mp3, m4a, wav, or flac instead.`
+              );
+              return;
+            }
+            setError(null);
+            setFile(f);
+          }}
           className="block w-full text-sm text-[#E8E0D0]/70 file:mr-3 file:rounded file:border-0 file:bg-[#E8E0D0]/15 file:px-3 file:py-1.5 file:text-sm file:text-[#E8E0D0]"
         />
         <p className="mt-1 text-xs text-[#E8E0D0]/40">
-          mp3, m4a, wav, aiff, flac, or ogg — up to 250 MB.
+          mp3, m4a, wav, or flac — up to 250 MB.
         </p>
       </div>
 
