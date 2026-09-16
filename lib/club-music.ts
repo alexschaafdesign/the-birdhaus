@@ -459,6 +459,57 @@ export async function groupTrackCounts(
   );
 }
 
+// Who's uploaded today, per group — feeds the group cards' roster strip
+// ("4/10 today" as avatars + hollow dots). Uses the track's filed DAY
+// (pt.day, same as the day picker), so a after-midnight upload filed to
+// yesterday counts for yesterday. Uploaded members sort first.
+export async function groupUploadRoster(
+  playlistId: number,
+  eventId: number,
+  day: string
+): Promise<
+  Map<number, Array<{ memberId: number; name: string; avatarUrl: string | null; uploadedToday: boolean }>>
+> {
+  const rows = await sql<
+    Array<{
+      group_id: number;
+      member_id: number;
+      name: string;
+      avatar_url: string | null;
+      uploaded_today: boolean;
+    }>
+  >`
+    select a.group_id, u.id as member_id, u.name, u.avatar_url,
+           exists (
+             select 1 from song_club_playlist_tracks pt
+             join song_club_tracks t on t.id = pt.track_id
+             where pt.playlist_id = ${playlistId}
+               and t.member_id = u.id
+               and pt.day = ${day}::date
+           ) as uploaded_today
+    from song_club_event_attendees a
+    join users u on u.id = a.user_id
+    where a.event_id = ${eventId} and a.group_id is not null
+    order by uploaded_today desc, u.name asc
+  `;
+  const map = new Map<
+    number,
+    Array<{ memberId: number; name: string; avatarUrl: string | null; uploadedToday: boolean }>
+  >();
+  for (const r of rows) {
+    const groupId = Number(r.group_id);
+    const list = map.get(groupId) ?? [];
+    if (!map.has(groupId)) map.set(groupId, list);
+    list.push({
+      memberId: Number(r.member_id),
+      name: r.name,
+      avatarUrl: r.avatar_url,
+      uploadedToday: r.uploaded_today,
+    });
+  }
+  return map;
+}
+
 // Songs filed per day of a round (pt.day), keyed YYYY-MM-DD — feeds the
 // event page's day-strip tracker. Tracks without a day are simply absent.
 export async function playlistDayCounts(playlistId: number): Promise<Record<string, number>> {

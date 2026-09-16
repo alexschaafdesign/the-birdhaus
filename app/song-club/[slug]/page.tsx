@@ -13,6 +13,7 @@ import {
   playlistTracks,
   playlistTracksByGroup,
   recentRoundTracks,
+  groupUploadRoster,
 } from '@/lib/club-music';
 import { getPosts } from '@/lib/club-board';
 import { getEventAttendees, isEventAttendee } from '@/lib/club-events';
@@ -27,6 +28,7 @@ import CreateRoundForEvent from '@/components/club/CreateRoundForEvent';
 import AutoJoin from '@/components/club/AutoJoin';
 import RoundLockToggle from '@/components/club/RoundLockToggle';
 import RecentRoundFeed from '@/components/club/RecentRoundFeed';
+import GroupUploadDots from '@/components/club/GroupUploadDots';
 import DayStrip from '@/components/club/DayStrip';
 
 export const dynamic = 'force-dynamic';
@@ -153,7 +155,7 @@ export default async function SongClubEventPage({
     round && !hasGroups
       ? await Promise.all([playlistTracks(round.id), playlistComments(round.id)])
       : [[], {}];
-  const [highlights, unassignedTracks, groupModeComments, groupCounts, recentFeed] =
+  const [highlights, unassignedTracks, groupModeComments, groupCounts, recentFeed, uploadRoster] =
     round && hasGroups
       ? await Promise.all([
           highlightTracks(round.id),
@@ -161,6 +163,11 @@ export default async function SongClubEventPage({
           playlistComments(round.id),
           groupTrackCounts(round.id, event.id, today),
           recentRoundTracks(round.id, event.id, 8),
+          // The "who's in today" roster strip only makes sense while the
+          // event runs — outside its days there is no "today" to fill.
+          isDuring
+            ? groupUploadRoster(round.id, event.id, today)
+            : Promise.resolve(new Map<number, never[]>()),
         ])
       : [
           [],
@@ -168,6 +175,7 @@ export default async function SongClubEventPage({
           {},
           new Map<number, { total: number; today: number }>(),
           { tracks: [], groupNames: {}, total: 0 },
+          new Map<number, never[]>(),
         ];
 
   // The day-strip tracker: only while a multi-day event runs, for viewers
@@ -317,12 +325,14 @@ export default async function SongClubEventPage({
                   <div className="mt-0.5 text-lg font-semibold">{viewerGroup.name}</div>
                   <div className="mt-0.5 text-xs text-[#E8E0D0]/50">
                     {groupStats(viewerGroup).line}
-                    {groupStats(viewerGroup).todayCount > 0 && (
-                      <span className="ml-1.5 font-semibold text-[#c8a26a]">
-                        +{groupStats(viewerGroup).todayCount} today
-                      </span>
-                    )}
+                    {!(uploadRoster.get(viewerGroup.id)?.length) &&
+                      groupStats(viewerGroup).todayCount > 0 && (
+                        <span className="ml-1.5 font-semibold text-[#c8a26a]">
+                          +{groupStats(viewerGroup).todayCount} today
+                        </span>
+                      )}
                   </div>
+                  <GroupUploadDots roster={uploadRoster.get(viewerGroup.id) ?? []} />
                 </div>
                 <Link
                   href={`/song-club/${event.slug}/${viewerGroup.slug}`}
@@ -377,12 +387,13 @@ export default async function SongClubEventPage({
                           <span className="block truncate font-semibold">{g.name}</span>
                           <span className="mt-0.5 block text-xs text-[#E8E0D0]/50">
                             {stats.line}
-                            {stats.todayCount > 0 && (
+                            {!(uploadRoster.get(g.id)?.length) && stats.todayCount > 0 && (
                               <span className="ml-1.5 font-semibold text-[#c8a26a]">
                                 +{stats.todayCount} today
                               </span>
                             )}
                           </span>
+                          <GroupUploadDots roster={uploadRoster.get(g.id) ?? []} />
                         </span>
                         <span aria-hidden className="shrink-0 text-[#E8E0D0]/40">
                           →
