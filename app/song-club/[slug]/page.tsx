@@ -12,6 +12,7 @@ import {
   playlistDayCounts,
   playlistTracks,
   playlistTracksByGroup,
+  recentRoundTracks,
 } from '@/lib/club-music';
 import { getPosts } from '@/lib/club-board';
 import { getEventAttendees, isEventAttendee } from '@/lib/club-events';
@@ -25,6 +26,7 @@ import ParticipateButton from '@/components/club/ParticipateButton';
 import CreateRoundForEvent from '@/components/club/CreateRoundForEvent';
 import AutoJoin from '@/components/club/AutoJoin';
 import RoundLockToggle from '@/components/club/RoundLockToggle';
+import RecentRoundFeed from '@/components/club/RecentRoundFeed';
 import DayStrip from '@/components/club/DayStrip';
 
 export const dynamic = 'force-dynamic';
@@ -151,15 +153,22 @@ export default async function SongClubEventPage({
     round && !hasGroups
       ? await Promise.all([playlistTracks(round.id), playlistComments(round.id)])
       : [[], {}];
-  const [highlights, unassignedTracks, groupModeComments, groupCounts] =
+  const [highlights, unassignedTracks, groupModeComments, groupCounts, recentFeed] =
     round && hasGroups
       ? await Promise.all([
           highlightTracks(round.id),
           playlistTracksByGroup(round.id, event.id, null),
           playlistComments(round.id),
           groupTrackCounts(round.id, event.id, today),
+          recentRoundTracks(round.id, event.id, 8),
         ])
-      : [[], [], {}, new Map<number, { total: number; today: number }>()];
+      : [
+          [],
+          [],
+          {},
+          new Map<number, { total: number; today: number }>(),
+          { tracks: [], groupNames: {}, total: 0 },
+        ];
 
   // The day-strip tracker: only while a multi-day event runs, for viewers
   // who can see the round. When it shows, it replaces the header's "Day N of
@@ -384,6 +393,33 @@ export default async function SongClubEventPage({
                 })}
             </ul>
           </section>
+
+          {/* Cross-group feed — every song as it comes in, newest first.
+              Groups split the club; this stitches the listening back
+              together without leaving the event page. */}
+          {round && recentFeed.tracks.length > 0 && (
+            <section className="mt-8">
+              <div className="mb-3 flex items-baseline justify-between gap-3">
+                <h2 className="text-xs font-semibold uppercase tracking-wide text-[#E8E0D0]/45">
+                  Latest songs — all groups
+                </h2>
+                <Link
+                  href={`/song-club/music/${round.id}`}
+                  className="shrink-0 text-xs text-[#c8a26a]/80 underline-offset-2 transition hover:text-[#c8a26a] hover:underline"
+                >
+                  All {recentFeed.total} songs →
+                </Link>
+              </div>
+              <RecentRoundFeed
+                tracks={recentFeed.tracks}
+                groupNames={recentFeed.groupNames}
+                commentsByTrack={groupModeComments}
+                viewerMemberId={member?.id ?? null}
+                isAdmin={admin}
+                eventStartDate={event.event_date}
+              />
+            </section>
+          )}
 
           {round && (highlights.length > 0 || admin) && (
             <section className="mt-8 rounded-xl border border-[#c8a26a]/40 bg-[#c8a26a]/[0.06] p-4 sm:p-5">

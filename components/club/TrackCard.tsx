@@ -16,12 +16,18 @@ import MemberAvatar from './MemberAvatar';
 // one-line "💬 8 comments · 📝 notes" toggle so a busy round stays scannable —
 // title, like button, and the player stay visible. The track's own page
 // renders full (default).
+//
+// `dense` (the event page's cross-group feed) goes further: one-line header
+// (avatar · name · title), half-height waveform, no delete control — with an
+// optional `contextLabel` tag ("Day 2 · Group B") above. Implies compact.
 export default function TrackCard({
   track,
   initialComments,
   viewerMemberId,
   isAdmin,
   compact = false,
+  dense = false,
+  contextLabel,
   onPlay,
   onEnded,
   registerControls,
@@ -32,13 +38,17 @@ export default function TrackCard({
   viewerMemberId: number | null; // null when the viewer is the admin session
   isAdmin: boolean;
   compact?: boolean;
+  dense?: boolean;
+  contextLabel?: string;
   onPlay?: () => void;
   onEnded?: () => void;
   registerControls?: (controls: TrackControls | null) => void;
   onTrackDeleted?: () => void;
 }) {
+  // Dense implies compact — the collapse logic below keys off this.
+  const collapsed = compact || dense;
   const [comments, setComments] = useState<ClubTrackComment[]>(initialComments);
-  const [expanded, setExpanded] = useState(!compact);
+  const [expanded, setExpanded] = useState(!collapsed);
   const [likes, setLikes] = useState(track.likes);
   const [liking, setLiking] = useState(false);
   const [draft, setDraft] = useState('');
@@ -63,7 +73,7 @@ export default function TrackCard({
   // EXPANDED card — PlaylistTracks opens the day section and scrolls; this
   // opens the card itself.
   useEffect(() => {
-    if (!compact) return;
+    if (!collapsed) return;
     const hash = window.location.hash;
     if (hash === `#track-${track.id}`) setExpanded(true);
     const m = hash.match(/^#comment-(\d+)$/);
@@ -170,8 +180,23 @@ export default function TrackCard({
   }
 
   return (
-    <div className="rounded-lg border border-[#E8E0D0]/15 bg-[#E8E0D0]/[0.03] p-4">
+    <div className={`rounded-lg border border-[#E8E0D0]/15 bg-[#E8E0D0]/[0.03] ${dense ? 'p-3' : 'p-4'}`}>
+      {dense && contextLabel && (
+        <div className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-[#c8a26a]/70">
+          {contextLabel}
+        </div>
+      )}
       <div className="mb-1 flex items-baseline justify-between gap-3">
+        {dense ? (
+          <div className="flex min-w-0 items-center gap-1.5 text-sm">
+            <MemberAvatar name={track.uploaderName} avatarUrl={track.uploaderAvatarUrl} />
+            <span className="truncate">
+              <span className="text-[#E8E0D0]/70">{track.uploaderName}</span>
+              <span className="text-[#E8E0D0]/40"> · </span>
+              <span className="font-medium text-[#E8E0D0]">{track.title}</span>
+            </span>
+          </div>
+        ) : (
         <div className="min-w-0">
           <div className="truncate font-medium text-[#E8E0D0]">{track.title}</div>
           <div className="mt-0.5 flex items-center gap-1.5 text-xs text-[#E8E0D0]/50">
@@ -181,6 +206,7 @@ export default function TrackCard({
             </span>
           </div>
         </div>
+        )}
         <div className="flex shrink-0 items-center gap-3">
           {(canAct || likes.length > 0) && (
             <button
@@ -205,7 +231,7 @@ export default function TrackCard({
               )}
             </button>
           )}
-          {canDeleteTrack && (
+          {canDeleteTrack && !dense && (
             <button
               type="button"
               onClick={removeTrack}
@@ -217,7 +243,7 @@ export default function TrackCard({
         </div>
       </div>
 
-      {!compact && track.notes && (
+      {!collapsed && track.notes && (
         <p className="mb-2 whitespace-pre-wrap text-sm text-[#E8E0D0]/70">{track.notes}</p>
       )}
 
@@ -227,6 +253,7 @@ export default function TrackCard({
           peaks={track.peaks}
           durationSeconds={track.durationSeconds}
           markers={markers}
+          height={dense ? 36 : 72}
           onPlay={onPlay}
           onEnded={onEnded}
           onTimeSecond={setPlayhead}
@@ -238,7 +265,7 @@ export default function TrackCard({
         <audio src={track.url} controls preload="none" className="mt-1 w-full" />
       )}
 
-      {compact && (
+      {collapsed && (
         <button
           type="button"
           onClick={() => setExpanded((v) => !v)}
@@ -257,7 +284,7 @@ export default function TrackCard({
         </button>
       )}
 
-      {compact && expanded && track.notes && (
+      {collapsed && expanded && track.notes && (
         <p className="mt-2 whitespace-pre-wrap text-sm text-[#E8E0D0]/70">{track.notes}</p>
       )}
 
@@ -265,7 +292,7 @@ export default function TrackCard({
       <div
         className={`mt-3 space-y-2 ${
           // In compact mode the toggle row above already draws the divider.
-          compact ? 'pt-1' : 'border-t border-[#E8E0D0]/10 pt-3'
+          collapsed ? 'pt-1' : 'border-t border-[#E8E0D0]/10 pt-3'
         }`}
       >
         {comments.map((c) => {

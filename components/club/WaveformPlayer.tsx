@@ -51,6 +51,7 @@ export default function WaveformPlayer({
   peaks,
   durationSeconds,
   markers = [],
+  height = 72,
   onPlay,
   onEnded,
   onTimeSecond,
@@ -60,6 +61,8 @@ export default function WaveformPlayer({
   peaks: number[];
   durationSeconds: number | null;
   markers?: WaveformMarker[];
+  // Waveform height in px — 72 for full cards, smaller for dense feed rows.
+  height?: number;
   onPlay?: () => void;
   onEnded?: () => void;
   onTimeSecond?: (sec: number) => void;
@@ -255,7 +258,7 @@ export default function WaveformPlayer({
         url,
         peaks: [peaks],
         duration: durationSeconds ?? undefined,
-        height: 72,
+        height,
         waveColor: 'rgba(232, 224, 208, 0.35)',
         progressColor: '#c8a26a',
         cursorColor: 'rgba(232, 224, 208, 0.9)',

@@ -402,6 +402,37 @@ export async function playlistTracksByGroup(
   return rows.map(mapTrack);
 }
 
+// The event page's cross-group feed: the round's newest tracks, all groups
+// mixed, each tagged with its uploader's group name (derived from the
+// attendee row, same as playlistTracksByGroup). Newest-first — songs as they
+// come in — with the round's total so the caller can link to the full list.
+export async function recentRoundTracks(
+  playlistId: number,
+  eventId: number,
+  limit: number
+): Promise<{ tracks: ClubTrack[]; groupNames: Record<number, string | null>; total: number }> {
+  const rows = await sql<Array<TrackRow & { group_name: string | null; total_count: number }>>`
+    select q.*, g.name as group_name, count(*) over ()::int as total_count
+    from (
+      ${TRACK_SELECT_IN_ROUND}
+      join song_club_playlist_tracks pt on pt.track_id = t.id
+      where pt.playlist_id = ${playlistId}
+    ) q
+    left join song_club_event_attendees a
+      on a.user_id = q.member_id and a.event_id = ${eventId}
+    left join song_club_groups g on g.id = a.group_id
+    order by q.id desc
+    limit ${limit}
+  `;
+  const groupNames: Record<number, string | null> = {};
+  for (const r of rows) groupNames[Number(r.id)] = r.group_name;
+  return {
+    tracks: rows.map(mapTrack),
+    groupNames,
+    total: rows.length > 0 ? Number(rows[0].total_count) : 0,
+  };
+}
+
 // Per-group song tallies for the event page's group directory: total tracks
 // in the round, and how many landed "today" (caller passes the Central date —
 // getTodayCentral()). A track's group is derived from its uploader's attendee
