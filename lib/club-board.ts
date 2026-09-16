@@ -5,6 +5,7 @@
 
 import { sql } from './db';
 import { isValidHttpUrl } from './club-embed';
+import { isClubReactionEmoji, type ClubReaction } from './club-reactions';
 
 export interface ClubPost {
   id: number;
@@ -13,6 +14,10 @@ export interface ClubPost {
   authorName: string;
   body: string;
   createdAt: string;
+  // Facebook-style: one level of replies, nested under their parent post.
+  // Replies always have replies: [] themselves.
+  replies: ClubPost[];
+  reactions: ClubReaction[];
 }
 
 export type ClubPinKind = 'file' | 'embed' | 'link';
@@ -34,13 +39,20 @@ export interface ClubPin {
 const MAX_POST_LENGTH = 5000;
 
 // Oldest-first, so the thread reads top-down with the composer at the bottom.
-// Scopes (mirrors migration 061/083): eventId null = the general Song Club
-// board; eventId set + groupId null = that event's announcement board;
-// groupId set = that group's board.
+// Replies come back nested under their parent (also oldest-first), with each
+// post's reactions attached. Scopes (mirrors migration 061/083): eventId null
+// = the general Song Club board; eventId set + groupId null = that event's
+// announcement board; groupId set = that group's board.
 export async function getPosts(
   eventId: number | null = null,
   groupId: number | null = null
 ): Promise<ClubPost[]> {
+  const scope =
+    eventId === null
+      ? sql`p.event_id is null and p.group_id is null`
+      : groupId === null
+        ? sql`p.event_id = ${eventId} and p.group_id is null`
+        : sql`p.event_id = ${eventId} and p.group_id = ${groupId}`;
   const rows = await sql<
     Array<{
       id: number;
@@ -48,41 +60,146 @@ export async function getPosts(
       from_admin: boolean;
       member_name: string | null;
       body: string;
+      parent_post_id: number | null;
       created_at: string;
     }>
   >`
     select p.id, p.member_id, p.from_admin, m.name as member_name, p.body,
-           p.created_at::text as created_at
+           p.parent_post_id, p.created_at::text as created_at
     from song_club_posts p
     left join users m on m.id = p.member_id
-    where ${eventId === null ? sql`p.event_id is null` : sql`p.event_id = ${eventId}`}
-      and ${groupId === null ? sql`p.group_id is null` : sql`p.group_id = ${groupId}`}
+    where ${scope}
     order by p.created_at asc, p.id asc
   `;
-  return rows.map((r) => ({
+  const reactionRows = await sql<
+    Array<{
+      post_id: number;
+      emoji: string;
+      member_id: number | null;
+      member_name: string | null;
+    }>
+  >`
+    select r.post_id, r.emoji, r.member_id, m.name as member_name
+    from song_club_post_reactions r
+    left join users m on m.id = r.member_id
+    where r.post_id in (select p.id from song_club_posts p where ${scope})
+    order by r.created_at asc, r.id asc
+  `;
+
+  const reactionsByPost = new Map<number, ClubReaction[]>();
+  for (const r of reactionRows) {
+    const postId = Number(r.post_id);
+    const list = reactionsByPost.get(postId) ?? [];
+    if (!reactionsByPost.has(postId)) reactionsByPost.set(postId, list);
+    let bucket = list.find((b) => b.emoji === r.emoji);
+    if (!bucket) {
+      bucket = { emoji: r.emoji, reactors: [] };
+      list.push(bucket);
+    }
+    bucket.reactors.push({
+      memberId: r.member_id === null ? null : Number(r.member_id),
+      name: r.member_id === null ? 'the Birdhaus' : r.member_name ?? 'Former member',
+    });
+  }
+
+  const toPost = (r: (typeof rows)[number]): ClubPost => ({
     id: Number(r.id),
     memberId: r.member_id === null ? null : Number(r.member_id),
     fromAdmin: r.from_admin,
     authorName: r.from_admin ? 'the Birdhaus' : r.member_name ?? 'Former member',
     body: r.body,
     createdAt: r.created_at,
-  }));
+    replies: [],
+    reactions: reactionsByPost.get(Number(r.id)) ?? [],
+  });
+
+  // Nest one level: rows arrive oldest-first, so parents always precede their
+  // replies and both levels stay in chronological order.
+  const byId = new Map<number, ClubPost>();
+  const topLevel: ClubPost[] = [];
+  for (const r of rows) {
+    const post = toPost(r);
+    if (r.parent_post_id === null) {
+      byId.set(post.id, post);
+      topLevel.push(post);
+    } else {
+      byId.get(Number(r.parent_post_id))?.replies.push(post);
+    }
+  }
+  return topLevel;
+}
+
+// Board scope (+ reply depth) of one post — for permission checks and thread
+// refreshes before/after acting on it. Null if the post is gone.
+export async function getPostScope(
+  id: number
+): Promise<{ eventId: number | null; groupId: number | null; parentPostId: number | null } | null> {
+  const [row] = await sql<
+    Array<{ event_id: number | null; group_id: number | null; parent_post_id: number | null }>
+  >`
+    select event_id, group_id, parent_post_id from song_club_posts where id = ${id}
+  `;
+  if (!row) return null;
+  return {
+    eventId: row.event_id === null ? null : Number(row.event_id),
+    groupId: row.group_id === null ? null : Number(row.group_id),
+    parentPostId: row.parent_post_id === null ? null : Number(row.parent_post_id),
+  };
+}
+
+// Slack-style toggle: add the emoji if this person hasn't used it on this
+// post, remove it if they have. Returns the post's board scope (for the
+// thread refresh), or null if the post is gone / the emoji isn't ours.
+export async function togglePostReaction(
+  postId: number,
+  by: { memberId: number } | { admin: true },
+  emoji: string
+): Promise<{ eventId: number | null; groupId: number | null } | null> {
+  if (!isClubReactionEmoji(emoji)) return null;
+  const scope = await getPostScope(postId);
+  if (!scope) return null;
+  const removed =
+    'admin' in by
+      ? await sql`
+          delete from song_club_post_reactions
+          where post_id = ${postId} and member_id is null and emoji = ${emoji}`
+      : await sql`
+          delete from song_club_post_reactions
+          where post_id = ${postId} and member_id = ${by.memberId} and emoji = ${emoji}`;
+  if (removed.count === 0) {
+    await sql`
+      insert into song_club_post_reactions (post_id, member_id, from_admin, emoji)
+      values (${postId}, ${'admin' in by ? null : by.memberId}, ${'admin' in by}, ${emoji})
+      on conflict do nothing
+    `;
+  }
+  return { eventId: scope.eventId, groupId: scope.groupId };
 }
 
 // author: a member id, or 'admin' for a Birdhaus post. eventId scopes the post
 // to an event board (null = general); groupId narrows it to a group's board.
+// parentId makes it a reply — the reply inherits the PARENT's board scope
+// (the caller's eventId/groupId are ignored) and replies stay one level deep:
+// replying to a reply is refused.
 export async function createPost(
   author: number | 'admin',
   body: string,
   eventId: number | null = null,
-  groupId: number | null = null
+  groupId: number | null = null,
+  parentId: number | null = null
 ): Promise<boolean> {
   const trimmed = body.trim().slice(0, MAX_POST_LENGTH);
   if (!trimmed) return false;
+  if (parentId !== null) {
+    const parent = await getPostScope(parentId);
+    if (!parent || parent.parentPostId !== null) return false;
+    eventId = parent.eventId;
+    groupId = parent.groupId;
+  }
   await sql`
-    insert into song_club_posts (member_id, from_admin, body, event_id, group_id)
+    insert into song_club_posts (member_id, from_admin, body, event_id, group_id, parent_post_id)
     values (${author === 'admin' ? null : author}, ${author === 'admin'}, ${trimmed},
-            ${eventId}, ${eventId === null ? null : groupId})
+            ${eventId}, ${eventId === null ? null : groupId}, ${parentId})
   `;
   return true;
 }

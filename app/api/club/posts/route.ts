@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getClubPortalMember } from '@/lib/club-members';
 import { isAdminSession } from '@/lib/admin-session';
-import { createPost, getPosts } from '@/lib/club-board';
+import { createPost, getPosts, getPostScope } from '@/lib/club-board';
 import { notifyAnnouncement, notifyGroupPost } from '@/lib/club-notify';
 import { isEventAttendee } from '@/lib/club-events';
 import { getAttendeeGroupId, getGroup } from '@/lib/club-groups';
@@ -25,7 +25,22 @@ export async function POST(request: Request) {
   const eventIdNum = Number(body?.eventId);
   let eventId = Number.isInteger(eventIdNum) && eventIdNum > 0 ? eventIdNum : null;
   const groupIdNum = Number(body?.groupId);
-  const groupId = Number.isInteger(groupIdNum) && groupIdNum > 0 ? groupIdNum : null;
+  let groupId = Number.isInteger(groupIdNum) && groupIdNum > 0 ? groupIdNum : null;
+  const parentIdNum = Number(body?.parentId);
+  const parentId = Number.isInteger(parentIdNum) && parentIdNum > 0 ? parentIdNum : null;
+
+  // A reply lives on its PARENT's board — take the scope from the parent row
+  // (never the client) and run the same permission gates as a fresh post
+  // there. Replies stay one level deep.
+  if (parentId !== null) {
+    const parent = await getPostScope(parentId);
+    if (!parent) return NextResponse.json({ error: 'Post not found' }, { status: 404 });
+    if (parent.parentPostId !== null) {
+      return NextResponse.json({ error: "Can't reply to a reply" }, { status: 400 });
+    }
+    eventId = parent.eventId;
+    groupId = parent.groupId;
+  }
 
   // Posting to a group board requires membership in THAT group — re-derived
   // from the group row + the attendee row, never trusted from the client.
@@ -48,16 +63,16 @@ export async function POST(request: Request) {
     }
   }
 
-  if (!(await createPost(author, text, eventId, groupId))) {
+  if (!(await createPost(author, text, eventId, groupId, parentId))) {
     return NextResponse.json({ error: 'Message is empty' }, { status: 400 });
   }
 
-  // Only admin posts can email, and only when explicitly asked. Scope is
-  // decided HERE, never by the client: a group-board post can only ever email
-  // that group's members — the club-wide announcement list is unreachable
-  // from a group board.
+  // Only admin TOP-LEVEL posts can email, and only when explicitly asked.
+  // Scope is decided HERE, never by the client: a group-board post can only
+  // ever email that group's members — the club-wide announcement list is
+  // unreachable from a group board.
   let emailedCount: number | null = null;
-  if (author === 'admin' && body?.email === true) {
+  if (author === 'admin' && body?.email === true && parentId === null) {
     try {
       emailedCount =
         groupId !== null ? await notifyGroupPost(groupId, text.trim()) : await notifyAnnouncement(text.trim());

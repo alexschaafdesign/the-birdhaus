@@ -3,6 +3,7 @@
 import { useRef, useState } from 'react';
 import type { ClubTrack, ClubTrackComment } from '@/lib/club-music';
 import WaveformPlayer, { type TrackControls, type WaveformMarker } from './WaveformPlayer';
+import ReactionBar from './ReactionBar';
 
 // One track: native audio player, uploader credit, and the track's comment
 // thread. Comments belong to the TRACK, so the same thread shows wherever the
@@ -91,6 +92,22 @@ export default function TrackCard({
       setComments(data.comments ?? []);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Couldn't delete");
+    }
+  }
+
+  async function reactToComment(id: number, emoji: string) {
+    setError(null);
+    try {
+      const res = await fetch(`/api/club/comments/${id}/reactions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ emoji }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(data?.error ?? `Couldn't react (${res.status})`);
+      setComments(data.comments ?? []);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Couldn't react");
     }
   }
 
@@ -186,6 +203,13 @@ export default function TrackCard({
                 </span>
               </div>
               <p className="whitespace-pre-wrap text-[#E8E0D0]/80">{c.body}</p>
+              <ReactionBar
+                reactions={c.reactions}
+                viewerMemberId={viewerMemberId}
+                isAdmin={isAdmin}
+                canReact={canAct}
+                onToggle={(emoji) => reactToComment(c.id, emoji)}
+              />
             </div>
           );
         })}

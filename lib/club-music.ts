@@ -6,6 +6,7 @@
 
 import { sql } from './db';
 import type { ClubActor } from './club-members';
+import { isClubReactionEmoji, type ClubReaction } from './club-reactions';
 
 export interface ClubTrack {
   id: number;
@@ -46,9 +47,43 @@ export interface ClubTrackComment {
   body: string;
   timestampSeconds: number | null;
   createdAt: string;
+  reactions: ClubReaction[];
 }
 
 const MAX_COMMENT_LENGTH = 5000;
+
+// Reactions for a set of comments, grouped per comment then per emoji (both
+// in first-seen order). Used by trackComments and playlistComments.
+async function reactionsForComments(
+  commentIds: number[]
+): Promise<Map<number, ClubReaction[]>> {
+  const map = new Map<number, ClubReaction[]>();
+  if (commentIds.length === 0) return map;
+  const rows = await sql<
+    Array<{ comment_id: number; emoji: string; member_id: number | null; member_name: string | null }>
+  >`
+    select r.comment_id, r.emoji, r.member_id, m.name as member_name
+    from song_club_comment_reactions r
+    left join users m on m.id = r.member_id
+    where r.comment_id = any(${commentIds})
+    order by r.created_at asc, r.id asc
+  `;
+  for (const r of rows) {
+    const commentId = Number(r.comment_id);
+    const list = map.get(commentId) ?? [];
+    if (!map.has(commentId)) map.set(commentId, list);
+    let bucket = list.find((b) => b.emoji === r.emoji);
+    if (!bucket) {
+      bucket = { emoji: r.emoji, reactors: [] };
+      list.push(bucket);
+    }
+    bucket.reactors.push({
+      memberId: r.member_id === null ? null : Number(r.member_id),
+      name: r.member_id === null ? 'the Birdhaus' : r.member_name ?? 'Former member',
+    });
+  }
+  return map;
+}
 
 interface TrackRow {
   id: number;
@@ -471,6 +506,7 @@ export async function trackComments(trackId: number): Promise<ClubTrackComment[]
     where c.track_id = ${trackId}
     order by c.created_at asc, c.id asc
   `;
+  const reactions = await reactionsForComments(rows.map((r) => Number(r.id)));
   return rows.map((r) => ({
     id: Number(r.id),
     trackId: Number(r.track_id),
@@ -481,6 +517,7 @@ export async function trackComments(trackId: number): Promise<ClubTrackComment[]
     body: r.body,
     timestampSeconds: r.timestamp_seconds === null ? null : Number(r.timestamp_seconds),
     createdAt: r.created_at,
+    reactions: reactions.get(Number(r.id)) ?? [],
   }));
 }
 
@@ -510,6 +547,7 @@ export async function playlistComments(
     where pt.playlist_id = ${playlistId}
     order by c.created_at asc, c.id asc
   `;
+  const reactions = await reactionsForComments(rows.map((r) => Number(r.id)));
   const byTrack: Record<number, ClubTrackComment[]> = {};
   for (const r of rows) {
     const comment: ClubTrackComment = {
@@ -522,10 +560,42 @@ export async function playlistComments(
       body: r.body,
       timestampSeconds: r.timestamp_seconds === null ? null : Number(r.timestamp_seconds),
       createdAt: r.created_at,
+      reactions: reactions.get(Number(r.id)) ?? [],
     };
     (byTrack[comment.trackId] ??= []).push(comment);
   }
   return byTrack;
+}
+
+// Slack-style toggle on a track comment: add the emoji if this person hasn't
+// used it there, remove it if they have. Returns the comment's track id (for
+// the thread refresh), or null if the comment is gone / the emoji isn't ours.
+export async function toggleCommentReaction(
+  commentId: number,
+  by: ClubActor,
+  emoji: string
+): Promise<number | null> {
+  if (!isClubReactionEmoji(emoji)) return null;
+  const [comment] = await sql<Array<{ track_id: number }>>`
+    select track_id from song_club_track_comments where id = ${commentId}
+  `;
+  if (!comment) return null;
+  const removed =
+    'admin' in by
+      ? await sql`
+          delete from song_club_comment_reactions
+          where comment_id = ${commentId} and member_id is null and emoji = ${emoji}`
+      : await sql`
+          delete from song_club_comment_reactions
+          where comment_id = ${commentId} and member_id = ${by.memberId} and emoji = ${emoji}`;
+  if (removed.count === 0) {
+    await sql`
+      insert into song_club_comment_reactions (comment_id, member_id, from_admin, emoji)
+      values (${commentId}, ${'admin' in by ? null : by.memberId}, ${'admin' in by}, ${emoji})
+      on conflict do nothing
+    `;
+  }
+  return Number(comment.track_id);
 }
 
 export async function createComment(input: {
