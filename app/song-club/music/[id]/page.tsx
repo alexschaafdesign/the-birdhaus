@@ -67,7 +67,7 @@ export default async function ClubPlaylistPage({
             <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-[#c8a26a]/80">
               Playlist · {playlist.trackCount} song{playlist.trackCount === 1 ? '' : 's'}
               {playlist.locked && (
-                <span className="rounded bg-[#c8a26a]/20 px-1.5 py-0.5 text-[10px] normal-case tracking-normal">
+                <span className="rounded bg-[#c8a26a]/20 px-1.5 py-0.5 text-[11px] normal-case tracking-normal">
                   🔒 Uploads closed
                 </span>
               )}

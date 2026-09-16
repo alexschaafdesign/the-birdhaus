@@ -74,14 +74,14 @@ export default function ClubPins({
             {pin.title}
           </span>
           <span className="flex shrink-0 items-baseline gap-2">
-            <span className="text-[10px] text-[#E8E0D0]/35">
+            <span className="text-[11px] text-[#E8E0D0]/35">
               {pin.authorName} · {formatWhen(pin.createdAt)}
             </span>
             {isAdmin && (
               <button
                 type="button"
                 onClick={() => setFeatured(pin.id, !pin.featured)}
-                className="text-[10px] text-[#c8a26a]/70 transition hover:text-[#c8a26a]"
+                className="text-[11px] text-[#c8a26a]/70 transition hover:text-[#c8a26a]"
               >
                 {pin.featured ? 'unfeature' : 'feature'}
               </button>
@@ -90,7 +90,7 @@ export default function ClubPins({
               <button
                 type="button"
                 onClick={() => remove(pin.id)}
-                className="text-[10px] text-[#E8E0D0]/35 transition hover:text-[#F5A3A3]"
+                className="text-[11px] text-[#E8E0D0]/35 transition hover:text-[#F5A3A3]"
               >
                 remove
               </button>
@@ -292,7 +292,7 @@ function AddPinForm({
             onChange={(e) => setUrl(e.target.value)}
             className={inputBase}
           />
-          <p className="mt-1 text-[11px] text-[#E8E0D0]/40">
+          <p className="mt-1 text-xs text-[#E8E0D0]/40">
             Samply, Bandcamp, SoundCloud, Spotify, YouTube, Vimeo, and Drive
             links show up as players — anything else pins as a link.
           </p>
@@ -305,7 +305,7 @@ function AddPinForm({
             onChange={(e) => setFile(e.target.files?.[0] ?? null)}
             className="block w-full text-sm text-[#E8E0D0]/70 file:mr-3 file:rounded file:border-0 file:bg-[#E8E0D0]/15 file:px-3 file:py-1.5 file:text-sm file:text-[#E8E0D0]"
           />
-          <p className="mt-1 text-[11px] text-[#E8E0D0]/40">
+          <p className="mt-1 text-xs text-[#E8E0D0]/40">
             Up to 4 MB — good for PDFs, lyric sheets, images. For audio, pin a
             Samply or Bandcamp link instead.
           </p>

@@ -69,7 +69,7 @@ export default function EventAttendees({
                       <button
                         type="button"
                         onClick={() => remove(a.id)}
-                        className="shrink-0 text-[10px] text-[#E8E0D0]/35 transition hover:text-[#F5A3A3]"
+                        className="shrink-0 text-[11px] text-[#E8E0D0]/35 transition hover:text-[#F5A3A3]"
                       >
                         remove
                       </button>

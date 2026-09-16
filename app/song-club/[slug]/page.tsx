@@ -240,7 +240,7 @@ export default async function SongClubEventPage({
           </span>
           {dayLabel && (
             <span
-              className={`rounded-full px-2 py-0.5 text-[10px] font-semibold normal-case tracking-normal ${
+              className={`rounded-full px-2 py-0.5 text-[11px] font-semibold normal-case tracking-normal ${
                 isDuring
                   ? 'bg-[#c8a26a]/20 text-[#c8a26a]'
                   : 'bg-[#E8E0D0]/10 text-[#E8E0D0]/60'
@@ -268,7 +268,7 @@ export default async function SongClubEventPage({
         <div className="mt-4 flex flex-wrap items-center gap-4">
           <Link
             href={`/admin/song-club/${event.id}/rsvps`}
-            className="text-[11px] text-[#E8E0D0]/50 underline-offset-2 transition hover:text-[#E8E0D0] hover:underline"
+            className="text-xs text-[#E8E0D0]/50 underline-offset-2 transition hover:text-[#E8E0D0] hover:underline"
           >
             Manage groups
           </Link>
@@ -419,7 +419,7 @@ export default async function SongClubEventPage({
               <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-[#c8a26a]/90">
                 Songs
                 {round.locked && (
-                  <span className="rounded bg-[#c8a26a]/20 px-1.5 py-0.5 text-[10px] normal-case tracking-normal">
+                  <span className="rounded bg-[#c8a26a]/20 px-1.5 py-0.5 text-[11px] normal-case tracking-normal">
                     🔒 Uploads closed
                   </span>
                 )}

@@ -204,7 +204,7 @@ export default function UploadTrackForm({
           onChange={(e) => setFile(e.target.files?.[0] ?? null)}
           className="block w-full text-sm text-[#E8E0D0]/70 file:mr-3 file:rounded file:border-0 file:bg-[#E8E0D0]/15 file:px-3 file:py-1.5 file:text-sm file:text-[#E8E0D0]"
         />
-        <p className="mt-1 text-[11px] text-[#E8E0D0]/40">
+        <p className="mt-1 text-xs text-[#E8E0D0]/40">
           mp3, m4a, wav, aiff, flac, or ogg — up to 250 MB.
         </p>
       </div>
@@ -275,7 +275,7 @@ export default function UploadTrackForm({
               </option>
             ))}
           </select>
-          <p className="mt-1 text-[11px] text-[#E8E0D0]/40">
+          <p className="mt-1 text-xs text-[#E8E0D0]/40">
             Finishing last night&apos;s song after midnight? Just pick yesterday.
           </p>
         </div>
@@ -289,7 +289,7 @@ export default function UploadTrackForm({
               style={{ width: `${progress}%` }}
             />
           </div>
-          <p className="mt-1 text-[11px] text-[#E8E0D0]/50">
+          <p className="mt-1 text-xs text-[#E8E0D0]/50">
             {progress < 100 ? `Uploading… ${progress}%` : 'Saving…'}
           </p>
         </div>

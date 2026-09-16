@@ -172,12 +172,12 @@ export default function ClubBoard({
         <div className="mb-1 flex items-baseline justify-between gap-3">
           <span className="text-xs font-semibold text-[#E8E0D0]">{p.authorName}</span>
           <span className="flex shrink-0 items-baseline gap-2">
-            <span className="text-[10px] text-[#E8E0D0]/35">{formatWhen(p.createdAt)}</span>
+            <span className="text-[11px] text-[#E8E0D0]/35">{formatWhen(p.createdAt)}</span>
             {canDelete && (
               <button
                 type="button"
                 onClick={() => remove(p.id)}
-                className="text-[10px] text-[#E8E0D0]/35 transition hover:text-[#F5A3A3]"
+                className="text-[11px] text-[#E8E0D0]/35 transition hover:text-[#F5A3A3]"
               >
                 delete
               </button>
@@ -200,7 +200,7 @@ export default function ClubBoard({
                 setReplyTo(p.id);
                 setReplyDraft('');
               }}
-              className="mt-1.5 text-[11px] text-[#E8E0D0]/45 transition hover:text-[#E8E0D0]"
+              className="mt-1.5 text-xs text-[#E8E0D0]/45 transition hover:text-[#E8E0D0]"
             >
               Reply
             </button>
@@ -277,7 +277,7 @@ export default function ClubBoard({
           <button
             type="button"
             onClick={() => scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' })}
-            className="absolute left-1/2 top-2 -translate-x-1/2 rounded-full border border-[#E8E0D0]/20 bg-[#2A2420]/90 px-3 py-1 text-[11px] text-[#E8E0D0]/70 shadow-md backdrop-blur transition hover:border-[#E8E0D0]/50 hover:text-[#E8E0D0]"
+            className="absolute left-1/2 top-2 -translate-x-1/2 rounded-full border border-[#E8E0D0]/20 bg-[#2A2420]/90 px-3 py-1 text-xs text-[#E8E0D0]/70 shadow-md backdrop-blur transition hover:border-[#E8E0D0]/50 hover:text-[#E8E0D0]"
           >
             ↑ earlier messages
           </button>
@@ -289,7 +289,7 @@ export default function ClubBoard({
               const el = scrollRef.current;
               el?.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
             }}
-            className="absolute bottom-2 left-1/2 -translate-x-1/2 rounded-full border border-[#c8a26a]/40 bg-[#2A2420]/90 px-3 py-1 text-[11px] text-[#c8a26a] shadow-md backdrop-blur transition hover:border-[#c8a26a]/70"
+            className="absolute bottom-2 left-1/2 -translate-x-1/2 rounded-full border border-[#c8a26a]/40 bg-[#2A2420]/90 px-3 py-1 text-xs text-[#c8a26a] shadow-md backdrop-blur transition hover:border-[#c8a26a]/70"
           >
             ↓ latest
           </button>

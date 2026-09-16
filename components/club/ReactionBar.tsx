@@ -57,7 +57,7 @@ export default function ReactionBar({
           } ${canReact ? 'hover:border-[#c8a26a]/60' : 'cursor-default'}`}
         >
           <span>{r.emoji}</span>
-          <span className="tabular-nums text-[10px]">{r.reactors.length}</span>
+          <span className="tabular-nums text-[11px]">{r.reactors.length}</span>
         </button>
       ))}
 

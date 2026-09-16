@@ -162,7 +162,7 @@ export default async function SongClubGroupPage({
                     className="h-6 w-6 rounded-full object-cover"
                   />
                 ) : (
-                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#E8E0D0]/10 text-[10px] text-[#E8E0D0]/60">
+                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#E8E0D0]/10 text-[11px] text-[#E8E0D0]/60">
                     {r.name.slice(0, 1).toUpperCase()}
                   </span>
                 )}

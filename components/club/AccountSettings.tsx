@@ -172,7 +172,7 @@ export default function AccountSettings({ member }: { member: ClubMember }) {
 
         <div>
           <label className={labelClass}>Links</label>
-          <p className="mb-2 text-[11px] text-[#E8E0D0]/40">
+          <p className="mb-2 text-xs text-[#E8E0D0]/40">
             Bandcamp, Instagram, your site — shown on your attendee card.
           </p>
           <div className="space-y-2">

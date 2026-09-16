@@ -244,7 +244,7 @@ export default function PlaylistTracks({
       // collapsed days) — flat rounds render exactly as they always have.
       <div key={track.id} id={collapseByDay ? `track-${track.id}` : undefined}>
         {isAdmin && (
-          <div className="mb-1 flex items-center justify-end gap-2 text-[10px] text-[#E8E0D0]/40">
+          <div className="mb-1 flex items-center justify-end gap-2 text-[11px] text-[#E8E0D0]/40">
             <button
               type="button"
               onClick={() => toggleHighlight(track)}

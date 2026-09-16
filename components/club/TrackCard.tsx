@@ -137,7 +137,7 @@ export default function TrackCard({
           <button
             type="button"
             onClick={removeTrack}
-            className="shrink-0 text-[10px] text-[#E8E0D0]/35 transition hover:text-[#F5A3A3]"
+            className="shrink-0 text-[11px] text-[#E8E0D0]/35 transition hover:text-[#F5A3A3]"
           >
             delete track
           </button>
@@ -183,19 +183,19 @@ export default function TrackCard({
                     <button
                       type="button"
                       onClick={() => controlsRef.current?.seek(c.timestampSeconds as number)}
-                      className="rounded bg-[#c8a26a]/15 px-1.5 py-0.5 font-mono text-[10px] tabular-nums text-[#c8a26a] transition hover:bg-[#c8a26a]/25"
+                      className="rounded bg-[#c8a26a]/15 px-1.5 py-0.5 font-mono text-[11px] tabular-nums text-[#c8a26a] transition hover:bg-[#c8a26a]/25"
                     >
                       {fmtTime(c.timestampSeconds)}
                     </button>
                   )}
                 </span>
                 <span className="flex shrink-0 items-baseline gap-2">
-                  <span className="text-[10px] text-[#E8E0D0]/35">{formatWhen(c.createdAt)}</span>
+                  <span className="text-[11px] text-[#E8E0D0]/35">{formatWhen(c.createdAt)}</span>
                   {canDelete && (
                     <button
                       type="button"
                       onClick={() => removeComment(c.id)}
-                      className="text-[10px] text-[#E8E0D0]/35 transition hover:text-[#F5A3A3]"
+                      className="text-[11px] text-[#E8E0D0]/35 transition hover:text-[#F5A3A3]"
                     >
                       delete
                     </button>
@@ -234,7 +234,7 @@ export default function TrackCard({
               type="button"
               onClick={() => setPinTime((v) => !v)}
               title="Attach this comment to the current spot in the track"
-              className={`flex shrink-0 items-center gap-1 rounded border px-2 py-1.5 font-mono text-[11px] tabular-nums transition ${
+              className={`flex shrink-0 items-center gap-1 rounded border px-2 py-1.5 font-mono text-xs tabular-nums transition ${
                 pinTime
                   ? 'border-[#c8a26a] bg-[#c8a26a]/15 text-[#c8a26a]'
                   : 'border-[#E8E0D0]/20 text-[#E8E0D0]/45 hover:text-[#E8E0D0]'

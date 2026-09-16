@@ -119,7 +119,7 @@ export default async function SongClubPage() {
                     <span className="min-w-0 truncate font-medium text-[#E8E0D0]">
                       {e.title}
                       {!e.published && (
-                        <span className="ml-2 rounded bg-[#E8E0D0]/10 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-[#E8E0D0]/60">
+                        <span className="ml-2 rounded bg-[#E8E0D0]/10 px-1.5 py-0.5 text-[11px] uppercase tracking-wide text-[#E8E0D0]/60">
                           Draft
                         </span>
                       )}
