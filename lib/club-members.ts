@@ -87,7 +87,7 @@ const INVITE_TOKEN_TTL_SECONDS = 60 * 60 * 24 * 30; // invites linger a month
 const RESET_TOKEN_TTL_SECONDS = 60 * 60 * 2; // resets are short-lived
 
 const COLUMNS = sql`
-  id, email, name, status, (password_hash is not null) as has_password,
+  id::int as id, email, name, status, (password_hash is not null) as has_password,
   avatar_url, bio, links, notify_track_comments, notify_announcements, notify_events,
   (select coalesce(array_agg(r.role order by r.role), '{}')
      from user_roles r where r.user_id = users.id) as roles,
