@@ -7,6 +7,14 @@ import type WaveSurferType from 'wavesurfer.js';
 // peaks (no re-download/decode of the audio; playback streams from the url via
 // a media element, which needs no CORS). Exposes play/pause controls to the
 // parent so a playlist can pause siblings and auto-advance.
+//
+// Stall recovery: some browser states (a wedged media process after a Chrome
+// update, media-filtering extensions) silently hang <audio> network loads
+// while fetch() still works. If play produces no audio within a grace period
+// (or the media element errors), the player re-fetches the bytes itself via
+// the route's ?proxy=1 mode (same-origin, so no CORS) and plays from a blob —
+// which bypasses the media network loader entirely. Only if THAT fails does
+// the member see an error, with a retry.
 export interface TrackControls {
   play: () => void;
   pause: () => void;
@@ -47,10 +55,42 @@ export default function WaveformPlayer({
   const [playing, setPlaying] = useState(false);
   const [current, setCurrent] = useState(0);
   const [duration, setDuration] = useState(durationSeconds ?? 0);
+  // 'loading' = the normal path stalled, fetching bytes for blob playback;
+  // 'failed' = the fallback failed too — show the error + retry.
+  const [recovery, setRecovery] = useState<'none' | 'loading' | 'failed'>('none');
+  // Blob URL playing in place of `url` after a successful recovery.
+  const [srcOverride, setSrcOverride] = useState<string | null>(null);
+  const recoveringRef = useRef(false);
+  const autoplayRef = useRef(false);
+  const stallTimerRef = useRef<number | null>(null);
   const lastSecondRef = useRef(-1);
   // Latest callbacks without re-initializing wavesurfer on every render.
   const cbRef = useRef({ onPlay, onEnded, onTimeSecond, registerControls });
   cbRef.current = { onPlay, onEnded, onTimeSecond, registerControls };
+
+  async function startRecovery() {
+    if (recoveringRef.current) return;
+    recoveringRef.current = true;
+    setRecovery('loading');
+    try {
+      const sep = url.includes('?') ? '&' : '?';
+      const res = await fetch(`${url}${sep}proxy=1`);
+      if (!res.ok) throw new Error(`proxy fetch failed (${res.status})`);
+      const blob = await res.blob();
+      // Resume playback once the blob player mounts (the member already hit
+      // play — don't make them hit it again).
+      autoplayRef.current = true;
+      setSrcOverride((prev) => {
+        if (prev) URL.revokeObjectURL(prev);
+        return URL.createObjectURL(blob);
+      });
+      setRecovery('none');
+    } catch {
+      setRecovery('failed');
+    } finally {
+      recoveringRef.current = false;
+    }
+  }
 
   useEffect(() => {
     let destroyed = false;
@@ -61,7 +101,7 @@ export default function WaveformPlayer({
 
       const ws = WaveSurfer.create({
         container: containerRef.current,
-        url,
+        url: srcOverride ?? url,
         peaks: [peaks],
         duration: durationSeconds ?? undefined,
         height: 72,
@@ -76,17 +116,47 @@ export default function WaveformPlayer({
       });
       wsRef.current = ws;
 
+      const clearStallTimer = () => {
+        if (stallTimerRef.current !== null) {
+          window.clearTimeout(stallTimerRef.current);
+          stallTimerRef.current = null;
+        }
+      };
+
       ws.on('play', () => {
         setPlaying(true);
         cbRef.current.onPlay?.();
+        // If nothing has actually played 5s from now, the audio isn't coming
+        // through the media element — recover via fetch.
+        clearStallTimer();
+        stallTimerRef.current = window.setTimeout(() => {
+          stallTimerRef.current = null;
+          const media = ws.getMediaElement();
+          if (ws.isPlaying() && ws.getCurrentTime() < 0.1 && (media?.readyState ?? 0) < 2) {
+            ws.pause();
+            if (srcOverride) setRecovery('failed');
+            else void startRecovery();
+          }
+        }, 5000);
       });
       ws.on('pause', () => setPlaying(false));
       ws.on('finish', () => {
         setPlaying(false);
         cbRef.current.onEnded?.();
       });
+      ws.on('error', () => {
+        clearStallTimer();
+        setPlaying(false);
+        // Already playing from a blob and it still errored — give up.
+        if (srcOverride) setRecovery('failed');
+        else void startRecovery();
+      });
       ws.on('timeupdate', (t: number) => {
         setCurrent(t);
+        if (t > 0) {
+          clearStallTimer();
+          setRecovery('none');
+        }
         const sec = Math.floor(t);
         if (sec !== lastSecondRef.current) {
           lastSecondRef.current = sec;
@@ -104,19 +174,41 @@ export default function WaveformPlayer({
         },
         getCurrentTime: () => ws.getCurrentTime(),
       });
+
+      if (autoplayRef.current) {
+        autoplayRef.current = false;
+        // Autoplay policy can reject if the play gesture has gone stale —
+        // then the player just sits ready and the next tap plays the blob.
+        Promise.resolve(ws.play()).catch(() => {});
+      }
     })();
 
     return () => {
       destroyed = true;
+      if (stallTimerRef.current !== null) {
+        window.clearTimeout(stallTimerRef.current);
+        stallTimerRef.current = null;
+      }
       cbRef.current.registerControls?.(null);
       wsRef.current?.destroy();
       wsRef.current = null;
     };
-    // Re-init only if the audio itself changes.
+    // Re-init only when the audio source changes (incl. blob recovery).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [url]);
+  }, [url, srcOverride]);
+
+  // Release the recovery blob when the card unmounts.
+  const srcOverrideRef = useRef<string | null>(null);
+  srcOverrideRef.current = srcOverride;
+  useEffect(
+    () => () => {
+      if (srcOverrideRef.current) URL.revokeObjectURL(srcOverrideRef.current);
+    },
+    []
+  );
 
   return (
+    <div>
     <div className="flex items-center gap-3">
       <button
         type="button"
@@ -161,6 +253,27 @@ export default function WaveformPlayer({
       <span className="shrink-0 font-mono text-xs tabular-nums text-[#E8E0D0]/50">
         {fmt(current)} / {fmt(duration)}
       </span>
+    </div>
+    {recovery === 'loading' && (
+      <p className="mt-2 text-xs text-[#c8a26a]/80">
+        Audio isn&apos;t loading the normal way — trying a fallback…
+      </p>
+    )}
+    {recovery === 'failed' && (
+      <div className="mt-2 flex items-center justify-between gap-3 rounded border border-[#F5A3A3]/40 bg-[#F5A3A3]/10 px-3 py-2 text-xs text-[#F5A3A3]">
+        <span>
+          Audio isn&apos;t loading — usually the browser, not the track. If retrying
+          doesn&apos;t help, restart your browser or pause ad-block extensions.
+        </span>
+        <button
+          type="button"
+          onClick={() => void startRecovery()}
+          className="shrink-0 rounded border border-[#F5A3A3]/50 px-2 py-1 font-medium transition hover:bg-[#F5A3A3]/20"
+        >
+          Try again
+        </button>
+      </div>
+    )}
     </div>
   );
 }

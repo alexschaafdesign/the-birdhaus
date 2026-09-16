@@ -38,6 +38,39 @@ export async function createPrivateSignedGetUrl(key: string): Promise<string> {
   });
 }
 
+// Server-side streamed GET, for the audio route's ?proxy=1 fallback. Some
+// browser states (wedged media process, media-filtering extensions) hang
+// <audio> network loads while fetch() still works — the player then fetches
+// the bytes same-origin (no CORS, unlike the presigned redirect) and plays
+// from a blob. Range is forwarded so partial requests stay partial.
+export async function getPrivateObjectStream(
+  key: string,
+  range?: string | null
+): Promise<{
+  body: ReadableStream;
+  status: number;
+  contentType: string | null;
+  contentLength: number | null;
+  contentRange: string | null;
+} | null> {
+  const { client, bucket } = getPrivateBucket();
+  try {
+    const res = await client.send(
+      new GetObjectCommand({ Bucket: bucket, Key: key, Range: range ?? undefined })
+    );
+    if (!res.Body) return null;
+    return {
+      body: res.Body.transformToWebStream() as ReadableStream,
+      status: res.ContentRange ? 206 : 200,
+      contentType: res.ContentType ?? null,
+      contentLength: res.ContentLength != null ? Number(res.ContentLength) : null,
+      contentRange: res.ContentRange ?? null,
+    };
+  } catch {
+    return null;
+  }
+}
+
 // Presigned PUT with the size SIGNED IN: the browser's Content-Length must
 // byte-match sizeBytes or the signature fails, which is the only client-side
 // size enforcement R2 offers (no presigned-POST/content-length-range support).
