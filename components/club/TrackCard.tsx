@@ -415,11 +415,16 @@ function formatWhen(iso: string): string {
   // Club home timezone, NOT the runtime's: the server renders in UTC and the
   // viewer hydrates in their own zone — an evening timestamp would produce
   // different text and a hydration mismatch (React #418).
-  return d.toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    timeZone: 'America/Chicago',
-  });
+  return d
+    .toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      timeZone: 'America/Chicago',
+    })
+    .replace(' AM', ' am')
+    .replace(' PM', ' pm');
 }
 
 function fmtTime(seconds: number): string {
