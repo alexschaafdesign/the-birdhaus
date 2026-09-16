@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
+import { revalidateTag } from 'next/cache';
 import { sql } from '@/lib/db';
 import { getAllTvImages } from '@/lib/tv-images';
+import { TV_FEED_TAG } from '@/lib/tv-feed';
 import { requireAdmin } from '@/lib/admin-session';
 
 // Curated /tv idle-pool images (069_tv_images.sql). Auth is enforced centrally
@@ -36,5 +38,6 @@ export async function POST(request: Request) {
     values (${url}, ${caption}, ${next})
     returning id
   `;
+  revalidateTag(TV_FEED_TAG, { expire: 0 }); // next /api/tv poll re-reads the DB
   return NextResponse.json({ id: Number(row.id) }, { status: 201 });
 }
