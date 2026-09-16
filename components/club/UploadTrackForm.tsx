@@ -67,6 +67,11 @@ export default function UploadTrackForm({
   // playlists to pick among. With a single playlist the song goes there
   // implicitly; with none it's just a single. Either way, no needless field.
   const showPlaylistPicker = playlists.length >= 2;
+  // Arrived from a specific round (e.g. "+ Upload to this playlist" → ?playlist=).
+  // The destination is already decided, so we confirm it inline instead of
+  // making them re-pick from a dropdown — with a "change" escape hatch.
+  const arrivedViaLink = defaultPlaylistId != null;
+  const [changing, setChanging] = useState(false);
   const [playlistId, setPlaylistId] = useState<string>(
     defaultPlaylistId
       ? String(defaultPlaylistId)
@@ -74,6 +79,7 @@ export default function UploadTrackForm({
         ? String(playlists[0].id)
         : ''
   );
+  const selectedPlaylistTitle = playlists.find((p) => String(p.id) === playlistId)?.title;
   // '' = "use the default" (today, clamped into the event's range) so the
   // right day stays selected when switching rounds.
   const [day, setDay] = useState<string>('');
@@ -237,25 +243,41 @@ export default function UploadTrackForm({
         />
       </div>
 
-      {showPlaylistPicker && (
+      {arrivedViaLink && !changing ? (
         <div>
-          <label htmlFor="track-playlist" className={labelClass}>
-            Add to a playlist
-          </label>
-          <select
-            id="track-playlist"
-            value={playlistId}
-            onChange={(e) => setPlaylistId(e.target.value)}
-            className={inputBase}
-          >
-            <option value="">None — just a single</option>
-            {playlists.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.title}
-              </option>
-            ))}
-          </select>
+          <span className={labelClass}>Uploading to</span>
+          <div className="flex items-center justify-between gap-3 rounded-md border border-[#E8E0D0]/20 bg-[#E8E0D0]/[0.03] px-3 py-2 text-sm text-[#E8E0D0]">
+            <span className="font-medium">{selectedPlaylistTitle}</span>
+            <button
+              type="button"
+              onClick={() => setChanging(true)}
+              className="shrink-0 text-xs font-medium uppercase tracking-wide text-[#c8a26a] transition hover:text-[#E8E0D0]"
+            >
+              Change
+            </button>
+          </div>
         </div>
+      ) : (
+        (changing || showPlaylistPicker) && (
+          <div>
+            <label htmlFor="track-playlist" className={labelClass}>
+              Add to a playlist
+            </label>
+            <select
+              id="track-playlist"
+              value={playlistId}
+              onChange={(e) => setPlaylistId(e.target.value)}
+              className={inputBase}
+            >
+              <option value="">None — just a single</option>
+              {playlists.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.title}
+                </option>
+              ))}
+            </select>
+          </div>
+        )
       )}
 
       {range && dayOptions.length > 0 && (
