@@ -379,7 +379,14 @@ export default function TrackCard({
 function formatWhen(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '';
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  // Club home timezone, NOT the runtime's: the server renders in UTC and the
+  // viewer hydrates in their own zone — an evening timestamp would produce
+  // different text and a hydration mismatch (React #418).
+  return d.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    timeZone: 'America/Chicago',
+  });
 }
 
 function fmtTime(seconds: number): string {

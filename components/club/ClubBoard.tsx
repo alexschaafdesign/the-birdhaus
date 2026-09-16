@@ -359,10 +359,13 @@ export default function ClubBoard({
 function formatWhen(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '';
+  // Club home timezone, NOT the runtime's: the server renders in UTC and the
+  // viewer hydrates in their own zone — different text = hydration mismatch.
   return d.toLocaleDateString('en-US', {
     month: 'short',
     day: 'numeric',
     hour: 'numeric',
     minute: '2-digit',
+    timeZone: 'America/Chicago',
   });
 }
