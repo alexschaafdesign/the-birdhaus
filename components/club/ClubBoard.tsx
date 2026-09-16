@@ -1,10 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { ClubPost } from '@/lib/club-board';
 
 // The Song Club group thread: oldest-first so it reads top-down, composer at
-// the bottom under the latest message. Members can delete their own posts;
+// the bottom under the latest message. The list lives in its own capped-height
+// scroll box that jumps to the bottom on load and after each post — so the
+// newest message is always in view without scrolling the whole page (the board
+// sits below the groups/uploads content). Members can delete their own posts;
 // the admin can delete any. Styling mirrors the hub portal's message board.
 export default function ClubBoard({
   initialPosts,
@@ -28,6 +31,13 @@ export default function ClubBoard({
   readOnlyNote?: string;
 }) {
   const [posts, setPosts] = useState<ClubPost[]>(initialPosts);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  // Keep the newest message in view: pin the scroll box to the bottom on mount
+  // and whenever the post list changes (initial load, a new post, a delete).
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [posts]);
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -80,6 +90,10 @@ export default function ClubBoard({
 
   return (
     <div className="space-y-4">
+      <div
+        ref={scrollRef}
+        className="max-h-80 overflow-y-auto overscroll-contain pr-1"
+      >
       {posts.length === 0 ? (
         <p className="text-sm text-[#E8E0D0]/40">
           Nothing here yet — say hi, share what you&apos;re working on.
@@ -118,6 +132,7 @@ export default function ClubBoard({
           })}
         </ul>
       )}
+      </div>
 
       {!(isAdmin || viewerMemberId !== null) ? (
         <a
