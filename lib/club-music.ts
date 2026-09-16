@@ -25,6 +25,9 @@ export interface ClubTrack {
   // a round context (standalone/single-track queries).
   day: string | null;
   isHighlight: boolean;
+  // Hearts on the track, oldest-first. memberId null = "the Birdhaus". The
+  // client derives count and "did I like this" from it.
+  likes: Array<{ memberId: number | null; name: string }>;
 }
 
 export interface ClubPlaylist {
@@ -98,15 +101,27 @@ interface TrackRow {
   duration_seconds: number | null;
   created_at: string;
   comment_count: number;
+  likes: Array<{ memberId: number | null; name: string | null }>;
   day?: string | null;
   is_highlight?: boolean;
 }
+
+// The track's hearts as a JSON column, so every track query carries them
+// without extra round-trips (shared by both SELECT fragments below).
+const LIKES_SELECT = sql`
+  (select coalesce(json_agg(json_build_object('memberId', l.member_id, 'name', lu.name)
+                            order by l.created_at asc, l.id asc), '[]'::json)
+   from song_club_track_likes l
+   left join users lu on lu.id = l.member_id
+   where l.track_id = t.id) as likes
+`;
 
 const TRACK_SELECT = sql`
   select t.id, t.member_id, t.from_admin, m.name as member_name, t.title,
          t.notes, t.url, t.r2_key, t.peaks, t.duration_seconds, t.created_at::text as created_at,
          (select count(*)::int from song_club_track_comments c where c.track_id = t.id)
-           as comment_count
+           as comment_count,
+         ${LIKES_SELECT}
   from song_club_tracks t
   left join users m on m.id = t.member_id
 `;
@@ -118,7 +133,8 @@ const TRACK_SELECT_IN_ROUND = sql`
          t.notes, t.url, t.r2_key, t.peaks, t.duration_seconds, t.created_at::text as created_at,
          pt.day::text as day, pt.is_highlight,
          (select count(*)::int from song_club_track_comments c where c.track_id = t.id)
-           as comment_count
+           as comment_count,
+         ${LIKES_SELECT}
   from song_club_tracks t
   left join users m on m.id = t.member_id
 `;
@@ -139,9 +155,51 @@ function mapTrack(r: TrackRow): ClubTrack {
     durationSeconds: r.duration_seconds === null ? null : Number(r.duration_seconds),
     createdAt: r.created_at,
     commentCount: Number(r.comment_count),
+    likes: (Array.isArray(r.likes) ? r.likes : []).map((l) => ({
+      memberId: l.memberId === null ? null : Number(l.memberId),
+      name: l.memberId === null ? 'the Birdhaus' : l.name ?? 'Former member',
+    })),
     day: r.day ?? null,
     isHighlight: r.is_highlight === true,
   };
+}
+
+// Toggle the caller's heart on a track: like if they haven't, unlike if they
+// have. Returns the track's refreshed like list, or null if the track is gone.
+export async function toggleTrackLike(
+  trackId: number,
+  by: ClubActor
+): Promise<Array<{ memberId: number | null; name: string }> | null> {
+  const [track] = await sql<Array<{ id: number }>>`
+    select id from song_club_tracks where id = ${trackId}
+  `;
+  if (!track) return null;
+  const removed =
+    'admin' in by
+      ? await sql`
+          delete from song_club_track_likes
+          where track_id = ${trackId} and member_id is null`
+      : await sql`
+          delete from song_club_track_likes
+          where track_id = ${trackId} and member_id = ${by.memberId}`;
+  if (removed.count === 0) {
+    await sql`
+      insert into song_club_track_likes (track_id, member_id, from_admin)
+      values (${trackId}, ${'admin' in by ? null : by.memberId}, ${'admin' in by})
+      on conflict do nothing
+    `;
+  }
+  const rows = await sql<Array<{ member_id: number | null; name: string | null }>>`
+    select l.member_id, lu.name
+    from song_club_track_likes l
+    left join users lu on lu.id = l.member_id
+    where l.track_id = ${trackId}
+    order by l.created_at asc, l.id asc
+  `;
+  return rows.map((r) => ({
+    memberId: r.member_id === null ? null : Number(r.member_id),
+    name: r.member_id === null ? 'the Birdhaus' : r.name ?? 'Former member',
+  }));
 }
 
 // --- playlists (admin-created only; the routes enforce it) ---

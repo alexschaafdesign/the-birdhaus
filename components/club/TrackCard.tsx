@@ -29,6 +29,8 @@ export default function TrackCard({
   onTrackDeleted?: () => void;
 }) {
   const [comments, setComments] = useState<ClubTrackComment[]>(initialComments);
+  const [likes, setLikes] = useState(track.likes);
+  const [liking, setLiking] = useState(false);
   const [draft, setDraft] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -95,6 +97,26 @@ export default function TrackCard({
     }
   }
 
+  const viewerLiked = isAdmin
+    ? likes.some((l) => l.memberId === null)
+    : viewerMemberId !== null && likes.some((l) => l.memberId === viewerMemberId);
+
+  async function toggleLike() {
+    if (!canAct || liking) return;
+    setLiking(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/club/tracks/${track.id}/like`, { method: 'POST' });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(data?.error ?? `Couldn't like (${res.status})`);
+      setLikes(data.likes ?? []);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Couldn't like");
+    } finally {
+      setLiking(false);
+    }
+  }
+
   async function reactToComment(id: number, emoji: string) {
     setError(null);
     try {
@@ -133,15 +155,40 @@ export default function TrackCard({
             {track.uploaderName} · {formatWhen(track.createdAt)}
           </div>
         </div>
-        {canDeleteTrack && (
-          <button
-            type="button"
-            onClick={removeTrack}
-            className="shrink-0 text-[11px] text-[#E8E0D0]/35 transition hover:text-[#F5A3A3]"
-          >
-            delete track
-          </button>
-        )}
+        <div className="flex shrink-0 items-center gap-3">
+          {(canAct || likes.length > 0) && (
+            <button
+              type="button"
+              onClick={toggleLike}
+              disabled={!canAct || liking}
+              title={
+                likes.length > 0
+                  ? `Liked by ${likes.map((l) => l.name).join(', ')}`
+                  : 'Like this track'
+              }
+              aria-label={viewerLiked ? 'Unlike this track' : 'Like this track'}
+              className={`flex items-center gap-1 text-sm transition ${
+                viewerLiked
+                  ? 'text-[#c8a26a]'
+                  : 'text-[#E8E0D0]/35 hover:text-[#c8a26a]'
+              } ${canAct ? '' : 'cursor-default'}`}
+            >
+              <span aria-hidden>{viewerLiked ? '♥' : '♡'}</span>
+              {likes.length > 0 && (
+                <span className="text-xs tabular-nums">{likes.length}</span>
+              )}
+            </button>
+          )}
+          {canDeleteTrack && (
+            <button
+              type="button"
+              onClick={removeTrack}
+              className="text-[11px] text-[#E8E0D0]/35 transition hover:text-[#F5A3A3]"
+            >
+              delete track
+            </button>
+          )}
+        </div>
       </div>
 
       {track.notes && (
