@@ -379,6 +379,26 @@ export async function playlistDayCounts(playlistId: number): Promise<Record<stri
   return Object.fromEntries(rows.map((r) => [r.day, Number(r.n)]));
 }
 
+// Like playlistDayCounts, but only tracks from ONE group's members — the
+// group page's day strip. Group derivation matches playlistTracksByGroup.
+export async function groupDayCounts(
+  playlistId: number,
+  eventId: number,
+  groupId: number
+): Promise<Record<string, number>> {
+  const rows = await sql<Array<{ day: string; n: number }>>`
+    select pt.day::text as day, count(*)::int as n
+    from song_club_playlist_tracks pt
+    join song_club_tracks t on t.id = pt.track_id
+    join song_club_event_attendees a
+      on a.user_id = t.member_id and a.event_id = ${eventId}
+    where pt.playlist_id = ${playlistId} and pt.day is not null
+      and a.group_id = ${groupId}
+    group by pt.day
+  `;
+  return Object.fromEntries(rows.map((r) => [r.day, Number(r.n)]));
+}
+
 // The admin-starred tracks of a round, for the event page's Highlights block.
 export async function highlightTracks(playlistId: number): Promise<ClubTrack[]> {
   const rows = await sql<TrackRow[]>`

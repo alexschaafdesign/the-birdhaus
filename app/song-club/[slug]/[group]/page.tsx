@@ -4,13 +4,14 @@ import Link from 'next/link';
 import { getEventBySlug, getTodayCentral } from '@/lib/song-club';
 import { getClubPortalMember } from '@/lib/club-members';
 import { isAdminSession } from '@/lib/admin-session';
-import { getPlaylist, playlistComments, playlistTracksByGroup } from '@/lib/club-music';
+import { getPlaylist, groupDayCounts, playlistComments, playlistTracksByGroup } from '@/lib/club-music';
 import { getPosts } from '@/lib/club-board';
 import { isEventAttendee } from '@/lib/club-events';
 import { getAttendeeGroupId, getGroupBySlug, listGroupRoster, listGroups } from '@/lib/club-groups';
 import ClubTopBar from '@/components/club/ClubTopBar';
 import PlaylistTracks from '@/components/club/PlaylistTracks';
 import ClubBoard from '@/components/club/ClubBoard';
+import DayStrip from '@/components/club/DayStrip';
 
 export const dynamic = 'force-dynamic';
 
@@ -57,12 +58,21 @@ export default async function SongClubGroupPage({
   const viewerGroupId = member ? await getAttendeeGroupId(event.id, member.id) : null;
   const inThisGroup = viewerGroupId === group.id;
 
-  const [tracks, comments, posts, roster, groups] = await Promise.all([
+  // Day strip, scoped to THIS group's songs — only while a multi-day event
+  // runs (mirrors the event page's tracker).
+  const today = getTodayCentral();
+  const endDate = event.end_date ?? event.event_date;
+  const stripLive = endDate !== event.event_date && today >= event.event_date && today <= endDate;
+
+  const [tracks, comments, posts, roster, groups, dayCounts] = await Promise.all([
     round ? playlistTracksByGroup(round.id, event.id, group.id) : Promise.resolve([]),
     round ? playlistComments(round.id) : Promise.resolve({}),
     getPosts(event.id, group.id),
     listGroupRoster(event.id),
     listGroups(event.id),
+    round && stripLive
+      ? groupDayCounts(round.id, event.id, group.id)
+      : Promise.resolve(null),
   ]);
   const groupRoster = roster.filter((r) => r.groupId === group.id);
   const otherGroups = groups.filter((g) => g.id !== group.id);
@@ -83,6 +93,14 @@ export default async function SongClubGroupPage({
           {groupRoster.length} {groupRoster.length === 1 ? 'songwriter' : 'songwriters'}
           {inThisGroup && ' · your group'}
         </div>
+        {dayCounts && (
+          <DayStrip
+            start={event.event_date}
+            end={endDate}
+            today={today}
+            counts={dayCounts}
+          />
+        )}
       </header>
 
       {/* The group's songs, day by day. */}
@@ -117,7 +135,7 @@ export default async function SongClubGroupPage({
             collapseByDay
             eventStartDate={event.event_date}
             eventEndDate={event.end_date}
-            today={getTodayCentral()}
+            today={today}
             daysOpenDefault={event.days_open_default}
             storageKey={`${event.id}:${group.id}`}
           />
