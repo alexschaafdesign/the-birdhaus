@@ -9,12 +9,15 @@ import type WaveSurferType from 'wavesurfer.js';
 // parent so a playlist can pause siblings and auto-advance.
 //
 // Stall recovery: some browser states (a wedged media process after a Chrome
-// update, media-filtering extensions) silently hang <audio> network loads
-// while fetch() still works. If play produces no audio within a grace period
-// (or the media element errors), the player re-fetches the bytes itself via
-// the route's ?proxy=1 mode (same-origin, so no CORS) and plays from a blob —
-// which bypasses the media network loader entirely. Only if THAT fails does
-// the member see an error, with a retry.
+// update, media-filtering extensions) silently hang <audio> loads — even from
+// an in-memory blob — while fetch() and the Web Audio API still work. If play
+// produces no audio within a grace period (or the media element errors), the
+// player fetches the bytes itself via the route's ?proxy=1 mode (same-origin,
+// so no CORS), decodes them with decodeAudioData, and plays through an
+// AudioBufferSourceNode — a completely separate pipeline from the media
+// element. In that mode a small engine below handles play/pause/seek/progress
+// (wavesurfer's UI is driven by the dead media element, so we overlay our
+// own progress). Only if THAT fails does the member see an error + retry.
 export interface TrackControls {
   play: () => void;
   pause: () => void;
@@ -30,6 +33,18 @@ export interface WaveformMarker {
   avatarUrl: string | null;
   body: string;
 }
+
+// Fallback-mode playback state (Web Audio). `offset` is seconds into the
+// buffer when playback last started/paused; position while playing is
+// offset + (ctx.currentTime - startedAt).
+type WebAudioEngine = {
+  ctx: AudioContext;
+  buffer: AudioBuffer;
+  source: AudioBufferSourceNode | null;
+  startedAt: number;
+  offset: number;
+  playing: boolean;
+};
 
 export default function WaveformPlayer({
   url,
@@ -55,18 +70,121 @@ export default function WaveformPlayer({
   const [playing, setPlaying] = useState(false);
   const [current, setCurrent] = useState(0);
   const [duration, setDuration] = useState(durationSeconds ?? 0);
-  // 'loading' = the normal path stalled, fetching bytes for blob playback;
-  // 'failed' = the fallback failed too — show the error + retry.
+  // 'loading' = the normal path stalled, fetching + decoding for Web Audio
+  // playback; 'failed' = the fallback failed too — show the error + retry.
   const [recovery, setRecovery] = useState<'none' | 'loading' | 'failed'>('none');
-  // Blob URL playing in place of `url` after a successful recovery.
-  const [srcOverride, setSrcOverride] = useState<string | null>(null);
+  // True once playback runs on the Web Audio engine instead of wavesurfer.
+  const [waMode, setWaMode] = useState(false);
+  const waModeRef = useRef(false);
+  const engineRef = useRef<WebAudioEngine | null>(null);
   const recoveringRef = useRef(false);
-  const autoplayRef = useRef(false);
+  const tickRef = useRef<number | null>(null);
   const stallTimerRef = useRef<number | null>(null);
   const lastSecondRef = useRef(-1);
   // Latest callbacks without re-initializing wavesurfer on every render.
   const cbRef = useRef({ onPlay, onEnded, onTimeSecond, registerControls });
   cbRef.current = { onPlay, onEnded, onTimeSecond, registerControls };
+
+  // ---- Web Audio fallback engine -----------------------------------------
+
+  function waNow(e: WebAudioEngine): number {
+    return e.playing ? e.offset + (e.ctx.currentTime - e.startedAt) : e.offset;
+  }
+
+  function startTick() {
+    if (tickRef.current !== null) return;
+    tickRef.current = window.setInterval(() => {
+      const e = engineRef.current;
+      if (!e || !e.playing) return;
+      const t = Math.min(waNow(e), e.buffer.duration);
+      setCurrent(t);
+      const sec = Math.floor(t);
+      if (sec !== lastSecondRef.current) {
+        lastSecondRef.current = sec;
+        cbRef.current.onTimeSecond?.(sec);
+      }
+    }, 200);
+  }
+
+  function stopTick() {
+    if (tickRef.current !== null) {
+      window.clearInterval(tickRef.current);
+      tickRef.current = null;
+    }
+  }
+
+  function waPlay(fromOffset?: number) {
+    const e = engineRef.current;
+    if (!e) return;
+    // Replace any live source (seek-while-playing restarts from the new spot).
+    if (e.source) {
+      const old = e.source;
+      e.source = null;
+      try {
+        old.stop();
+      } catch {}
+      old.disconnect();
+    }
+    const offset = Math.max(0, Math.min(fromOffset ?? e.offset, e.buffer.duration - 0.01));
+    const src = e.ctx.createBufferSource();
+    src.buffer = e.buffer;
+    src.connect(e.ctx.destination);
+    src.onended = () => {
+      // Fires for stop() too — only treat as "track finished" if still live.
+      if (e.source !== src) return;
+      e.source = null;
+      e.playing = false;
+      e.offset = 0;
+      stopTick();
+      setPlaying(false);
+      setCurrent(e.buffer.duration);
+      cbRef.current.onEnded?.();
+    };
+    e.ctx.resume().catch(() => {});
+    src.start(0, offset);
+    e.source = src;
+    e.offset = offset;
+    e.startedAt = e.ctx.currentTime;
+    e.playing = true;
+    setPlaying(true);
+    setCurrent(offset);
+    cbRef.current.onPlay?.();
+    startTick();
+    // Autoplay policy can leave the context suspended when the play gesture
+    // has gone stale — settle back to paused so the next tap (a fresh
+    // gesture) starts it.
+    window.setTimeout(() => {
+      if (engineRef.current === e && e.playing && e.ctx.state === 'suspended') waPause();
+    }, 400);
+  }
+
+  function waPause() {
+    const e = engineRef.current;
+    if (!e || !e.playing) return;
+    e.offset = Math.min(waNow(e), e.buffer.duration);
+    e.playing = false;
+    if (e.source) {
+      const src = e.source;
+      e.source = null;
+      try {
+        src.stop();
+      } catch {}
+      src.disconnect();
+    }
+    stopTick();
+    setPlaying(false);
+  }
+
+  function waSeek(seconds: number) {
+    const e = engineRef.current;
+    if (!e) return;
+    const clamped = Math.max(0, Math.min(seconds, e.buffer.duration));
+    if (e.playing) waPlay(clamped);
+    else {
+      e.offset = clamped;
+      setCurrent(clamped);
+    }
+  }
 
   async function startRecovery() {
     if (recoveringRef.current) return;
@@ -76,21 +194,43 @@ export default function WaveformPlayer({
       const sep = url.includes('?') ? '&' : '?';
       const res = await fetch(`${url}${sep}proxy=1`);
       if (!res.ok) throw new Error(`proxy fetch failed (${res.status})`);
-      const blob = await res.blob();
-      // Resume playback once the blob player mounts (the member already hit
-      // play — don't make them hit it again).
-      autoplayRef.current = true;
-      setSrcOverride((prev) => {
-        if (prev) URL.revokeObjectURL(prev);
-        return URL.createObjectURL(blob);
-      });
+      const bytes = await res.arrayBuffer();
+      const AudioCtx =
+        window.AudioContext ||
+        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      const ctx = new AudioCtx();
+      const buffer = await ctx.decodeAudioData(bytes);
+      engineRef.current = { ctx, buffer, source: null, startedAt: 0, offset: 0, playing: false };
+      waModeRef.current = true;
+      setWaMode(true);
+      setDuration(buffer.duration);
       setRecovery('none');
+      // The member already hit play — resume for them.
+      waPlay(0);
     } catch {
       setRecovery('failed');
     } finally {
       recoveringRef.current = false;
     }
   }
+
+  // Release the engine when the card unmounts.
+  useEffect(
+    () => () => {
+      stopTick();
+      const e = engineRef.current;
+      if (e) {
+        try {
+          e.source?.stop();
+        } catch {}
+        e.ctx.close().catch(() => {});
+        engineRef.current = null;
+      }
+    },
+    []
+  );
+
+  // ---- wavesurfer (normal path) ------------------------------------------
 
   useEffect(() => {
     let destroyed = false;
@@ -101,7 +241,7 @@ export default function WaveformPlayer({
 
       const ws = WaveSurfer.create({
         container: containerRef.current,
-        url: srcOverride ?? url,
+        url,
         peaks: [peaks],
         duration: durationSeconds ?? undefined,
         height: 72,
@@ -124,34 +264,37 @@ export default function WaveformPlayer({
       };
 
       ws.on('play', () => {
+        if (waModeRef.current) return;
         setPlaying(true);
         cbRef.current.onPlay?.();
         // If nothing has actually played 5s from now, the audio isn't coming
-        // through the media element — recover via fetch.
+        // through the media element — recover via fetch + Web Audio.
         clearStallTimer();
         stallTimerRef.current = window.setTimeout(() => {
           stallTimerRef.current = null;
           const media = ws.getMediaElement();
           if (ws.isPlaying() && ws.getCurrentTime() < 0.1 && (media?.readyState ?? 0) < 2) {
             ws.pause();
-            if (srcOverride) setRecovery('failed');
-            else void startRecovery();
+            void startRecovery();
           }
         }, 5000);
       });
-      ws.on('pause', () => setPlaying(false));
+      ws.on('pause', () => {
+        if (!waModeRef.current) setPlaying(false);
+      });
       ws.on('finish', () => {
+        if (waModeRef.current) return;
         setPlaying(false);
         cbRef.current.onEnded?.();
       });
       ws.on('error', () => {
+        if (waModeRef.current) return;
         clearStallTimer();
         setPlaying(false);
-        // Already playing from a blob and it still errored — give up.
-        if (srcOverride) setRecovery('failed');
-        else void startRecovery();
+        void startRecovery();
       });
       ws.on('timeupdate', (t: number) => {
+        if (waModeRef.current) return;
         setCurrent(t);
         if (t > 0) {
           clearStallTimer();
@@ -163,24 +306,23 @@ export default function WaveformPlayer({
           cbRef.current.onTimeSecond?.(sec);
         }
       });
-      ws.on('ready', (d: number) => setDuration(d));
+      ws.on('ready', (d: number) => {
+        if (!waModeRef.current) setDuration(d);
+      });
 
       cbRef.current.registerControls?.({
-        play: () => ws.play(),
-        pause: () => ws.pause(),
+        play: () => (waModeRef.current ? waPlay() : ws.play()),
+        pause: () => (waModeRef.current ? waPause() : ws.pause()),
         seek: (seconds: number) => {
+          if (waModeRef.current) return waSeek(seconds);
           const d = ws.getDuration() || durationSeconds || 0;
           if (d > 0) ws.seekTo(Math.max(0, Math.min(1, seconds / d)));
         },
-        getCurrentTime: () => ws.getCurrentTime(),
+        getCurrentTime: () =>
+          waModeRef.current && engineRef.current
+            ? waNow(engineRef.current)
+            : ws.getCurrentTime(),
       });
-
-      if (autoplayRef.current) {
-        autoplayRef.current = false;
-        // Autoplay policy can reject if the play gesture has gone stale —
-        // then the player just sits ready and the next tap plays the blob.
-        Promise.resolve(ws.play()).catch(() => {});
-      }
     })();
 
     return () => {
@@ -193,26 +335,34 @@ export default function WaveformPlayer({
       wsRef.current?.destroy();
       wsRef.current = null;
     };
-    // Re-init only when the audio source changes (incl. blob recovery).
+    // Re-init only if the audio itself changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [url, srcOverride]);
+  }, [url]);
 
-  // Release the recovery blob when the card unmounts.
-  const srcOverrideRef = useRef<string | null>(null);
-  srcOverrideRef.current = srcOverride;
-  useEffect(
-    () => () => {
-      if (srcOverrideRef.current) URL.revokeObjectURL(srcOverrideRef.current);
-    },
-    []
-  );
+  function togglePlay() {
+    if (waModeRef.current) {
+      if (engineRef.current?.playing) waPause();
+      else waPlay();
+    } else {
+      wsRef.current?.playPause();
+    }
+  }
+
+  // In fallback mode the wavesurfer cursor is dead (it tracks the media
+  // element) — clicks on the waveform seek our engine instead.
+  function waveformClickSeek(e: React.MouseEvent<HTMLDivElement>) {
+    if (!waModeRef.current || duration <= 0) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const frac = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    waSeek(frac * duration);
+  }
 
   return (
     <div>
     <div className="flex items-center gap-3">
       <button
         type="button"
-        onClick={() => wsRef.current?.playPause()}
+        onClick={togglePlay}
         aria-label={playing ? 'Pause' : 'Play'}
         className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#E8E0D0] text-[#2A2420] transition hover:bg-white"
       >
@@ -238,7 +388,10 @@ export default function WaveformPlayer({
                   key={m.id}
                   type="button"
                   title={`${m.authorName} @ ${fmt(m.timestampSeconds)}: ${m.body}`}
-                  onClick={() => wsRef.current?.seekTo(pct / 100)}
+                  onClick={() => {
+                    if (waModeRef.current) waSeek(m.timestampSeconds);
+                    else wsRef.current?.seekTo(pct / 100);
+                  }}
                   style={{ left: `${pct}%` }}
                   className="group absolute top-0 -translate-x-1/2"
                 >
@@ -248,7 +401,17 @@ export default function WaveformPlayer({
               );
             })}
         </div>
-        <div ref={containerRef} className="w-full cursor-pointer" />
+        <div className="relative" onClick={waveformClickSeek}>
+          <div ref={containerRef} className="w-full cursor-pointer" />
+          {waMode && duration > 0 && (
+            <div className="pointer-events-none absolute inset-0">
+              <div
+                className="h-full border-r-2 border-[#E8E0D0]/90 bg-[#c8a26a]/25"
+                style={{ width: `${Math.min(100, (current / duration) * 100)}%` }}
+              />
+            </div>
+          )}
+        </div>
       </div>
       <span className="shrink-0 font-mono text-xs tabular-nums text-[#E8E0D0]/50">
         {fmt(current)} / {fmt(duration)}
