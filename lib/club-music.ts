@@ -367,6 +367,18 @@ export async function groupTrackCounts(
   );
 }
 
+// Songs filed per day of a round (pt.day), keyed YYYY-MM-DD — feeds the
+// event page's day-strip tracker. Tracks without a day are simply absent.
+export async function playlistDayCounts(playlistId: number): Promise<Record<string, number>> {
+  const rows = await sql<Array<{ day: string; n: number }>>`
+    select pt.day::text as day, count(*)::int as n
+    from song_club_playlist_tracks pt
+    where pt.playlist_id = ${playlistId} and pt.day is not null
+    group by pt.day
+  `;
+  return Object.fromEntries(rows.map((r) => [r.day, Number(r.n)]));
+}
+
 // The admin-starred tracks of a round, for the event page's Highlights block.
 export async function highlightTracks(playlistId: number): Promise<ClubTrack[]> {
   const rows = await sql<TrackRow[]>`

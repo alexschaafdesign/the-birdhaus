@@ -9,6 +9,7 @@ import {
   groupTrackCounts,
   highlightTracks,
   playlistComments,
+  playlistDayCounts,
   playlistTracks,
   playlistTracksByGroup,
 } from '@/lib/club-music';
@@ -24,6 +25,7 @@ import ParticipateButton from '@/components/club/ParticipateButton';
 import CreateRoundForEvent from '@/components/club/CreateRoundForEvent';
 import AutoJoin from '@/components/club/AutoJoin';
 import RoundLockToggle from '@/components/club/RoundLockToggle';
+import DayStrip from '@/components/club/DayStrip';
 
 export const dynamic = 'force-dynamic';
 
@@ -159,6 +161,12 @@ export default async function SongClubEventPage({
         ])
       : [[], [], {}, new Map<number, { total: number; today: number }>()];
 
+  // The day-strip tracker: only while a multi-day event runs, for viewers
+  // who can see the round. When it shows, it replaces the header's "Day N of
+  // M" pill and thin progress bar.
+  const dayCounts =
+    unlocked && round && isDuring && totalDays > 1 ? await playlistDayCounts(round.id) : null;
+
   // "N songwriters · M songs · +k today" for the group directory cards.
   function groupStats(g: { id: number; memberCount: number }): {
     line: string;
@@ -238,7 +246,7 @@ export default async function SongClubEventPage({
             {online ? ' · Online' : ''}
             {!event.published && ' · Draft'}
           </span>
-          {dayLabel && (
+          {dayLabel && !dayCounts && (
             <span
               className={`rounded-full px-2 py-0.5 text-[11px] font-semibold normal-case tracking-normal ${
                 isDuring
@@ -251,13 +259,23 @@ export default async function SongClubEventPage({
           )}
         </div>
         <h1 className="mt-1 text-2xl font-semibold sm:text-3xl">{event.title}</h1>
-        {isDuring && totalDays > 1 && (
-          <div className="mt-3 h-1 w-full max-w-xs overflow-hidden rounded-full bg-[#E8E0D0]/10">
-            <div
-              className="h-full rounded-full bg-[#c8a26a]"
-              style={{ width: `${Math.round((dayOfEvent / totalDays) * 100)}%` }}
-            />
-          </div>
+        {dayCounts ? (
+          <DayStrip
+            start={event.event_date}
+            end={endDate}
+            today={today}
+            counts={dayCounts}
+          />
+        ) : (
+          isDuring &&
+          totalDays > 1 && (
+            <div className="mt-3 h-1 w-full max-w-xs overflow-hidden rounded-full bg-[#E8E0D0]/10">
+              <div
+                className="h-full rounded-full bg-[#c8a26a]"
+                style={{ width: `${Math.round((dayOfEvent / totalDays) * 100)}%` }}
+              />
+            </div>
+          )
         )}
       </header>
 
