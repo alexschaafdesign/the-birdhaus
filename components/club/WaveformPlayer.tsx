@@ -78,6 +78,11 @@ export default function WaveformPlayer({
   const waModeRef = useRef(false);
   const engineRef = useRef<WebAudioEngine | null>(null);
   const recoveringRef = useRef(false);
+  // The media element reported an error (can happen at LOAD, before any play
+  // click, in broken-browser states). We don't recover on sight — that would
+  // auto-download every track on the page — we recover when the member
+  // actually asks to play.
+  const mediaErrorRef = useRef(false);
   const tickRef = useRef<number | null>(null);
   const stallTimerRef = useRef<number | null>(null);
   const lastSecondRef = useRef(-1);
@@ -199,7 +204,13 @@ export default function WaveformPlayer({
         window.AudioContext ||
         (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
       const ctx = new AudioCtx();
-      const buffer = await ctx.decodeAudioData(bytes);
+      let buffer: AudioBuffer;
+      try {
+        buffer = await ctx.decodeAudioData(bytes);
+      } catch (err) {
+        ctx.close().catch(() => {});
+        throw err;
+      }
       engineRef.current = { ctx, buffer, source: null, startedAt: 0, offset: 0, playing: false };
       waModeRef.current = true;
       setWaMode(true);
@@ -290,8 +301,12 @@ export default function WaveformPlayer({
       ws.on('error', () => {
         if (waModeRef.current) return;
         clearStallTimer();
+        // If a play was underway, recover now; otherwise just remember the
+        // media element is broken and recover when the member hits play.
+        const wasPlaying = ws.isPlaying();
+        mediaErrorRef.current = true;
         setPlaying(false);
-        void startRecovery();
+        if (wasPlaying) void startRecovery();
       });
       ws.on('timeupdate', (t: number) => {
         if (waModeRef.current) return;
@@ -311,7 +326,11 @@ export default function WaveformPlayer({
       });
 
       cbRef.current.registerControls?.({
-        play: () => (waModeRef.current ? waPlay() : ws.play()),
+        play: () => {
+          if (waModeRef.current) return waPlay();
+          if (mediaErrorRef.current) return void startRecovery();
+          ws.play();
+        },
         pause: () => (waModeRef.current ? waPause() : ws.pause()),
         seek: (seconds: number) => {
           if (waModeRef.current) return waSeek(seconds);
@@ -343,6 +362,9 @@ export default function WaveformPlayer({
     if (waModeRef.current) {
       if (engineRef.current?.playing) waPause();
       else waPlay();
+    } else if (mediaErrorRef.current) {
+      // Media element already known-broken — skip straight to recovery.
+      void startRecovery();
     } else {
       wsRef.current?.playPause();
     }
