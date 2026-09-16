@@ -341,6 +341,32 @@ export async function playlistTracksByGroup(
   return rows.map(mapTrack);
 }
 
+// Per-group song tallies for the event page's group directory: total tracks
+// in the round, and how many landed "today" (caller passes the Central date —
+// getTodayCentral()). A track's group is derived from its uploader's attendee
+// row, same as playlistTracksByGroup.
+export async function groupTrackCounts(
+  playlistId: number,
+  eventId: number,
+  todayCentral: string
+): Promise<Map<number, { total: number; today: number }>> {
+  const rows = await sql<Array<{ group_id: number; total: number; today: number }>>`
+    select a.group_id, count(*)::int as total,
+           count(*) filter (
+             where (t.created_at at time zone 'America/Chicago')::date = ${todayCentral}::date
+           )::int as today
+    from song_club_tracks t
+    join song_club_playlist_tracks pt on pt.track_id = t.id
+    join song_club_event_attendees a
+      on a.user_id = t.member_id and a.event_id = ${eventId}
+    where pt.playlist_id = ${playlistId} and a.group_id is not null
+    group by a.group_id
+  `;
+  return new Map(
+    rows.map((r) => [Number(r.group_id), { total: Number(r.total), today: Number(r.today) }])
+  );
+}
+
 // The admin-starred tracks of a round, for the event page's Highlights block.
 export async function highlightTracks(playlistId: number): Promise<ClubTrack[]> {
   const rows = await sql<TrackRow[]>`

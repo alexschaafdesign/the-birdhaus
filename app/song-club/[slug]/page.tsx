@@ -6,6 +6,7 @@ import { getClubPortalMember } from '@/lib/club-members';
 import { isAdminSession } from '@/lib/admin-session';
 import {
   getPlaylist,
+  groupTrackCounts,
   highlightTracks,
   playlistComments,
   playlistTracks,
@@ -51,6 +52,12 @@ function formatDateRange(start: string, end: string | null): string {
   return `${mon(s)} ${s.getDate()}, ${s.getFullYear()} – ${mon(e)} ${e.getDate()}, ${e.getFullYear()}`;
 }
 
+// Whole days from date a to date b (YYYY-MM-DD strings; positive when b is
+// later). UTC-anchored so DST can't skew the count.
+function daysBetween(a: string, b: string): number {
+  return Math.round((Date.parse(b + 'T00:00:00Z') - Date.parse(a + 'T00:00:00Z')) / 86400000);
+}
+
 export async function generateMetadata({
   params,
 }: {
@@ -92,8 +99,28 @@ export default async function SongClubEventPage({
   )}`;
 
   const online = event.format === 'online';
+  const today = getTodayCentral();
   // A multi-day event counts as upcoming/ongoing until its END date passes.
-  const isUpcoming = (event.end_date ?? event.event_date) >= getTodayCentral();
+  const isUpcoming = (event.end_date ?? event.event_date) >= today;
+
+  // Day counter — the page's sense of time. "Starts in N days" before the
+  // event, "Day N of M" (with a progress bar for multi-day) while it runs,
+  // nothing once it's wrapped (the date line already says when it was).
+  const endDate = event.end_date ?? event.event_date;
+  const totalDays = daysBetween(event.event_date, endDate) + 1;
+  const isDuring = today >= event.event_date && today <= endDate;
+  const dayOfEvent = isDuring ? daysBetween(event.event_date, today) + 1 : 0;
+  const daysUntil = today < event.event_date ? daysBetween(today, event.event_date) : 0;
+  const dayLabel =
+    daysUntil > 0
+      ? daysUntil === 1
+        ? 'Starts tomorrow'
+        : `Starts in ${daysUntil} days`
+      : isDuring
+        ? totalDays > 1
+          ? `Day ${dayOfEvent} of ${totalDays}`
+          : 'Today'
+        : null;
   const timeLine =
     event.start_time && event.end_time
       ? `${event.start_time}–${event.end_time}`
@@ -122,27 +149,116 @@ export default async function SongClubEventPage({
     round && !hasGroups
       ? await Promise.all([playlistTracks(round.id), playlistComments(round.id)])
       : [[], {}];
-  const [highlights, unassignedTracks, groupModeComments] =
+  const [highlights, unassignedTracks, groupModeComments, groupCounts] =
     round && hasGroups
       ? await Promise.all([
           highlightTracks(round.id),
           playlistTracksByGroup(round.id, event.id, null),
           playlistComments(round.id),
+          groupTrackCounts(round.id, event.id, today),
         ])
-      : [[], [], {}];
+      : [[], [], {}, new Map<number, { total: number; today: number }>()];
+
+  // "N songwriters · M songs · +k today" for the group directory cards.
+  function groupStats(g: { id: number; memberCount: number }): {
+    line: string;
+    todayCount: number;
+  } {
+    const c = groupCounts.get(g.id);
+    const people = `${g.memberCount} ${g.memberCount === 1 ? 'songwriter' : 'songwriters'}`;
+    if (!c || c.total === 0) return { line: `${people} · no songs yet`, todayCount: 0 };
+    return {
+      line: `${people} · ${c.total} ${c.total === 1 ? 'song' : 'songs'}`,
+      todayCount: c.today,
+    };
+  }
+
+  // "About this event" — flyer, venue, description, body. One collapsible
+  // block near the top: open before the event starts (when the how-it-works
+  // matters most) and for guests (it's the pitch); collapsed once the event
+  // is running so the live sections lead.
+  const hasAbout = Boolean(
+    event.flyer_url || event.description || event.body || (!online && event.venue_name)
+  );
+  const aboutOpen = !unlocked || today < event.event_date;
+  const aboutSection = hasAbout ? (
+    <details
+      open={aboutOpen}
+      className="group mt-6 rounded-xl border border-[#E8E0D0]/15 bg-[#E8E0D0]/[0.03]"
+    >
+      <summary className="flex cursor-pointer select-none items-center justify-between gap-3 p-4 text-xs font-semibold uppercase tracking-wide text-[#E8E0D0]/45 transition hover:text-[#E8E0D0]/70 sm:px-5">
+        About this event
+        <span aria-hidden className="text-[#E8E0D0]/40 transition-transform group-open:rotate-180">
+          ▾
+        </span>
+      </summary>
+      <div className="px-4 pb-4 sm:px-5 sm:pb-5">
+        {event.flyer_url && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={event.flyer_url}
+            alt={event.title}
+            className="w-full max-w-md rounded-lg border border-[#E8E0D0]/15"
+          />
+        )}
+        {!online && event.venue_name && (
+          <p className="mt-4 text-[15px] text-[#E8E0D0]/80">{event.venue_name}</p>
+        )}
+        {event.description && (
+          <div className="mt-4 whitespace-pre-wrap text-[15px] leading-relaxed text-[#E8E0D0]/80">
+            {event.description}
+          </div>
+        )}
+        {event.body && (
+          <div className="mt-4 space-y-4 text-[15px] leading-relaxed text-[#E8E0D0]/80">
+            {event.body
+              .split(/\n{2,}/)
+              .map((para) => para.trim())
+              .filter(Boolean)
+              .map((para, i) => (
+                <p key={i} className="whitespace-pre-wrap">
+                  {para}
+                </p>
+              ))}
+          </div>
+        )}
+      </div>
+    </details>
+  ) : null;
 
   return (
     <main className="mx-auto w-full max-w-3xl px-5 py-6 text-[#E8E0D0] sm:px-8 sm:py-8">
       <ClubTopBar />
 
       <header className="mt-2">
-        <div className="text-xs font-medium uppercase tracking-wide text-[#E8E0D0]/50">
-          {formatDateRange(event.event_date, event.end_date)}
-          {timeLine ? ` · ${timeLine}` : ''}
-          {online ? ' · Online' : ''}
-          {!event.published && ' · Draft'}
+        <div className="flex flex-wrap items-center gap-2 text-xs font-medium uppercase tracking-wide text-[#E8E0D0]/50">
+          <span>
+            {formatDateRange(event.event_date, event.end_date)}
+            {timeLine ? ` · ${timeLine}` : ''}
+            {online ? ' · Online' : ''}
+            {!event.published && ' · Draft'}
+          </span>
+          {dayLabel && (
+            <span
+              className={`rounded-full px-2 py-0.5 text-[10px] font-semibold normal-case tracking-normal ${
+                isDuring
+                  ? 'bg-[#c8a26a]/20 text-[#c8a26a]'
+                  : 'bg-[#E8E0D0]/10 text-[#E8E0D0]/60'
+              }`}
+            >
+              {dayLabel}
+            </span>
+          )}
         </div>
         <h1 className="mt-1 text-2xl font-semibold sm:text-3xl">{event.title}</h1>
+        {isDuring && totalDays > 1 && (
+          <div className="mt-3 h-1 w-full max-w-xs overflow-hidden rounded-full bg-[#E8E0D0]/10">
+            <div
+              className="h-full rounded-full bg-[#c8a26a]"
+              style={{ width: `${Math.round((dayOfEvent / totalDays) * 100)}%` }}
+            />
+          </div>
+        )}
       </header>
 
       {/* Admin controls — always available, no matter whether songs are
@@ -159,6 +275,8 @@ export default async function SongClubEventPage({
         </div>
       )}
 
+      {unlocked && aboutSection}
+
       {/* Group directory — when the event is split into groups. */}
       {unlocked && hasGroups && (
         <>
@@ -171,8 +289,12 @@ export default async function SongClubEventPage({
                   </div>
                   <div className="mt-0.5 text-lg font-semibold">{viewerGroup.name}</div>
                   <div className="mt-0.5 text-xs text-[#E8E0D0]/50">
-                    {viewerGroup.memberCount}{' '}
-                    {viewerGroup.memberCount === 1 ? 'songwriter' : 'songwriters'}
+                    {groupStats(viewerGroup).line}
+                    {groupStats(viewerGroup).todayCount > 0 && (
+                      <span className="ml-1.5 font-semibold text-[#c8a26a]">
+                        +{groupStats(viewerGroup).todayCount} today
+                      </span>
+                    )}
                   </div>
                 </div>
                 <Link
@@ -216,25 +338,32 @@ export default async function SongClubEventPage({
             <ul className="grid gap-3 sm:grid-cols-2">
               {groups
                 .filter((g) => g.id !== viewerGroup?.id)
-                .map((g) => (
-                  <li key={g.id}>
-                    <Link
-                      href={`/song-club/${event.slug}/${g.slug}`}
-                      className="flex items-center justify-between gap-3 rounded-lg border border-[#E8E0D0]/15 bg-[#E8E0D0]/[0.03] p-4 transition hover:border-[#E8E0D0]/35"
-                    >
-                      <span className="min-w-0">
-                        <span className="block truncate font-semibold">{g.name}</span>
-                        <span className="mt-0.5 block text-xs text-[#E8E0D0]/50">
-                          {g.memberCount} {g.memberCount === 1 ? 'songwriter' : 'songwriters'} —
-                          take a listen
+                .map((g) => {
+                  const stats = groupStats(g);
+                  return (
+                    <li key={g.id}>
+                      <Link
+                        href={`/song-club/${event.slug}/${g.slug}`}
+                        className="flex items-center justify-between gap-3 rounded-lg border border-[#E8E0D0]/15 bg-[#E8E0D0]/[0.03] p-4 transition hover:border-[#E8E0D0]/35"
+                      >
+                        <span className="min-w-0">
+                          <span className="block truncate font-semibold">{g.name}</span>
+                          <span className="mt-0.5 block text-xs text-[#E8E0D0]/50">
+                            {stats.line}
+                            {stats.todayCount > 0 && (
+                              <span className="ml-1.5 font-semibold text-[#c8a26a]">
+                                +{stats.todayCount} today
+                              </span>
+                            )}
+                          </span>
                         </span>
-                      </span>
-                      <span aria-hidden className="shrink-0 text-[#E8E0D0]/40">
-                        →
-                      </span>
-                    </Link>
-                  </li>
-                ))}
+                        <span aria-hidden className="shrink-0 text-[#E8E0D0]/40">
+                          →
+                        </span>
+                      </Link>
+                    </li>
+                  );
+                })}
             </ul>
           </section>
 
@@ -400,38 +529,7 @@ export default async function SongClubEventPage({
           </>
         ))}
 
-      {event.flyer_url && (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={event.flyer_url}
-          alt={event.title}
-          className="mt-6 w-full max-w-md rounded-lg border border-[#E8E0D0]/15"
-        />
-      )}
-
-      {!online && event.venue_name && (
-        <p className="mt-5 text-[15px] text-[#E8E0D0]/80">{event.venue_name}</p>
-      )}
-
-      {event.description && (
-        <div className="mt-4 whitespace-pre-wrap text-[15px] leading-relaxed text-[#E8E0D0]/80">
-          {event.description}
-        </div>
-      )}
-
-      {event.body && (
-        <div className="mt-6 space-y-4 text-[15px] leading-relaxed text-[#E8E0D0]/80">
-          {event.body
-            .split(/\n{2,}/)
-            .map((para) => para.trim())
-            .filter(Boolean)
-            .map((para, i) => (
-              <p key={i} className="whitespace-pre-wrap">
-                {para}
-              </p>
-            ))}
-        </div>
-      )}
+      {!unlocked && aboutSection}
 
       {unlocked && (
         <section className="mt-8">
