@@ -1,13 +1,7 @@
 import { NextResponse } from 'next/server';
-import { sql } from '@/lib/db';
 import { getActiveTvImages } from '@/lib/tv-images';
-import {
-  getProgram,
-  getProgramOrBlank,
-  getGlobalProgram,
-  getActiveCards,
-  overrideActive,
-} from '@/lib/tv-program';
+import { getProgramOrBlank, getActiveCards, overrideActive, type TvProgram } from '@/lib/tv-program';
+import { getCachedTvFeed } from '@/lib/tv-feed';
 import { getPresetBoard } from '@/lib/tv-presets';
 import { cloudinaryTransform } from '@/lib/cloudinary-url';
 import { R2_PUBLIC_BASE } from '@/lib/r2-public';
@@ -68,27 +62,27 @@ export async function GET(request: Request) {
   const presetId = presetParam && /^\d+$/.test(presetParam) ? Number(presetParam) : null;
   const presetBoard = presetId !== null ? await getPresetBoard(presetId) : null;
 
-  let program;
-  let scope: number | null;
+  // The DB reads. Steady state (the kiosk polls with NO params) goes through
+  // the Data Cache in getCachedTvFeed, so a normal poll touches no Postgres and
+  // the Neon compute can idle-suspend. The ?showId admin preview needs an
+  // arbitrary show's live program, so it bypasses the cache and reads directly
+  // (rare, admin-only). Either way `program` stays raw here — the override is
+  // resolved below, off-cache, against the current clock.
+  let program: TvProgram;
+  let cards: Array<{ headline: string; subtext: string | null; image: string | null }>;
+  let poolImages: Array<{ url: string; caption: string | null }>;
   if (previewShowId !== null) {
     program = await getProgramOrBlank(previewShowId);
-    scope = previewShowId;
+    [cards, poolImages] = await Promise.all([
+      getActiveCards(previewShowId),
+      getActiveTvImages(),
+    ]);
   } else {
-    const [showRow] = await sql<Array<{ id: number }>>`
-      select id from shows where date = ${today} order by id asc limit 1
-    `;
-    const showId = showRow ? Number(showRow.id) : null;
-    const showProgram = showId !== null ? await getProgram(showId) : null;
-    // The scope whose program/cards are live: the show if it has a program,
-    // else global. The screensaver pool is always global (a shared library).
-    scope = showProgram ? showId : null;
-    program = showProgram ?? (await getGlobalProgram());
+    const feed = await getCachedTvFeed(today);
+    program = feed.program;
+    cards = feed.cards;
+    poolImages = feed.pool;
   }
-
-  const [cards, poolImages] = await Promise.all([
-    getActiveCards(scope),
-    getActiveTvImages(),
-  ]);
 
   const body = {
     date: today,

@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
+import { revalidateTag } from 'next/cache';
 import { sql } from '@/lib/db';
+import { TV_FEED_TAG } from '@/lib/tv-feed';
 import { requireAdmin } from '@/lib/admin-session';
 
 // Auth is enforced centrally in proxy.ts for all /api/admin/* routes.
@@ -64,6 +66,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       end, updated_at = now()
       where id in (${current.id}, ${neighbor.id})
     `;
+    revalidateTag(TV_FEED_TAG, { expire: 0 }); // next /api/tv poll re-reads the DB
     return NextResponse.json({ ok: true });
   }
 
@@ -95,6 +98,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   if (!row) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 });
   }
+  revalidateTag(TV_FEED_TAG, { expire: 0 }); // next /api/tv poll re-reads the DB
   return NextResponse.json({ ok: true });
 }
 
@@ -109,5 +113,6 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
   // The R2 object is left in place (cheap, immutable, content-addressed) — only
   // the pool entry is removed, same as other admin deletes in this codebase.
   await sql`delete from tv_images where id = ${imageId}`;
+  revalidateTag(TV_FEED_TAG, { expire: 0 }); // next /api/tv poll re-reads the DB
   return NextResponse.json({ ok: true });
 }

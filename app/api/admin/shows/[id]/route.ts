@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
-import { revalidatePath } from 'next/cache';
+import { revalidatePath, revalidateTag } from 'next/cache';
 import { sql } from '@/lib/db';
+import { TV_FEED_TAG } from '@/lib/tv-feed';
 import {
   ISO_DATE_RE,
   isValidBandsInput,
@@ -292,6 +293,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     revalidatePath('/bands/[slug]', 'page');
     revalidatePath('/shows');
     revalidatePath('/bands');
+    // An edit can move a show's date onto/off today, changing tonight's TV
+    // program — drop the feed cache so the next /api/tv poll re-reads.
+    revalidateTag(TV_FEED_TAG, { expire: 0 });
 
     return NextResponse.json(row);
   } catch (error) {
@@ -314,5 +318,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
   await sql`delete from shows where id = ${showId}`;
   revalidatePath('/shows/[slug]', 'page');
   revalidatePath('/shows');
+  // Deleting today's show changes tonight's TV program — drop the feed cache.
+  revalidateTag(TV_FEED_TAG, { expire: 0 });
   return NextResponse.json({ ok: true });
 }
