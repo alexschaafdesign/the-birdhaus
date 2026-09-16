@@ -13,6 +13,7 @@ export interface ClubTrack {
   memberId: number | null;
   fromAdmin: boolean;
   uploaderName: string;
+  uploaderAvatarUrl: string | null;
   title: string;
   notes: string | null;
   url: string;
@@ -93,6 +94,7 @@ interface TrackRow {
   member_id: number | null;
   from_admin: boolean;
   member_name: string | null;
+  avatar_url: string | null;
   title: string;
   notes: string | null;
   url: string | null;
@@ -117,7 +119,7 @@ const LIKES_SELECT = sql`
 `;
 
 const TRACK_SELECT = sql`
-  select t.id, t.member_id, t.from_admin, m.name as member_name, t.title,
+  select t.id, t.member_id, t.from_admin, m.name as member_name, m.avatar_url, t.title,
          t.notes, t.url, t.r2_key, t.peaks, t.duration_seconds, t.created_at::text as created_at,
          (select count(*)::int from song_club_track_comments c where c.track_id = t.id)
            as comment_count,
@@ -129,7 +131,7 @@ const TRACK_SELECT = sql`
 // Same, plus the round-scoped columns — for queries that join
 // song_club_playlist_tracks as `pt` (day + highlight live on the join row).
 const TRACK_SELECT_IN_ROUND = sql`
-  select t.id, t.member_id, t.from_admin, m.name as member_name, t.title,
+  select t.id, t.member_id, t.from_admin, m.name as member_name, m.avatar_url, t.title,
          t.notes, t.url, t.r2_key, t.peaks, t.duration_seconds, t.created_at::text as created_at,
          pt.day::text as day, pt.is_highlight,
          (select count(*)::int from song_club_track_comments c where c.track_id = t.id)
@@ -145,6 +147,7 @@ function mapTrack(r: TrackRow): ClubTrack {
     memberId: r.member_id === null ? null : Number(r.member_id),
     fromAdmin: r.from_admin,
     uploaderName: r.from_admin ? 'the Birdhaus' : r.member_name ?? 'Former member',
+    uploaderAvatarUrl: r.from_admin ? null : r.avatar_url,
     title: r.title,
     notes: r.notes,
     // Migrated tracks play through the session-gated route (which 302s to a

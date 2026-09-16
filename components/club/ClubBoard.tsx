@@ -1,8 +1,10 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
 import type { ClubPost } from '@/lib/club-board';
 import ReactionBar from './ReactionBar';
+import MemberAvatar from './MemberAvatar';
 
 // The Song Club group thread: oldest-first so it reads top-down, composer at
 // the bottom under the latest message. The list lives in its own capped-height
@@ -170,7 +172,10 @@ export default function ClubBoard({
         }`}
       >
         <div className="mb-1 flex items-baseline justify-between gap-3">
-          <span className="text-xs font-semibold text-[#E8E0D0]">{p.authorName}</span>
+          <span className="flex min-w-0 items-center gap-1.5">
+            <MemberAvatar name={p.authorName} avatarUrl={p.avatarUrl} />
+            <span className="truncate text-xs font-semibold text-[#E8E0D0]">{p.authorName}</span>
+          </span>
           <span className="flex shrink-0 items-baseline gap-2">
             <span className="text-[11px] text-[#E8E0D0]/35">{formatWhen(p.createdAt)}</span>
             {canDelete && (
@@ -303,12 +308,12 @@ export default function ClubBoard({
       )}
 
       {!isViewerLoggedIn ? (
-        <a
+        <Link
           href="/song-club/login"
           className="inline-block rounded border border-[#E8E0D0]/30 px-4 py-2 text-sm text-[#E8E0D0]/80 transition hover:border-[#E8E0D0]/60 hover:text-[#E8E0D0]"
         >
           Log in to post
-        </a>
+        </Link>
       ) : !(isAdmin || canPost) ? (
         <p className="text-xs text-[#E8E0D0]/40">
           {readOnlyNote ?? 'Only members of this group can post here.'}

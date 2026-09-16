@@ -12,6 +12,7 @@ export interface ClubPost {
   memberId: number | null;
   fromAdmin: boolean;
   authorName: string;
+  avatarUrl: string | null;
   body: string;
   createdAt: string;
   // Facebook-style: one level of replies, nested under their parent post.
@@ -27,6 +28,7 @@ export interface ClubPin {
   memberId: number | null;
   fromAdmin: boolean;
   authorName: string;
+  avatarUrl: string | null;
   kind: ClubPinKind;
   title: string;
   url: string;
@@ -59,12 +61,13 @@ export async function getPosts(
       member_id: number | null;
       from_admin: boolean;
       member_name: string | null;
+      avatar_url: string | null;
       body: string;
       parent_post_id: number | null;
       created_at: string;
     }>
   >`
-    select p.id, p.member_id, p.from_admin, m.name as member_name, p.body,
+    select p.id, p.member_id, p.from_admin, m.name as member_name, m.avatar_url, p.body,
            p.parent_post_id, p.created_at::text as created_at
     from song_club_posts p
     left join users m on m.id = p.member_id
@@ -107,6 +110,7 @@ export async function getPosts(
     memberId: r.member_id === null ? null : Number(r.member_id),
     fromAdmin: r.from_admin,
     authorName: r.from_admin ? 'the Birdhaus' : r.member_name ?? 'Former member',
+    avatarUrl: r.from_admin ? null : r.avatar_url,
     body: r.body,
     createdAt: r.created_at,
     replies: [],
@@ -232,6 +236,7 @@ export async function getPins(): Promise<ClubPin[]> {
       member_id: number | null;
       from_admin: boolean;
       member_name: string | null;
+      avatar_url: string | null;
       kind: ClubPinKind;
       title: string;
       url: string | null;
@@ -242,7 +247,7 @@ export async function getPins(): Promise<ClubPin[]> {
       created_at: string;
     }>
   >`
-    select p.id, p.member_id, p.from_admin, m.name as member_name, p.kind,
+    select p.id, p.member_id, p.from_admin, m.name as member_name, m.avatar_url, p.kind,
            p.title, p.url, p.r2_key, p.content_type, p.size_bytes, p.featured,
            p.created_at::text as created_at
     from song_club_pins p
@@ -254,6 +259,7 @@ export async function getPins(): Promise<ClubPin[]> {
     memberId: r.member_id === null ? null : Number(r.member_id),
     fromAdmin: r.from_admin,
     authorName: r.from_admin ? 'the Birdhaus' : r.member_name ?? 'Former member',
+    avatarUrl: r.from_admin ? null : r.avatar_url,
     kind: r.kind,
     title: r.title,
     // Migrated file pins download through the session-gated route; embeds and

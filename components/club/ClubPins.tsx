@@ -1,8 +1,10 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import type { ClubPin } from '@/lib/club-board';
 import { embedSrcFor, isSamplyEmbed, isVideoEmbed } from '@/lib/club-embed';
+import MemberAvatar from './MemberAvatar';
 
 // Pinned files, players, and links at the top of the Song Club portal.
 // Admin-featured pins render as a large player block above everything else;
@@ -74,8 +76,11 @@ export default function ClubPins({
             {pin.title}
           </span>
           <span className="flex shrink-0 items-baseline gap-2">
-            <span className="text-[11px] text-[#E8E0D0]/35">
-              {pin.authorName} · {formatWhen(pin.createdAt)}
+            <span className="flex items-center gap-1 text-[11px] text-[#E8E0D0]/35">
+              <MemberAvatar name={pin.authorName} avatarUrl={pin.avatarUrl} />
+              <span>
+                {pin.authorName} · {formatWhen(pin.createdAt)}
+              </span>
             </span>
             {isAdmin && (
               <button
@@ -164,12 +169,12 @@ export default function ClubPins({
             {adding ? 'Close' : '+ Pin something'}
           </button>
         ) : (
-          <a
+          <Link
             href="/song-club/login"
             className="text-xs text-[#E8E0D0]/45 underline-offset-2 transition hover:text-[#E8E0D0] hover:underline"
           >
             Log in to pin
-          </a>
+          </Link>
         )}
       </div>
 

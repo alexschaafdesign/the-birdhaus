@@ -1,9 +1,11 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
 import type { ClubTrack, ClubTrackComment } from '@/lib/club-music';
 import WaveformPlayer, { type TrackControls, type WaveformMarker } from './WaveformPlayer';
 import ReactionBar from './ReactionBar';
+import MemberAvatar from './MemberAvatar';
 
 // One track: native audio player, uploader credit, and the track's comment
 // thread. Comments belong to the TRACK, so the same thread shows wherever the
@@ -172,8 +174,11 @@ export default function TrackCard({
       <div className="mb-1 flex items-baseline justify-between gap-3">
         <div className="min-w-0">
           <div className="truncate font-medium text-[#E8E0D0]">{track.title}</div>
-          <div className="mt-0.5 text-xs text-[#E8E0D0]/50">
-            {track.uploaderName} · {formatWhen(track.createdAt)}
+          <div className="mt-0.5 flex items-center gap-1.5 text-xs text-[#E8E0D0]/50">
+            <MemberAvatar name={track.uploaderName} avatarUrl={track.uploaderAvatarUrl} />
+            <span className="truncate">
+              {track.uploaderName} · {formatWhen(track.createdAt)}
+            </span>
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-3">
@@ -268,7 +273,8 @@ export default function TrackCard({
           return (
             <div key={c.id} className="text-sm">
               <div className="flex items-baseline justify-between gap-3">
-                <span className="flex items-baseline gap-2">
+                <span className="flex items-center gap-2">
+                  <MemberAvatar name={c.authorName} avatarUrl={c.avatarUrl} />
                   <span
                     className={`text-xs font-semibold ${
                       c.fromAdmin ? 'text-[#c8a26a]' : 'text-[#E8E0D0]'
@@ -318,12 +324,12 @@ export default function TrackCard({
         )}
 
         {!canAct ? (
-          <a
+          <Link
             href="/song-club/login"
             className="inline-block text-xs text-[#E8E0D0]/45 underline-offset-2 transition hover:text-[#E8E0D0] hover:underline"
           >
             Log in to comment
-          </a>
+          </Link>
         ) : (
         <div className="flex items-center gap-2 pt-1">
           {track.peaks && track.peaks.length > 0 && (
