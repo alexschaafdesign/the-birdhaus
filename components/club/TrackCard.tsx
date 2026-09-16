@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { ClubTrack, ClubTrackComment } from '@/lib/club-music';
 import WaveformPlayer, { type TrackControls, type WaveformMarker } from './WaveformPlayer';
 import ReactionBar from './ReactionBar';
@@ -9,11 +9,17 @@ import ReactionBar from './ReactionBar';
 // thread. Comments belong to the TRACK, so the same thread shows wherever the
 // track appears (a round, the Singles shelf, its own page). The optional
 // audio callbacks let PlaylistTracks pause siblings and auto-advance.
+//
+// `compact` (list views) collapses the notes + comment thread behind a
+// one-line "💬 8 comments · 📝 notes" toggle so a busy round stays scannable —
+// title, like button, and the player stay visible. The track's own page
+// renders full (default).
 export default function TrackCard({
   track,
   initialComments,
   viewerMemberId,
   isAdmin,
+  compact = false,
   onPlay,
   onEnded,
   registerControls,
@@ -23,12 +29,14 @@ export default function TrackCard({
   initialComments: ClubTrackComment[];
   viewerMemberId: number | null; // null when the viewer is the admin session
   isAdmin: boolean;
+  compact?: boolean;
   onPlay?: () => void;
   onEnded?: () => void;
   registerControls?: (controls: TrackControls | null) => void;
   onTrackDeleted?: () => void;
 }) {
   const [comments, setComments] = useState<ClubTrackComment[]>(initialComments);
+  const [expanded, setExpanded] = useState(!compact);
   const [likes, setLikes] = useState(track.likes);
   const [liking, setLiking] = useState(false);
   const [draft, setDraft] = useState('');
@@ -48,6 +56,19 @@ export default function TrackCard({
     controlsRef.current = c;
     registerControls?.(c);
   }
+
+  // Deep links (#track-<id>, or #comment-<id> in this thread) must land on an
+  // EXPANDED card — PlaylistTracks opens the day section and scrolls; this
+  // opens the card itself.
+  useEffect(() => {
+    if (!compact) return;
+    const hash = window.location.hash;
+    if (hash === `#track-${track.id}`) setExpanded(true);
+    const m = hash.match(/^#comment-(\d+)$/);
+    if (m && initialComments.some((c) => c.id === Number(m[1]))) setExpanded(true);
+    // Run once on mount — the hash targets the initial load.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Comments with a timestamp become avatar markers on the waveform.
   const markers: WaveformMarker[] = comments
@@ -191,7 +212,7 @@ export default function TrackCard({
         </div>
       </div>
 
-      {track.notes && (
+      {!compact && track.notes && (
         <p className="mb-2 whitespace-pre-wrap text-sm text-[#E8E0D0]/70">{track.notes}</p>
       )}
 
@@ -212,7 +233,36 @@ export default function TrackCard({
         <audio src={track.url} controls preload="none" className="mt-1 w-full" />
       )}
 
-      <div className="mt-3 space-y-2 border-t border-[#E8E0D0]/10 pt-3">
+      {compact && (
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          aria-expanded={expanded}
+          className="mt-3 flex w-full items-center justify-between border-t border-[#E8E0D0]/10 pt-2.5 text-left text-xs text-[#E8E0D0]/50 transition hover:text-[#E8E0D0]"
+        >
+          <span>
+            {expanded
+              ? 'Hide'
+              : comments.length > 0
+                ? `💬 ${comments.length} ${comments.length === 1 ? 'comment' : 'comments'}`
+                : '💬 Be the first to comment'}
+            {!expanded && track.notes ? ' · 📝 notes' : ''}
+          </span>
+          <span aria-hidden>{expanded ? '▾' : '▸'}</span>
+        </button>
+      )}
+
+      {compact && expanded && track.notes && (
+        <p className="mt-2 whitespace-pre-wrap text-sm text-[#E8E0D0]/70">{track.notes}</p>
+      )}
+
+      {expanded && (
+      <div
+        className={`mt-3 space-y-2 ${
+          // In compact mode the toggle row above already draws the divider.
+          compact ? 'pt-1' : 'border-t border-[#E8E0D0]/10 pt-3'
+        }`}
+      >
         {comments.map((c) => {
           const canDelete = isAdmin || (viewerMemberId !== null && c.memberId === viewerMemberId);
           return (
@@ -321,6 +371,7 @@ export default function TrackCard({
         </div>
         )}
       </div>
+      )}
     </div>
   );
 }

@@ -289,6 +289,7 @@ export default function PlaylistTracks({
           initialComments={commentsByTrack[track.id] ?? []}
           viewerMemberId={viewerMemberId}
           isAdmin={isAdmin}
+          compact
           registerControls={(c) => setControls(track.id, c)}
           onPlay={() => pauseOthers(track.id)}
           onEnded={() => playNext(track.id)}
