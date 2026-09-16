@@ -36,15 +36,29 @@ export default function ClubBoard({
 }) {
   const [posts, setPosts] = useState<ClubPost[]>(initialPosts);
   const scrollRef = useRef<HTMLDivElement>(null);
+  // Scroll affordances: the box clips silently, so surface "there's more"
+  // both ways — a pill + inset shadow up top when older messages are hidden
+  // above, and a "↓ latest" pill when the viewer has scrolled up away from
+  // the newest message.
+  const [hiddenAbove, setHiddenAbove] = useState(false);
+  const [hiddenBelow, setHiddenBelow] = useState(false);
+  function updateScrollHints() {
+    const el = scrollRef.current;
+    if (!el) return;
+    setHiddenAbove(el.scrollTop > 12);
+    setHiddenBelow(el.scrollHeight - el.scrollTop - el.clientHeight > 12);
+  }
   // Pin the scroll box to the newest message on mount, and again after the
   // viewer's own top-level post (send() arms this). Reactions, replies, and
   // deletes leave the scroll where it is.
   const pendingScroll = useRef(true);
   useEffect(() => {
-    if (!pendingScroll.current) return;
-    pendingScroll.current = false;
-    const el = scrollRef.current;
-    if (el) el.scrollTop = el.scrollHeight;
+    if (pendingScroll.current) {
+      pendingScroll.current = false;
+      const el = scrollRef.current;
+      if (el) el.scrollTop = el.scrollHeight;
+    }
+    updateScrollHints();
   }, [posts]);
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
@@ -238,21 +252,48 @@ export default function ClubBoard({
 
   return (
     <div className="space-y-4">
-      <div
-        ref={scrollRef}
-        className="max-h-80 overflow-y-auto overscroll-contain pr-1"
-      >
-      {posts.length === 0 ? (
-        <p className="text-sm text-[#E8E0D0]/40">
-          Nothing here yet — say hi, share what you&apos;re working on.
-        </p>
-      ) : (
-        <ul className="space-y-3">
-          {posts.map((p) => (
-            <li key={p.id}>{renderPost(p, false)}</li>
-          ))}
-        </ul>
-      )}
+      <div className="relative">
+        <div
+          ref={scrollRef}
+          onScroll={updateScrollHints}
+          className={`max-h-80 overflow-y-auto overscroll-contain pr-1 transition-shadow ${
+            hiddenAbove ? 'shadow-[inset_0_14px_12px_-12px_rgba(0,0,0,0.7)]' : ''
+          }`}
+        >
+        {posts.length === 0 ? (
+          <p className="text-sm text-[#E8E0D0]/40">
+            Nothing here yet — say hi, share what you&apos;re working on.
+          </p>
+        ) : (
+          <ul className="space-y-3">
+            {posts.map((p) => (
+              <li key={p.id}>{renderPost(p, false)}</li>
+            ))}
+          </ul>
+        )}
+        </div>
+
+        {hiddenAbove && (
+          <button
+            type="button"
+            onClick={() => scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' })}
+            className="absolute left-1/2 top-2 -translate-x-1/2 rounded-full border border-[#E8E0D0]/20 bg-[#2A2420]/90 px-3 py-1 text-[11px] text-[#E8E0D0]/70 shadow-md backdrop-blur transition hover:border-[#E8E0D0]/50 hover:text-[#E8E0D0]"
+          >
+            ↑ earlier messages
+          </button>
+        )}
+        {hiddenBelow && (
+          <button
+            type="button"
+            onClick={() => {
+              const el = scrollRef.current;
+              el?.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
+            }}
+            className="absolute bottom-2 left-1/2 -translate-x-1/2 rounded-full border border-[#c8a26a]/40 bg-[#2A2420]/90 px-3 py-1 text-[11px] text-[#c8a26a] shadow-md backdrop-blur transition hover:border-[#c8a26a]/70"
+          >
+            ↓ latest
+          </button>
+        )}
       </div>
 
       {error && (
