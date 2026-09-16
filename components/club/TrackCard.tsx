@@ -243,9 +243,7 @@ export default function TrackCard({
         </div>
       </div>
 
-      {!collapsed && track.notes && (
-        <p className="mb-2 whitespace-pre-wrap text-sm text-[#E8E0D0]/70">{track.notes}</p>
-      )}
+      {!collapsed && track.notes && <TrackNotes notes={track.notes} className="mb-2" />}
 
       {track.peaks && track.peaks.length > 0 ? (
         <WaveformPlayer
@@ -285,7 +283,7 @@ export default function TrackCard({
       )}
 
       {collapsed && expanded && track.notes && (
-        <p className="mt-2 whitespace-pre-wrap text-sm text-[#E8E0D0]/70">{track.notes}</p>
+        <TrackNotes notes={track.notes} className="mt-2" />
       )}
 
       {expanded && (
@@ -405,6 +403,35 @@ export default function TrackCard({
         )}
       </div>
       )}
+    </div>
+  );
+}
+
+// Uploader notes, clamped to a preview when long (full lyrics get pasted
+// here) with a Show more toggle — one level deeper than the card's own
+// comments/notes collapse. Short notes render in full, no toggle.
+function TrackNotes({ notes, className }: { notes: string; className?: string }) {
+  const [open, setOpen] = useState(false);
+  const long = notes.split('\n').length > 7 || notes.length > 600;
+  if (!long) {
+    return (
+      <p className={`whitespace-pre-wrap text-sm text-[#E8E0D0]/70 ${className ?? ''}`}>{notes}</p>
+    );
+  }
+  return (
+    <div className={className}>
+      <p
+        className={`whitespace-pre-wrap text-sm text-[#E8E0D0]/70 ${open ? '' : 'line-clamp-6'}`}
+      >
+        {notes}
+      </p>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="mt-1 text-xs font-medium text-[#c8a26a]/80 transition hover:text-[#c8a26a]"
+      >
+        {open ? 'Show less' : 'Show more'}
+      </button>
     </div>
   );
 }
