@@ -1,13 +1,14 @@
 // Blast orchestration for Song Club notifications: fan a message out to every
-// opted-in member. Best-effort — a single recipient's failure never aborts the
-// batch, and callers wrap these so a Resend outage never breaks the underlying
-// action (posting, publishing). Recipient counts are small (a club), so plain
-// sequential-ish sends via allSettled are fine.
+// opted-in member. Sends go through Resend's batch endpoint (sendEmailBatch) in
+// one request per 100 recipients — NOT one concurrent request each, which
+// tripped Resend's rate limit and silently dropped most of a large blast.
+// Best-effort — callers wrap these so a Resend outage never breaks the
+// underlying action (posting, publishing). Each returns how many were emailed.
 
 import { sql } from './db';
 import { SITE_URL } from './site';
 import { getGroupNotificationRecipients, getNotificationRecipients } from './club-members';
-import { sendAnnouncementEmail, sendClubEventEmail } from './club-email';
+import { buildAnnouncementEmail, buildClubEventEmail, sendEmailBatch } from './club-email';
 import { claimEventNotification, slugify, type SongClubEvent } from './song-club';
 
 const PORTAL_URL = `${SITE_URL}/song-club`;
@@ -35,12 +36,11 @@ export async function maybeNotifyEventPublished(event: SongClubEvent): Promise<n
 
 export async function notifyAnnouncement(body: string): Promise<number> {
   const recipients = await getNotificationRecipients('announcements');
-  const results = await Promise.allSettled(
+  return sendEmailBatch(
     recipients.map((r) =>
-      sendAnnouncementEmail({ to: r.email, recipientName: r.name, body, portalUrl: PORTAL_URL })
+      buildAnnouncementEmail({ to: r.email, recipientName: r.name, body, portalUrl: PORTAL_URL })
     )
   );
-  return logFailures('announcement', results);
 }
 
 // A group-board post's email goes to THAT GROUP's members only (opt-out
@@ -56,12 +56,11 @@ export async function notifyGroupPost(groupId: number, body: string): Promise<nu
   if (!group) return 0;
   const groupUrl = `${SITE_URL}/song-club/${group.slug}/${slugify(group.name)}`;
   const recipients = await getGroupNotificationRecipients(groupId);
-  const results = await Promise.allSettled(
+  return sendEmailBatch(
     recipients.map((r) =>
-      sendAnnouncementEmail({ to: r.email, recipientName: r.name, body, portalUrl: groupUrl })
+      buildAnnouncementEmail({ to: r.email, recipientName: r.name, body, portalUrl: groupUrl })
     )
   );
-  return logFailures('group-post', results);
 }
 
 export async function notifyNewEvent(input: {
@@ -71,9 +70,9 @@ export async function notifyNewEvent(input: {
 }): Promise<number> {
   const recipients = await getNotificationRecipients('events');
   const eventUrl = `${SITE_URL}/song-club/${input.slug}`;
-  const results = await Promise.allSettled(
+  return sendEmailBatch(
     recipients.map((r) =>
-      sendClubEventEmail({
+      buildClubEventEmail({
         to: r.email,
         recipientName: r.name,
         title: input.title,
@@ -82,13 +81,4 @@ export async function notifyNewEvent(input: {
       })
     )
   );
-  return logFailures('event', results);
-}
-
-function logFailures(kind: string, results: PromiseSettledResult<unknown>[]): number {
-  const failed = results.filter((r) => r.status === 'rejected');
-  if (failed.length > 0) {
-    console.error(`[club-notify] ${kind}: ${failed.length}/${results.length} sends failed`, failed[0]);
-  }
-  return results.length - failed.length;
 }

@@ -207,7 +207,55 @@ export async function sendTrackCommentEmail({
 
 // A Birdhaus board post, emailed to a member who wants announcements. One
 // send per recipient (personalized greeting + settings note). Caller loops.
-export async function sendAnnouncementEmail({
+// A single Resend email payload. Callers build these and hand a whole array to
+// sendEmailBatch, which posts them in ONE request per 100 — see the note there.
+export interface ResendEmailPayload {
+  from: string;
+  to: string;
+  subject: string;
+  html: string;
+  text: string;
+}
+
+function requireFrom(): string {
+  const from = process.env.RESEND_FROM_EMAIL;
+  if (!from) throw new Error('RESEND_FROM_EMAIL is not set');
+  return from;
+}
+
+// Sends many emails through Resend's BATCH endpoint (up to 100 per request), so
+// a club-wide blast is a couple of API calls instead of N concurrent ones. The
+// old path fired one send per recipient via Promise.allSettled, which tripped
+// Resend's per-request rate limit (~2/sec) and silently dropped most of a large
+// blast — a 54-person announcement only landed ~10. 'permissive' validation
+// keeps one bad address from failing the whole chunk. Best-effort: a chunk-level
+// error is logged, not thrown, so a Resend hiccup never breaks the caller's
+// underlying action. Returns how many Resend accepted.
+export async function sendEmailBatch(emails: ResendEmailPayload[]): Promise<number> {
+  if (emails.length === 0) return 0;
+  const client = getResendClient();
+  let sent = 0;
+  for (let i = 0; i < emails.length; i += 100) {
+    const chunk = emails.slice(i, i + 100);
+    try {
+      const { data, error } = await client.batch.send(chunk, { batchValidation: 'permissive' });
+      if (error) {
+        console.error('[club-email] batch send failed:', error);
+        continue;
+      }
+      sent += data?.data?.length ?? 0;
+      const skipped = 'errors' in (data ?? {}) ? (data as { errors?: unknown[] }).errors : undefined;
+      if (Array.isArray(skipped) && skipped.length > 0) {
+        console.error(`[club-email] batch skipped ${skipped.length} invalid email(s):`, skipped[0]);
+      }
+    } catch (err) {
+      console.error('[club-email] batch send threw:', err);
+    }
+  }
+  return sent;
+}
+
+export function buildAnnouncementEmail({
   to,
   recipientName,
   body,
@@ -217,10 +265,7 @@ export async function sendAnnouncementEmail({
   recipientName: string;
   body: string;
   portalUrl: string;
-}): Promise<void> {
-  const from = process.env.RESEND_FROM_EMAIL;
-  if (!from) throw new Error('RESEND_FROM_EMAIL is not set');
-
+}): ResendEmailPayload {
   const firstName = splitName(recipientName).firstName;
   const greeting = firstName ? `hi ${firstName}!` : 'hi there!';
 
@@ -245,19 +290,12 @@ export async function sendAnnouncementEmail({
 <p style="font-size: 12px; color: #999;">To stop announcement emails, turn them off in your account settings.</p>
 <p>— the BIRDHAUS</p>`;
 
-  const { error } = await getResendClient().emails.send({
-    from,
-    to,
-    subject: 'New in the Song Club portal',
-    html,
-    text,
-  });
-  if (error) throw new Error(`Resend send failed: ${JSON.stringify(error)}`);
+  return { from: requireFrom(), to, subject: 'New in the Song Club portal', html, text };
 }
 
 // A newly-published Song Club event, emailed to a member who wants event
-// notifications. Details come from the event record. One send per recipient.
-export async function sendClubEventEmail({
+// notifications. Details come from the event record. Built for a batch blast.
+export function buildClubEventEmail({
   to,
   recipientName,
   title,
@@ -269,10 +307,7 @@ export async function sendClubEventEmail({
   title: string;
   dateLabel: string;
   eventUrl: string;
-}): Promise<void> {
-  const from = process.env.RESEND_FROM_EMAIL;
-  if (!from) throw new Error('RESEND_FROM_EMAIL is not set');
-
+}): ResendEmailPayload {
   const firstName = splitName(recipientName).firstName;
   const greeting = firstName ? `hi ${firstName}!` : 'hi there!';
 
@@ -294,14 +329,7 @@ export async function sendClubEventEmail({
 <p style="font-size: 12px; color: #999;">To stop event emails, turn them off in your account settings.</p>
 <p>— the BIRDHAUS</p>`;
 
-  const { error } = await getResendClient().emails.send({
-    from,
-    to,
-    subject: `New Song Club event: ${title}`,
-    html,
-    text,
-  });
-  if (error) throw new Error(`Resend send failed: ${JSON.stringify(error)}`);
+  return { from: requireFrom(), to, subject: `New Song Club event: ${title}`, html, text };
 }
 
 // Self-signup: confirm your email + set a password. Same link target as an
