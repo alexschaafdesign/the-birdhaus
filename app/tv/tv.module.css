@@ -283,7 +283,6 @@
 .boardRowSecondary .boardTime,
 .boardRowSecondary .boardLabel {
   color: var(--ink);
-  opacity: 0.5;
   font-size: 0.85em;
   overflow: visible;
 }
