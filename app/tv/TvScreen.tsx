@@ -143,6 +143,19 @@ function boardStartSlot(time: string): number | null {
   return mins - DAY_START_MIN;
 }
 
+// Board times are free text ("7pm", "8", "7:30-8:00pm"). Show the full clock
+// value by filling in missing minutes, so a bare hour reads "8:00pm" not "8pm".
+// The meridiem, range separators, and spacing are left exactly as entered — a
+// range like "7:30-8:00pm" is untouched.
+function fullBoardTime(raw: string): string {
+  if (!raw) return raw;
+  return raw.replace(
+    /(\d{1,2})(:\d{2})?(\s*(?:am|pm))?/gi,
+    (_m, h: string, min: string | undefined, mer: string | undefined) =>
+      `${h}${min ?? ':00'}${mer ?? ''}`
+  );
+}
+
 // Index of the "current" board row: the last one whose start time has passed.
 // -1 before anything has started (or no clock).
 function currentBoardIndex(rows: TvBoardRow[], nowSlot: number | null): number {
@@ -647,7 +660,7 @@ export default function TvScreen() {
               key={i}
               className={`${styles.boardRow} ${i === nowIdx ? styles.boardRowNow : ''}`}
             >
-              <span className={styles.boardTime}>{r.time}</span>
+              <span className={styles.boardTime}>{fullBoardTime(r.time)}</span>
               <span className={styles.boardLabel}>{r.label}</span>
             </div>
           ))}

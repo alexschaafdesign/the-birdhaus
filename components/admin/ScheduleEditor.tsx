@@ -53,11 +53,12 @@ function pad2(n: number): string {
   return n < 10 ? `0${n}` : `${n}`;
 }
 
-// Format structured fields back to the stored string. On-the-hour times drop
-// ":00" ("8" not "8:00"), matching how these usually read; "pm" is appended.
+// Format structured fields back to the stored string. Minutes are always kept
+// (on-the-hour reads "8:00" not "8", since the picker made you choose them);
+// "pm" is appended.
 function formatTime(t: ParsedTime): string {
   if (t.startH === null) return '';
-  const part = (h: number, m: number) => (m ? `${h}:${pad2(m)}` : `${h}`);
+  const part = (h: number, m: number) => `${h}:${pad2(m)}`;
   let s = part(t.startH, t.startM);
   if (t.endH !== null) s += `–${part(t.endH, t.endM)}`;
   return `${s}pm`;
