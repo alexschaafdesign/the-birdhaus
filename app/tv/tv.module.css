@@ -258,9 +258,9 @@
 .boardLabel {
   color: var(--ink);
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  /* Let long names (e.g. "Kacie Jewel Hill") wrap to a second line rather than
+     clip with an ellipsis — the fixed 640x480 tube has no room to grow wider. */
+  overflow-wrap: anywhere;
 }
 /* the row whose time has most recently passed — "now" on the run-of-show.
    Color + weight only, so the current row stands out without shifting the
