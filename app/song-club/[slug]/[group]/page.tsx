@@ -140,7 +140,7 @@ export default async function SongClubGroupPage({
           </div>
           {round && (admin || (inThisGroup && !round.locked)) && (
             <Link
-              href={`/song-club/upload?playlist=${round.id}`}
+              href={`/song-club/upload?playlist=${round.id}&returnTo=${encodeURIComponent(`/song-club/${slug}/${groupSlug}`)}`}
               className="shrink-0 rounded-md bg-[#E8E0D0] px-3.5 py-1.5 text-sm font-semibold text-[#2A2420] transition hover:bg-white"
             >
               + Upload your song

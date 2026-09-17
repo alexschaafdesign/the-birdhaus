@@ -16,16 +16,23 @@ export const dynamic = 'force-dynamic';
 export default async function ClubUploadPage({
   searchParams,
 }: {
-  searchParams: Promise<{ playlist?: string }>;
+  searchParams: Promise<{ playlist?: string; returnTo?: string }>;
 }) {
   const member = await getClubPortalMember();
   const admin = member ? false : await isAdminSession();
   if (!member && !admin) redirect('/song-club/login');
 
+  const sp = await searchParams;
+
   // Members can only upload to open rounds; the admin can upload to any.
   const playlists = (await listPlaylists()).filter((p) => admin || !p.locked);
-  const requested = Number((await searchParams).playlist);
+  const requested = Number(sp.playlist);
   const defaultPlaylistId = playlists.some((p) => p.id === requested) ? requested : undefined;
+  // Where the upload button was pressed (e.g. a group page) — land back there
+  // afterward instead of the overall round playlist. Only accept our own
+  // relative song-club paths so this can't be turned into an open redirect.
+  const returnTo =
+    sp.returnTo && /^\/song-club\/[^/]/.test(sp.returnTo) ? sp.returnTo : undefined;
   // Event-linked rounds get a "which day" picker spanning the event's dates.
   const eventRanges = await listRoundEventRanges();
 
@@ -41,6 +48,7 @@ export default async function ClubUploadPage({
           playlists={playlists.map((p) => ({ id: p.id, title: p.title }))}
           defaultPlaylistId={defaultPlaylistId}
           eventRanges={eventRanges}
+          returnTo={returnTo}
         />
       </div>
     </main>

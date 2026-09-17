@@ -52,12 +52,16 @@ export default function UploadTrackForm({
   playlists,
   defaultPlaylistId,
   eventRanges = {},
+  returnTo,
 }: {
   playlists: Array<{ id: number; title: string }>;
   defaultPlaylistId?: number;
   // Date range of each event-linked round, keyed by playlist id — rounds in
   // here get the "which day" picker.
   eventRanges?: Record<number, { start: string; end: string }>;
+  // Where to land after a successful upload — e.g. the group page the upload
+  // was launched from. Falls back to the round playlist when absent.
+  returnTo?: string;
 }) {
   const router = useRouter();
   const [file, setFile] = useState<File | null>(null);
@@ -190,7 +194,10 @@ export default function UploadTrackForm({
       const trackData = await trackRes.json().catch(() => null);
       if (!trackRes.ok) throw new Error(trackData?.error ?? `Couldn't save (${trackRes.status})`);
 
-      router.push(playlistId ? `/song-club/music/${playlistId}` : `/song-club/track/${trackData.track.id}`);
+      router.push(
+        returnTo ??
+          (playlistId ? `/song-club/music/${playlistId}` : `/song-club/track/${trackData.track.id}`),
+      );
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Upload failed');
