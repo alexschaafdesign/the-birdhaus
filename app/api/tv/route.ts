@@ -24,10 +24,10 @@ const DEPLOY_VERSION =
 // Phase 1 serves the single global program. Phase 2 will prefer tonight's
 // show's program.
 
-// Venue day: 12:00–3:59am still counts as the previous calendar day, so the
-// header date holds through a past-midnight set.
+// Venue day: a plain America/Chicago calendar day (rolls at midnight). Shows
+// don't run past midnight here, so no early-morning grace window is needed.
 function getTvDateCentral(): string {
-  return new Date(Date.now() - 4 * 60 * 60 * 1000).toLocaleDateString('en-CA', {
+  return new Date().toLocaleDateString('en-CA', {
     timeZone: 'America/Chicago',
   });
 }

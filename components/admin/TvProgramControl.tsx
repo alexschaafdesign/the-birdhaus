@@ -18,7 +18,7 @@ const MODE_LABEL: Record<TvMode, string> = {
 };
 const MODES: TvMode[] = ['screensaver', 'board', 'cards'];
 
-const DAY_START_MIN = 4 * 60;
+const DAY_START_MIN = 0; // venue day rolls at midnight
 function slotOfHHMM(value: string): number | null {
   const m = /^(\d{1,2}):(\d{2})$/.exec(value.trim());
   if (!m) return null;

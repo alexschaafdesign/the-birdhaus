@@ -29,8 +29,8 @@ const POLL_MS = 60_000; // re-fetch /api/tv
 const DWELL_MS = 8_000; // per-slide hold (rotation)
 const FADE_MS = 600; // matches .deck's opacity transition
 
-// The venue day runs until 04:00, so schedule math is in "minutes since 04:00".
-const DAY_START_MIN = 4 * 60;
+// The venue day rolls at midnight, so schedule math is in "minutes since midnight".
+const DAY_START_MIN = 0;
 const VENUE_TZ = 'America/Chicago';
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -119,14 +119,14 @@ function formatDate(iso: string | null | undefined): string {
     .toUpperCase();
 }
 
-// Minutes since 04:00 for a real venue instant.
+// Minutes since midnight for a real venue instant.
 function slotOfParts(v: VenueParts): number {
   let mins = v.hh * 60 + v.mm + v.ss / 60;
   if (mins < DAY_START_MIN) mins += 24 * 60;
   return mins - DAY_START_MIN;
 }
 
-// Minutes since 04:00 for a board row's free-text time ("7:30pm", "8–8:30pm",
+// Minutes since midnight for a board row's free-text time ("7:30pm", "8–8:30pm",
 // "8"). PM is assumed, matching the schedule editor. Uses the row's START time.
 function boardStartSlot(time: string): number | null {
   const cleaned = time.toLowerCase().replace(/am|pm/g, '').replace(/\s+/g, '');
@@ -155,7 +155,7 @@ function currentBoardIndex(rows: TvBoardRow[], nowSlot: number | null): number {
   return idx;
 }
 
-// Minutes since 04:00 for a schedule window's 24h "HH:MM"; null if malformed.
+// Minutes since midnight for a schedule window's 24h "HH:MM"; null if malformed.
 function slotOfHHMM(value: string): number | null {
   const m = /^(\d{1,2}):(\d{2})$/.exec(value.trim());
   if (!m) return null;

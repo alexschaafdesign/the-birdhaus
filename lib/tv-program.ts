@@ -160,9 +160,9 @@ export async function getAllCards(showId: number | null): Promise<TvCard[]> {
   }));
 }
 
-// Minutes since 04:00 (the venue day rolls at 4am, so evening and after-midnight
-// times sort onto one line), for a 24h "HH:MM". null if unparseable.
-const DAY_START_MIN = 4 * 60;
+// Minutes since midnight (the venue day rolls at midnight) for a 24h "HH:MM".
+// null if unparseable.
+const DAY_START_MIN = 0;
 function slotOf(hhmm: string): number | null {
   const m = /^(\d{1,2}):(\d{2})$/.exec(hhmm.trim());
   if (!m) return null;
@@ -189,7 +189,7 @@ export function resolveMode(program: TvProgram, nowSlot: number): TvMode {
   return mode;
 }
 
-// Current venue-local slot (minutes since 04:00) from a real instant.
+// Current venue-local slot (minutes since midnight) from a real instant.
 export function venueNowSlot(now: Date): number {
   const parts = new Intl.DateTimeFormat('en-US', {
     timeZone: 'America/Chicago',
