@@ -36,10 +36,13 @@ export async function generateMetadata({
 // comment; uploading and posting stay with the group's own members.
 export default async function SongClubGroupPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ slug: string; group: string }>;
+  searchParams: Promise<{ day?: string }>;
 }) {
   const { slug, group: groupSlug } = await params;
+  const sp = await searchParams;
   const event = await getEventBySlug(slug);
   const member = await getClubPortalMember();
   const admin = member ? false : await isAdminSession();
@@ -64,6 +67,28 @@ export default async function SongClubGroupPage({
   const endDate = event.end_date ?? event.event_date;
   const stripLive = endDate !== event.event_date && today >= event.event_date && today <= endDate;
 
+  // Day switcher (?day=N) — while the strip is live the songs list shows one
+  // day at a time (default today), reached by clicking a day in the counter.
+  // Clamped into [1, today] so future days can't be peeked.
+  const eventDayNum = (d: string) =>
+    Math.round((Date.parse(d + 'T00:00:00Z') - Date.parse(event.event_date + 'T00:00:00Z')) / 86400000) + 1;
+  const dayOfEvent = eventDayNum(today);
+  const selectedDayNum = Math.min(Math.max(Number.parseInt(sp.day ?? '', 10) || dayOfEvent, 1), dayOfEvent);
+  const selectedDate = new Date(
+    Date.parse(event.event_date + 'T00:00:00Z') + (selectedDayNum - 1) * 86400000
+  )
+    .toISOString()
+    .slice(0, 10);
+  const selectedPretty = new Date(selectedDate + 'T00:00:00').toLocaleDateString('en-US', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+  });
+  const dayHref = (_d: string, n: number) =>
+    n === dayOfEvent
+      ? `/song-club/${event.slug}/${group.slug}`
+      : `/song-club/${event.slug}/${group.slug}?day=${n}`;
+
   const [tracks, comments, posts, roster, groups, dayCounts] = await Promise.all([
     round ? playlistTracksByGroup(round.id, event.id, group.id) : Promise.resolve([]),
     round ? playlistComments(round.id) : Promise.resolve({}),
@@ -76,6 +101,8 @@ export default async function SongClubGroupPage({
   ]);
   const groupRoster = roster.filter((r) => r.groupId === group.id);
   const otherGroups = groups.filter((g) => g.id !== group.id);
+  // In day-switcher mode (strip live) the list is just the selected day.
+  const dayTracks = dayCounts ? tracks.filter((t) => t.day === selectedDate) : [];
 
   return (
     <main className="mx-auto w-full max-w-3xl px-5 py-6 text-[#E8E0D0] sm:px-8 sm:py-8">
@@ -99,6 +126,8 @@ export default async function SongClubGroupPage({
             end={endDate}
             today={today}
             counts={dayCounts}
+            selected={selectedDate}
+            dayHref={dayHref}
           />
         )}
       </header>
@@ -120,6 +149,22 @@ export default async function SongClubGroupPage({
         </div>
         {!round ? (
           <p className="text-sm text-[#E8E0D0]/50">No songs yet.</p>
+        ) : dayCounts ? (
+          // Strip is live: one day at a time, chosen from the counter above.
+          dayTracks.length === 0 ? (
+            <p className="text-sm text-[#E8E0D0]/50">
+              No songs from {group.name} on {selectedPretty}
+              {inThisGroup && selectedDate === today ? ' yet — yours could be the first.' : '.'}
+            </p>
+          ) : (
+            <PlaylistTracks
+              playlistId={round.id}
+              initialTracks={dayTracks}
+              commentsByTrack={comments}
+              viewerMemberId={member?.id ?? null}
+              isAdmin={admin}
+            />
+          )
         ) : tracks.length === 0 ? (
           <p className="text-sm text-[#E8E0D0]/50">
             No songs from {group.name} yet

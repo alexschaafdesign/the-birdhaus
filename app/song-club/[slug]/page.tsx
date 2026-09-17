@@ -86,7 +86,7 @@ export default async function SongClubEventPage({
   searchParams,
 }: {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ join?: string }>;
+  searchParams: Promise<{ join?: string; day?: string }>;
 }) {
   const event = await getEventBySlug((await params).slug);
   const member = await getClubPortalMember();
@@ -98,7 +98,8 @@ export default async function SongClubEventPage({
 
   // Post-auth auto-join: a member who arrived from "sign up to join" (?join=1)
   // and isn't yet enrolled gets signed up automatically (client-side).
-  const wantsJoin = (await searchParams).join === '1';
+  const sp = await searchParams;
+  const wantsJoin = sp.join === '1';
   // Guests: sign up / log in, come back here, and auto-join.
   const signUpToJoinHref = `/song-club/signup?next=${encodeURIComponent(
     `/song-club/${event.slug}?join=1`
@@ -117,6 +118,26 @@ export default async function SongClubEventPage({
   const isDuring = today >= event.event_date && today <= endDate;
   const dayOfEvent = isDuring ? daysBetween(event.event_date, today) + 1 : 0;
   const daysUntil = today < event.event_date ? daysBetween(today, event.event_date) : 0;
+
+  // Day switcher (?day=N) — which day's roster/counters the overview shows.
+  // Defaults to today; clamped into [1, today] so future days can't be peeked.
+  const selectedDayNum = isDuring
+    ? Math.min(Math.max(Number.parseInt(sp.day ?? '', 10) || dayOfEvent, 1), dayOfEvent)
+    : dayOfEvent;
+  const selectedDate = isDuring
+    ? new Date(Date.parse(event.event_date + 'T00:00:00Z') + (selectedDayNum - 1) * 86400000)
+        .toISOString()
+        .slice(0, 10)
+    : today;
+  const isTodaySelected = selectedDate === today;
+  const rosterWhenLabel = isTodaySelected
+    ? 'today'
+    : new Date(selectedDate + 'T00:00:00').toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+      });
+  const dayHref = (_d: string, n: number) =>
+    n === dayOfEvent ? `/song-club/${event.slug}` : `/song-club/${event.slug}?day=${n}`;
   const dayLabel =
     daysUntil > 0
       ? daysUntil === 1
@@ -166,7 +187,7 @@ export default async function SongClubEventPage({
           // The "who's in today" roster strip only makes sense while the
           // event runs — outside its days there is no "today" to fill.
           isDuring
-            ? groupUploadRoster(round.id, event.id, today)
+            ? groupUploadRoster(round.id, event.id, selectedDate)
             : Promise.resolve(new Map<number, never[]>()),
         ])
       : [
@@ -282,6 +303,8 @@ export default async function SongClubEventPage({
             end={endDate}
             today={today}
             counts={dayCounts}
+            selected={selectedDate}
+            dayHref={dayHref}
           />
         ) : (
           isDuring &&
@@ -332,7 +355,10 @@ export default async function SongClubEventPage({
                         </span>
                       )}
                   </div>
-                  <GroupUploadDots roster={uploadRoster.get(viewerGroup.id) ?? []} />
+                  <GroupUploadDots
+                    roster={uploadRoster.get(viewerGroup.id) ?? []}
+                    whenLabel={rosterWhenLabel}
+                  />
                 </div>
                 <Link
                   href={`/song-club/${event.slug}/${viewerGroup.slug}`}
@@ -393,7 +419,10 @@ export default async function SongClubEventPage({
                               </span>
                             )}
                           </span>
-                          <GroupUploadDots roster={uploadRoster.get(g.id) ?? []} />
+                          <GroupUploadDots
+                            roster={uploadRoster.get(g.id) ?? []}
+                            whenLabel={rosterWhenLabel}
+                          />
                         </span>
                         <span aria-hidden className="shrink-0 text-[#E8E0D0]/40">
                           →

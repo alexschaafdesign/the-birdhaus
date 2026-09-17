@@ -6,6 +6,7 @@ import MemberAvatar from './MemberAvatar';
 // like a meter filling up over the day.
 export default function GroupUploadDots({
   roster,
+  whenLabel = 'today',
 }: {
   roster: Array<{
     memberId: number;
@@ -13,15 +14,19 @@ export default function GroupUploadDots({
     avatarUrl: string | null;
     uploadedToday: boolean;
   }>;
+  // Tally suffix — "today" while viewing the current day, or a short date
+  // ("Sep 16") when the day switcher is parked on a past day.
+  whenLabel?: string;
 }) {
   if (roster.length === 0) return null;
   const uploaded = roster.filter((r) => r.uploadedToday);
+  const isToday = whenLabel === 'today';
   return (
     <span className="mt-2 flex flex-wrap items-center gap-1">
       {uploaded.map((r) => (
         <span
           key={r.memberId}
-          title={`${r.name} — uploaded today`}
+          title={`${r.name} — uploaded ${isToday ? 'today' : whenLabel}`}
           className="inline-flex rounded-full ring-1 ring-[#c8a26a]/70"
         >
           <MemberAvatar name={r.name} avatarUrl={r.avatarUrl} />
@@ -39,7 +44,7 @@ export default function GroupUploadDots({
           uploaded.length > 0 ? 'text-[#c8a26a]' : 'text-[#E8E0D0]/35'
         }`}
       >
-        {uploaded.length}/{roster.length} today
+        {uploaded.length}/{roster.length} {whenLabel}
       </span>
     </span>
   );
