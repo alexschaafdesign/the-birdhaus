@@ -260,7 +260,7 @@ export default function TrackCard({
       ) : (
         // Tracks uploaded before waveforms existed (or whose decode failed)
         // fall back to the native player.
-        <audio src={track.url} controls preload="none" className="mt-1 w-full" />
+        <NativeAudioFallback url={track.url} />
       )}
 
       {collapsed && (
@@ -402,6 +402,40 @@ export default function TrackCard({
         </div>
         )}
       </div>
+      )}
+    </div>
+  );
+}
+
+// Native <audio> for tracks with no precomputed peaks — with the error
+// surface the waveform player has and this element lacks by default. A
+// codec the viewer's browser can't decode (e.g. an Apple Lossless .m4a
+// uploaded before the converter existed) just sits at 0:00 with no
+// feedback; catching the media error is the only way the member learns the
+// track (not their connection) is the problem.
+function NativeAudioFallback({ url }: { url: string }) {
+  const [failed, setFailed] = useState<'decode' | 'load' | null>(null);
+  return (
+    <div>
+      <audio
+        src={url}
+        controls
+        preload="none"
+        className="mt-1 w-full"
+        onError={(e) => {
+          const code = e.currentTarget.error?.code;
+          // 3 = decode failed, 4 = format/src unsupported → the file itself;
+          // anything else (network, aborted) → the load.
+          setFailed(code === 3 || code === 4 ? 'decode' : 'load');
+        }}
+        onPlaying={() => setFailed(null)}
+      />
+      {failed && (
+        <p className="mt-2 rounded border border-[#F5A3A3]/40 bg-[#F5A3A3]/10 px-3 py-2 text-xs text-[#F5A3A3]">
+          {failed === 'decode'
+            ? 'This browser can’t decode this recording — it may be in a format (like Apple Lossless) that only Safari plays. Ask the uploader to re-upload it.'
+            : 'The audio didn’t load — check your connection and try again.'}
+        </p>
       )}
     </div>
   );

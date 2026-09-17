@@ -75,7 +75,10 @@ export default function WaveformPlayer({
   const [duration, setDuration] = useState(durationSeconds ?? 0);
   // 'loading' = the normal path stalled, fetching + decoding for Web Audio
   // playback; 'failed' = the fallback failed too — show the error + retry.
-  const [recovery, setRecovery] = useState<'none' | 'loading' | 'failed'>('none');
+  // 'undecodable' = the bytes arrived fine but decodeAudioData rejected
+  // them — the file's codec (e.g. Apple Lossless) isn't one this browser
+  // has, so retrying is pointless and the message blames the track instead.
+  const [recovery, setRecovery] = useState<'none' | 'loading' | 'failed' | 'undecodable'>('none');
   // True once playback runs on the Web Audio engine instead of wavesurfer.
   const [waMode, setWaMode] = useState(false);
   const waModeRef = useRef(false);
@@ -210,9 +213,12 @@ export default function WaveformPlayer({
       let buffer: AudioBuffer;
       try {
         buffer = await ctx.decodeAudioData(bytes);
-      } catch (err) {
+      } catch {
+        // The bytes came through but this browser has no decoder for them —
+        // a codec problem with the file, not a flaky load.
         ctx.close().catch(() => {});
-        throw err;
+        setRecovery('undecodable');
+        return;
       }
       engineRef.current = { ctx, buffer, source: null, startedAt: 0, offset: 0, playing: false };
       waModeRef.current = true;
@@ -445,6 +451,12 @@ export default function WaveformPlayer({
     {recovery === 'loading' && (
       <p className="mt-2 text-xs text-[#c8a26a]/80">
         Audio isn&apos;t loading the normal way — trying a fallback…
+      </p>
+    )}
+    {recovery === 'undecodable' && (
+      <p className="mt-2 rounded border border-[#F5A3A3]/40 bg-[#F5A3A3]/10 px-3 py-2 text-xs text-[#F5A3A3]">
+        This browser can&apos;t decode this recording — it may be in a format (like
+        Apple Lossless) that only Safari plays. Ask the uploader to re-upload it.
       </p>
     )}
     {recovery === 'failed' && (
