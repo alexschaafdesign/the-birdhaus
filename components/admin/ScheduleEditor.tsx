@@ -163,11 +163,13 @@ function TimeField({ value, onChange }: { value: string; onChange: (t: string) =
 }
 
 // Default schedule template, derived so it reproduces the standard Birdhaus
-// timing exactly for a 3-band show and scales for any lineup size:
+// timing exactly for a 3-band show and scales for any lineup size. bandNames
+// arrive in bill order (headliner first, opener last), matching the Details tab:
 //   4:00pm  sound engineer arrives / load-in
-//   4:30pm  soundchecks, 1 hr apart, in REVERSE set order (headliner first)
+//   4:30pm  soundchecks, 1 hr apart, in bill order (headliner soundchecks first)
 //   +30min  doors, after the last soundcheck
-//   +1hr    first set after doors; 35-min sets with 15-min changeovers
+//   +1hr    sets in play order (opener first, headliner last); 35-min sets with
+//           15-min changeovers
 //   +45min  house clear, after the last set
 // All PM. Uses formatTime so the strings round-trip through the time picker.
 function buildScheduleTemplate(bandNames: string[]): ScheduleRow[] {
@@ -192,19 +194,20 @@ function buildScheduleTemplate(bandNames: string[]): ScheduleRow[] {
   const rows: ScheduleRow[] = [];
   rows.push({ time: at(16 * 60), label: 'Sound engineer arrives — bands can start loading in' });
 
-  // Soundchecks in reverse set order (headliner first), 1 hr apart from 4:30pm.
+  // Soundchecks in bill order (headliner first), 1 hr apart from 4:30pm.
   const scStart = 16 * 60 + 30;
-  [...clean].reverse().forEach((name, i) => {
+  clean.forEach((name, i) => {
     rows.push({ time: at(scStart + i * 60), label: `${name} soundcheck` });
   });
 
   const doors = scStart + Math.max(n - 1, 0) * 60 + 30; // 30 min after last soundcheck
   rows.push({ time: at(doors), label: 'Doors' });
 
-  // Sets in set order from doors + 1 hr: 35-min sets, 15-min changeovers.
+  // Sets in play order (opener first, headliner last) from doors + 1 hr:
+  // 35-min sets, 15-min changeovers.
   const setStart = doors + 60;
   const setStep = 50; // 35-min set + 15-min changeover
-  clean.forEach((name, i) => {
+  [...clean].reverse().forEach((name, i) => {
     const s = setStart + i * setStep;
     rows.push({ time: range(s, s + 35), label: name });
   });
