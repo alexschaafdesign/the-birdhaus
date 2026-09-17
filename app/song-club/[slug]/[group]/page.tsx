@@ -157,7 +157,10 @@ export default async function SongClubGroupPage({
               {inThisGroup && selectedDate === today ? ' yet — yours could be the first.' : '.'}
             </p>
           ) : (
+            // Key by day so a soft ?day switch remounts with the new day's
+            // tracks (the list seeds its state from initialTracks once).
             <PlaylistTracks
+              key={selectedDate}
               playlistId={round.id}
               initialTracks={dayTracks}
               commentsByTrack={comments}
