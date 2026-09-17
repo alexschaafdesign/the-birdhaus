@@ -51,7 +51,7 @@ export default function DayStrip({
             : `· ${counts[view] ?? 0} ${(counts[view] ?? 0) === 1 ? 'song' : 'songs'}`}
         </span>
       </div>
-      <ol className="flex flex-wrap gap-1.5">
+      <ol className="flex flex-wrap gap-1.5 sm:flex-nowrap">
         {days.map((d, i) => {
           const n = counts[d] ?? 0;
           const isToday = d === today;
@@ -60,7 +60,7 @@ export default function DayStrip({
           const isSelected = d === view;
           const clickable = Boolean(dayHref) && !isFuture;
 
-          const cellClass = `relative flex h-12 w-10 flex-col items-center justify-center rounded-lg border transition ${
+          const cellClass = `relative flex h-12 w-10 flex-col items-center justify-center rounded-lg border transition sm:w-full ${
             isSelected
               ? 'scale-110 border-[#c8a26a] bg-[#c8a26a]/25'
               : isPast
@@ -100,7 +100,11 @@ export default function DayStrip({
           );
 
           return (
-            <li key={d} title={`${prettyDate(d)} · ${n} ${n === 1 ? 'song' : 'songs'}`}>
+            <li
+              key={d}
+              title={`${prettyDate(d)} · ${n} ${n === 1 ? 'song' : 'songs'}`}
+              className="sm:min-w-0 sm:flex-1"
+            >
               {clickable ? (
                 <Link
                   href={dayHref!(d, i + 1)}
