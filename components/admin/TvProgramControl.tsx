@@ -77,14 +77,26 @@ export default function TvProgramControl({
   initialProgram,
   showId = null,
   bandNames = [],
+  liveTube = null,
 }: {
   initialProgram: TvProgram;
   // null = the global default program; a number = that show's program.
   showId?: number | null;
   // Lineup for the board's "prefill from lineup" (empty for the global program).
   bandNames?: string[];
+  // Passed on the GLOBAL page: what the tube is actually serving now (a show's
+  // program if one is dated today, else global). The override controls act on
+  // this so a "force" from the global page reaches the live tube instead of a
+  // scope the tube is ignoring tonight.
+  liveTube?: { showId: number | null; title: string | null; program: TvProgram } | null;
 }) {
   const [program, setProgram] = useState<TvProgram>(initialProgram);
+  // The override section targets whatever is LIVE on the tube. Usually that's
+  // this page's own program (showId), but on the global page a show program can
+  // outrank it — then liveTube points the override at that show, and its state
+  // lives here (separate from `program`, which stays the global content editor).
+  const overrideRedirected = liveTube != null && liveTube.showId !== showId;
+  const [liveProgram, setLiveProgram] = useState<TvProgram>(liveTube?.program ?? initialProgram);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Re-tick so the "what's live now" readout follows the schedule clock.
@@ -117,7 +129,40 @@ export default function TvProgramControl({
     }
   }
 
-  const live = resolveLive(program);
+  // Save an override change to the live tube target. When it's this page's own
+  // program (the common case) this just delegates to save(); when the override
+  // is redirected to a show program, it PATCHes that show and tracks its state.
+  async function saveOverride(
+    patch: Partial<Record<string, unknown>>,
+    optimistic: Partial<TvProgram>
+  ) {
+    if (!overrideRedirected) return save(patch, optimistic);
+    setError(null);
+    setSaving(true);
+    const prev = liveProgram;
+    setLiveProgram((p) => ({ ...p, ...optimistic }));
+    try {
+      const res = await fetch('/api/admin/tv-program', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...patch, showId: liveTube!.showId }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(body?.error || 'Save failed');
+      }
+    } catch (err) {
+      setLiveProgram(prev); // roll back on failure
+      setError(err instanceof Error ? err.message : 'Save failed');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  // The program the override section reads/writes: the live tube's when
+  // redirected, else this page's own.
+  const oProgram = overrideRedirected ? liveProgram : program;
+  const live = resolveLive(oProgram);
   const boardRows: ScheduleRow[] = program.boardRows.map((r) => ({ time: r.time, label: r.label }));
 
   return (
@@ -136,18 +181,31 @@ export default function TvProgramControl({
           </span>
           {saving && <span className="text-xs text-[#E8E0D0]/40">saving…</span>}
         </div>
-        <p className="text-xs text-[#E8E0D0]/45 mt-1 mb-3">
-          Force a mode now (wins over the schedule until you clear it), or leave it on Auto to follow
-          the schedule/default. Changes reach the TV within ~60s.
-        </p>
+        {overrideRedirected ? (
+          <p className="text-xs text-[#E8E0D0]/45 mt-1 mb-3">
+            Tonight{' '}
+            <span className="text-[#E8E0D0]/75">{liveTube?.title || 'a show'}</span> has its own
+            program, which is what’s live on the tube — so these controls act on{' '}
+            <span className="text-[#E8E0D0]/75">it</span>, not the global default. Force a mode now
+            (wins over its schedule until you clear it), or Auto to follow its schedule/default.
+            Reaches the TV within ~60s.
+          </p>
+        ) : (
+          <p className="text-xs text-[#E8E0D0]/45 mt-1 mb-3">
+            Force a mode now (wins over the schedule until you clear it), or leave it on Auto to
+            follow the schedule/default. Changes reach the TV within ~60s.
+          </p>
+        )}
         <div className="flex items-center gap-2 flex-wrap">
           {MODES.map((m) => {
-            const on = overrideOn(program) && program.overrideMode === m;
+            const on = overrideOn(oProgram) && oProgram.overrideMode === m;
             return (
               <button
                 key={m}
                 type="button"
-                onClick={() => save({ overrideMode: m }, { overrideMode: m, overrideExpiresAt: null })}
+                onClick={() =>
+                  saveOverride({ overrideMode: m }, { overrideMode: m, overrideExpiresAt: null })
+                }
                 className={`${chip} ${
                   on
                     ? 'border-[#E8E0D0] bg-[#E8E0D0]/10 text-[#E8E0D0]'
@@ -160,15 +218,17 @@ export default function TvProgramControl({
           })}
           <button
             type="button"
-            onClick={() => save({ overrideMode: null }, { overrideMode: null, overrideExpiresAt: null })}
-            disabled={!overrideOn(program)}
+            onClick={() =>
+              saveOverride({ overrideMode: null }, { overrideMode: null, overrideExpiresAt: null })
+            }
+            disabled={!overrideOn(oProgram)}
             className={`${chip} border-[#E8E0D0]/30 text-[#E8E0D0]/70 hover:text-[#E8E0D0]`}
           >
             Auto (clear override)
           </button>
         </div>
 
-        {overrideOn(program) && (
+        {overrideOn(oProgram) && (
           <div className="flex items-center gap-2 flex-wrap mt-2 text-xs text-[#E8E0D0]/60">
             <span>Auto-clear:</span>
             {[
@@ -180,7 +240,7 @@ export default function TvProgramControl({
                 key={mins}
                 type="button"
                 onClick={() =>
-                  save(
+                  saveOverride(
                     { overrideExpireInMinutes: mins },
                     { overrideExpiresAt: new Date(Date.now() + mins * 60_000).toISOString() }
                   )
@@ -192,18 +252,18 @@ export default function TvProgramControl({
             ))}
             <button
               type="button"
-              onClick={() => save({ overrideExpireInMinutes: null }, { overrideExpiresAt: null })}
-              disabled={!program.overrideExpiresAt}
+              onClick={() => saveOverride({ overrideExpireInMinutes: null }, { overrideExpiresAt: null })}
+              disabled={!oProgram.overrideExpiresAt}
               className="border border-[#E8E0D0]/25 rounded px-2 py-1 hover:bg-[#E8E0D0]/10 disabled:opacity-40"
             >
               Off
             </button>
-            {program.overrideExpiresAt && (
+            {oProgram.overrideExpiresAt && (
               <span className="text-[#E8E0D0]/45">
                 clears in{' '}
                 {Math.max(
                   0,
-                  Math.round((new Date(program.overrideExpiresAt).getTime() - Date.now()) / 60_000)
+                  Math.round((new Date(oProgram.overrideExpiresAt).getTime() - Date.now()) / 60_000)
                 )}
                 m
               </span>

@@ -127,6 +127,31 @@ export async function getProgramOrBlank(showId: number | null): Promise<TvProgra
   return (await getProgram(showId)) ?? blankProgram();
 }
 
+// The venue day, rolling at midnight America/Chicago (matches /api/tv's date).
+export function getVenueToday(): string {
+  return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Chicago' });
+}
+
+// What the tube is actually serving right now: tonight's show program if a show
+// dated today has one, else the global program. The global admin uses this so
+// its override controls act on what's LIVE — a show program outranks global on
+// its date, so a "global" force would otherwise never reach the tube.
+export interface LiveTubeTarget {
+  showId: number | null;
+  title: string | null;
+  program: TvProgram;
+}
+export async function getLiveTubeTarget(): Promise<LiveTubeTarget> {
+  const today = getVenueToday();
+  const [showRow] = await sql<Array<{ id: number; title: string | null }>>`
+    select id, title from shows where date = ${today} order by id asc limit 1
+  `;
+  const showId = showRow ? Number(showRow.id) : null;
+  const showProgram = showId !== null ? await getProgram(showId) : null;
+  if (showProgram) return { showId, title: showRow?.title ?? null, program: showProgram };
+  return { showId: null, title: null, program: await getGlobalProgram() };
+}
+
 // Active cards for a scope, in display order (for the feed).
 export async function getActiveCards(
   showId: number | null
