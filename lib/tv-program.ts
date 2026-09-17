@@ -20,6 +20,8 @@ export interface ScheduleWindow {
 export interface BoardRow {
   time: string;
   label: string;
+  // Render as a muted "secondary" note on the tube (doors, house clear, etc.).
+  secondary?: boolean;
 }
 
 export interface TvProgram {
@@ -68,7 +70,8 @@ function parseBoardRows(value: unknown): BoardRow[] {
     if (r && typeof r === 'object') {
       const time = typeof (r as BoardRow).time === 'string' ? (r as BoardRow).time : '';
       const label = typeof (r as BoardRow).label === 'string' ? (r as BoardRow).label : '';
-      if (time || label) out.push({ time, label });
+      const secondary = (r as BoardRow).secondary === true;
+      if (time || label) out.push(secondary ? { time, label, secondary } : { time, label });
     }
   }
   return out;

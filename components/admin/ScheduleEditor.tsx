@@ -172,7 +172,16 @@ function TimeField({ value, onChange }: { value: string; onChange: (t: string) =
 //           15-min changeovers
 //   +45min  house clear, after the last set
 // All PM. Uses formatTime so the strings round-trip through the time picker.
-function buildScheduleTemplate(bandNames: string[]): ScheduleRow[] {
+//
+// opts.soundchecks=false drops the load-in + soundcheck rows (the TV board wants
+// just doors/sets/house clear). Doors/set/house-clear TIMES are unchanged either
+// way, so a show's board and advance sheet stay consistent. opts.secondaryBookends
+// marks Doors + House clear as muted "secondary" board notes.
+function buildScheduleTemplate(
+  bandNames: string[],
+  opts: { soundchecks?: boolean; secondaryBookends?: boolean } = {}
+): ScheduleRow[] {
+  const { soundchecks = true, secondaryBookends = false } = opts;
   const clean = bandNames.map((n) => n.trim()).filter(Boolean);
   const n = clean.length;
 
@@ -192,16 +201,20 @@ function buildScheduleTemplate(bandNames: string[]): ScheduleRow[] {
   };
 
   const rows: ScheduleRow[] = [];
-  rows.push({ time: at(16 * 60), label: 'Sound engineer arrives — bands can start loading in' });
 
-  // Soundchecks in bill order (headliner first), 1 hr apart from 4:30pm.
+  // Soundcheck window still anchors the doors time even when it isn't shown, so
+  // the TV board and advance sheet agree on when doors/sets/house clear land.
   const scStart = 16 * 60 + 30;
-  clean.forEach((name, i) => {
-    rows.push({ time: at(scStart + i * 60), label: `${name} soundcheck` });
-  });
+  if (soundchecks) {
+    rows.push({ time: at(16 * 60), label: 'Sound engineer arrives — bands can start loading in' });
+    // Soundchecks in bill order (headliner first), 1 hr apart from 4:30pm.
+    clean.forEach((name, i) => {
+      rows.push({ time: at(scStart + i * 60), label: `${name} soundcheck` });
+    });
+  }
 
   const doors = scStart + Math.max(n - 1, 0) * 60 + 30; // 30 min after last soundcheck
-  rows.push({ time: at(doors), label: 'Doors' });
+  rows.push({ time: at(doors), label: 'Doors', ...(secondaryBookends && { secondary: true }) });
 
   // Sets in play order (opener first, headliner last) from doors + 1 hr:
   // 35-min sets, 15-min changeovers.
@@ -213,7 +226,7 @@ function buildScheduleTemplate(bandNames: string[]): ScheduleRow[] {
   });
 
   const lastSetEnd = setStart + Math.max(n - 1, 0) * setStep + 35;
-  rows.push({ time: at(lastSetEnd + 45), label: 'House clear' });
+  rows.push({ time: at(lastSetEnd + 45), label: 'House clear', ...(secondaryBookends && { secondary: true }) });
 
   return rows;
 }
@@ -225,10 +238,14 @@ export default function ScheduleEditor({
   rows,
   bandNames,
   onChange,
+  tvBoard = false,
 }: {
   rows: ScheduleRow[];
   bandNames: string[];
   onChange: (rows: ScheduleRow[]) => void;
+  // TV-board context: show the per-row "secondary" toggle and prefill just
+  // doors/sets/house clear (no load-in or soundchecks), with muted bookends.
+  tvBoard?: boolean;
 }) {
   function update(i: number, patch: Partial<ScheduleRow>) {
     onChange(rows.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
@@ -249,7 +266,9 @@ export default function ScheduleEditor({
   function prefill() {
     const hasContent = rows.some((r) => r.time.trim() || r.label.trim());
     if (hasContent && !confirm('Replace the current schedule with a lineup template?')) return;
-    onChange(buildScheduleTemplate(bandNames));
+    onChange(
+      buildScheduleTemplate(bandNames, tvBoard ? { soundchecks: false, secondaryBookends: true } : {})
+    );
   }
 
   return (
@@ -267,6 +286,20 @@ export default function ScheduleEditor({
                 className={`${inputClass} flex-1 min-w-[8rem]`}
                 aria-label="Description"
               />
+              {tvBoard && (
+                <label
+                  className="flex items-center gap-1 text-xs text-[#E8E0D0]/50 shrink-0 cursor-pointer select-none"
+                  title="Show this row smaller and muted on the tube (doors, house clear, notes)"
+                >
+                  <input
+                    type="checkbox"
+                    checked={!!row.secondary}
+                    onChange={(e) => update(i, { secondary: e.target.checked })}
+                    className="accent-[#E8E0D0]"
+                  />
+                  secondary
+                </label>
+              )}
               <div className="flex items-center shrink-0 text-[#E8E0D0]/40">
                 <button
                   type="button"

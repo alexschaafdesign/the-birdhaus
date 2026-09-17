@@ -63,6 +63,7 @@ interface TvProgram {
 interface TvBoardRow {
   time: string;
   label: string;
+  secondary?: boolean;
 }
 interface TvBoard {
   title: string | null;
@@ -162,6 +163,7 @@ function currentBoardIndex(rows: TvBoardRow[], nowSlot: number | null): number {
   if (nowSlot === null) return -1;
   let idx = -1;
   rows.forEach((r, i) => {
+    if (r.secondary) return; // notes (doors/house clear) never take the "now" highlight
     const s = boardStartSlot(r.time);
     if (s !== null && nowSlot >= s) idx = i;
   });
@@ -658,7 +660,9 @@ export default function TvScreen() {
           {rows.map((r, i) => (
             <div
               key={i}
-              className={`${styles.boardRow} ${i === nowIdx ? styles.boardRowNow : ''}`}
+              className={`${styles.boardRow} ${r.secondary ? styles.boardRowSecondary : ''} ${
+                i === nowIdx ? styles.boardRowNow : ''
+              }`}
             >
               <span className={styles.boardTime}>{fullBoardTime(r.time)}</span>
               <span className={styles.boardLabel}>{r.label}</span>

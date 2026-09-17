@@ -123,6 +123,9 @@ function escapeHtml(s: string): string {
 export interface ScheduleRow {
   time: string;
   label: string;
+  // TV board only: render this row as a muted "secondary" note (doors, house
+  // clear, etc.). Ignored by the advance email / portal schedule.
+  secondary?: boolean;
 }
 
 // Render the schedule as a highlighted box — one row per line, with the time

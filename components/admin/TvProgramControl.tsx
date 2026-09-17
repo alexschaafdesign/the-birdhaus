@@ -163,7 +163,11 @@ export default function TvProgramControl({
   // redirected, else this page's own.
   const oProgram = overrideRedirected ? liveProgram : program;
   const live = resolveLive(oProgram);
-  const boardRows: ScheduleRow[] = program.boardRows.map((r) => ({ time: r.time, label: r.label }));
+  const boardRows: ScheduleRow[] = program.boardRows.map((r) => ({
+    time: r.time,
+    label: r.label,
+    secondary: r.secondary,
+  }));
 
   return (
     <div className="text-[#E8E0D0] space-y-8">
@@ -372,6 +376,7 @@ export default function TvProgramControl({
           rows={boardRows}
           bandNames={bandNames}
           onChange={(rows) => save({ boardRows: rows }, { boardRows: rows })}
+          tvBoard
         />
       </section>
     </div>

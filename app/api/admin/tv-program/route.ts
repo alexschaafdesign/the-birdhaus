@@ -32,7 +32,8 @@ function cleanBoardRows(value: unknown): BoardRow[] | null {
     const time = typeof (r as BoardRow).time === 'string' ? (r as BoardRow).time.trim() : '';
     const label = typeof (r as BoardRow).label === 'string' ? (r as BoardRow).label.trim() : '';
     if (!time && !label) continue; // drop fully-empty rows
-    out.push({ time, label });
+    const secondary = (r as BoardRow).secondary === true;
+    out.push(secondary ? { time, label, secondary } : { time, label });
   }
   return out;
 }
