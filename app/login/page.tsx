@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Image from 'next/image';
 import { redirect } from 'next/navigation';
-import { getBandMember, getClubPortalMember } from '@/lib/club-members';
+import { getClubMember } from '@/lib/club-members';
 import { isAdminSession } from '@/lib/admin-session';
 import { cloudinaryTransform } from '@/lib/cloudinary-url';
 import ClubLoginForm from '@/components/club/ClubLoginForm';
@@ -27,9 +27,15 @@ export const dynamic = 'force-dynamic';
 export default async function LoginPage() {
   // Send already-authenticated visitors where they belong instead of showing a
   // login form. isAdminSession covers crew/staff (they hold the admin cookie).
+  // Route by actual role, not workspace access: staff can *view* Yellow Ostrich
+  // but must never be *landed* there — a staff session whose admin cookie has
+  // lapsed belongs on the login form (to re-mint it → /admin), not funneled into
+  // the band workspace. So the band branch checks the real `band` role here, not
+  // getBandMember() (which also admits staff).
   if (await isAdminSession()) redirect('/admin');
-  if (await getClubPortalMember()) redirect('/song-club');
-  if (await getBandMember()) redirect('/yellow-ostrich');
+  const member = await getClubMember();
+  if (member?.roles.includes('song_club')) redirect('/song-club');
+  if (member?.roles.includes('band')) redirect('/yellow-ostrich');
 
   return (
     <main className="mx-auto w-full max-w-sm px-5 py-10 text-[#E8E0D0] sm:py-14">
