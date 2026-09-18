@@ -5,7 +5,11 @@ import {
   normalizeEmail,
   refreshSetupToken,
 } from '@/lib/club-members';
-import { sendClubSignupEmail, sendClubPasswordResetEmail } from '@/lib/club-email';
+import {
+  sendClubSignupEmail,
+  sendClubPasswordResetEmail,
+  sendNewMemberAdminEmail,
+} from '@/lib/club-email';
 import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
 
 // Public self-signup: anyone can join Song Club (general tier). We always email
@@ -43,6 +47,8 @@ export async function POST(request: Request) {
       const result = await inviteMember({ email, name, roles: ['song_club'] });
       if (!('error' in result)) {
         await sendClubSignupEmail({ name: result.member.name, email, token: result.token, next });
+        // Actionable admin heads-up: new members need a group before they can upload.
+        await sendNewMemberAdminEmail({ name: result.member.name, email });
       }
     } else if (existing.status === 'active') {
       // Already has an account — send a reset/login link instead of a new one.

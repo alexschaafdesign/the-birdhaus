@@ -378,7 +378,50 @@ export async function sendClubSignupEmail({
     text,
   });
   if (error) throw new Error(`Resend send failed: ${JSON.stringify(error)}`);
-  await notifyAdminCopy('Song Club signup', `Signup confirmation emailed to ${name} <${email}>.`);
+}
+
+// Actionable heads-up to the venue inbox when a genuinely new member signs up.
+// New signups have no event/group yet and can't upload until an admin assigns
+// them a group, so this points straight at the members page. Only fire this for
+// brand-new accounts (not invite re-sends). Best-effort: never blocks signup.
+export async function sendNewMemberAdminEmail({
+  name,
+  email,
+}: {
+  name: string;
+  email: string;
+}): Promise<void> {
+  const from = process.env.RESEND_FROM_EMAIL;
+  if (!from) return;
+  const membersUrl = `${SITE_URL}/admin/song-club/members`;
+  const who = `${name} <${email}>`;
+
+  const text = [
+    `${name} just signed up for Song Club.`,
+    '',
+    'Assign them to a group so they can start uploading:',
+    membersUrl,
+    '',
+    who,
+  ].join('\n');
+
+  const html = `<p><strong>${esc(name)}</strong> just signed up for Song Club.</p>
+<p>Assign them to a group so they can start uploading:</p>
+<p><a href="${esc(membersUrl)}" style="display: inline-block; background: #2A2420; color: #E8E0D0; padding: 10px 18px; border-radius: 6px; text-decoration: none; font-weight: 600;">Open members</a></p>
+<p style="font-size: 13px; color: #777;">${esc(who)}</p>`;
+
+  try {
+    const { error } = await getResendClient().emails.send({
+      from,
+      to: NOTIFY_EMAIL,
+      subject: `New Song Club signup: ${name}`,
+      html,
+      text,
+    });
+    if (error) console.error('[club-email] new-member note failed:', error);
+  } catch (err) {
+    console.error('[club-email] new-member note failed:', err);
+  }
 }
 
 export async function sendClubPasswordResetEmail({
