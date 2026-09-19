@@ -46,8 +46,22 @@ export async function GET(request: Request, { params }: { params: Promise<{ show
   const includedPcts = includedBands.map((b) => b.payoutPct);
   const summary = computeSettlementSummary(values, payoutBandCount, includedOverrides, includedPcts);
 
+  // Total heads that RSVP'd: one per reservation plus their extra guests (a party
+  // of 4 is 1 RSVP row + 3 guests). Shown on the sheet as context alongside the
+  // official estimated attendance.
+  const [{ rsvpHeads }] = await sql<{ rsvpHeads: number }[]>`
+    select coalesce(count(*) + sum(guests), 0)::int as "rsvpHeads" from rsvps where show_id = ${showId}
+  `;
+
   const buffer = await renderToBuffer(
-    <SettlementPdfDocument showTitle={show.title} showDate={show.date} values={values} summary={summary} bands={bands} />
+    <SettlementPdfDocument
+      showTitle={show.title}
+      showDate={show.date}
+      values={values}
+      summary={summary}
+      bands={bands}
+      totalRsvps={rsvpHeads}
+    />
   );
 
   const filename = `settlement-${show.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')}.pdf`;
