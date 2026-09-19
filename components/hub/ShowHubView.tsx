@@ -79,7 +79,7 @@ export default function ShowHubView({
               adminShowId={adminState?.showId ?? null}
             />
           </div>
-          {(data.inputsTotal.length > 0 || data.inputsByBand.some((b) => b.items.length > 0)) && (
+          {data.inputsByBand.some((b) => b.items.length > 0) && (
             <div className="order-3">
               <InputsSection data={data} />
             </div>
@@ -306,24 +306,6 @@ function InputsSection({ data }: { data: ShowHubData }) {
   const bandsWithItems = data.inputsByBand.filter((b) => b.items.length > 0);
   return (
     <Card title="Input needs">
-      {data.inputsTotal.length > 0 && (
-        <div className="rounded-lg bg-[#E8E0D0]/[0.05] p-4">
-          <p className="text-[11px] uppercase tracking-wide text-[#E8E0D0]/50 mb-2">
-            Combined — what we need in total
-          </p>
-          <ul className="grid gap-x-6 gap-y-1 sm:grid-cols-2">
-            {data.inputsTotal.map((line) => (
-              <li key={`${line.key}:${line.label}`} className="flex items-baseline gap-2 text-sm">
-                <span className="w-7 text-right font-semibold tabular-nums">{line.quantity}×</span>
-                <span className="text-[#E8E0D0]/90">{line.label}</span>
-                {line.houseLabel && (
-                  <span className="text-xs text-[#8fb98f]">· {line.houseLabel} avail.</span>
-                )}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
       {bandsWithItems.length > 0 && (
         <div className="divide-y divide-[#E8E0D0]/10">
           {bandsWithItems.map((band) => (
