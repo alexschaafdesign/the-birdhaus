@@ -20,15 +20,22 @@ const RULE = '#ddd6c9';
 const CREAM = '#f4f1ea';
 
 const styles = StyleSheet.create({
-  page: { padding: 48, paddingBottom: 72, fontSize: 10, fontFamily: 'Helvetica', color: INK },
-  header: { marginBottom: 6, borderBottom: `2px solid ${INK}`, paddingBottom: 12 },
+  page: { padding: 44, paddingBottom: 64, fontSize: 10, fontFamily: 'Helvetica', color: INK },
+  header: { marginBottom: 6, borderBottom: `2px solid ${INK}`, paddingBottom: 10 },
   brand: { fontSize: 18, fontFamily: 'Helvetica-Bold', letterSpacing: 1.5 },
   subtitle: { fontSize: 10, color: MUTED, marginTop: 3 },
-  metaRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 10, fontSize: 9, color: MUTED },
-  statsRow: { flexDirection: 'row', marginTop: 12 },
+  metaRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 8, fontSize: 9, color: MUTED },
+  statsRow: { flexDirection: 'row', marginTop: 10 },
   stat: { marginRight: 32 },
   statLabel: { fontSize: 7.5, textTransform: 'uppercase', letterSpacing: 0.5, color: MUTED },
-  statValue: { fontSize: 13, fontFamily: 'Helvetica-Bold', marginTop: 2 },
+  statValue: { fontSize: 12, fontFamily: 'Helvetica-Bold', marginTop: 2 },
+
+  // The two audiences sit side by side so the whole sheet fits one page:
+  // artists' ledger on the left, venue accounting on the right.
+  columns: { flexDirection: 'row', marginTop: 4 },
+  column: { flex: 1 },
+  columnLeft: { marginRight: 14 },
+  columnRight: { marginLeft: 14 },
 
   // Audience-level banner: "For the artists" vs "Venue accounting". Heavier than a
   // section title so the two halves of the sheet read as distinct.
@@ -38,7 +45,7 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 1,
     color: INK,
-    marginTop: 20,
+    marginTop: 14,
     marginBottom: 10,
     borderBottom: `1.5px solid ${INK}`,
     paddingBottom: 5,
@@ -56,7 +63,10 @@ const styles = StyleSheet.create({
     paddingBottom: 4,
   },
   row: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 2 },
-  rowLabel: { color: INK },
+  // Label flexes and wraps; value never shrinks — keeps long band names / payee
+  // names from colliding with their amounts in the narrow columns.
+  rowLabel: { color: INK, flex: 1, paddingRight: 8 },
+  rowValue: { flexShrink: 0, textAlign: 'right' },
   totalRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -110,7 +120,7 @@ function Row({ label, value, bold }: { label: string; value: string; bold?: bool
   return (
     <View style={styles.row}>
       <Text style={bold ? { ...styles.rowLabel, fontFamily: 'Helvetica-Bold' } : styles.rowLabel}>{label}</Text>
-      <Text style={bold ? { fontFamily: 'Helvetica-Bold' } : undefined}>{value}</Text>
+      <Text style={bold ? { ...styles.rowValue, fontFamily: 'Helvetica-Bold' } : styles.rowValue}>{value}</Text>
     </View>
   );
 }
@@ -168,115 +178,121 @@ export default function SettlementPdfDocument({
           </View>
         </View>
 
-        {/* Everything the band cares about: what the show earned and how the split
-            lands on each act. */}
-        <Text style={styles.groupBanner}>For the Artists</Text>
+        <View style={styles.columns}>
+          {/* Everything the band cares about: what the show earned and how the split
+              lands on each act. */}
+          <View style={[styles.column, styles.columnLeft]}>
+            <Text style={styles.groupBanner}>For the Artists</Text>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Show Income</Text>
-          {SHOW_INCOME_FIELDS.map(({ key, label }) => (
-            <Row key={key} label={label} value={formatCurrency(values[key])} />
-          ))}
-          {incomeItems.map((item, i) => (
-            <Row key={`extra-income-${i}`} label={item.label} value={formatCurrency(item.amount)} />
-          ))}
-          <View style={styles.totalRow}>
-            <Text>Total Income</Text>
-            <Text>{formatCurrency(summary.totalIncome)}</Text>
-          </View>
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Deal Terms — {dealTermsLabel(values)}</Text>
-          <View style={styles.artistBox}>
-            <View style={styles.artistTotalRow}>
-              <Text>Artist split</Text>
-              <Text>{formatCurrency(summary.artistPool)}</Text>
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Show Income</Text>
+              {SHOW_INCOME_FIELDS.map(({ key, label }) => (
+                <Row key={key} label={label} value={formatCurrency(values[key])} />
+              ))}
+              {incomeItems.map((item, i) => (
+                <Row key={`extra-income-${i}`} label={item.label} value={formatCurrency(item.amount)} />
+              ))}
+              <View style={styles.totalRow}>
+                <Text>Total Income</Text>
+                <Text>{formatCurrency(summary.totalIncome)}</Text>
+              </View>
             </View>
-            <Row label={`Per band (${payoutBandCount})`} value={formatCurrency(summary.perBand)} />
-            {bands.map((band) => {
-              const adjusted = !band.excluded && band.payoutOverride !== null;
-              const pctLabel = band.payoutPct !== null ? `${formatPct(band.payoutPct)}% · ` : '';
-              return (
-                <View key={band.bandId}>
-                  <View style={styles.row}>
-                    <Text
-                      style={
-                        band.excluded
-                          ? { ...styles.rowLabel, color: MUTED, textDecoration: 'line-through' }
-                          : { ...styles.rowLabel, paddingLeft: 10 }
-                      }
-                    >
-                      {band.excluded ? band.name : `• ${band.name}`}
-                    </Text>
-                    <Text style={band.excluded ? { color: MUTED } : undefined}>
-                      {band.excluded
-                        ? 'Excluded'
-                        : `${pctLabel}${formatCurrency(bandShare(summary, band.payoutOverride, band.payoutPct))}`}
-                    </Text>
-                  </View>
-                  {adjusted && (
-                    <Text style={{ color: MUTED, fontSize: 8, paddingLeft: 10, marginTop: -1, marginBottom: 2 }}>
-                      due {formatCurrency(bandDue(summary, band.payoutPct))}
-                      {band.payoutNote ? ` — ${band.payoutNote}` : ''}
-                    </Text>
-                  )}
+
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Deal Terms — {dealTermsLabel(values)}</Text>
+              <View style={styles.artistBox}>
+                <View style={styles.artistTotalRow}>
+                  <Text>Artist split</Text>
+                  <Text>{formatCurrency(summary.artistPool)}</Text>
                 </View>
-              );
-            })}
-            {summary.bandPayoutSavings > 0 && (
-              <Row label="Kept from band payouts" value={formatCurrency(summary.bandPayoutSavings)} />
-            )}
-          </View>
-        </View>
-
-        {/* The venue's side of the ledger — expenses and the venue's own take.
-            Kept plain so it reads as supporting detail, not the headline. */}
-        <Text style={styles.groupBanner}>Venue Accounting</Text>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Venue Expenses</Text>
-          {VENUE_EXPENSE_FIELDS.map(({ key, label }) => {
-            const payee = PAYEE_EXPENSE_FIELDS.find((p) => p.amountKey === key);
-            const name = payee ? values[payee.nameKey] : null;
-            return <Row key={key} label={name ? `${label} — ${name}` : label} value={formatCurrency(values[key])} />;
-          })}
-          {expenseItems.map((item, i) => (
-            <Row key={`extra-expense-${i}`} label={item.label} value={formatCurrency(item.amount)} />
-          ))}
-          <View style={styles.totalRow}>
-            <Text>Total Expenses</Text>
-            <Text>{formatCurrency(summary.totalExpenses)}</Text>
-          </View>
-        </View>
-
-        {hasAdditionalIncome && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Additional Income</Text>
-            {VENUE_ADDITIONAL_INCOME_FIELDS.map(({ key, label }) => (
-              <Row key={key} label={label} value={formatCurrency(values[key])} />
-            ))}
-            <View style={styles.totalRow}>
-              <Text>Total</Text>
-              <Text>{formatCurrency(summary.venueAdditionalIncome)}</Text>
+                <Row label={`Per band (${payoutBandCount})`} value={formatCurrency(summary.perBand)} />
+                {bands.map((band) => {
+                  const adjusted = !band.excluded && band.payoutOverride !== null;
+                  const pctLabel = band.payoutPct !== null ? `${formatPct(band.payoutPct)}% · ` : '';
+                  return (
+                    <View key={band.bandId}>
+                      <View style={styles.row}>
+                        <Text
+                          style={
+                            band.excluded
+                              ? { ...styles.rowLabel, color: MUTED, textDecoration: 'line-through' }
+                              : { ...styles.rowLabel, paddingLeft: 10 }
+                          }
+                        >
+                          {band.excluded ? band.name : `• ${band.name}`}
+                        </Text>
+                        <Text style={band.excluded ? { ...styles.rowValue, color: MUTED } : styles.rowValue}>
+                          {band.excluded
+                            ? 'Excluded'
+                            : `${pctLabel}${formatCurrency(bandShare(summary, band.payoutOverride, band.payoutPct))}`}
+                        </Text>
+                      </View>
+                      {adjusted && (
+                        <Text style={{ color: MUTED, fontSize: 8, paddingLeft: 10, marginTop: -1, marginBottom: 2 }}>
+                          due {formatCurrency(bandDue(summary, band.payoutPct))}
+                          {band.payoutNote ? ` — ${band.payoutNote}` : ''}
+                        </Text>
+                      )}
+                    </View>
+                  );
+                })}
+                {summary.bandPayoutSavings > 0 && (
+                  <Row label="Kept from band payouts" value={formatCurrency(summary.bandPayoutSavings)} />
+                )}
+              </View>
             </View>
           </View>
-        )}
 
-        <View style={styles.venueTotals}>
-          <Row label="Venue split" value={formatCurrency(summary.venueSplit)} />
-          {hasAdditionalIncome && (
-            <Row label="Additional income" value={formatCurrency(summary.venueAdditionalIncome)} />
-          )}
-          {hasAdditionalIncome && (
-            <Row label="Venue total income" value={formatCurrency(summary.venueTotalIncome)} />
-          )}
-          {summary.venueRedirect !== 0 && (
-            <Row label={`Venue redirect (${formatPct(values.venueRedirectPct)}%)`} value={`−${formatCurrency(summary.venueRedirect)}`} />
-          )}
-          <View style={styles.venueNetRow}>
-            <Text>Venue net</Text>
-            <Text>{formatCurrency(summary.venueNet)}</Text>
+          {/* The venue's side of the ledger — expenses and the venue's own take.
+              Kept plain so it reads as supporting detail, not the headline. */}
+          <View style={[styles.column, styles.columnRight]}>
+            <Text style={styles.groupBanner}>Venue Accounting</Text>
+
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Venue Expenses</Text>
+              {VENUE_EXPENSE_FIELDS.map(({ key, label }) => {
+                const payee = PAYEE_EXPENSE_FIELDS.find((p) => p.amountKey === key);
+                const name = payee ? values[payee.nameKey] : null;
+                return <Row key={key} label={name ? `${label} — ${name}` : label} value={formatCurrency(values[key])} />;
+              })}
+              {expenseItems.map((item, i) => (
+                <Row key={`extra-expense-${i}`} label={item.label} value={formatCurrency(item.amount)} />
+              ))}
+              <View style={styles.totalRow}>
+                <Text>Total Expenses</Text>
+                <Text>{formatCurrency(summary.totalExpenses)}</Text>
+              </View>
+            </View>
+
+            {hasAdditionalIncome && (
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Additional Income</Text>
+                {VENUE_ADDITIONAL_INCOME_FIELDS.map(({ key, label }) => (
+                  <Row key={key} label={label} value={formatCurrency(values[key])} />
+                ))}
+                <View style={styles.totalRow}>
+                  <Text>Total</Text>
+                  <Text>{formatCurrency(summary.venueAdditionalIncome)}</Text>
+                </View>
+              </View>
+            )}
+
+            <View style={styles.venueTotals}>
+              <Row label="Venue split" value={formatCurrency(summary.venueSplit)} />
+              {hasAdditionalIncome && (
+                <Row label="Additional income" value={formatCurrency(summary.venueAdditionalIncome)} />
+              )}
+              {hasAdditionalIncome && (
+                <Row label="Venue total income" value={formatCurrency(summary.venueTotalIncome)} />
+              )}
+              {summary.venueRedirect !== 0 && (
+                <Row label={`Venue redirect (${formatPct(values.venueRedirectPct)}%)`} value={`−${formatCurrency(summary.venueRedirect)}`} />
+              )}
+              <View style={styles.venueNetRow}>
+                <Text>Venue net</Text>
+                <Text>{formatCurrency(summary.venueNet)}</Text>
+              </View>
+            </View>
           </View>
         </View>
 
