@@ -15,7 +15,7 @@ export default async function EditDoorPersonPage({ params }: { params: Promise<{
   const shows = await getShowsForDoorPerson(doorPerson.name);
 
   return (
-    <main className="max-w-2xl mx-auto px-6 pb-16 pt-6">
+    <main className="max-w-6xl mx-auto px-6 pb-16 pt-6">
       <DoorPersonForm mode="edit" initialValues={doorPerson} linkedShows={shows} />
     </main>
   );

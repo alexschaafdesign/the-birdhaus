@@ -1,13 +1,15 @@
 import type { ShowHubData } from '@/lib/show-hub';
 import type { ShowAdvanceState } from '@/lib/advance';
 import { inputCatalogItem, OTHER_INPUT_KEY } from '@/lib/input-catalog';
+import { normalizeScheduleTime } from '@/lib/schedule-time';
 import type { InputItem } from '@/lib/inputs';
 import HubPortal from '@/components/hub/HubPortal';
+import HubInfo from '@/components/hub/HubInfo';
+import HubFlyer from '@/components/hub/HubFlyer';
 import {
   HubAdminBar,
   HubAdminScheduleEdit,
   HubAdminPayEdit,
-  HubAdminRecipients,
 } from '@/components/hub/HubAdmin';
 
 // The full show-hub page body, shared by two mounts:
@@ -30,31 +32,60 @@ export default function ShowHubView({
   adminState: ShowAdvanceState | null;
 }) {
   return (
-    <div className="max-w-2xl mx-auto space-y-8">
+    <div className="max-w-6xl mx-auto space-y-8">
       {adminState && <HubAdminBar state={adminState} />}
+      {/* Header + day-of essentials (incl. the RSVP count) span the full width
+          as the dashboard's masthead; everything else drops into the split below. */}
       <Header data={data} />
-      {/* The advance submission sits directly under the header (below the
-          flyer) so bands see the thing they need to do before scanning the
-          read-only show details. */}
-      <HubPortal
-        token={token}
-        bands={data.inputsByBand}
-        schedule={data.schedule}
-        initialMessages={data.messages}
-        isAdmin={isAdmin}
-        adminShowId={adminState?.showId ?? null}
-      />
       <QuickFacts data={data} />
-      {(data.schedule.length > 0 || data.soundcheckNotes || adminState) && (
-        <ScheduleSection data={data} adminState={adminState} />
-      )}
-      {(data.inputsTotal.length > 0 || data.inputsByBand.some((b) => b.items.length > 0)) && (
-        <InputsSection data={data} />
-      )}
-      <PaySection data={data} adminState={adminState} />
-      <RsvpSection data={data} />
-      <InfoSection data={data} isAdmin={isAdmin} />
-      {adminState && <HubAdminRecipients state={adminState} />}
+      {/* "The show | From you" split: left column is the read-only rundown
+          (schedule, pay, venue), right column is everything we want back from
+          the band (advance form, message board, input needs) — so tasks and
+          reference each have a stable home on desktop.
+
+          On mobile the wrappers collapse via `contents`, making every card a
+          direct flex item so `order-*` restores the one-column priority order:
+          schedule → submit → inputs → pay → venue. */}
+      <div className="flex flex-col gap-6 lg:grid lg:grid-cols-2 lg:items-start lg:gap-x-8">
+        {/* THE SHOW — read-only show details. */}
+        <div className="contents lg:block lg:space-y-6">
+          <ColumnLabel>The show</ColumnLabel>
+          {(data.schedule.length > 0 || data.soundcheckNotes || adminState) && (
+            <div className="order-1">
+              <ScheduleSection data={data} adminState={adminState} />
+            </div>
+          )}
+          <div className="order-4">
+            <PaySection data={data} adminState={adminState} />
+          </div>
+          <div className="order-5">
+            <HubInfo
+              introHtml={data.infoIntroHtml}
+              sections={data.infoSections}
+              isAdmin={isAdmin}
+            />
+          </div>
+        </div>
+        {/* FROM YOU — the things we need back from the lineup. */}
+        <div className="contents lg:block lg:space-y-6">
+          <ColumnLabel>From you</ColumnLabel>
+          <div className="order-2">
+            <HubPortal
+              token={token}
+              bands={data.inputsByBand}
+              schedule={data.schedule}
+              initialMessages={data.messages}
+              isAdmin={isAdmin}
+              adminShowId={adminState?.showId ?? null}
+            />
+          </div>
+          {(data.inputsTotal.length > 0 || data.inputsByBand.some((b) => b.items.length > 0)) && (
+            <div className="order-3">
+              <InputsSection data={data} />
+            </div>
+          )}
+        </div>
+      </div>
       <footer className="text-center text-xs text-[#E8E0D0]/40 pt-4">
         the BIRDHAUS · show details for the lineup &amp; crew
       </footer>
@@ -75,6 +106,17 @@ function formatDate(date: string | null): string | null {
 function itemLabel(item: InputItem): string {
   if (item.itemType === OTHER_INPUT_KEY) return item.customLabel?.trim() || 'Other';
   return inputCatalogItem(item.itemType).label;
+}
+
+// Desktop-only column heading for the "The show | From you" split. Hidden on
+// mobile, where the columns interleave back into one prioritized stack and a
+// stray label would sit next to cards from the other column.
+function ColumnLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="hidden lg:block text-[10px] uppercase tracking-[0.2em] text-[#c8a26a]/70 font-semibold">
+      {children}
+    </p>
+  );
 }
 
 function Card({ title, children }: { title: string; children: React.ReactNode }) {
@@ -170,41 +212,51 @@ function QuickFacts({ data }: { data: ShowHubData }) {
 }
 
 function Header({ data }: { data: ShowHubData }) {
-  const { show, lineup, soundEngineerName } = data;
+  const { show, soundEngineerName } = data;
   const date = formatDate(show.date);
   return (
-    <header className="space-y-4">
-      <div className="text-[10px] uppercase tracking-[0.2em] text-[#c8a26a] font-semibold">
-        the birdhaus
+    // Flyer rides along as a click-to-enlarge thumbnail on the left instead of
+    // a full-width image in its own row — it's reference material here, not
+    // the promo. min-w-0 lets the title wrap instead of pushing the row wide.
+    <header className="flex items-start gap-5">
+      {show.flyer && <HubFlyer src={show.flyer} alt={`${show.title} flyer`} />}
+      <div className="min-w-0 space-y-4">
+        <div className="text-[10px] uppercase tracking-[0.2em] text-[#c8a26a] font-semibold">
+          the birdhaus
+        </div>
+        <h1 className="text-3xl font-bold leading-tight">{show.title}</h1>
+        <div className="flex flex-wrap gap-x-5 gap-y-1 text-sm text-[#E8E0D0]/70">
+          {date && <span>{date}</span>}
+          {show.doorsTime && <span>Doors {show.doorsTime}</span>}
+          {show.showTime && <span>Music {show.showTime}</span>}
+        </div>
+        {soundEngineerName && (
+          <p className="text-sm text-[#E8E0D0]/60">Sound: {soundEngineerName}</p>
+        )}
+        {/* RSVPs + tickets as one unit: the live headcount (party sizes
+            summed, so +1s count) as the headline chip, with the public RSVP
+            link alongside. */}
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+          <span className="inline-flex items-baseline gap-1.5 rounded-full border border-[#8fb98f]/50 bg-[#8fb98f]/10 px-3.5 py-1 text-[#8fb98f]">
+            <span className="text-xl font-bold tabular-nums text-[#8fb98f]">
+              {data.rsvp.expected}
+            </span>
+            <span className="text-sm font-medium">
+              RSVP{data.rsvp.expected === 1 ? '' : 's'}
+            </span>
+          </span>
+          {show.ticketUrl && (
+            <a
+              href={show.ticketUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-sm text-[#c8a26a] underline transition-colors hover:text-[#E8E0D0]"
+            >
+              Ticket / RSVP page →
+            </a>
+          )}
+        </div>
       </div>
-      <h1 className="text-3xl font-bold leading-tight">{show.title}</h1>
-      {lineup.length > 0 && <p className="text-lg text-[#E8E0D0]/80">{lineup.join(' · ')}</p>}
-      <div className="flex flex-wrap gap-x-5 gap-y-1 text-sm text-[#E8E0D0]/70">
-        {date && <span>{date}</span>}
-        {show.doorsTime && <span>Doors {show.doorsTime}</span>}
-        {show.showTime && <span>Music {show.showTime}</span>}
-      </div>
-      {soundEngineerName && (
-        <p className="text-sm text-[#E8E0D0]/60">Sound: {soundEngineerName}</p>
-      )}
-      {show.flyer && (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={show.flyer}
-          alt={`${show.title} flyer`}
-          className="w-full max-w-sm rounded-lg border border-[#E8E0D0]/10"
-        />
-      )}
-      {show.ticketUrl && (
-        <a
-          href={show.ticketUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-block text-sm text-[#c8a26a] hover:text-[#E8E0D0] underline"
-        >
-          Ticket / RSVP link →
-        </a>
-      )}
     </header>
   );
 }
@@ -218,16 +270,21 @@ function ScheduleSection({
 }) {
   return (
     <Card title="Schedule">
-      <ul className="space-y-1.5">
+      {/* The time column is max-content so it sizes to the longest time and a
+          range like "9:45–10:30pm" never wraps; `contents` lets the li spans
+          participate in the shared grid while keeping list semantics. */}
+      <ul className="grid grid-cols-[max-content_1fr] gap-x-3 gap-y-1.5">
         {data.schedule.map((row, i) => {
-          const time = row.time.trim();
+          // Fill in missing minutes ("7pm" → "7:00pm") so rows saved before
+          // the editor kept :00 still read as full clock times.
+          const time = normalizeScheduleTime(row.time.trim());
           const label = row.label.trim();
           return (
-            <li key={i} className="flex gap-3 text-sm">
-              <span className="w-24 shrink-0 font-semibold tabular-nums text-[#E8E0D0]">
+            <li key={i} className="contents text-sm">
+              <span className="whitespace-nowrap font-semibold tabular-nums text-sm text-[#E8E0D0]">
                 {time}
               </span>
-              <span className="text-[#E8E0D0]/85">{label}</span>
+              <span className="text-sm text-[#E8E0D0]/85">{label}</span>
             </li>
           );
         })}
@@ -300,24 +357,6 @@ function InputsSection({ data }: { data: ShowHubData }) {
   );
 }
 
-function RsvpSection({ data }: { data: ShowHubData }) {
-  const { count, expected } = data.rsvp;
-  return (
-    <Card title="RSVPs so far">
-      <div className="flex items-baseline gap-2 flex-wrap">
-        <span className="text-2xl font-bold">{count}</span>
-        <span className="text-sm text-[#E8E0D0]/60">RSVP{count === 1 ? '' : 's'}</span>
-        <span className="text-[#E8E0D0]/25">·</span>
-        <span className="text-2xl font-bold">{expected}</span>
-        <span className="text-sm text-[#E8E0D0]/60">people expected</span>
-      </div>
-      <p className="text-xs text-[#E8E0D0]/40">
-        A soft headcount, not a guarantee — turnout often shifts at the door.
-      </p>
-    </Card>
-  );
-}
-
 function PaySection({
   data,
   adminState,
@@ -353,37 +392,3 @@ function PaySection({
   );
 }
 
-function InfoSection({ data, isAdmin }: { data: ShowHubData; isAdmin: boolean }) {
-  return (
-    <Card title="Venue & info">
-      {data.infoIntroHtml && (
-        <div
-          className="hub-prose text-sm text-[#E8E0D0]/80 leading-relaxed"
-          dangerouslySetInnerHTML={{ __html: data.infoIntroHtml }}
-        />
-      )}
-      {data.infoSections.length > 0 && (
-        <div className="divide-y divide-[#E8E0D0]/10">
-          {data.infoSections.map((s) => (
-            <Expandable key={s.title} summary={s.title}>
-              <div
-                className="hub-prose text-sm text-[#E8E0D0]/75 leading-relaxed"
-                dangerouslySetInnerHTML={{ __html: s.html }}
-              />
-            </Expandable>
-          ))}
-        </div>
-      )}
-      {isAdmin && (
-        <p className="text-xs pt-1">
-          <a
-            href="/admin/settings"
-            className="text-[#E8E0D0]/45 hover:text-[#E8E0D0] underline"
-          >
-            Edit this text (admin) →
-          </a>
-        </p>
-      )}
-    </Card>
-  );
-}

@@ -30,7 +30,7 @@ export default async function CrewHome({
   const hasContent = focus.length > 0 || Boolean(photographer);
 
   return (
-    <main className="mx-auto w-full max-w-3xl px-6 py-8 text-[#E8E0D0]">
+    <main className="mx-auto w-full max-w-6xl px-6 py-8 text-[#E8E0D0]">
       <header className="mb-8">
         <h2 className="text-2xl font-semibold">{member.name}</h2>
         {member.title && <p className="mt-1 text-sm text-[#E8E0D0]/55">{member.title}</p>}

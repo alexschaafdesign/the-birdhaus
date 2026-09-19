@@ -20,7 +20,7 @@ export default async function SettingsPage() {
   const optInCount = optInRows[0]?.n ?? 0;
 
   return (
-    <main className="max-w-4xl mx-auto px-6 pb-16 pt-6 space-y-12">
+    <main className="max-w-6xl mx-auto px-6 pb-16 pt-6 space-y-12">
       <section className="space-y-4">
         <div className="space-y-1">
           <h2 className="text-xl font-bold">Mailing list (Mailchimp)</h2>

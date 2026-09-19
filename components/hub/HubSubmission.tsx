@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { INPUT_CATALOG, OTHER_INPUT_KEY } from '@/lib/input-catalog';
+import { normalizeScheduleTime } from '@/lib/schedule-time';
 import type { ShowHubData } from '@/lib/show-hub';
 
 type HubBand = ShowHubData['inputsByBand'][number];
@@ -435,12 +436,16 @@ function ScheduleTask({
 
   return (
     <div className="space-y-3">
+      {/* max-content time column so long ranges never wrap — matches the
+          Schedule card in ShowHubView. */}
       {schedule.length > 0 ? (
-        <ul className="rounded-lg bg-[#E8E0D0]/[0.04] p-3 space-y-1">
+        <ul className="grid grid-cols-[max-content_1fr] gap-x-3 gap-y-1 rounded-lg bg-[#E8E0D0]/[0.04] p-3">
           {schedule.map((row, i) => (
-            <li key={i} className="flex gap-3 text-sm">
-              <span className="w-24 shrink-0 font-semibold tabular-nums text-[#E8E0D0]">{row.time}</span>
-              <span className="text-[#E8E0D0]/85">{row.label}</span>
+            <li key={i} className="contents text-sm">
+              <span className="whitespace-nowrap font-semibold tabular-nums text-sm text-[#E8E0D0]">
+                {normalizeScheduleTime(row.time)}
+              </span>
+              <span className="text-sm text-[#E8E0D0]/85">{row.label}</span>
             </li>
           ))}
         </ul>

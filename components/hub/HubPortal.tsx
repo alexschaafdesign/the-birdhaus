@@ -45,6 +45,9 @@ export default function HubPortal({
   // the visitor picks their own band (no accidental submit under a default).
   // The stored choice is applied in an effect after.
   const [selection, setSelection] = useState<Selection>(isAdmin ? ADMIN : CHOOSE);
+  // The advance form is collapsed by default so it doesn't dominate the portal —
+  // bands tap the header to open it when they're ready to submit.
+  const [advanceOpen, setAdvanceOpen] = useState(false);
   const storageKey = `birdhaus-hub-band:${token}`;
 
   // Restore the remembered choice once, after hydration. localStorage is a
@@ -101,17 +104,39 @@ export default function HubPortal({
       {/* Highlighted as the primary action so it isn't lost among the read-only
           sections — accent border/fill plus an explicit "action needed" cue. */}
       <section className="rounded-xl border-2 border-[#cf5b47]/60 bg-[#cf5b47]/[0.10] p-5 space-y-4">
-        <div className="space-y-2">
-          <span className="inline-flex items-center rounded-full bg-[#cf5b47] px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-[#F3E9DA]">
-            Action needed
-          </span>
-          <h2 className="text-xl font-bold text-[#E8E0D0]">Submit your advance</h2>
-          <p className="text-sm text-[#E8E0D0]/70 leading-relaxed">
-            Before the show we need a few things from each band — your stage plot /
-            input list and a quick schedule check. Please take a minute to fill
-            this out.
-          </p>
-        </div>
+        <button
+          type="button"
+          onClick={() => setAdvanceOpen((open) => !open)}
+          aria-expanded={advanceOpen}
+          className="flex w-full items-start gap-3 text-left"
+        >
+          <div className="flex-1 space-y-2">
+            <h2 className="text-xl font-bold text-[#E8E0D0]">Submit your advance</h2>
+            {!advanceOpen && (
+              <p className="text-sm text-[#E8E0D0]/70 leading-relaxed">
+                Tap to send us your stage plot / input list and a quick schedule check.
+              </p>
+            )}
+          </div>
+          <svg
+            className={`mt-1 h-5 w-5 shrink-0 text-[#E8E0D0]/70 transition-transform ${advanceOpen ? 'rotate-180' : ''}`}
+            viewBox="0 0 20 20"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            aria-hidden="true"
+          >
+            <path d="M5 7.5 10 12.5 15 7.5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </button>
+
+        {advanceOpen && (
+          <>
+        <p className="text-sm text-[#E8E0D0]/70 leading-relaxed">
+          Before the show we need a few things from each band — your stage plot /
+          input list and a quick schedule check. Please take a minute to fill
+          this out.
+        </p>
 
         {/* Identity step — everything below keys off who this is. */}
         <fieldset className="rounded-lg border border-[#E8E0D0]/25 bg-[#2A2420]/40 p-4 space-y-3">
@@ -170,6 +195,8 @@ export default function HubPortal({
             disabled={!selectedBand}
           />
         </div>
+          </>
+        )}
       </section>
 
       <Card title="Message board">

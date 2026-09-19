@@ -23,7 +23,7 @@ export default async function EditSongClubEventPage({
   const rounds = (await listPlaylists()).map((p) => ({ id: p.id, title: p.title }));
 
   return (
-    <main className="mx-auto w-full max-w-2xl px-6 py-8 text-[#E8E0D0]">
+    <main className="mx-auto w-full max-w-6xl px-6 py-8 text-[#E8E0D0]">
       <h2 className="mb-6 text-xl font-medium">Edit meetup</h2>
       <SongClubEventForm
         mode="edit"

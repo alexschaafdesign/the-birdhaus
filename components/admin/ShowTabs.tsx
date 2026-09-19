@@ -45,7 +45,7 @@ export default function ShowTabs({ id, badges }: { id: number; badges?: ShowTabB
   // separate "Advance" tab — that route now redirects here).
   const tabs: Array<{ href: string; label: string; exact: boolean; badge?: React.ReactNode }> = [
     { href: base, label: 'Details', exact: true },
-    { href: `${base}/crew`, label: 'Crew', exact: false },
+    { href: `${base}/crew`, label: 'Contacts', exact: false },
     {
       href: `${base}/portal`,
       label: 'Portal',

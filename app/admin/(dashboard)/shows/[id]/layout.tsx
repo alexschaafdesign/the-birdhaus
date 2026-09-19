@@ -95,8 +95,10 @@ export default async function ShowLayout({
       })
     : null;
 
+  // max-w-6xl matches the dashboard shell's nav width so the show workspace
+  // lines up with the admin nav links above it.
   return (
-    <main className="max-w-4xl mx-auto px-6 pb-16 pt-6 space-y-6">
+    <main className="max-w-6xl mx-auto px-6 pb-16 pt-6 space-y-6">
       <div className="space-y-3">
         <div className="flex items-center justify-between gap-3">
           <Link

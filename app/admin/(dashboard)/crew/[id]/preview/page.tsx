@@ -27,7 +27,7 @@ export default async function CrewHomePreviewPage({
 
   return (
     <div>
-      <div className="mx-auto max-w-3xl px-6 pt-6">
+      <div className="mx-auto max-w-6xl px-6 pt-6">
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[#E8E0D0]/20 bg-[#E8E0D0]/[0.05] px-4 py-2 text-sm text-[#E8E0D0]/70">
           <span>
             Read-only preview of <span className="font-medium text-[#E8E0D0]">{member.name}</span>&apos;s

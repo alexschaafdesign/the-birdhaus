@@ -15,7 +15,7 @@ export default async function AdminClubMembersPage() {
   const members = await listMembers();
 
   return (
-    <main className="mx-auto w-full max-w-4xl px-6 py-8 text-[#E8E0D0]">
+    <main className="mx-auto w-full max-w-6xl px-6 py-8 text-[#E8E0D0]">
       <div className="mb-6 flex items-center justify-between">
         <div>
           <Link
