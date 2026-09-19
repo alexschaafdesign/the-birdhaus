@@ -41,7 +41,7 @@ export default async function SongClubRsvpsPage({
       listGroups(event.id),
     ]);
     return (
-      <main className="mx-auto w-full max-w-3xl px-6 py-8 text-[#E8E0D0]">
+      <main className="mx-auto w-full max-w-6xl px-6 py-8 text-[#E8E0D0]">
         <Link
           href="/admin/song-club"
           className="text-sm text-[#E8E0D0]/50 transition hover:text-[#E8E0D0]"
@@ -68,7 +68,7 @@ export default async function SongClubRsvpsPage({
   const { rsvps, totalCount, totalGuests } = await getRsvpsForEvent(event.id);
 
   return (
-    <main className="mx-auto w-full max-w-3xl px-6 py-8 text-[#E8E0D0]">
+    <main className="mx-auto w-full max-w-6xl px-6 py-8 text-[#E8E0D0]">
       <Link
         href="/admin/song-club"
         className="text-sm text-[#E8E0D0]/50 transition hover:text-[#E8E0D0]"

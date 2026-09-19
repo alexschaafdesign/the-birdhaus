@@ -2,6 +2,7 @@ import { Resend } from 'resend';
 import { remark } from 'remark';
 import html from 'remark-html';
 import { SITE_URL } from './site';
+import { normalizeScheduleTime } from './schedule-time';
 
 // Seed for the editable watcher list (lib/advance-watchers.ts). Watchers are
 // CC'd on every outbound advance / thread message so they're real recipients — a
@@ -134,16 +135,9 @@ export interface ScheduleRow {
 // paragraph; it passes through the Markdown render because that runs with
 // sanitize:false. Rows blank on both fields are dropped; an empty list renders
 // nothing.
-// Standardizes clock times in a schedule's time cell: a bare hour gets ":00"
-// (so "5pm" → "5:00pm"), while times that already have minutes, the am/pm
-// suffix, range separators, and any non-numeric text (e.g. "Doors") are left
-// exactly as typed. Runs on each hour token, so ranges like "8–8:30pm" become
-// "8:00–8:30pm".
-export function normalizeScheduleTime(time: string): string {
-  return time.replace(/(\d{1,2})(:(\d{2}))?/g, (match, hour, minutes) =>
-    minutes ? match : `${hour}:00`
-  );
-}
+// Time normalization ("5pm" → "5:00pm") moved to lib/schedule-time.ts so the
+// portal's client components can share it without pulling in Resend/remark.
+export { normalizeScheduleTime };
 
 export function formatScheduleBlock(schedule: ScheduleRow[]): string {
   const rows = schedule

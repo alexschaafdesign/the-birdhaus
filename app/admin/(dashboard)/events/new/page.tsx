@@ -19,7 +19,7 @@ export default async function NewEventPage({
   const rounds = (await listPlaylists()).map((p) => ({ id: p.id, title: p.title }));
 
   return (
-    <main className="mx-auto max-w-4xl px-6 pb-16 pt-6 text-[#E8E0D0]">
+    <main className="mx-auto max-w-6xl px-6 pb-16 pt-6 text-[#E8E0D0]">
       <h1 className="mb-6 text-2xl font-bold">New event</h1>
       <NewEventForm
         initialDate={date}

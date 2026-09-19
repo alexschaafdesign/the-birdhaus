@@ -22,7 +22,7 @@ export default async function AdminSongClubPage() {
   const events = await listEvents();
 
   return (
-    <main className="mx-auto w-full max-w-4xl px-6 py-8 text-[#E8E0D0]">
+    <main className="mx-auto w-full max-w-6xl px-6 py-8 text-[#E8E0D0]">
       <div className="mb-6 flex items-center justify-between">
         <h2 className="text-xl font-medium">Song Club — meetups</h2>
         <div className="flex items-center gap-3">

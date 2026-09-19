@@ -25,7 +25,7 @@ export default async function EditPhotographerPage({ params }: { params: Promise
   const crewOptions = crew.map((c) => ({ id: c.id, name: c.name, email: c.email }));
 
   return (
-    <main className="max-w-2xl mx-auto px-6 pb-16 pt-6">
+    <main className="max-w-6xl mx-auto px-6 pb-16 pt-6">
       <div className="mb-4 flex flex-wrap gap-4">
         <Link
           href={`/photos/${photographerSlug(photographer.name)}`}
