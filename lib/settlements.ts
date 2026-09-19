@@ -326,16 +326,20 @@ export function settlementEmailSummary(
     ? new Date(`${showDate}T00:00:00`).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
     : null;
 
+  // Grouped to mirror the PDF's ordering: the artists' numbers first, the
+  // venue's own accounting second.
   const lines = [
     `The Birdhaus — ${showTitle}${dateLabel ? ` · ${dateLabel}` : ''}`,
     dealTermsLabel(values),
     '',
+    'For the artists',
     `Total income: ${formatCurrency(summary.totalIncome)}`,
-    `Band split: ${formatCurrency(summary.artistPool)}`,
-    `Venue split: ${formatCurrency(summary.venueSplit)}`,
-    '',
+    `Artist split: ${formatCurrency(summary.artistPool)}`,
     `Per band (${bandCount || 0}): ${formatCurrency(summary.perBand)}`,
+    '',
+    'Venue accounting',
     `Total venue expenses: ${formatCurrency(summary.totalExpenses)}`,
+    `Venue split: ${formatCurrency(summary.venueSplit)}`,
   ];
   if (summary.venueRedirect !== 0) {
     lines.push(`Venue redirect (${formatPct(values.venueRedirectPct)}%): −${formatCurrency(summary.venueRedirect)}`);
