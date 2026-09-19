@@ -231,17 +231,44 @@ function buildScheduleTemplate(
   return rows;
 }
 
+// Distills the Portal schedule down to the TV board: drop the load-in and
+// soundcheck rows (the tube only wants what an attendee cares about), keep the
+// band sets as primary rows, and mark Doors / House clear as muted "secondary"
+// bookends — matching how buildScheduleTemplate lays the board out, but using
+// the real times the admin entered on the portal rather than a template.
+function isSoundcheckRow(label: string): boolean {
+  return /soundcheck|sound\s*check|load[-\s]?in|sound engineer/i.test(label);
+}
+function isBookendRow(label: string): boolean {
+  return /\bdoors\b|house\s*(clear|close)/i.test(label);
+}
+function buildBoardFromSchedule(schedule: ScheduleRow[]): ScheduleRow[] {
+  return schedule
+    .filter((r) => (r.time.trim() || r.label.trim()) && !isSoundcheckRow(r.label))
+    .map((r) => ({
+      time: r.time,
+      label: r.label,
+      ...(isBookendRow(r.label) && { secondary: true }),
+    }));
+}
+
 // Structured schedule: an ordered list of {time, label} rows. "Prefill from
 // lineup" scaffolds the standard show timing (see buildScheduleTemplate) —
-// load-in, soundchecks, doors, sets, and house clear, with times filled in.
+// load-in, soundchecks, doors, sets, and house clear, with times filled in. On
+// the TV board, when a Portal schedule exists, prefill instead pulls those real
+// times (see buildBoardFromSchedule); it falls back to the template otherwise.
 export default function ScheduleEditor({
   rows,
   bandNames,
+  portalSchedule = [],
   onChange,
   tvBoard = false,
 }: {
   rows: ScheduleRow[];
   bandNames: string[];
+  // The show's saved Portal schedule, used by the TV board's prefill. Empty on
+  // the portal editor itself and on the global (no-show) TV program.
+  portalSchedule?: ScheduleRow[];
   onChange: (rows: ScheduleRow[]) => void;
   // TV-board context: show the per-row "secondary" toggle and prefill just
   // doors/sets/house clear (no load-in or soundchecks), with muted bookends.
@@ -263,11 +290,22 @@ export default function ScheduleEditor({
     [next[i], next[j]] = [next[j], next[i]];
     onChange(next);
   }
+  // On the TV board, prefer the real Portal schedule when the admin has entered
+  // one; the lineup template is the fallback (and the only source off the board).
+  const boardFromPortal = tvBoard ? buildBoardFromSchedule(portalSchedule) : [];
+  const usePortal = boardFromPortal.length > 0;
+
   function prefill() {
     const hasContent = rows.some((r) => r.time.trim() || r.label.trim());
-    if (hasContent && !confirm('Replace the current schedule with a lineup template?')) return;
+    const source = usePortal ? 'Portal schedule' : 'lineup template';
+    if (hasContent && !confirm(`Replace the current schedule with the ${source}?`)) return;
     onChange(
-      buildScheduleTemplate(bandNames, tvBoard ? { soundchecks: false, secondaryBookends: true } : {})
+      usePortal
+        ? boardFromPortal
+        : buildScheduleTemplate(
+            bandNames,
+            tvBoard ? { soundchecks: false, secondaryBookends: true } : {}
+          )
     );
   }
 
@@ -340,13 +378,13 @@ export default function ScheduleEditor({
         >
           + Add row
         </button>
-        {bandNames.length > 0 && (
+        {(bandNames.length > 0 || usePortal) && (
           <button
             type="button"
             onClick={prefill}
             className="text-xs text-[#E8E0D0]/45 hover:text-[#E8E0D0] underline"
           >
-            Prefill from lineup
+            {usePortal ? 'Prefill from Portal schedule' : 'Prefill from lineup'}
           </button>
         )}
       </div>

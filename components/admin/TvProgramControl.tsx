@@ -77,6 +77,7 @@ export default function TvProgramControl({
   initialProgram,
   showId = null,
   bandNames = [],
+  portalSchedule = [],
   liveTube = null,
 }: {
   initialProgram: TvProgram;
@@ -84,6 +85,9 @@ export default function TvProgramControl({
   showId?: number | null;
   // Lineup for the board's "prefill from lineup" (empty for the global program).
   bandNames?: string[];
+  // The show's saved Portal schedule (show_advances.vars.schedule). When present,
+  // the board's prefill pulls these real times instead of the lineup template.
+  portalSchedule?: ScheduleRow[];
   // Passed on the GLOBAL page: what the tube is actually serving now (a show's
   // program if one is dated today, else global). The override controls act on
   // this so a "force" from the global page reaches the live tube instead of a
@@ -375,6 +379,7 @@ export default function TvProgramControl({
         <ScheduleEditor
           rows={boardRows}
           bandNames={bandNames}
+          portalSchedule={portalSchedule}
           onChange={(rows) => save({ boardRows: rows }, { boardRows: rows })}
           tvBoard
         />
