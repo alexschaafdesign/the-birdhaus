@@ -439,10 +439,13 @@ export default async function SongClubEventPage({
 
           {/* The viewer's own reel — every song they've uploaded to this
               round, in day order, so replaying your whole run doesn't mean
-              clicking into each day. Collapsed by default (it can grow to a
-              song per day); the count on the summary keeps it honest. */}
+              clicking into each day. Starts expanded — it's the viewer's own
+              reference playlist; the toggle is there for tidying up. */}
           {round && myTracks.length > 0 && (
-            <details className="group mt-8 rounded-xl border border-[#E8E0D0]/15 bg-[#E8E0D0]/[0.03]">
+            <details
+              open
+              className="group mt-8 rounded-xl border border-[#E8E0D0]/15 bg-[#E8E0D0]/[0.03]"
+            >
               <summary className="flex cursor-pointer select-none items-center justify-between gap-3 p-4 text-xs font-semibold uppercase tracking-wide text-[#E8E0D0]/45 transition hover:text-[#E8E0D0]/70 sm:px-5">
                 <span>
                   Your songs so far
