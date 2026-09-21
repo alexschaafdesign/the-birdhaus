@@ -542,6 +542,22 @@ export async function groupDayCounts(
   return Object.fromEntries(rows.map((r) => [r.day, Number(r.n)]));
 }
 
+// One member's own tracks in a round — the "your songs so far" reel on the
+// event page. Day ascending (undated last) so playing top-to-bottom replays
+// their song-a-day run in order.
+export async function memberRoundTracks(
+  playlistId: number,
+  memberId: number
+): Promise<ClubTrack[]> {
+  const rows = await sql<TrackRow[]>`
+    ${TRACK_SELECT_IN_ROUND}
+    join song_club_playlist_tracks pt on pt.track_id = t.id
+    where pt.playlist_id = ${playlistId} and t.member_id = ${memberId}
+    order by pt.day asc nulls last, pt.position asc, t.id asc
+  `;
+  return rows.map(mapTrack);
+}
+
 // The admin-starred tracks of a round, for the event page's Highlights block.
 export async function highlightTracks(playlistId: number): Promise<ClubTrack[]> {
   const rows = await sql<TrackRow[]>`
