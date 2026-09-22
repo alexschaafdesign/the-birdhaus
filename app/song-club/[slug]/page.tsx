@@ -373,6 +373,41 @@ export default async function SongClubEventPage({
             </section>
           )}
 
+          {/* The viewer's own reel — every song they've uploaded to this
+              round, in day order, so replaying your whole run doesn't mean
+              clicking into each day. Collapsed by default (it can grow to a
+              song per day); the count on the summary keeps it honest. */}
+          {round && myTracks.length > 0 && (
+            <details className="group mt-3 rounded-xl border border-[#E8E0D0]/15 bg-[#E8E0D0]/[0.03]">
+              <summary className="flex cursor-pointer select-none items-center justify-between gap-3 p-4 text-xs font-semibold uppercase tracking-wide text-[#E8E0D0]/45 transition hover:text-[#E8E0D0]/70 sm:px-5">
+                <span>
+                  Your songs so far
+                  <span className="ml-2 rounded-full bg-[#c8a26a]/20 px-2 py-0.5 text-[11px] font-semibold normal-case tracking-normal text-[#c8a26a]">
+                    {myTracks.length} {myTracks.length === 1 ? 'song' : 'songs'}
+                  </span>
+                </span>
+                <span
+                  aria-hidden
+                  className="text-[#E8E0D0]/40 transition-transform group-open:rotate-180"
+                >
+                  ▾
+                </span>
+              </summary>
+              <div className="px-4 pb-4 sm:px-5 sm:pb-5">
+                <PlaylistTracks
+                  playlistId={round.id}
+                  initialTracks={myTracks}
+                  commentsByTrack={groupModeComments}
+                  viewerMemberId={member?.id ?? null}
+                  isAdmin={admin}
+                  collapseByDay
+                  eventStartDate={event.event_date}
+                  allowReorder={false}
+                />
+              </div>
+            </details>
+          )}
+
           {member && !viewerGroup && !admin && (
             <section className="mt-6 rounded-xl border border-[#c8a26a]/40 bg-[#c8a26a]/[0.06] p-4 sm:p-5">
               <div className="text-sm text-[#E8E0D0]/80">
@@ -436,44 +471,6 @@ export default async function SongClubEventPage({
                 })}
             </ul>
           </section>
-
-          {/* The viewer's own reel — every song they've uploaded to this
-              round, in day order, so replaying your whole run doesn't mean
-              clicking into each day. Starts expanded — it's the viewer's own
-              reference playlist; the toggle is there for tidying up. */}
-          {round && myTracks.length > 0 && (
-            <details
-              open
-              className="group mt-8 rounded-xl border border-[#E8E0D0]/15 bg-[#E8E0D0]/[0.03]"
-            >
-              <summary className="flex cursor-pointer select-none items-center justify-between gap-3 p-4 text-xs font-semibold uppercase tracking-wide text-[#E8E0D0]/45 transition hover:text-[#E8E0D0]/70 sm:px-5">
-                <span>
-                  Your songs so far
-                  <span className="ml-2 rounded-full bg-[#c8a26a]/20 px-2 py-0.5 text-[11px] font-semibold normal-case tracking-normal text-[#c8a26a]">
-                    {myTracks.length} {myTracks.length === 1 ? 'song' : 'songs'}
-                  </span>
-                </span>
-                <span
-                  aria-hidden
-                  className="text-[#E8E0D0]/40 transition-transform group-open:rotate-180"
-                >
-                  ▾
-                </span>
-              </summary>
-              <div className="px-4 pb-4 sm:px-5 sm:pb-5">
-                <PlaylistTracks
-                  playlistId={round.id}
-                  initialTracks={myTracks}
-                  commentsByTrack={groupModeComments}
-                  viewerMemberId={member?.id ?? null}
-                  isAdmin={admin}
-                  collapseByDay
-                  eventStartDate={event.event_date}
-                  allowReorder={false}
-                />
-              </div>
-            </details>
-          )}
 
           {/* Cross-group feed — every song as it comes in, newest first.
               Groups split the club; this stitches the listening back
