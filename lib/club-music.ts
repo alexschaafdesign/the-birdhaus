@@ -522,6 +522,26 @@ export async function playlistDayCounts(playlistId: number): Promise<Record<stri
   return Object.fromEntries(rows.map((r) => [r.day, Number(r.n)]));
 }
 
+// How many distinct song-a-day days each member has uploaded into a round,
+// keyed by user id — feeds the Songwriters list's "X/10" completion badge.
+// Counts the filed DAY (pt.day), so two songs on one day count once and a
+// gapless run equals the days elapsed. Members with no uploads are absent
+// (the caller defaults them to 0).
+export async function memberUploadDayCounts(
+  playlistId: number
+): Promise<Record<number, number>> {
+  const rows = await sql<Array<{ user_id: number; days: number }>>`
+    select t.member_id as user_id, count(distinct pt.day)::int as days
+    from song_club_playlist_tracks pt
+    join song_club_tracks t on t.id = pt.track_id
+    where pt.playlist_id = ${playlistId}
+      and pt.day is not null
+      and t.member_id is not null
+    group by t.member_id
+  `;
+  return Object.fromEntries(rows.map((r) => [Number(r.user_id), Number(r.days)]));
+}
+
 // Like playlistDayCounts, but only tracks from ONE group's members — the
 // group page's day strip. Group derivation matches playlistTracksByGroup.
 export async function groupDayCounts(

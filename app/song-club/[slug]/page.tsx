@@ -9,6 +9,7 @@ import {
   groupTrackCounts,
   highlightTracks,
   memberRoundTracks,
+  memberUploadDayCounts,
   playlistComments,
   playlistDayCounts,
   playlistTracks,
@@ -207,6 +208,17 @@ export default async function SongClubEventPage({
   // M" pill and thin progress bar.
   const dayCounts =
     unlocked && round && isDuring && totalDays > 1 ? await playlistDayCounts(round.id) : null;
+
+  // Per-songwriter song-a-day completion, for the Songwriters roster badges:
+  // how many distinct days each has uploaded, out of the event's total days,
+  // and how many days have actually elapsed (to flag a gapless streak). Only
+  // meaningful for a multi-day round that has started.
+  const daysElapsed =
+    today < event.event_date ? 0 : today > endDate ? totalDays : dayOfEvent;
+  const attendeeUploadDays =
+    unlocked && round && totalDays > 1 && daysElapsed >= 1
+      ? await memberUploadDayCounts(round.id)
+      : null;
 
   // "N songwriters · M songs · +k today" for the group directory cards.
   function groupStats(g: { id: number; memberCount: number }): {
@@ -672,6 +684,9 @@ export default async function SongClubEventPage({
             eventId={event.id}
             initialAttendees={attendees}
             isAdmin={admin}
+            uploadDays={attendeeUploadDays}
+            totalDays={totalDays}
+            daysElapsed={daysElapsed}
           />
         </section>
       )}
