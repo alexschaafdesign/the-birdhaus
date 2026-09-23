@@ -18,6 +18,7 @@ interface EditItem {
   customLabel: string;
   quantity: number;
   note: string;
+  useHouse: boolean;
 }
 
 let uidCounter = 0;
@@ -33,6 +34,7 @@ function toEditItems(band: InputBand): EditItem[] {
     customLabel: it.customLabel ?? '',
     quantity: it.quantity,
     note: it.note ?? '',
+    useHouse: it.useHouse,
   }));
 }
 
@@ -41,6 +43,8 @@ interface TotalLine {
   label: string;
   quantity: number;
   houseLabel: string | null;
+  houseCount: number;
+  ownCount: number;
 }
 
 // Mirrors lib/inputs.ts computeTotal so the total updates live as you edit
@@ -56,22 +60,48 @@ function computeTotal(
     const i = catalog.findIndex((c) => c.key === k);
     return i === -1 ? catalog.length : i;
   };
-  const acc = new Map<string, { quantity: number; catalogKey: string; label: string }>();
+  const acc = new Map<
+    string,
+    { quantity: number; catalogKey: string; label: string; houseCount: number; ownCount: number }
+  >();
 
   for (const band of bands) {
     const rows = itemsByBand[band.bandId] ?? [];
-    const perBand = new Map<string, { quantity: number; catalogKey: string; label: string }>();
+    const perBand = new Map<
+      string,
+      { quantity: number; catalogKey: string; label: string; usesHouse: boolean }
+    >();
     for (const item of rows) {
       const isOther = item.itemType === OTHER_KEY;
       const key = isOther ? `other:${item.customLabel.trim().toLowerCase()}` : item.itemType;
       const label = isOther ? item.customLabel.trim() || 'Other' : byKey.get(item.itemType)?.label ?? item.itemType;
       const qty = Number.isFinite(item.quantity) && item.quantity > 0 ? Math.floor(item.quantity) : 1;
       const prev = perBand.get(key);
-      perBand.set(key, { quantity: (prev?.quantity ?? 0) + qty, catalogKey: item.itemType, label: prev?.label ?? label });
+      perBand.set(key, {
+        quantity: (prev?.quantity ?? 0) + qty,
+        catalogKey: item.itemType,
+        label: prev?.label ?? label,
+        usesHouse: (prev?.usesHouse ?? false) || item.useHouse,
+      });
     }
     for (const [key, v] of perBand) {
+      const eligible = !!byKey.get(v.catalogKey)?.houseLabel;
+      const houseInc = eligible && v.usesHouse ? 1 : 0;
+      const ownInc = eligible && !v.usesHouse ? 1 : 0;
       const prev = acc.get(key);
-      if (!prev || v.quantity > prev.quantity) acc.set(key, v);
+      if (!prev) {
+        acc.set(key, {
+          quantity: v.quantity,
+          catalogKey: v.catalogKey,
+          label: v.label,
+          houseCount: houseInc,
+          ownCount: ownInc,
+        });
+      } else {
+        if (v.quantity > prev.quantity) prev.quantity = v.quantity;
+        prev.houseCount += houseInc;
+        prev.ownCount += ownInc;
+      }
     }
   }
 
@@ -81,6 +111,8 @@ function computeTotal(
       label: v.label,
       quantity: v.quantity,
       houseLabel: byKey.get(v.catalogKey)?.houseLabel ?? null,
+      houseCount: v.houseCount,
+      ownCount: v.ownCount,
     }))
     .sort((a, b) => order(a.key) - order(b.key) || a.label.localeCompare(b.label));
 }
@@ -125,7 +157,7 @@ export default function ShowInputsPanel({
       ...prev,
       [bandId]: [
         ...(prev[bandId] ?? []),
-        { uid: nextUid(), itemType: catalog[0]?.key ?? 'vocal_mic', customLabel: '', quantity: 1, note: '' },
+        { uid: nextUid(), itemType: catalog[0]?.key ?? 'vocal_mic', customLabel: '', quantity: 1, note: '', useHouse: false },
       ],
     }));
   }
@@ -148,6 +180,7 @@ export default function ShowInputsPanel({
         customLabel: r.itemType === OTHER_KEY ? r.customLabel : null,
         quantity: r.quantity,
         note: r.note,
+        useHouse: r.useHouse,
         sortOrder: i,
       }))
     );
@@ -229,8 +262,11 @@ export default function ShowInputsPanel({
                   {line.quantity}×
                 </span>
                 <span className="text-[#E8E0D0]/90">{line.label}</span>
-                {line.houseLabel && (
-                  <span className="text-xs text-emerald-300/70">· {line.houseLabel} avail.</span>
+                {line.houseLabel && line.houseCount > 0 && (
+                  <span className="text-xs text-emerald-300/70">
+                    · {line.houseCount} using {line.houseLabel}
+                    {line.ownCount > 0 && `, ${line.ownCount} bringing own`}
+                  </span>
                 )}
               </li>
             ))}
@@ -335,6 +371,21 @@ function BandInputs({
                 className={`${inputClass} flex-1 min-w-[8rem]`}
                 aria-label="Note"
               />
+              {(() => {
+                const houseLabel = catalog.find((c) => c.key === row.itemType)?.houseLabel;
+                if (!houseLabel) return null;
+                return (
+                  <label className="flex items-center gap-1.5 text-xs text-[#E8E0D0]/60 whitespace-nowrap cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={row.useHouse}
+                      onChange={(e) => onUpdate(row.uid, { useHouse: e.target.checked })}
+                      className="accent-emerald-400"
+                    />
+                    Will use {houseLabel}
+                  </label>
+                );
+              })()}
               <button
                 type="button"
                 onClick={() => onRemove(row.uid)}
@@ -453,5 +504,6 @@ function stripUid(r: EditItem): Omit<EditItem, 'uid'> {
     customLabel: r.customLabel,
     quantity: r.quantity,
     note: r.note,
+    useHouse: r.useHouse,
   };
 }

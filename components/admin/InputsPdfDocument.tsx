@@ -93,7 +93,12 @@ export default function InputsPdfDocument({
               <View key={`${line.key}:${line.label}`} style={styles.itemRow}>
                 <Text style={styles.qty}>{line.quantity} ×</Text>
                 <Text style={styles.itemLabel}>{line.label}</Text>
-                {line.houseLabel && <Text style={styles.house}>{line.houseLabel} avail.</Text>}
+                {line.houseLabel && line.houseCount > 0 && (
+                  <Text style={styles.house}>
+                    {line.houseCount} using {line.houseLabel}
+                    {line.ownCount > 0 ? `, ${line.ownCount} bringing own` : ''}
+                  </Text>
+                )}
               </View>
             ))
           )}

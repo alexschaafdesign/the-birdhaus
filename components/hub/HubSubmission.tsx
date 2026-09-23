@@ -20,6 +20,7 @@ interface EditItem {
   customLabel: string;
   quantity: number;
   note: string;
+  useHouse: boolean;
 }
 
 // Contextual reminders shown under a row when a band picks gear the house
@@ -45,6 +46,7 @@ function toEditItems(band: HubBand): EditItem[] {
     customLabel: it.customLabel ?? '',
     quantity: it.quantity,
     note: it.note ?? '',
+    useHouse: it.useHouse,
   }));
 }
 
@@ -56,7 +58,7 @@ function toEditItems(band: HubBand): EditItem[] {
 function initialEditItems(band: HubBand): EditItem[] {
   const saved = toEditItems(band);
   if (saved.length > 0) return saved;
-  return [{ uid: nextUid(), itemType: 'vocal_mic', customLabel: '', quantity: 1, note: '' }];
+  return [{ uid: nextUid(), itemType: 'vocal_mic', customLabel: '', quantity: 1, note: '', useHouse: false }];
 }
 
 // A band's own stage-plot upload + input-list builder. Remounted (via a key on
@@ -95,7 +97,7 @@ export default function HubSubmission({
   function addRow() {
     setRows((prev) => [
       ...prev,
-      { uid: nextUid(), itemType: INPUT_CATALOG[0].key, customLabel: '', quantity: 1, note: '' },
+      { uid: nextUid(), itemType: INPUT_CATALOG[0].key, customLabel: '', quantity: 1, note: '', useHouse: false },
     ]);
   }
   function removeRow(uid: string) {
@@ -131,6 +133,7 @@ export default function HubSubmission({
       customLabel: r.itemType === OTHER_INPUT_KEY ? r.customLabel : null,
       quantity: r.quantity,
       note: r.note,
+      useHouse: r.useHouse,
       sortOrder: i,
     }));
     try {
@@ -147,6 +150,7 @@ export default function HubSubmission({
         customLabel: it.customLabel ?? '',
         quantity: it.quantity,
         note: it.note ?? '',
+        useHouse: it.useHouse,
       }));
       setRows(next);
       setSavedSnapshot(snapshot(next));
@@ -285,7 +289,15 @@ export default function HubSubmission({
                     </button>
                   </div>
                   {houseHint && (
-                    <p className="pl-[4.5rem] text-xs text-[#c8a26a]/90">{houseHint}</p>
+                    <label className="flex items-start gap-2 pl-[4.5rem] text-xs text-[#c8a26a]/90 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={row.useHouse}
+                        onChange={(e) => updateRow(row.uid, { useHouse: e.target.checked })}
+                        className="mt-0.5 accent-[#c8a26a]"
+                      />
+                      <span>{houseHint}</span>
+                    </label>
                   )}
                 </div>
               );
@@ -506,6 +518,6 @@ function ScheduleTask({
 // Dirty-tracking snapshot — everything but the client-only uid.
 function snapshot(rows: EditItem[]): string {
   return JSON.stringify(
-    rows.map((r) => ({ itemType: r.itemType, customLabel: r.customLabel, quantity: r.quantity, note: r.note }))
+    rows.map((r) => ({ itemType: r.itemType, customLabel: r.customLabel, quantity: r.quantity, note: r.note, useHouse: r.useHouse }))
   );
 }

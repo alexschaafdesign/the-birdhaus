@@ -2,6 +2,7 @@ import { sql } from './db';
 import {
   inputCatalogItem,
   inputCatalogOrder,
+  isHouseEligible,
   isInputCatalogKey,
   OTHER_INPUT_KEY,
 } from './input-catalog';
@@ -15,6 +16,9 @@ export interface InputItem {
   customLabel: string | null;
   quantity: number;
   note: string | null;
+  // The band will use the house backline for this line rather than bring their
+  // own. Only ever true for house-eligible gear (see input-catalog houseLabel).
+  useHouse: boolean;
   sortOrder: number;
 }
 
@@ -45,7 +49,12 @@ export interface InputTotalLine {
   key: string;
   label: string;
   quantity: number;
+  // House-backline breakdown, present (houseLabel non-null) only for house-
+  // eligible gear. houseCount = bands using the house unit; ownCount = bands
+  // bringing their own. Drives "N using house amp, M bringing own".
   houseLabel: string | null;
+  houseCount: number;
+  ownCount: number;
 }
 
 export interface ShowInputsState {
@@ -80,15 +89,20 @@ function normalizeQuantity(input: unknown): number {
 // Computes the "total needed" from every band's items: sum duplicate lines
 // within a band, then take the max across bands per aggregation key.
 function computeTotal(bands: InputBand[]): InputTotalLine[] {
-  // key -> { max quantity, a representative catalog key + display label }
+  // key -> { max quantity, representative catalog key + label, and for house
+  // gear, how many bands lean on the house unit vs bring their own }.
   const acc = new Map<
     string,
-    { quantity: number; catalogKey: string; label: string }
+    { quantity: number; catalogKey: string; label: string; houseCount: number; ownCount: number }
   >();
 
   for (const band of bands) {
-    // Sum this band's own duplicate lines first (peak within the band).
-    const perBand = new Map<string, { quantity: number; catalogKey: string; label: string }>();
+    // Sum this band's own duplicate lines first (peak within the band); a band
+    // counts as "using house" for a key if any of its rows for it are flagged.
+    const perBand = new Map<
+      string,
+      { quantity: number; catalogKey: string; label: string; usesHouse: boolean }
+    >();
     for (const item of band.items) {
       const key = aggregationKey(item.itemType, item.customLabel);
       const catalog = inputCatalogItem(item.itemType);
@@ -101,15 +115,29 @@ function computeTotal(bands: InputBand[]): InputTotalLine[] {
         quantity: (prev?.quantity ?? 0) + item.quantity,
         catalogKey: item.itemType,
         label: prev?.label ?? label,
+        usesHouse: (prev?.usesHouse ?? false) || item.useHouse,
       });
     }
-    // Fold this band's peaks into the running max across bands.
+    // Fold this band's peaks into the running max across bands, tallying the
+    // house-vs-own band counts as we go.
     for (const [key, v] of perBand) {
+      const eligible = isHouseEligible(v.catalogKey);
+      const houseInc = eligible && v.usesHouse ? 1 : 0;
+      const ownInc = eligible && !v.usesHouse ? 1 : 0;
       const prev = acc.get(key);
-      if (!prev || v.quantity > prev.quantity) {
-        acc.set(key, { quantity: v.quantity, catalogKey: v.catalogKey, label: prev?.label ?? v.label });
-      } else if (!prev.label) {
-        prev.label = v.label;
+      if (!prev) {
+        acc.set(key, {
+          quantity: v.quantity,
+          catalogKey: v.catalogKey,
+          label: v.label,
+          houseCount: houseInc,
+          ownCount: ownInc,
+        });
+      } else {
+        if (v.quantity > prev.quantity) prev.quantity = v.quantity;
+        if (!prev.label) prev.label = v.label;
+        prev.houseCount += houseInc;
+        prev.ownCount += ownInc;
       }
     }
   }
@@ -120,6 +148,8 @@ function computeTotal(bands: InputBand[]): InputTotalLine[] {
       label: v.label,
       quantity: v.quantity,
       houseLabel: inputCatalogItem(v.catalogKey).houseLabel ?? null,
+      houseCount: v.houseCount,
+      ownCount: v.ownCount,
     }))
     .sort(
       (a, b) =>
@@ -151,9 +181,10 @@ export async function getShowInputsState(showId: number): Promise<ShowInputsStat
       custom_label: string | null;
       quantity: number;
       note: string | null;
+      use_house: boolean;
       sort_order: number;
     }>>`
-      select id, band_id, item_type, custom_label, quantity, note, sort_order
+      select id, band_id, item_type, custom_label, quantity, note, use_house, sort_order
       from show_input_items
       where show_id = ${showId}
       order by band_id, sort_order, id
@@ -186,6 +217,7 @@ export async function getShowInputsState(showId: number): Promise<ShowInputsStat
       customLabel: r.custom_label,
       quantity: Number(r.quantity),
       note: r.note,
+      useHouse: r.use_house,
       sortOrder: Number(r.sort_order),
     });
     itemsByBand.set(Number(r.band_id), list);
@@ -250,12 +282,15 @@ export async function saveShowInputs(
           : null;
       const note = typeof o.note === 'string' && o.note.trim() ? o.note.trim().slice(0, 500) : null;
       const sortOrder = Number.isInteger(Number(o.sortOrder)) ? Number(o.sortOrder) : 0;
+      // Only house-eligible gear can carry the flag; force false otherwise.
+      const useHouse = isHouseEligible(itemType) && o.useHouse === true;
       return {
         bandId,
         itemType,
         customLabel,
         quantity: normalizeQuantity(o.quantity),
         note,
+        useHouse,
         sortOrder,
       };
     })
@@ -266,10 +301,10 @@ export async function saveShowInputs(
     for (const [i, it] of clean.entries()) {
       await tx`
         insert into show_input_items
-          (show_id, band_id, item_type, custom_label, quantity, note, sort_order)
+          (show_id, band_id, item_type, custom_label, quantity, note, use_house, sort_order)
         values
           (${showId}, ${it.bandId}, ${it.itemType}, ${it.customLabel},
-           ${it.quantity}, ${it.note}, ${it.sortOrder || i})
+           ${it.quantity}, ${it.note}, ${it.useHouse}, ${it.sortOrder || i})
       `;
     }
   });
@@ -287,9 +322,10 @@ export async function getBandInputs(showId: number, bandId: number): Promise<Inp
     custom_label: string | null;
     quantity: number;
     note: string | null;
+    use_house: boolean;
     sort_order: number;
   }>>`
-    select id, item_type, custom_label, quantity, note, sort_order
+    select id, item_type, custom_label, quantity, note, use_house, sort_order
     from show_input_items
     where show_id = ${showId} and band_id = ${bandId}
     order by sort_order, id
@@ -300,6 +336,7 @@ export async function getBandInputs(showId: number, bandId: number): Promise<Inp
     customLabel: r.custom_label,
     quantity: Number(r.quantity),
     note: r.note,
+    useHouse: r.use_house,
     sortOrder: Number(r.sort_order),
   }));
 }
@@ -338,7 +375,8 @@ export async function saveBandInputs(
           : null;
       const note = typeof o.note === 'string' && o.note.trim() ? o.note.trim().slice(0, 500) : null;
       const sortOrder = Number.isInteger(Number(o.sortOrder)) ? Number(o.sortOrder) : 0;
-      return { itemType, customLabel, quantity: normalizeQuantity(o.quantity), note, sortOrder };
+      const useHouse = isHouseEligible(itemType) && o.useHouse === true;
+      return { itemType, customLabel, quantity: normalizeQuantity(o.quantity), note, useHouse, sortOrder };
     })
     .filter((x): x is NonNullable<typeof x> => x !== null);
 
@@ -347,10 +385,10 @@ export async function saveBandInputs(
     for (const [i, it] of clean.entries()) {
       await tx`
         insert into show_input_items
-          (show_id, band_id, item_type, custom_label, quantity, note, sort_order)
+          (show_id, band_id, item_type, custom_label, quantity, note, use_house, sort_order)
         values
           (${showId}, ${bandId}, ${it.itemType}, ${it.customLabel},
-           ${it.quantity}, ${it.note}, ${it.sortOrder || i})
+           ${it.quantity}, ${it.note}, ${it.useHouse}, ${it.sortOrder || i})
       `;
     }
   });
@@ -361,9 +399,10 @@ export async function saveBandInputs(
     custom_label: string | null;
     quantity: number;
     note: string | null;
+    use_house: boolean;
     sort_order: number;
   }>>`
-    select id, item_type, custom_label, quantity, note, sort_order
+    select id, item_type, custom_label, quantity, note, use_house, sort_order
     from show_input_items
     where show_id = ${showId} and band_id = ${bandId}
     order by sort_order, id
@@ -374,6 +413,7 @@ export async function saveBandInputs(
     customLabel: r.custom_label,
     quantity: Number(r.quantity),
     note: r.note,
+    useHouse: r.use_house,
     sortOrder: Number(r.sort_order),
   }));
 }
