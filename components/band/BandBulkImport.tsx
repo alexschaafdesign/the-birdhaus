@@ -346,7 +346,7 @@ export default function BandBulkImport({
               id="import-status"
               value={status}
               onChange={(e) => setStatus(e.target.value as BandSongStatus)}
-              className={`${inputBase} w-auto`}
+              className="rounded-md border border-[#E8E0D0]/20 bg-[#E8E0D0]/[0.03] px-3 py-2 text-sm text-[#E8E0D0] transition focus:border-[#E8E0D0]/50 focus:outline-none"
             >
               {BAND_SONG_STATUSES.map((s) => (
                 <option key={s} value={s}>

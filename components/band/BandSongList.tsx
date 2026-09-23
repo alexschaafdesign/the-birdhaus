@@ -261,13 +261,13 @@ export default function BandSongList({
             placeholder="Search titles, tags, and lyrics…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className={inputBase}
+            className={`${inputBase} min-w-0`}
           />
           <select
             value={sort}
             onChange={(e) => setSort(e.target.value as SortKey)}
             aria-label="Sort"
-            className={`${inputBase} w-auto shrink-0`}
+            className="shrink-0 rounded-md border border-[#E8E0D0]/20 bg-[#E8E0D0]/[0.03] px-3 py-2 text-sm text-[#E8E0D0] transition focus:border-[#E8E0D0]/50 focus:outline-none"
           >
             <option value="active">Recently active</option>
             <option value="newest">Newest</option>
