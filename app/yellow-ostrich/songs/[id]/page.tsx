@@ -4,6 +4,8 @@ import { notFound, redirect } from 'next/navigation';
 import { getBandMember, getClubMember } from '@/lib/club-members';
 import { isAdminSession } from '@/lib/admin-session';
 import { getSong, songComments, songVersions, distinctTags } from '@/lib/band-songs';
+import { listLyricsRevisions } from '@/lib/band-lyrics';
+import BandLyrics from '@/components/band/BandLyrics';
 import SongMetaEditor from '@/components/band/SongMetaEditor';
 import BandVersionCard from '@/components/band/BandVersionCard';
 import BandVersionUpload from '@/components/band/BandVersionUpload';
@@ -33,13 +35,20 @@ export default async function BandSongPage({
   const id = Number((await params).id);
   if (!Number.isInteger(id)) notFound();
 
-  const [song, versions, comments, allTags] = await Promise.all([
+  const [song, versions, comments, allTags, lyricsRevisions] = await Promise.all([
     getSong(id),
     songVersions(id),
     songComments(id),
     distinctTags(),
+    listLyricsRevisions(id),
   ]);
   if (!song) notFound();
+  // For the per-version "lyrics as recorded" panel + re-pin picker.
+  const revisionRefs = lyricsRevisions.map((r) => ({
+    id: r.id,
+    createdAt: r.createdAt,
+    body: r.body,
+  }));
 
   return (
     <main className="mx-auto w-full max-w-3xl px-5 py-6 text-[#E8E0D0] sm:px-8 sm:py-8">
@@ -59,6 +68,10 @@ export default async function BandSongPage({
       </div>
 
       <section className="mt-8">
+        <BandLyrics songId={song.id} revisions={lyricsRevisions} />
+      </section>
+
+      <section className="mt-8">
         <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-[#E8E0D0]/45">
           Versions
         </h2>
@@ -74,6 +87,7 @@ export default async function BandSongPage({
                   (c) => c.versionId === v.id && c.timestampSeconds !== null
                 )}
                 canEdit={canModerate || (viewerMemberId !== null && v.uploadedBy === viewerMemberId)}
+                lyricsRevisions={revisionRefs}
               />
             ))}
           </div>

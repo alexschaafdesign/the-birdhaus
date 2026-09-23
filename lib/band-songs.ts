@@ -14,6 +14,9 @@ export interface BandSong {
   status: BandSongStatus;
   tags: string[];
   notes: string | null;
+  // Current lyrics (latest revision body) — on the list so master-list
+  // search can match a lyric line. Null when the song has none yet.
+  lyrics: string | null;
   pinned: boolean;
   createdBy: number | null;
   creatorName: string | null;
@@ -29,6 +32,9 @@ export interface BandSongVersion {
   id: number;
   songId: number;
   label: string;
+  // "Lyrics as recorded" — the lyrics revision current when this version was
+  // uploaded (auto-set at registration, re-pinnable).
+  lyricsRevisionId: number | null;
   url: string;
   sizeBytes: number | null;
   peaks: number[] | null;
@@ -92,6 +98,7 @@ interface SongRow {
   status: BandSongStatus;
   tags: string[];
   notes: string | null;
+  lyrics: string | null;
   pinned: boolean;
   created_by: number | null;
   creator_name: string | null;
@@ -111,13 +118,18 @@ const SONG_SELECT = sql`
            as version_count,
          (select count(*)::int from band_song_comments c where c.song_id = s.id)
            as comment_count,
-         lv.label as latest_version_label, lv.created_at as latest_version_at
+         lv.label as latest_version_label, lv.created_at as latest_version_at,
+         ly.body as lyrics
   from band_songs s
   left join users u on u.id = s.created_by
   left join lateral (
     select v.label, v.created_at::text as created_at from band_song_versions v
     where v.song_id = s.id order by v.created_at desc, v.id desc limit 1
   ) lv on true
+  left join lateral (
+    select r.body from band_song_lyrics_revisions r
+    where r.song_id = s.id order by r.id desc limit 1
+  ) ly on true
 `;
 
 function mapSong(r: SongRow): BandSong {
@@ -127,6 +139,7 @@ function mapSong(r: SongRow): BandSong {
     status: r.status,
     tags: Array.isArray(r.tags) ? r.tags : [],
     notes: r.notes,
+    lyrics: r.lyrics?.trim() ? r.lyrics : null,
     pinned: r.pinned,
     createdBy: r.created_by === null ? null : Number(r.created_by),
     creatorName: r.creator_name,
@@ -227,6 +240,7 @@ interface VersionRow {
   id: number;
   song_id: number;
   label: string;
+  lyrics_revision_id: number | null;
   url: string | null;
   r2_key: string | null;
   size_bytes: number | null;
@@ -238,7 +252,7 @@ interface VersionRow {
 }
 
 const VERSION_SELECT = sql`
-  select v.id, v.song_id, v.label, v.url, v.r2_key, v.size_bytes, v.peaks,
+  select v.id, v.song_id, v.label, v.lyrics_revision_id, v.url, v.r2_key, v.size_bytes, v.peaks,
          v.duration_seconds, v.uploaded_by, u.name as uploader_name,
          v.created_at::text as created_at
   from band_song_versions v
@@ -250,6 +264,7 @@ function mapVersion(r: VersionRow): BandSongVersion {
     id: Number(r.id),
     songId: Number(r.song_id),
     label: r.label,
+    lyricsRevisionId: r.lyrics_revision_id === null ? null : Number(r.lyrics_revision_id),
     // Migrated versions play through the session-gated route (302 → presigned
     // GET on the private bucket); un-migrated ones use the legacy public URL.
     url: r.r2_key ? `/api/ostrich/audio/${Number(r.id)}` : r.url ?? '',
@@ -309,11 +324,15 @@ export async function createVersion(input: {
 
   const [row] = await sql<Array<{ id: number }>>`
     insert into band_song_versions
-      (song_id, label, url, r2_key, content_type, size_bytes, peaks, duration_seconds, uploaded_by)
+      (song_id, label, url, r2_key, content_type, size_bytes, peaks, duration_seconds, uploaded_by,
+       lyrics_revision_id)
     values (${input.songId}, ${label}, ${input.url ?? null}, ${input.r2Key ?? null},
             ${input.contentType ?? null}, ${input.sizeBytes ?? null}, ${peaks},
             ${typeof input.durationSeconds === 'number' && input.durationSeconds > 0 ? input.durationSeconds : null},
-            ${actorMemberId(input.actor)})
+            ${actorMemberId(input.actor)},
+            -- Snapshot: "lyrics as recorded" = the song's current revision.
+            (select id from band_song_lyrics_revisions
+             where song_id = ${input.songId} order by id desc limit 1))
     returning id
   `;
   // A new version counts as activity — float the song in "recently active".

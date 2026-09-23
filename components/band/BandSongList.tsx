@@ -85,7 +85,12 @@ export default function BandSongList({
       if (groupIds && !groupIds.has(s.id)) return false;
       if (status !== 'all' && s.status !== status) return false;
       if (tags.length > 0 && !tags.every((t) => s.tags.includes(t))) return false;
-      if (q && !s.title.toLowerCase().includes(q) && !s.tags.some((t) => t.includes(q)))
+      if (
+        q &&
+        !s.title.toLowerCase().includes(q) &&
+        !s.tags.some((t) => t.includes(q)) &&
+        !s.lyrics?.toLowerCase().includes(q)
+      )
         return false;
       return true;
     });
@@ -253,7 +258,7 @@ export default function BandSongList({
         <div className="flex gap-2">
           <input
             type="search"
-            placeholder="Search titles and tags…"
+            placeholder="Search titles, tags, and lyrics…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className={inputBase}
@@ -378,6 +383,7 @@ export default function BandSongList({
                 </div>
                 <span className="flex shrink-0 items-center gap-2 text-xs text-[#E8E0D0]/40">
                   <span>
+                    {song.lyrics && 'lyrics · '}
                     {song.versionCount > 0 &&
                       `${song.versionCount} ${song.versionCount === 1 ? 'version' : 'versions'}`}
                     {song.versionCount > 0 && song.commentCount > 0 && ' · '}

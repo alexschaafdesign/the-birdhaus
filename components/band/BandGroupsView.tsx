@@ -194,7 +194,12 @@ export default function BandGroupsView({
     return songs.filter((s) => {
       if (ungroupedOnly && groupCountBySong.has(s.id)) return false;
       if (status !== 'all' && s.status !== status) return false;
-      if (q && !s.title.toLowerCase().includes(q) && !s.tags.some((t) => t.includes(q)))
+      if (
+        q &&
+        !s.title.toLowerCase().includes(q) &&
+        !s.tags.some((t) => t.includes(q)) &&
+        !s.lyrics?.toLowerCase().includes(q)
+      )
         return false;
       return true;
     });
