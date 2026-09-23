@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { getBandMember, getClubMember } from '@/lib/club-members';
 import { isAdminSession } from '@/lib/admin-session';
 import { distinctTags, listSongs } from '@/lib/band-songs';
+import { listGroups } from '@/lib/band-groups';
 import BandSongList from '@/components/band/BandSongList';
 import ClubUserMenu from '@/components/club/ClubUserMenu';
 
@@ -25,7 +26,11 @@ export default async function YellowOstrichPage() {
     redirect('/song-club/login?next=/yellow-ostrich');
   }
 
-  const [songs, allTags] = await Promise.all([listSongs(), distinctTags()]);
+  const [songs, allTags, groups] = await Promise.all([
+    listSongs(),
+    distinctTags(),
+    listGroups(),
+  ]);
   const contenders = songs.filter((s) => s.status === 'contender').length;
 
   return (
@@ -43,7 +48,7 @@ export default async function YellowOstrichPage() {
         </div>
       </header>
 
-      <BandSongList songs={songs} allTags={allTags} />
+      <BandSongList songs={songs} allTags={allTags} groups={groups} />
     </main>
   );
 }

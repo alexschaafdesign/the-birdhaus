@@ -4,6 +4,8 @@ import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { BandSong } from '@/lib/band-songs';
+import type { BandSongGroup } from '@/lib/band-groups';
+import BandGroupsView from '@/components/band/BandGroupsView';
 import {
   BAND_SONG_STATUSES,
   BAND_SONG_STATUS_LABEL,
@@ -32,20 +34,37 @@ type SortKey = 'active' | 'newest' | 'title' | 'status';
 export default function BandSongList({
   songs,
   allTags,
+  groups,
 }: {
   songs: BandSong[];
   allTags: string[];
+  groups: BandSongGroup[];
 }) {
   const router = useRouter();
+  const [view, setView] = useState<'all' | 'groups'>('all');
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState<BandSongStatus | 'all'>('all');
   const [tags, setTags] = useState<string[]>([]);
+  const [groupFilter, setGroupFilter] = useState<number | null>(null);
   const [sort, setSort] = useState<SortKey>('active');
   const [tagsOpen, setTagsOpen] = useState(false);
+
+  // Which row's group popover is open, if any.
+  const [menuFor, setMenuFor] = useState<number | null>(null);
+  const [newGroupDraft, setNewGroupDraft] = useState('');
 
   const [newTitle, setNewTitle] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Group names per song, for the row badges.
+  const songGroupNames = useMemo(() => {
+    const map = new Map<number, string[]>();
+    for (const g of groups) {
+      for (const id of g.songIds) map.set(id, [...(map.get(id) ?? []), g.name]);
+    }
+    return map;
+  }, [groups]);
 
   const statusCounts = useMemo(() => {
     const counts = Object.fromEntries(BAND_SONG_STATUSES.map((s) => [s, 0])) as Record<
@@ -58,7 +77,12 @@ export default function BandSongList({
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
+    const groupIds =
+      groupFilter === null
+        ? null
+        : new Set(groups.find((g) => g.id === groupFilter)?.songIds ?? []);
     let out = songs.filter((s) => {
+      if (groupIds && !groupIds.has(s.id)) return false;
       if (status !== 'all' && s.status !== status) return false;
       if (tags.length > 0 && !tags.every((t) => s.tags.includes(t))) return false;
       if (q && !s.title.toLowerCase().includes(q) && !s.tags.some((t) => t.includes(q)))
@@ -78,10 +102,61 @@ export default function BandSongList({
     }
     // 'active' keeps the server order: pinned first, then recently touched.
     return out;
-  }, [songs, search, status, tags, sort]);
+  }, [songs, search, status, tags, sort, groupFilter, groups]);
 
   function toggleTag(tag: string) {
     setTags((prev) => (prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]));
+  }
+
+  // Group membership toggles from the row popover round-trip and refresh,
+  // same as every other mutation in the tool.
+  async function toggleMembership(groupId: number, songId: number, inGroup: boolean) {
+    setBusy(true);
+    setError(null);
+    try {
+      const res = inGroup
+        ? await fetch(`/api/ostrich/groups/${groupId}/members/${songId}`, { method: 'DELETE' })
+        : await fetch(`/api/ostrich/groups/${groupId}/members`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ songId }),
+          });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        throw new Error(data?.error ?? `Couldn't update group (${res.status})`);
+      }
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Something went wrong');
+    }
+    setBusy(false);
+  }
+
+  // "New group…" inside the popover: create it and drop the song straight in.
+  async function createGroupWithSong(songId: number) {
+    const name = newGroupDraft.trim();
+    if (!name) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/ostrich/groups', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(data?.error ?? `Couldn't create group (${res.status})`);
+      await fetch(`/api/ostrich/groups/${data.group.id}/members`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ songId }),
+      });
+      setNewGroupDraft('');
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Something went wrong');
+    }
+    setBusy(false);
   }
 
   async function addSong(e: React.FormEvent) {
@@ -106,10 +181,45 @@ export default function BandSongList({
     setBusy(false);
   }
 
-  const hasFilter = search.trim() !== '' || status !== 'all' || tags.length > 0;
+  const hasFilter =
+    search.trim() !== '' || status !== 'all' || tags.length > 0 || groupFilter !== null;
 
   return (
     <div>
+      {/* Master list vs. sectioned Groups browse. */}
+      <div className="mb-5 flex gap-1.5">
+        <button
+          type="button"
+          onClick={() => setView('all')}
+          className={view === 'all' ? chipOn : chipOff}
+        >
+          All songs
+        </button>
+        <button
+          type="button"
+          onClick={() => setView('groups')}
+          className={view === 'groups' ? chipOn : chipOff}
+        >
+          Groups{groups.length > 0 && ` ${groups.length}`}
+        </button>
+      </div>
+
+      {view === 'groups' ? (
+        <BandGroupsView songs={songs} groups={groups} />
+      ) : (
+        <>
+      {/* Click-away for the row group popover. */}
+      {menuFor !== null && (
+        <div
+          className="fixed inset-0 z-10"
+          onClick={(e) => {
+            e.preventDefault();
+            setMenuFor(null);
+            setNewGroupDraft('');
+          }}
+        />
+      )}
+
       {/* Quick add — titles first, details on the song page. */}
       <form onSubmit={addSong} className="mb-6 flex gap-2">
         <input
@@ -160,6 +270,21 @@ export default function BandSongList({
             <option value="status">Pipeline order</option>
           </select>
         </div>
+
+        {groups.length > 0 && (
+          <div className="flex flex-wrap gap-1.5">
+            {groups.map((g) => (
+              <button
+                key={g.id}
+                type="button"
+                onClick={() => setGroupFilter(groupFilter === g.id ? null : g.id)}
+                className={groupFilter === g.id ? chipOn : chipOff}
+              >
+                {g.name} {g.songIds.length}
+              </button>
+            ))}
+          </div>
+        )}
 
         <div className="flex flex-wrap gap-1.5">
           <button
@@ -217,6 +342,7 @@ export default function BandSongList({
                   setSearch('');
                   setStatus('all');
                   setTags([]);
+                  setGroupFilter(null);
                 }}
                 className="underline underline-offset-2 hover:text-[#E8E0D0]"
               >
@@ -234,7 +360,7 @@ export default function BandSongList({
             <Link
               key={song.id}
               href={`/yellow-ostrich/songs/${song.id}`}
-              className="block rounded-lg border border-[#E8E0D0]/15 bg-[#E8E0D0]/[0.03] p-4 transition hover:border-[#E8E0D0]/35 hover:bg-[#E8E0D0]/[0.06]"
+              className="relative block rounded-lg border border-[#E8E0D0]/15 bg-[#E8E0D0]/[0.03] p-4 transition hover:border-[#E8E0D0]/35 hover:bg-[#E8E0D0]/[0.06]"
             >
               <div className="flex items-center justify-between gap-3">
                 <div className="flex min-w-0 items-center gap-2">
@@ -250,18 +376,100 @@ export default function BandSongList({
                     {BAND_SONG_STATUS_LABEL[song.status]}
                   </span>
                 </div>
-                <span className="shrink-0 text-xs text-[#E8E0D0]/40">
-                  {song.versionCount > 0 &&
-                    `${song.versionCount} ${song.versionCount === 1 ? 'version' : 'versions'}`}
-                  {song.versionCount > 0 && song.commentCount > 0 && ' · '}
-                  {song.commentCount > 0 &&
-                    `${song.commentCount} ${song.commentCount === 1 ? 'comment' : 'comments'}`}
-                  {(song.versionCount > 0 || song.commentCount > 0) && ' · '}
-                  {fmtDate(song.updatedAt)}
+                <span className="flex shrink-0 items-center gap-2 text-xs text-[#E8E0D0]/40">
+                  <span>
+                    {song.versionCount > 0 &&
+                      `${song.versionCount} ${song.versionCount === 1 ? 'version' : 'versions'}`}
+                    {song.versionCount > 0 && song.commentCount > 0 && ' · '}
+                    {song.commentCount > 0 &&
+                      `${song.commentCount} ${song.commentCount === 1 ? 'comment' : 'comments'}`}
+                    {(song.versionCount > 0 || song.commentCount > 0) && ' · '}
+                    {fmtDate(song.updatedAt)}
+                  </span>
+                  {/* Group membership popover — inside the row Link, so every
+                      click must stop the navigation. */}
+                  <button
+                    type="button"
+                    title="Groups"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setMenuFor(menuFor === song.id ? null : song.id);
+                      setNewGroupDraft('');
+                    }}
+                    className="rounded-full border border-[#E8E0D0]/20 px-1.5 py-0.5 text-[11px] leading-none text-[#E8E0D0]/50 transition hover:border-[#c8a26a] hover:text-[#c8a26a]"
+                  >
+                    +
+                  </button>
                 </span>
               </div>
-              {song.tags.length > 0 && (
+              {menuFor === song.id && (
+                <div
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                  }}
+                  className="absolute right-3 top-11 z-20 w-60 rounded-lg border border-[#E8E0D0]/20 bg-[#221d19] p-2 shadow-xl"
+                >
+                  <p className="px-2 pb-1 pt-0.5 text-[10px] uppercase tracking-wide text-[#E8E0D0]/40">
+                    Groups
+                  </p>
+                  {groups.map((g) => {
+                    const inGroup = g.songIds.includes(song.id);
+                    return (
+                      <button
+                        key={g.id}
+                        type="button"
+                        disabled={busy}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          toggleMembership(g.id, song.id, inGroup);
+                        }}
+                        className="flex w-full items-center justify-between gap-2 rounded px-2 py-1.5 text-left text-sm text-[#E8E0D0]/80 transition hover:bg-[#E8E0D0]/[0.07] disabled:opacity-50"
+                      >
+                        <span className="truncate">{g.name}</span>
+                        <span className={inGroup ? 'text-[#c8a26a]' : 'text-[#E8E0D0]/25'}>
+                          {inGroup ? '✓' : '+'}
+                        </span>
+                      </button>
+                    );
+                  })}
+                  <form
+                    className="mt-1 flex gap-1 border-t border-[#E8E0D0]/10 pt-2"
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      createGroupWithSong(song.id);
+                    }}
+                  >
+                    <input
+                      type="text"
+                      value={newGroupDraft}
+                      placeholder="New group…"
+                      onChange={(e) => setNewGroupDraft(e.target.value)}
+                      className="w-full rounded border border-[#E8E0D0]/20 bg-transparent px-2 py-1 text-sm text-[#E8E0D0] placeholder:text-[#E8E0D0]/30 focus:border-[#E8E0D0]/50 focus:outline-none"
+                    />
+                    <button
+                      type="submit"
+                      disabled={busy || !newGroupDraft.trim()}
+                      className="shrink-0 rounded bg-[#E8E0D0]/15 px-2 text-xs text-[#E8E0D0] disabled:opacity-50"
+                    >
+                      Add
+                    </button>
+                  </form>
+                </div>
+              )}
+              {(song.tags.length > 0 || (songGroupNames.get(song.id)?.length ?? 0) > 0) && (
                 <div className="mt-1.5 flex flex-wrap gap-1">
+                  {(songGroupNames.get(song.id) ?? []).map((name) => (
+                    <span
+                      key={`g-${name}`}
+                      className="rounded-full border border-[#c8a26a]/35 bg-[#c8a26a]/10 px-2 py-0.5 text-[10px] text-[#c8a26a]/90"
+                    >
+                      {name}
+                    </span>
+                  ))}
                   {song.tags.map((tag) => (
                     <span
                       key={tag}
@@ -275,6 +483,8 @@ export default function BandSongList({
             </Link>
           ))}
         </div>
+      )}
+        </>
       )}
     </div>
   );
