@@ -124,6 +124,20 @@ export async function actorForComment(
   return actor ? { actor, workspaceId } : null;
 }
 
+export async function actorForLyricsRevision(
+  revisionId: number
+): Promise<{ actor: BandActor; workspaceId: number } | null> {
+  const [row] = await sql<Array<{ workspace_id: number }>>`
+    select s.workspace_id from band_song_lyrics_revisions r
+    join band_songs s on s.id = r.song_id
+    where r.id = ${revisionId}
+  `;
+  if (!row) return null;
+  const workspaceId = Number(row.workspace_id);
+  const actor = await actorForWorkspace(workspaceId);
+  return actor ? { actor, workspaceId } : null;
+}
+
 // For the presign route, which hands out R2 upload URLs before any song
 // exists: any workspace member at all (or staff/admin). The register step
 // re-authorizes against the target song's workspace.

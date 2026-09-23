@@ -73,6 +73,7 @@ export default function BandLyrics({
   const [draft, setDraft] = useState('');
   const [historyOpen, setHistoryOpen] = useState(false);
   const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -92,6 +93,26 @@ export default function BandLyrics({
       setEditing(false);
       setHistoryOpen(false);
       setSelectedId(null);
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Something went wrong');
+    }
+    setBusy(false);
+  }
+
+  // Removing a bad revision from history: the one below it becomes the diff
+  // base, and if it was the latest, the previous revision is current again.
+  async function deleteRevision(id: number) {
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/ostrich/lyrics/${id}`, { method: 'DELETE' });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        throw new Error(data?.error ?? `Couldn't delete (${res.status})`);
+      }
+      if (selectedId === id) setSelectedId(null);
+      setConfirmDeleteId(null);
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong');
@@ -176,30 +197,63 @@ export default function BandLyrics({
         <div className="space-y-3">
           <div className="space-y-1">
             {revisions.map((r, i) => (
-              <button
+              <div
                 key={r.id}
-                type="button"
-                onClick={() => setSelectedId(selectedId === r.id ? null : r.id)}
-                className={`flex w-full items-center justify-between gap-3 rounded-md border px-3 py-2 text-left text-xs transition ${
+                className={`flex items-center gap-2 rounded-md border px-3 py-2 text-xs transition ${
                   selectedId === r.id
                     ? 'border-[#c8a26a]/60 bg-[#c8a26a]/10'
                     : 'border-[#E8E0D0]/10 hover:border-[#E8E0D0]/30'
                 }`}
               >
-                <span className="text-[#E8E0D0]/80">
-                  {fmtWhen(r.createdAt)}
-                  <span className="ml-2 text-[#E8E0D0]/45">{r.editorName}</span>
-                  {i === 0 && <span className="ml-2 text-[#c8a26a]">current</span>}
-                </span>
-                {r.versionLabels.length > 0 && (
-                  <span
-                    className="max-w-[45%] truncate text-[#c8a26a]/80"
-                    title={`As recorded on: ${r.versionLabels.join(', ')}`}
-                  >
-                    ♪ {r.versionLabels.join(', ')}
+                <button
+                  type="button"
+                  onClick={() => setSelectedId(selectedId === r.id ? null : r.id)}
+                  className="flex min-w-0 flex-1 items-center justify-between gap-3 text-left"
+                >
+                  <span className="text-[#E8E0D0]/80">
+                    {fmtWhen(r.createdAt)}
+                    <span className="ml-2 text-[#E8E0D0]/45">{r.editorName}</span>
+                    {i === 0 && <span className="ml-2 text-[#c8a26a]">current</span>}
                   </span>
+                  {r.versionLabels.length > 0 && (
+                    <span
+                      className="max-w-[45%] truncate text-[#c8a26a]/80"
+                      title={`As recorded on: ${r.versionLabels.join(', ')}`}
+                    >
+                      ♪ {r.versionLabels.join(', ')}
+                    </span>
+                  )}
+                </button>
+                {confirmDeleteId === r.id ? (
+                  <span className="shrink-0 text-[#F5A3A3]">
+                    delete{r.versionLabels.length > 0 ? ' (unpins ♪)' : ''}?{' '}
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => deleteRevision(r.id)}
+                      className="font-semibold underline underline-offset-2 disabled:opacity-50"
+                    >
+                      yes
+                    </button>{' '}
+                    <button
+                      type="button"
+                      onClick={() => setConfirmDeleteId(null)}
+                      className="text-[#E8E0D0]/45"
+                    >
+                      no
+                    </button>
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setConfirmDeleteId(r.id)}
+                    title="Delete this revision from history"
+                    className="shrink-0 px-1 text-[#E8E0D0]/30 transition hover:text-[#F5A3A3]"
+                  >
+                    ×
+                  </button>
                 )}
-              </button>
+              </div>
             ))}
           </div>
 

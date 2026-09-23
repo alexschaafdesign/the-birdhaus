@@ -91,6 +91,21 @@ export async function saveLyrics(input: {
   return all.find((r) => r.id === Number(row.id)) ?? null;
 }
 
+// Delete one revision from the history — the escape hatch for lyrics saved
+// to the wrong song. Author-or-moderator, like versions and comments.
+// Deleting the latest revision makes the previous one current; versions
+// pinned to it lose their snapshot (FK sets the pin null), they don't break.
+export async function deleteLyricsRevision(id: number, by: BandActor): Promise<boolean> {
+  const moderator = 'admin' in by || by.staff || by.owner === true;
+  const result = moderator
+    ? await sql`delete from band_song_lyrics_revisions where id = ${id}`
+    : await sql`
+        delete from band_song_lyrics_revisions
+        where id = ${id} and edited_by = ${'admin' in by ? null : by.memberId}
+      `;
+  return result.count > 0;
+}
+
 // Re-point a version's "lyrics as recorded" snapshot (or clear it). The
 // revision must belong to the version's own song.
 export async function pinVersionLyrics(
