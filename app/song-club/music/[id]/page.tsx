@@ -63,7 +63,7 @@ export default async function ClubPlaylistPage({
 
       <header className="mt-4 mb-6">
         <div className="flex items-start justify-between gap-4">
-          <div>
+          <div className="min-w-0">
             <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-[#c8a26a]/80">
               Playlist · {playlist.trackCount} song{playlist.trackCount === 1 ? '' : 's'}
               {playlist.locked && (
@@ -72,13 +72,13 @@ export default async function ClubPlaylistPage({
                 </span>
               )}
             </div>
-            <h1 className="mt-1 text-2xl font-semibold sm:text-3xl">{playlist.title}</h1>
+            <h1 className="mt-1 truncate text-2xl font-semibold sm:text-3xl">{playlist.title}</h1>
           </div>
           <div className="flex shrink-0 flex-col items-end gap-2">
             {(!playlist.locked || admin) && (
               <Link
                 href={`/song-club/upload?playlist=${playlist.id}`}
-                className="rounded-md bg-[#E8E0D0] px-3.5 py-1.5 text-sm font-semibold text-[#2A2420] transition hover:bg-white"
+                className="rounded-md bg-[#E8E0D0] px-3.5 py-2 text-sm font-semibold text-[#2A2420] transition hover:bg-white"
               >
                 + Upload to this playlist
               </Link>

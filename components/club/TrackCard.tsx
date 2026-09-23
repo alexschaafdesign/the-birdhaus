@@ -61,6 +61,16 @@ export default function TrackCard({
   const canDeleteTrack =
     isAdmin || (viewerMemberId !== null && track.memberId === viewerMemberId);
 
+  // The composer textarea — grows with its content (capped) so writing a real
+  // comment on a phone isn't a one-line peephole.
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  function autoGrowComposer() {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${Math.min(el.scrollHeight, 160)}px`;
+  }
+
   // The player's live controls (seek/getCurrentTime) — also forwarded to the
   // parent playlist so it can pause siblings / auto-advance.
   const controlsRef = useRef<TrackControls | null>(null);
@@ -111,6 +121,7 @@ export default function TrackCard({
       if (!res.ok) throw new Error(data?.error ?? `Couldn't comment (${res.status})`);
       setComments(data.comments ?? []);
       setDraft('');
+      if (textareaRef.current) textareaRef.current.style.height = 'auto';
     } catch (e) {
       setError(e instanceof Error ? e.message : "Couldn't comment");
     } finally {
@@ -268,7 +279,7 @@ export default function TrackCard({
           type="button"
           onClick={() => setExpanded((v) => !v)}
           aria-expanded={expanded}
-          className="mt-3 flex w-full items-center justify-between border-t border-[#E8E0D0]/10 pt-2.5 text-left text-xs text-[#E8E0D0]/50 transition hover:text-[#E8E0D0]"
+          className="mt-3 flex w-full items-center justify-between rounded-sm border-t border-[#E8E0D0]/10 pt-2.5 text-left text-xs text-[#E8E0D0]/50 transition hover:text-[#E8E0D0] focus:outline-none focus-visible:ring-1 focus-visible:ring-[#E8E0D0]/40"
         >
           <span>
             {expanded
@@ -356,31 +367,23 @@ export default function TrackCard({
             Log in to comment
           </Link>
         ) : (
-        <div className="flex items-center gap-2 pt-1">
-          {track.peaks && track.peaks.length > 0 && (
-            <button
-              type="button"
-              onClick={() => setPinTime((v) => !v)}
-              title="Attach this comment to the current spot in the track"
-              className={`flex shrink-0 items-center gap-1 rounded border px-2 py-1.5 font-mono text-xs tabular-nums transition ${
-                pinTime
-                  ? 'border-[#c8a26a] bg-[#c8a26a]/15 text-[#c8a26a]'
-                  : 'border-[#E8E0D0]/20 text-[#E8E0D0]/45 hover:text-[#E8E0D0]'
-              }`}
-            >
-              <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="12" cy="12" r="9" />
-                <path d="M12 7v5l3 2" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-              {pinTime ? fmtTime(Math.floor(playhead)) : 'at…'}
-            </button>
-          )}
-          <input
-            type="text"
+        // Full-width textarea with the controls beneath — a single cramped
+        // row left the input a phone-unfriendly peephole. The textarea grows
+        // with its content; Enter sends, Shift+Enter makes a newline.
+        <div className="pt-1">
+          <textarea
+            ref={textareaRef}
             value={draft}
-            onChange={(e) => setDraft(e.target.value)}
+            rows={1}
+            onChange={(e) => {
+              setDraft(e.target.value);
+              autoGrowComposer();
+            }}
             onKeyDown={(e) => {
-              if (e.key === 'Enter') comment();
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                comment();
+              }
             }}
             placeholder={
               pinTime
@@ -389,16 +392,38 @@ export default function TrackCard({
                   ? 'Be the first to comment…'
                   : 'Add a comment…'
             }
-            className="w-full rounded border border-[#E8E0D0]/20 bg-transparent px-3 py-1.5 text-sm placeholder:text-[#E8E0D0]/30 focus:border-[#E8E0D0]/60 focus:outline-none"
+            className="block w-full resize-none rounded border border-[#E8E0D0]/20 bg-transparent px-3 py-2 text-sm leading-snug placeholder:text-[#E8E0D0]/30 focus:border-[#E8E0D0]/60 focus:outline-none"
           />
-          <button
-            type="button"
-            onClick={comment}
-            disabled={busy || !draft.trim()}
-            className="shrink-0 rounded border border-[#E8E0D0]/40 px-3 py-1.5 text-sm text-[#E8E0D0]/80 transition hover:border-[#E8E0D0] hover:text-[#E8E0D0] disabled:opacity-40"
-          >
-            {busy ? '…' : 'Comment'}
-          </button>
+          <div className="mt-2 flex items-center justify-between gap-2">
+            {track.peaks && track.peaks.length > 0 ? (
+              <button
+                type="button"
+                onClick={() => setPinTime((v) => !v)}
+                title="Attach this comment to the current spot in the track"
+                className={`flex shrink-0 items-center gap-1 rounded border px-2.5 py-1.5 font-mono text-xs tabular-nums transition ${
+                  pinTime
+                    ? 'border-[#c8a26a] bg-[#c8a26a]/15 text-[#c8a26a]'
+                    : 'border-[#E8E0D0]/20 text-[#E8E0D0]/45 hover:text-[#E8E0D0]'
+                }`}
+              >
+                <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2">
+                  <circle cx="12" cy="12" r="9" />
+                  <path d="M12 7v5l3 2" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+                {pinTime ? fmtTime(Math.floor(playhead)) : 'at…'}
+              </button>
+            ) : (
+              <span />
+            )}
+            <button
+              type="button"
+              onClick={comment}
+              disabled={busy || !draft.trim()}
+              className="shrink-0 rounded border border-[#E8E0D0]/40 px-4 py-1.5 text-sm text-[#E8E0D0]/80 transition hover:border-[#E8E0D0] hover:text-[#E8E0D0] disabled:opacity-40"
+            >
+              {busy ? '…' : 'Comment'}
+            </button>
+          </div>
         </div>
         )}
       </div>

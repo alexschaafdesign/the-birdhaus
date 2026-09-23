@@ -218,7 +218,7 @@ export default function ClubBoard({
               <div key={r.id}>{renderPost(r, true)}</div>
             ))}
             {replyTo === p.id && (
-              <div className="flex items-center gap-2">
+              <div>
                 <input
                   type="text"
                   autoFocus
@@ -229,24 +229,25 @@ export default function ClubBoard({
                     if (e.key === 'Escape') setReplyTo(null);
                   }}
                   placeholder={`Reply to ${p.authorName}…`}
-                  className="w-full rounded border border-[#E8E0D0]/20 bg-transparent px-3 py-1.5 text-sm placeholder:text-[#E8E0D0]/30 focus:border-[#E8E0D0]/60 focus:outline-none"
+                  className="block w-full rounded border border-[#E8E0D0]/20 bg-transparent px-3 py-2 text-sm placeholder:text-[#E8E0D0]/30 focus:border-[#E8E0D0]/60 focus:outline-none"
                 />
-                <button
-                  type="button"
-                  onClick={() => sendReply(p.id)}
-                  disabled={replySending || !replyDraft.trim()}
-                  className="shrink-0 rounded border border-[#E8E0D0]/40 px-3 py-1.5 text-sm text-[#E8E0D0]/80 transition hover:border-[#E8E0D0] hover:text-[#E8E0D0] disabled:opacity-40"
-                >
-                  {replySending ? '…' : 'Reply'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setReplyTo(null)}
-                  aria-label="Cancel reply"
-                  className="shrink-0 text-xs text-[#E8E0D0]/40 transition hover:text-[#E8E0D0]"
-                >
-                  ×
-                </button>
+                <div className="mt-2 flex items-center justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setReplyTo(null)}
+                    className="rounded px-2 py-1.5 text-xs text-[#E8E0D0]/45 transition hover:text-[#E8E0D0]"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => sendReply(p.id)}
+                    disabled={replySending || !replyDraft.trim()}
+                    className="shrink-0 rounded border border-[#E8E0D0]/40 px-4 py-1.5 text-sm text-[#E8E0D0]/80 transition hover:border-[#E8E0D0] hover:text-[#E8E0D0] disabled:opacity-40"
+                  >
+                    {replySending ? '…' : 'Reply'}
+                  </button>
+                </div>
               </div>
             )}
           </div>

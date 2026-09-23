@@ -417,7 +417,7 @@ export default async function SongClubEventPage({
               {round && !round.locked && (
                 <Link
                   href={`/song-club/upload?playlist=${round.id}`}
-                  className="mt-3 inline-block rounded-md bg-[#E8E0D0] px-3.5 py-1.5 text-sm font-semibold text-[#2A2420] transition hover:bg-white"
+                  className="mt-3 inline-block rounded-md bg-[#E8E0D0] px-3.5 py-2 text-sm font-semibold text-[#2A2420] transition hover:bg-white"
                 >
                   + Upload your song
                 </Link>
@@ -565,7 +565,7 @@ export default async function SongClubEventPage({
               {(!round.locked || admin) && (
                 <Link
                   href={`/song-club/upload?playlist=${round.id}`}
-                  className="rounded-md bg-[#E8E0D0] px-3.5 py-1.5 text-sm font-semibold text-[#2A2420] transition hover:bg-white"
+                  className="rounded-md bg-[#E8E0D0] px-3.5 py-2 text-sm font-semibold text-[#2A2420] transition hover:bg-white"
                 >
                   + Upload your song
                 </Link>
