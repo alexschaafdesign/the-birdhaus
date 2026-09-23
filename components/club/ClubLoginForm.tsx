@@ -12,7 +12,8 @@ const labelClass = 'mb-1 block text-xs font-medium uppercase tracking-wide text-
 export default function ClubLoginForm({ next }: { next?: string }) {
   const router = useRouter();
   const dest =
-    next && (next.startsWith('/song-club/') || next.startsWith('/yellow-ostrich'))
+    next &&
+    (next.startsWith('/song-club/') || next.startsWith('/yellow-ostrich') || next.startsWith('/w/'))
       ? next
       : '/song-club';
   const [email, setEmail] = useState('');

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { verifyPassword } from '@/lib/club-auth';
 import { getLoginRow, touchLastSeen } from '@/lib/club-members';
 import { grantSessionCookies } from '@/lib/club-session';
+import { listWorkspacesForUser } from '@/lib/workspaces';
 import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
 
 // One deliberately vague error for every failure mode, so the form can't be
@@ -32,12 +33,18 @@ export async function POST(request: Request) {
 
   await touchLastSeen(row.id);
   // Where to send them next: Song Club members to the portal; band-only
-  // logins to the Yellow Ostrich workspace; crew/staff-only to admin.
-  const dest = row.roles.includes('song_club')
+  // logins to the Yellow Ostrich workspace; a role-less account that belongs
+  // to a songwriting workspace (an invited outside songwriter) to that
+  // workspace; crew/staff-only to admin.
+  let dest = row.roles.includes('song_club')
     ? '/song-club'
     : row.roles.includes('band')
       ? '/yellow-ostrich'
       : '/admin';
+  if (dest === '/admin' && !row.roles.includes('staff') && !row.roles.includes('crew')) {
+    const [workspace] = await listWorkspacesForUser(row.id);
+    if (workspace) dest = `/w/${workspace.slug}`;
+  }
   const response = NextResponse.json({ ok: true, dest });
   await grantSessionCookies(response, row.id, row.roles, row.session_epoch);
   return response;

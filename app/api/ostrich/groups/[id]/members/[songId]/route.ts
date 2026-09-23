@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getBandActor } from '@/lib/club-members';
+import { actorForGroup } from '@/lib/workspaces';
 import { removeSongFromGroup } from '@/lib/band-groups';
 
 export async function DELETE(
@@ -12,8 +12,8 @@ export async function DELETE(
   if (!Number.isInteger(groupId) || !Number.isInteger(song)) {
     return NextResponse.json({ error: 'Invalid id' }, { status: 400 });
   }
-  const actor = await getBandActor();
-  if (!actor) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const scoped = await actorForGroup(groupId);
+  if (!scoped) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
   const ok = await removeSongFromGroup(groupId, song);
   if (!ok) return NextResponse.json({ error: 'Not found' }, { status: 404 });

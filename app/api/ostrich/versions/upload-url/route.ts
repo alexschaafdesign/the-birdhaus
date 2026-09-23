@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getBandActor } from '@/lib/club-members';
+import { actorForAnyWorkspace } from '@/lib/workspaces';
 import { BAND_SONGS_FOLDER } from '@/lib/r2';
 import { createPrivatePresignedUploadUrl, createUploadGrant } from '@/lib/r2-private';
 import { checkRateLimit } from '@/lib/rate-limit';
@@ -25,7 +25,9 @@ const MAX_VERSION_BYTES = 250 * 1024 * 1024; // plenty for a WAV, still a sanity
 // so the audio goes straight to R2. Step 2 (POST /api/ostrich/songs/[id]/versions)
 // registers the uploaded key as a version.
 export async function POST(request: Request) {
-  const actor = await getBandActor();
+  // Any workspace member may presign; the register step re-authorizes
+  // against the target song's own workspace.
+  const actor = await actorForAnyWorkspace();
   if (!actor) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   // Keyed per authenticated actor (everyone here is logged in) and sized for

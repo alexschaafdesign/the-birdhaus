@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getBandActor } from '@/lib/club-members';
+import { actorForGroup } from '@/lib/workspaces';
 import { addSongToGroup, setGroupOrder } from '@/lib/band-groups';
 
 // POST adds one song (appends at the end); PUT replaces the group's order
@@ -13,8 +13,8 @@ export async function POST(
   if (!Number.isInteger(groupId)) {
     return NextResponse.json({ error: 'Invalid id' }, { status: 400 });
   }
-  const actor = await getBandActor();
-  if (!actor) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const scoped = await actorForGroup(groupId);
+  if (!scoped) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
   const body = await request.json().catch(() => null);
   const songId = Number(body?.songId);
@@ -36,8 +36,8 @@ export async function PUT(
   if (!Number.isInteger(groupId)) {
     return NextResponse.json({ error: 'Invalid id' }, { status: 400 });
   }
-  const actor = await getBandActor();
-  if (!actor) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const scoped = await actorForGroup(groupId);
+  if (!scoped) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
   const body = await request.json().catch(() => null);
   const songIds = Array.isArray(body?.songIds)

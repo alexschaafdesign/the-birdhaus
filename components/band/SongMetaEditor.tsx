@@ -19,10 +19,13 @@ export default function SongMetaEditor({
   song,
   allTags,
   canDelete,
+  basePath,
 }: {
   song: BandSong;
   allTags: string[];
   canDelete: boolean;
+  // The workspace's root path (e.g. /w/yellow-ostrich) — where a delete lands.
+  basePath: string;
 }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
@@ -89,7 +92,7 @@ export default function SongMetaEditor({
         const data = await res.json().catch(() => null);
         throw new Error(data?.error ?? `Couldn't delete (${res.status})`);
       }
-      router.push('/yellow-ostrich');
+      router.push(basePath);
       router.refresh();
       return;
     } catch (err) {

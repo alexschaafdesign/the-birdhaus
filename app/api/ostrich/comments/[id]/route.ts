@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
-import { getBandActor } from '@/lib/club-members';
+import { actorForComment } from '@/lib/workspaces';
 import { deleteComment } from '@/lib/band-songs';
 
-// Members delete their own comments; staff/admin any.
+// Members delete their own comments; workspace owner/staff/admin any.
 export async function DELETE(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -11,10 +11,10 @@ export async function DELETE(
   if (!Number.isInteger(id)) {
     return NextResponse.json({ error: 'Invalid id' }, { status: 400 });
   }
-  const actor = await getBandActor();
-  if (!actor) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const scoped = await actorForComment(id);
+  if (!scoped) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
-  if ((await deleteComment(id, actor)) === null) {
+  if ((await deleteComment(id, scoped.actor)) === null) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 });
   }
   return NextResponse.json({ ok: true });

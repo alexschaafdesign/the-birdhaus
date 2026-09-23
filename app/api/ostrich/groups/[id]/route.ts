@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getBandActor } from '@/lib/club-members';
+import { actorForGroup } from '@/lib/workspaces';
 import { deleteGroup, renameGroup } from '@/lib/band-groups';
 
 // Collaborative like song metadata: any band actor may rename or delete any
@@ -13,8 +13,8 @@ export async function PATCH(
   if (!Number.isInteger(groupId)) {
     return NextResponse.json({ error: 'Invalid id' }, { status: 400 });
   }
-  const actor = await getBandActor();
-  if (!actor) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const scoped = await actorForGroup(groupId);
+  if (!scoped) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
   const body = await request.json().catch(() => null);
   const name = typeof body?.name === 'string' ? body.name : '';
@@ -32,8 +32,8 @@ export async function DELETE(
   if (!Number.isInteger(groupId)) {
     return NextResponse.json({ error: 'Invalid id' }, { status: 400 });
   }
-  const actor = await getBandActor();
-  if (!actor) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const scoped = await actorForGroup(groupId);
+  if (!scoped) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
   const ok = await deleteGroup(groupId);
   if (!ok) return NextResponse.json({ error: 'Not found' }, { status: 404 });

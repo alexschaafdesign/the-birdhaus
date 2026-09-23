@@ -24,7 +24,7 @@ function actorMemberId(by: BandActor): number | null {
   return 'admin' in by ? null : by.memberId;
 }
 
-export async function listGroups(): Promise<BandSongGroup[]> {
+export async function listGroups(workspaceId: number): Promise<BandSongGroup[]> {
   const rows = await sql<
     Array<{
       id: number;
@@ -38,6 +38,7 @@ export async function listGroups(): Promise<BandSongGroup[]> {
            (select array_agg(m.song_id order by m.position asc, m.added_at asc)
               from band_song_group_members m where m.group_id = g.id) as song_ids
     from band_song_groups g
+    where g.workspace_id = ${workspaceId}
     order by g.sort_order asc, g.id asc
   `;
   return rows.map((r) => ({
@@ -51,20 +52,22 @@ export async function listGroups(): Promise<BandSongGroup[]> {
 
 export async function createGroup(input: {
   actor: BandActor;
+  workspaceId: number;
   name: string;
 }): Promise<BandSongGroup | null> {
   const name = input.name.trim().slice(0, MAX_NAME_LENGTH);
   if (!name) return null;
   const [row] = await sql<Array<{ id: number }>>`
-    insert into band_song_groups (name, sort_order, created_by)
+    insert into band_song_groups (workspace_id, name, sort_order, created_by)
     values (
-      ${name},
-      (select coalesce(max(sort_order), 0) + 1 from band_song_groups),
+      ${input.workspaceId}, ${name},
+      (select coalesce(max(sort_order), 0) + 1 from band_song_groups
+       where workspace_id = ${input.workspaceId}),
       ${actorMemberId(input.actor)}
     )
     returning id
   `;
-  const groups = await listGroups();
+  const groups = await listGroups(input.workspaceId);
   return groups.find((g) => g.id === Number(row.id)) ?? null;
 }
 
@@ -84,15 +87,16 @@ export async function deleteGroup(id: number): Promise<boolean> {
 }
 
 // Appends at the end. A song already in the group no-ops rather than erroring
-// — two people adding the same song from the popover isn't a conflict.
+// — two people adding the same song from the popover isn't a conflict. The
+// song and group must live in the same workspace.
 export async function addSongToGroup(groupId: number, songId: number): Promise<boolean> {
-  const [song] = await sql<Array<{ id: number }>>`
-    select id from band_songs where id = ${songId}
+  const [song] = await sql<Array<{ id: number; workspace_id: number }>>`
+    select id, workspace_id from band_songs where id = ${songId}
   `;
-  const [group] = await sql<Array<{ id: number }>>`
-    select id from band_song_groups where id = ${groupId}
+  const [group] = await sql<Array<{ id: number; workspace_id: number }>>`
+    select id, workspace_id from band_song_groups where id = ${groupId}
   `;
-  if (!song || !group) return false;
+  if (!song || !group || Number(song.workspace_id) !== Number(group.workspace_id)) return false;
   await sql`
     insert into band_song_group_members (group_id, song_id, position)
     values (

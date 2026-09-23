@@ -464,11 +464,13 @@ export async function getBandMember(): Promise<ClubMember | null> {
     : null;
 }
 
-// Whoever is acting on the band workspace. Unlike ClubActor, staff members
-// keep their memberId (so uploads and comments stay attributed to a person,
-// not "the Birdhaus") and carry a `staff` flag for moderation rights.
-// {admin: true} only means a cookie-only admin session with no member login.
-export type BandActor = { memberId: number; staff: boolean } | { admin: true };
+// Whoever is acting on a songwriting workspace. Unlike ClubActor, staff
+// members keep their memberId (so uploads and comments stay attributed to a
+// person, not "the Birdhaus") and carry a `staff` flag for moderation rights.
+// `owner` is per-workspace moderation (set by lib/workspaces when the actor
+// owns the workspace in question). {admin: true} only means a cookie-only
+// admin session with no member login.
+export type BandActor = { memberId: number; staff: boolean; owner?: boolean } | { admin: true };
 
 export async function getBandActor(): Promise<BandActor | null> {
   const member = await getBandMember();

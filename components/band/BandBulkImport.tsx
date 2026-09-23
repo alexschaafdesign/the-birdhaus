@@ -101,9 +101,11 @@ function fmtSize(bytes: number): string {
 export default function BandBulkImport({
   allTags,
   existingTitles,
+  workspace,
 }: {
   allTags: string[];
   existingTitles: string[];
+  workspace: { id: number; slug: string };
 }) {
   const [items, setItems] = useState<ImportItem[]>([]);
   const [status, setStatus] = useState<BandSongStatus>('demo');
@@ -212,7 +214,7 @@ export default function BandBulkImport({
         const songRes = await fetch('/api/ostrich/songs', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ title: item.title, status, tags }),
+          body: JSON.stringify({ title: item.title, status, tags, workspaceId: workspace.id }),
         });
         const songData = await songRes.json().catch(() => null);
         if (!songRes.ok) throw new Error(songData?.error ?? `Couldn't create song (${songRes.status})`);
@@ -407,7 +409,7 @@ export default function BandBulkImport({
                   <div className="min-w-0 flex-1">
                     {it.state.phase === 'done' ? (
                       <Link
-                        href={`/yellow-ostrich/songs/${it.state.songId}`}
+                        href={`/w/${workspace.slug}/songs/${it.state.songId}`}
                         className="text-sm font-semibold text-[#E8E0D0] underline-offset-2 hover:underline"
                       >
                         {it.title}
@@ -494,7 +496,10 @@ export default function BandBulkImport({
       {allDone && (
         <div className="rounded-lg border border-[#c8a26a]/40 bg-[#c8a26a]/10 p-4 text-sm text-[#E8E0D0]">
           All {items.length} {items.length === 1 ? 'song' : 'songs'} added.{' '}
-          <Link href="/yellow-ostrich" className="text-[#c8a26a] underline-offset-2 hover:underline">
+          <Link
+            href={`/w/${workspace.slug}`}
+            className="text-[#c8a26a] underline-offset-2 hover:underline"
+          >
             Back to the song pile
           </Link>
         </div>

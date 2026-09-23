@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server';
-import { getBandActor } from '@/lib/club-members';
+import { actorForSong } from '@/lib/workspaces';
 import { saveLyrics } from '@/lib/band-lyrics';
 
 // Save the song's lyrics — appends a revision (no-op if nothing changed).
-// Collaborative like song metadata: any band actor.
+// Collaborative like song metadata: any member of the song's workspace.
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -12,8 +12,9 @@ export async function POST(
   if (!Number.isInteger(songId)) {
     return NextResponse.json({ error: 'Invalid id' }, { status: 400 });
   }
-  const actor = await getBandActor();
-  if (!actor) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const scoped = await actorForSong(songId);
+  if (!scoped) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  const actor = scoped.actor;
 
   const body = await request.json().catch(() => null);
   const text = typeof body?.body === 'string' ? body.body : '';

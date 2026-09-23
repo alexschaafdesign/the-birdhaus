@@ -42,9 +42,11 @@ type Drag =
 export default function BandGroupsView({
   songs,
   groups,
+  workspace,
 }: {
   songs: BandSong[];
   groups: BandSongGroup[];
+  workspace: { id: number; slug: string };
 }) {
   const router = useRouter();
   const songById = useMemo(() => new Map(songs.map((s) => [s.id, s])), [songs]);
@@ -135,7 +137,12 @@ export default function BandGroupsView({
     e.preventDefault();
     const name = newName.trim();
     if (!name) return;
-    if (await api('/api/ostrich/groups', { method: 'POST', body: JSON.stringify({ name }) })) {
+    if (
+      await api('/api/ostrich/groups', {
+        method: 'POST',
+        body: JSON.stringify({ name, workspaceId: workspace.id }),
+      })
+    ) {
       setNewName('');
     }
   }
@@ -295,7 +302,7 @@ export default function BandGroupsView({
                 >
                   <span className="shrink-0 text-[#E8E0D0]/30">⋮⋮</span>
                   <Link
-                    href={`/yellow-ostrich/songs/${song.id}`}
+                    href={`/w/${workspace.slug}/songs/${song.id}`}
                     className="min-w-0 flex-1 truncate text-sm font-medium text-[#E8E0D0] underline-offset-2 hover:underline"
                     draggable={false}
                   >
@@ -499,7 +506,7 @@ export default function BandGroupsView({
                         {i + 1}
                       </span>
                       <Link
-                        href={`/yellow-ostrich/songs/${song.id}`}
+                        href={`/w/${workspace.slug}/songs/${song.id}`}
                         className="min-w-0 flex-1 truncate text-sm font-medium text-[#E8E0D0] underline-offset-2 hover:underline"
                         draggable={false}
                       >

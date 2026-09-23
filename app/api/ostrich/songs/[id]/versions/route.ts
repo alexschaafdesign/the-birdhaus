@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getBandActor } from '@/lib/club-members';
+import { actorForSong } from '@/lib/workspaces';
 import { createVersion } from '@/lib/band-songs';
 import { BAND_SONGS_FOLDER } from '@/lib/r2';
 import { headPrivateObject, verifyUploadGrant } from '@/lib/r2-private';
@@ -18,8 +18,9 @@ export async function POST(
   if (!Number.isInteger(songId)) {
     return NextResponse.json({ error: 'Invalid id' }, { status: 400 });
   }
-  const actor = await getBandActor();
-  if (!actor) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const scoped = await actorForSong(songId);
+  if (!scoped) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  const actor = scoped.actor;
 
   const body = await request.json().catch(() => null);
   const key = typeof body?.key === 'string' ? body.key : '';

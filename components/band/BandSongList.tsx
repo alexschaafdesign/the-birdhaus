@@ -35,10 +35,12 @@ export default function BandSongList({
   songs,
   allTags,
   groups,
+  workspace,
 }: {
   songs: BandSong[];
   allTags: string[];
   groups: BandSongGroup[];
+  workspace: { id: number; slug: string };
 }) {
   const router = useRouter();
   const [view, setView] = useState<'all' | 'groups'>('all');
@@ -174,7 +176,7 @@ export default function BandSongList({
       const res = await fetch('/api/ostrich/songs', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title }),
+        body: JSON.stringify({ title, workspaceId: workspace.id }),
       });
       const data = await res.json().catch(() => null);
       if (!res.ok) throw new Error(data?.error ?? `Couldn't add (${res.status})`);
@@ -210,7 +212,7 @@ export default function BandSongList({
       </div>
 
       {view === 'groups' ? (
-        <BandGroupsView songs={songs} groups={groups} />
+        <BandGroupsView songs={songs} groups={groups} workspace={workspace} />
       ) : (
         <>
       {/* Click-away for the row group popover. */}
@@ -242,7 +244,7 @@ export default function BandSongList({
           Add
         </button>
         <Link
-          href="/yellow-ostrich/import"
+          href={`/w/${workspace.slug}/import`}
           className="shrink-0 rounded-md border border-[#E8E0D0]/25 px-4 py-2 text-sm font-medium text-[#E8E0D0]/70 transition hover:border-[#E8E0D0]/50 hover:text-[#E8E0D0]"
         >
           Import files
@@ -364,7 +366,7 @@ export default function BandSongList({
           {filtered.map((song) => (
             <Link
               key={song.id}
-              href={`/yellow-ostrich/songs/${song.id}`}
+              href={`/w/${workspace.slug}/songs/${song.id}`}
               className="relative block rounded-lg border border-[#E8E0D0]/15 bg-[#E8E0D0]/[0.03] p-4 transition hover:border-[#E8E0D0]/35 hover:bg-[#E8E0D0]/[0.06]"
             >
               <div className="flex items-center justify-between gap-3">

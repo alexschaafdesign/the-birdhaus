@@ -1,17 +1,22 @@
 import { NextResponse } from 'next/server';
-import { getBandActor } from '@/lib/club-members';
+import { actorForWorkspace } from '@/lib/workspaces';
 import { createSong } from '@/lib/band-songs';
 
 export async function POST(request: Request) {
-  const actor = await getBandActor();
+  const body = await request.json().catch(() => null);
+  const workspaceId = Number(body?.workspaceId);
+  if (!Number.isInteger(workspaceId)) {
+    return NextResponse.json({ error: 'Invalid workspace' }, { status: 400 });
+  }
+  const actor = await actorForWorkspace(workspaceId);
   if (!actor) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const body = await request.json().catch(() => null);
   const title = typeof body?.title === 'string' ? body.title : '';
   const notes = typeof body?.notes === 'string' ? body.notes : null;
 
   const song = await createSong({
     actor,
+    workspaceId,
     title,
     status: body?.status,
     tags: body?.tags,

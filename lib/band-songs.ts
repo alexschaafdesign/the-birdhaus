@@ -10,6 +10,7 @@ import { BAND_SONG_STATUSES, type BandSongStatus } from './band-constants';
 
 export interface BandSong {
   id: number;
+  workspaceId: number;
   title: string;
   status: BandSongStatus;
   tags: string[];
@@ -62,10 +63,11 @@ const MAX_NOTES_LENGTH = 5000;
 const MAX_COMMENT_LENGTH = 5000;
 const MAX_TAGS = 20;
 
-// Deletes and edits of other people's uploads/comments: staff and the admin
-// session moderate; everyone else only touches their own.
+// Deletes and edits of other people's uploads/comments: staff, the admin
+// session, and the workspace's owner moderate; everyone else only touches
+// their own. (The owner flag is set per-workspace by lib/workspaces.)
 function canModerate(by: BandActor): boolean {
-  return 'admin' in by || by.staff;
+  return 'admin' in by || by.staff || by.owner === true;
 }
 
 function actorMemberId(by: BandActor): number | null {
@@ -94,6 +96,7 @@ export function sanitizeTags(input: unknown): string[] {
 
 interface SongRow {
   id: number;
+  workspace_id: number;
   title: string;
   status: BandSongStatus;
   tags: string[];
@@ -111,7 +114,7 @@ interface SongRow {
 }
 
 const SONG_SELECT = sql`
-  select s.id, s.title, s.status, s.tags, s.notes, s.pinned,
+  select s.id, s.workspace_id, s.title, s.status, s.tags, s.notes, s.pinned,
          s.created_by, u.name as creator_name,
          s.created_at::text as created_at, s.updated_at::text as updated_at,
          (select count(*)::int from band_song_versions v where v.song_id = s.id)
@@ -135,6 +138,7 @@ const SONG_SELECT = sql`
 function mapSong(r: SongRow): BandSong {
   return {
     id: Number(r.id),
+    workspaceId: Number(r.workspace_id),
     title: r.title,
     status: r.status,
     tags: Array.isArray(r.tags) ? r.tags : [],
@@ -154,9 +158,10 @@ function mapSong(r: SongRow): BandSong {
 
 // --- songs ---
 
-export async function listSongs(): Promise<BandSong[]> {
+export async function listSongs(workspaceId: number): Promise<BandSong[]> {
   const rows = await sql<SongRow[]>`
-    ${SONG_SELECT} order by s.pinned desc, s.updated_at desc, s.id desc
+    ${SONG_SELECT} where s.workspace_id = ${workspaceId}
+    order by s.pinned desc, s.updated_at desc, s.id desc
   `;
   return rows.map(mapSong);
 }
@@ -166,16 +171,19 @@ export async function getSong(id: number): Promise<BandSong | null> {
   return r ? mapSong(r) : null;
 }
 
-// Every tag in use, for the filter chips and the tag-input autocomplete.
-export async function distinctTags(): Promise<string[]> {
+// Every tag in use in this workspace, for the filter chips and autocomplete.
+export async function distinctTags(workspaceId: number): Promise<string[]> {
   const rows = await sql<Array<{ tag: string }>>`
-    select distinct t.tag from band_songs, unnest(tags) as t(tag) order by t.tag asc
+    select distinct t.tag from band_songs, unnest(tags) as t(tag)
+    where workspace_id = ${workspaceId}
+    order by t.tag asc
   `;
   return rows.map((r) => r.tag);
 }
 
 export async function createSong(input: {
   actor: BandActor;
+  workspaceId: number;
   title: string;
   status?: unknown;
   tags?: unknown;
@@ -187,8 +195,9 @@ export async function createSong(input: {
   const tags = sanitizeTags(input.tags);
   const notes = input.notes?.trim().slice(0, MAX_NOTES_LENGTH) || null;
   const [row] = await sql<Array<{ id: number }>>`
-    insert into band_songs (title, status, tags, notes, created_by)
-    values (${title}, ${status}, ${tags}, ${notes}, ${actorMemberId(input.actor)})
+    insert into band_songs (workspace_id, title, status, tags, notes, created_by)
+    values (${input.workspaceId}, ${title}, ${status}, ${tags}, ${notes},
+            ${actorMemberId(input.actor)})
     returning id
   `;
   return getSong(Number(row.id));
