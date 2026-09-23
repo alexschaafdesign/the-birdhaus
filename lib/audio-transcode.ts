@@ -115,6 +115,59 @@ export function audioBufferToWav(buffer: AudioBuffer): Blob {
   return new Blob([out], { type: 'audio/wav' });
 }
 
+// Decode + codec-sniff a file ahead of upload (shared by the Song Club track
+// form and both Yellow Ostrich upload flows): peaks/duration for the waveform
+// player, and an ALAC→WAV swap when the file would only play in Safari.
+// Throws with an actionable fix when the file is ALAC and this browser can't
+// decode it either; decode failures on non-ALAC files stay best-effort (null
+// peaks, the player falls back to the native element).
+export async function prepareAudioForUpload(
+  f: File
+): Promise<{ uploadFile: File; peaks: number[] | null; durationSeconds: number | null }> {
+  const bytes = await f.arrayBuffer();
+  const alac = isMp4Container(bytes) && findMp4SampleCodecs(bytes).includes('alac');
+
+  let decoded: AudioBuffer | null = null;
+  try {
+    const AudioCtx =
+      window.AudioContext ||
+      (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+    const ctx = new AudioCtx();
+    try {
+      decoded = await ctx.decodeAudioData(bytes);
+    } finally {
+      await ctx.close().catch(() => {});
+    }
+  } catch {
+    decoded = null;
+  }
+
+  if (alac) {
+    if (!decoded) {
+      throw new Error(
+        'This is an Apple Lossless recording, which won’t play on Chrome or Android. ' +
+          'In Voice Memos, set Settings → Voice Memos → Audio Quality to “Compressed”, ' +
+          'or convert the file to mp3/wav and upload that.'
+      );
+    }
+    const wav = audioBufferToWav(decoded);
+    const uploadFile = new File([wav], f.name.replace(/\.[^.]+$/, '') + '.wav', {
+      type: 'audio/wav',
+    });
+    return {
+      uploadFile,
+      peaks: computePeaksFromBuffer(decoded),
+      durationSeconds: decoded.duration,
+    };
+  }
+
+  return {
+    uploadFile: f,
+    peaks: decoded ? computePeaksFromBuffer(decoded) : null,
+    durationSeconds: decoded ? decoded.duration : null,
+  };
+}
+
 // Downsample a decoded buffer to a compact peak array for the waveform
 // player (drawn without re-downloading/decoding the audio on every view).
 export function computePeaksFromBuffer(buffer: AudioBuffer, samples = 800): number[] {

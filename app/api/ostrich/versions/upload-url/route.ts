@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { getBandActor } from '@/lib/club-members';
 import { BAND_SONGS_FOLDER } from '@/lib/r2';
 import { createPrivatePresignedUploadUrl, createUploadGrant } from '@/lib/r2-private';
-import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
+import { checkRateLimit } from '@/lib/rate-limit';
 
 // Audio only. Some browsers report no MIME type for audio files, so the
 // extension is the fallback source of truth. (Mirrors the Song Club
@@ -28,7 +28,10 @@ export async function POST(request: Request) {
   const actor = await getBandActor();
   if (!actor) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const allowed = await checkRateLimit(`band-upload:${getClientIp(request)}`, 20, 60 * 60);
+  // Keyed per authenticated actor (everyone here is logged in) and sized for
+  // a folder-scale bulk import, not one-at-a-time uploads.
+  const actorKey = 'admin' in actor ? 'admin' : `m${actor.memberId}`;
+  const allowed = await checkRateLimit(`band-upload:${actorKey}`, 150, 60 * 60);
   if (!allowed) {
     return NextResponse.json(
       { error: 'Too many uploads at once — wait a bit.' },

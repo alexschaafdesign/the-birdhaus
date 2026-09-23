@@ -2,12 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import {
-  audioBufferToWav,
-  computePeaksFromBuffer,
-  findMp4SampleCodecs,
-  isMp4Container,
-} from '@/lib/audio-transcode';
+import { prepareAudioForUpload } from '@/lib/audio-transcode';
 
 const inputBase =
   'w-full rounded-md border border-[#E8E0D0]/20 bg-[#E8E0D0]/[0.03] px-3 py-2 text-sm text-[#E8E0D0] placeholder:text-[#E8E0D0]/30 focus:border-[#E8E0D0]/50 focus:outline-none transition';
@@ -108,62 +103,6 @@ export default function UploadTrackForm({
     : '';
   const selectedDay = day && dayOptions.includes(day) ? day : defaultDay;
 
-  // Read + decode the audio in-browser: peaks/duration for the waveform
-  // player (so views never re-download and decode), plus codec forensics.
-  // Voice Memos' "Lossless" setting records ALAC in a normal-looking .m4a —
-  // only Safari can play it, so it would be a dead track for members on
-  // Chrome/Android. When this browser can decode it (the uploader's usually
-  // can — they recorded it on an iPhone) we silently convert to WAV; when it
-  // can't, we reject with a fix instead of publishing a track nobody can
-  // play. Decode failures on non-ALAC files stay best-effort: nulls, and the
-  // player falls back to the native element.
-  async function prepareAudio(
-    f: File
-  ): Promise<{ uploadFile: File; peaks: number[] | null; durationSeconds: number | null }> {
-    const bytes = await f.arrayBuffer();
-    const alac = isMp4Container(bytes) && findMp4SampleCodecs(bytes).includes('alac');
-
-    let decoded: AudioBuffer | null = null;
-    try {
-      const AudioCtx =
-        window.AudioContext ||
-        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-      const ctx = new AudioCtx();
-      try {
-        decoded = await ctx.decodeAudioData(bytes);
-      } finally {
-        await ctx.close().catch(() => {});
-      }
-    } catch {
-      decoded = null;
-    }
-
-    if (alac) {
-      if (!decoded) {
-        throw new Error(
-          'This is an Apple Lossless recording, which won’t play for members on Chrome or Android. ' +
-            'In Voice Memos, set Settings → Voice Memos → Audio Quality to “Compressed”, ' +
-            'or convert the file to mp3/wav and upload that.'
-        );
-      }
-      const wav = audioBufferToWav(decoded);
-      const uploadFile = new File([wav], f.name.replace(/\.[^.]+$/, '') + '.wav', {
-        type: 'audio/wav',
-      });
-      return {
-        uploadFile,
-        peaks: computePeaksFromBuffer(decoded),
-        durationSeconds: decoded.duration,
-      };
-    }
-
-    return {
-      uploadFile: f,
-      peaks: decoded ? computePeaksFromBuffer(decoded) : null,
-      durationSeconds: decoded ? decoded.duration : null,
-    };
-  }
-
   function putWithProgress(url: string, body: File, contentType: string): Promise<void> {
     return new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest();
@@ -191,7 +130,7 @@ export default function UploadTrackForm({
       // Decode + waveform before uploading (the file's already in memory) —
       // may swap in a WAV conversion of an Apple Lossless recording, or
       // throw with an explanation when the track wouldn't play for members.
-      const { uploadFile, peaks, durationSeconds } = await prepareAudio(file);
+      const { uploadFile, peaks, durationSeconds } = await prepareAudioForUpload(file);
 
       const urlRes = await fetch('/api/club/tracks/upload-url', {
         method: 'POST',

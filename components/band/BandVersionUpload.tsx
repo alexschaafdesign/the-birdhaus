@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { prepareAudioForUpload } from '@/lib/audio-transcode';
 
 const inputBase =
   'w-full rounded-md border border-[#E8E0D0]/20 bg-[#E8E0D0]/[0.03] px-3 py-2 text-sm text-[#E8E0D0] placeholder:text-[#E8E0D0]/30 focus:border-[#E8E0D0]/50 focus:outline-none transition';
@@ -25,42 +26,6 @@ export default function BandVersionUpload({
   const [progress, setProgress] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  // Decode the audio in-browser and downsample to a compact peak array (+
-  // duration) so the player can draw the waveform without re-downloading and
-  // decoding the file on every view. Best-effort: returns nulls if decode
-  // fails (unsupported codec, etc.) and the card falls back to a plain player.
-  async function computeWaveform(
-    f: File
-  ): Promise<{ peaks: number[] | null; durationSeconds: number | null }> {
-    try {
-      const AudioCtx =
-        window.AudioContext ||
-        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-      const ctx = new AudioCtx();
-      const buf = await ctx.decodeAudioData(await f.arrayBuffer());
-      const channel = buf.getChannelData(0);
-      const samples = 800;
-      const block = Math.floor(channel.length / samples) || 1;
-      const peaks: number[] = [];
-      for (let i = 0; i < samples; i++) {
-        let max = 0;
-        const start = i * block;
-        for (let j = 0; j < block; j++) {
-          const v = Math.abs(channel[start + j] || 0);
-          if (v > max) max = v;
-        }
-        peaks.push(Math.round(max * 1000) / 1000);
-      }
-      const duration = buf.duration;
-      await ctx.close();
-      // Normalize so the loudest peak fills the height.
-      const peak = Math.max(...peaks, 0.01);
-      return { peaks: peaks.map((p) => Math.round((p / peak) * 1000) / 1000), durationSeconds: duration };
-    } catch {
-      return { peaks: null, durationSeconds: null };
-    }
-  }
 
   function putWithProgress(url: string, body: File, contentType: string): Promise<void> {
     return new Promise((resolve, reject) => {
@@ -86,19 +51,24 @@ export default function BandVersionUpload({
     setError(null);
     setProgress(0);
     try {
-      // Compute the waveform before uploading (cheap, and the file's already
-      // in memory).
-      const { peaks, durationSeconds } = await computeWaveform(file);
+      // Decode + waveform before uploading (the file's already in memory) —
+      // may swap in a WAV conversion of an Apple Lossless voice memo, or
+      // throw with a fix when it wouldn't play outside Safari.
+      const { uploadFile, peaks, durationSeconds } = await prepareAudioForUpload(file);
 
       const urlRes = await fetch('/api/ostrich/versions/upload-url', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ filename: file.name, contentType: file.type, sizeBytes: file.size }),
+        body: JSON.stringify({
+          filename: uploadFile.name,
+          contentType: uploadFile.type,
+          sizeBytes: uploadFile.size,
+        }),
       });
       const urlData = await urlRes.json().catch(() => null);
       if (!urlRes.ok) throw new Error(urlData?.error ?? `Couldn't start upload (${urlRes.status})`);
 
-      await putWithProgress(urlData.uploadUrl, file, urlData.contentType);
+      await putWithProgress(urlData.uploadUrl, uploadFile, urlData.contentType);
 
       const versionRes = await fetch(`/api/ostrich/songs/${songId}/versions`, {
         method: 'POST',

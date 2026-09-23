@@ -126,6 +126,12 @@ export default function BandSongList({
         >
           Add
         </button>
+        <Link
+          href="/yellow-ostrich/import"
+          className="shrink-0 rounded-md border border-[#E8E0D0]/25 px-4 py-2 text-sm font-medium text-[#E8E0D0]/70 transition hover:border-[#E8E0D0]/50 hover:text-[#E8E0D0]"
+        >
+          Import files
+        </Link>
       </form>
       {error && (
         <div className="mb-4 rounded-lg border border-[#F5A3A3]/40 bg-[#F5A3A3]/10 p-3 text-sm text-[#F5A3A3]">
