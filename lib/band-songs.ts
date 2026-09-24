@@ -27,6 +27,10 @@ export interface BandSong {
   commentCount: number;
   latestVersionLabel: string | null;
   latestVersionAt: string | null;
+  // The latest version's id + playable URL, so the list views can offer inline
+  // play without loading every version. Null when the song has no audio yet.
+  latestVersionId: number | null;
+  latestVersionUrl: string | null;
 }
 
 export interface BandSongVersion {
@@ -111,6 +115,9 @@ interface SongRow {
   comment_count: number;
   latest_version_label: string | null;
   latest_version_at: string | null;
+  latest_version_id: number | null;
+  latest_version_r2_key: string | null;
+  latest_version_url: string | null;
 }
 
 const SONG_SELECT = sql`
@@ -122,11 +129,14 @@ const SONG_SELECT = sql`
          (select count(*)::int from band_song_comments c where c.song_id = s.id)
            as comment_count,
          lv.label as latest_version_label, lv.created_at as latest_version_at,
+         lv.id as latest_version_id, lv.r2_key as latest_version_r2_key,
+         lv.url as latest_version_url,
          ly.body as lyrics
   from band_songs s
   left join users u on u.id = s.created_by
   left join lateral (
-    select v.label, v.created_at::text as created_at from band_song_versions v
+    select v.id, v.label, v.r2_key, v.url, v.created_at::text as created_at
+    from band_song_versions v
     where v.song_id = s.id order by v.created_at desc, v.id desc limit 1
   ) lv on true
   left join lateral (
@@ -153,6 +163,15 @@ function mapSong(r: SongRow): BandSong {
     commentCount: Number(r.comment_count),
     latestVersionLabel: r.latest_version_label,
     latestVersionAt: r.latest_version_at,
+    latestVersionId: r.latest_version_id == null ? null : Number(r.latest_version_id),
+    // Same rule as mapVersion: migrated versions play through the gated route,
+    // legacy ones through their public url. No pointer at all → not playable.
+    latestVersionUrl:
+      r.latest_version_id == null
+        ? null
+        : r.latest_version_r2_key
+          ? `/api/ostrich/audio/${Number(r.latest_version_id)}`
+          : r.latest_version_url ?? null,
   };
 }
 

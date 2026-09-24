@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import type { BandSong } from '@/lib/band-songs';
 import type { BandSongGroup } from '@/lib/band-groups';
 import BandGroupsView from '@/components/band/BandGroupsView';
+import { BandAudioProvider, BandPlayButton } from '@/components/band/BandAudio';
 import {
   BAND_SONG_STATUSES,
   BAND_SONG_STATUS_LABEL,
@@ -192,6 +193,7 @@ export default function BandSongList({
     search.trim() !== '' || status !== 'all' || tags.length > 0 || groupFilter !== null;
 
   return (
+    <BandAudioProvider>
     <div>
       {/* Master list vs. sectioned Groups browse. */}
       <div className="mb-5 flex gap-1.5">
@@ -371,6 +373,13 @@ export default function BandSongList({
             >
               <div className="flex items-center justify-between gap-3">
                 <div className="flex min-w-0 items-center gap-2">
+                  {song.latestVersionId && song.latestVersionUrl && (
+                    <BandPlayButton
+                      versionId={song.latestVersionId}
+                      url={song.latestVersionUrl}
+                      title={song.title}
+                    />
+                  )}
                   {song.pinned && (
                     <span title="Pinned" className="shrink-0 text-[#c8a26a]">
                       ★
@@ -495,6 +504,7 @@ export default function BandSongList({
         </>
       )}
     </div>
+    </BandAudioProvider>
   );
 }
 

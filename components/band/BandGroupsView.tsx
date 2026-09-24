@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { BandSong } from '@/lib/band-songs';
 import type { BandSongGroup } from '@/lib/band-groups';
+import { BandPlayButton } from '@/components/band/BandAudio';
 import {
   BAND_SONG_STATUSES,
   BAND_SONG_STATUS_LABEL,
@@ -301,6 +302,13 @@ export default function BandGroupsView({
                   }`}
                 >
                   <span className="shrink-0 text-[#E8E0D0]/30">⋮⋮</span>
+                  {song.latestVersionId && song.latestVersionUrl && (
+                    <BandPlayButton
+                      versionId={song.latestVersionId}
+                      url={song.latestVersionUrl}
+                      title={song.title}
+                    />
+                  )}
                   <Link
                     href={`/w/${workspace.slug}/songs/${song.id}`}
                     className="min-w-0 flex-1 truncate text-sm font-medium text-[#E8E0D0] underline-offset-2 hover:underline"
@@ -505,6 +513,13 @@ export default function BandGroupsView({
                       <span className="w-5 shrink-0 text-right text-xs text-[#E8E0D0]/35">
                         {i + 1}
                       </span>
+                      {song.latestVersionId && song.latestVersionUrl && (
+                        <BandPlayButton
+                          versionId={song.latestVersionId}
+                          url={song.latestVersionUrl}
+                          title={song.title}
+                        />
+                      )}
                       <Link
                         href={`/w/${workspace.slug}/songs/${song.id}`}
                         className="min-w-0 flex-1 truncate text-sm font-medium text-[#E8E0D0] underline-offset-2 hover:underline"
