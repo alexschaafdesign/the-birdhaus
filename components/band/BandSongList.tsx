@@ -19,6 +19,8 @@ const inputBase =
 const chipBase = 'rounded-full border px-3 py-1 text-xs transition';
 const chipOff = `${chipBase} border-[#E8E0D0]/20 text-[#E8E0D0]/60 hover:border-[#E8E0D0]/40`;
 const chipOn = `${chipBase} border-[#c8a26a] bg-[#c8a26a]/15 text-[#c8a26a]`;
+// Excluded group ("not in X").
+const chipExc = `${chipBase} border-[#F5A3A3]/55 bg-[#F5A3A3]/10 text-[#F5A3A3]`;
 
 const STATUS_PILL: Record<BandSongStatus, string> = {
   idea: 'border-[#E8E0D0]/25 text-[#E8E0D0]/55',
@@ -48,7 +50,11 @@ export default function BandSongList({
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState<BandSongStatus | 'all'>('all');
   const [tags, setTags] = useState<string[]>([]);
-  const [groupFilter, setGroupFilter] = useState<number | null>(null);
+  // Per-group tri-state filter: 'in' keeps songs in the group, 'out' keeps
+  // songs NOT in it. Absent = the group doesn't constrain the list. Includes
+  // AND together, excludes AND-NOT — so "in Louder, not in meh" is expressible.
+  const [groupState, setGroupState] = useState<Record<number, 'in' | 'out'>>({});
+  const [ungroupedOnly, setUngroupedOnly] = useState(false);
   const [sort, setSort] = useState<SortKey>('active');
   const [tagsOpen, setTagsOpen] = useState(false);
 
@@ -69,6 +75,37 @@ export default function BandSongList({
     return map;
   }, [groups]);
 
+  // Which group ids each song belongs to, for the tri-state group filter.
+  const groupIdsBySong = useMemo(() => {
+    const map = new Map<number, Set<number>>();
+    for (const g of groups) {
+      for (const id of g.songIds) {
+        const set = map.get(id) ?? new Set<number>();
+        set.add(g.id);
+        map.set(id, set);
+      }
+    }
+    return map;
+  }, [groups]);
+
+  const ungroupedCount = useMemo(
+    () => songs.filter((s) => !groupIdsBySong.get(s.id)?.size).length,
+    [songs, groupIdsBySong]
+  );
+
+  // Tap a group chip to cycle: any → in → not in → any. Picking a group and
+  // the "Ungrouped" toggle are mutually exclusive.
+  function cycleGroup(id: number) {
+    setUngroupedOnly(false);
+    setGroupState((prev) => {
+      const next = { ...prev };
+      if (!prev[id]) next[id] = 'in';
+      else if (prev[id] === 'in') next[id] = 'out';
+      else delete next[id];
+      return next;
+    });
+  }
+
   const statusCounts = useMemo(() => {
     const counts = Object.fromEntries(BAND_SONG_STATUSES.map((s) => [s, 0])) as Record<
       BandSongStatus,
@@ -80,12 +117,19 @@ export default function BandSongList({
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    const groupIds =
-      groupFilter === null
-        ? null
-        : new Set(groups.find((g) => g.id === groupFilter)?.songIds ?? []);
+    const inc: number[] = [];
+    const exc: number[] = [];
+    for (const [id, mode] of Object.entries(groupState)) {
+      (mode === 'in' ? inc : exc).push(Number(id));
+    }
     let out = songs.filter((s) => {
-      if (groupIds && !groupIds.has(s.id)) return false;
+      const gs = groupIdsBySong.get(s.id);
+      if (ungroupedOnly) {
+        if (gs && gs.size > 0) return false;
+      } else {
+        if (inc.some((id) => !gs?.has(id))) return false;
+        if (exc.some((id) => gs?.has(id))) return false;
+      }
       if (status !== 'all' && s.status !== status) return false;
       if (tags.length > 0 && !tags.every((t) => s.tags.includes(t))) return false;
       if (
@@ -110,7 +154,7 @@ export default function BandSongList({
     }
     // 'active' keeps the server order: pinned first, then recently touched.
     return out;
-  }, [songs, search, status, tags, sort, groupFilter, groups]);
+  }, [songs, search, status, tags, sort, groupState, ungroupedOnly, groupIdsBySong]);
 
   function toggleTag(tag: string) {
     setTags((prev) => (prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]));
@@ -190,7 +234,19 @@ export default function BandSongList({
   }
 
   const hasFilter =
-    search.trim() !== '' || status !== 'all' || tags.length > 0 || groupFilter !== null;
+    search.trim() !== '' ||
+    status !== 'all' ||
+    tags.length > 0 ||
+    Object.keys(groupState).length > 0 ||
+    ungroupedOnly;
+
+  function clearFilters() {
+    setSearch('');
+    setStatus('all');
+    setTags([]);
+    setGroupState({});
+    setUngroupedOnly(false);
+  }
 
   return (
     <BandAudioProvider>
@@ -281,17 +337,44 @@ export default function BandSongList({
         </div>
 
         {groups.length > 0 && (
-          <div className="flex flex-wrap gap-1.5">
-            {groups.map((g) => (
+          <div className="flex flex-wrap items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => {
+                setUngroupedOnly((v) => !v);
+                setGroupState({});
+              }}
+              className={ungroupedOnly ? chipOn : chipOff}
+            >
+              Ungrouped {ungroupedCount}
+            </button>
+            {groups.map((g) => {
+              const mode = groupState[g.id];
+              return (
+                <button
+                  key={g.id}
+                  type="button"
+                  onClick={() => cycleGroup(g.id)}
+                  title="Tap to cycle: in → not in → any"
+                  className={mode === 'in' ? chipOn : mode === 'out' ? chipExc : chipOff}
+                >
+                  {mode === 'out' && 'not '}
+                  {g.name} {g.songIds.length}
+                </button>
+              );
+            })}
+            {(Object.keys(groupState).length > 0 || ungroupedOnly) && (
               <button
-                key={g.id}
                 type="button"
-                onClick={() => setGroupFilter(groupFilter === g.id ? null : g.id)}
-                className={groupFilter === g.id ? chipOn : chipOff}
+                onClick={() => {
+                  setGroupState({});
+                  setUngroupedOnly(false);
+                }}
+                className="text-xs text-[#E8E0D0]/45 underline-offset-2 hover:text-[#E8E0D0] hover:underline"
               >
-                {g.name} {g.songIds.length}
+                reset groups
               </button>
-            ))}
+            )}
           </div>
         )}
 
@@ -347,12 +430,7 @@ export default function BandSongList({
               Nothing matches —{' '}
               <button
                 type="button"
-                onClick={() => {
-                  setSearch('');
-                  setStatus('all');
-                  setTags([]);
-                  setGroupFilter(null);
-                }}
+                onClick={clearFilters}
                 className="underline underline-offset-2 hover:text-[#E8E0D0]"
               >
                 clear filters
