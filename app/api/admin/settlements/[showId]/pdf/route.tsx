@@ -46,11 +46,12 @@ export async function GET(request: Request, { params }: { params: Promise<{ show
   const includedPcts = includedBands.map((b) => b.payoutPct);
   const summary = computeSettlementSummary(values, payoutBandCount, includedOverrides, includedPcts);
 
-  // Total heads that RSVP'd: one per reservation plus their extra guests (a party
-  // of 4 is 1 RSVP row + 3 guests). Shown on the sheet as context alongside the
+  // Total heads that RSVP'd. `guests` is the full party size on each RSVP row
+  // (a party of 4 stores guests = 4), so summing it gives the head count — matches
+  // the "N guests" figure on the RSVPs tab. Shown as context alongside the
   // official estimated attendance.
   const [{ rsvpHeads }] = await sql<{ rsvpHeads: number }[]>`
-    select coalesce(count(*) + sum(guests), 0)::int as "rsvpHeads" from rsvps where show_id = ${showId}
+    select coalesce(sum(guests), 0)::int as "rsvpHeads" from rsvps where show_id = ${showId}
   `;
 
   const buffer = await renderToBuffer(
