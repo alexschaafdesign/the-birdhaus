@@ -35,6 +35,7 @@ const GROUPS: NavGroup[] = [
     links: [
       { href: '/admin/settlements', label: 'Settlements' },
       { href: '/admin/expenses', label: 'Expenses' },
+      { href: '/admin/year', label: 'Year in Review' },
     ],
   },
   {
