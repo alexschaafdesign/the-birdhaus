@@ -21,11 +21,17 @@ export default function BookingCalendar({
   today,
   selectedDate,
   onSelectDate,
+  paintMode,
+  onPaintDay,
 }: {
   dayInfoByDate: Map<string, DayInfo>;
   today: string;
   selectedDate: string | null;
   onSelectDate: (date: string) => void;
+  // Paint mode: clicking a day toggles availability directly instead of
+  // opening the day panel — the fast path for blocking out a season.
+  paintMode: boolean;
+  onPaintDay: (date: string) => void;
 }) {
   const todayDate = parseLocalDate(today);
   const [cursor, setCursor] = useState({
@@ -89,6 +95,12 @@ export default function BookingCalendar({
         </div>
       </div>
 
+      {paintMode && (
+        <p className="mb-3 rounded border border-green-500/30 bg-green-500/10 px-3 py-1.5 text-xs text-green-400">
+          Availability mode — click days to mark or unmark them as available.
+        </p>
+      )}
+
       <div className="mb-1 grid grid-cols-7 gap-1 text-center text-xs text-[#E8E0D0]/40">
         {WEEKDAY_LABELS.map((label, i) => (
           <div key={i}>{label}</div>
@@ -103,6 +115,10 @@ export default function BookingCalendar({
           const show = info?.show;
           const draft = info?.draftShow;
           const titled = show ?? draft;
+          // No show on the day → the first note doubles as the cell's label
+          // ("Fresh Cuts maybe", "Comedy show?").
+          const noteLabel = !titled ? info?.notes[0]?.body : undefined;
+          const noteCount = info?.notes.length ?? 0;
           const holdCount = info?.pendingHolds.length ?? 0;
           const isToday = dateStr === today;
           const isSelected = dateStr === selectedDate;
@@ -118,9 +134,16 @@ export default function BookingCalendar({
           return (
             <button
               key={day}
-              onClick={() => onSelectDate(dateStr)}
-              title={titled ? `${titled.title}${draft && !show ? ' (draft)' : ''}` : dateStr}
-              className={`relative flex aspect-square flex-col items-center justify-center overflow-hidden rounded text-sm transition-all hover:border-[#E8E0D0]/60 ${base} ${
+              onClick={() => {
+                // Paint mode toggles availability directly; days already
+                // carrying a show still open the panel instead.
+                if (paintMode && !titled) onPaintDay(dateStr);
+                else onSelectDate(dateStr);
+              }}
+              title={titled ? `${titled.title}${draft && !show ? ' (draft)' : ''}` : noteLabel ?? dateStr}
+              className={`relative flex aspect-square flex-col items-center justify-center overflow-hidden rounded text-sm transition-all ${
+                paintMode && !titled ? 'hover:border-green-400' : 'hover:border-[#E8E0D0]/60'
+              } ${base} ${
                 isSelected ? 'ring-2 ring-yellow-400' : ''
               } ${titled ? 'text-[#E8E0D0]/80' : isToday ? 'text-[#E8E0D0]' : 'text-[#E8E0D0]/40'}`}
             >
@@ -134,6 +157,11 @@ export default function BookingCalendar({
                   {titled.title}
                 </span>
               )}
+              {noteLabel && (
+                <span className="mt-2 line-clamp-2 px-0.5 text-center text-[8px] leading-tight text-[#E8E0D0]/70">
+                  {noteLabel}
+                </span>
+              )}
 
               {holdCount > 0 && (
                 <span className="absolute right-0.5 top-0.5 rounded bg-amber-500/90 px-1 text-[8px] font-bold text-black">
@@ -142,7 +170,7 @@ export default function BookingCalendar({
               )}
 
               <span className="absolute bottom-0.5 left-1 flex items-center gap-0.5">
-                {(info?.notes.length ?? 0) > 0 && (
+                {noteCount > 0 && (titled || noteCount > 1) && (
                   <span className="h-1.5 w-1.5 rounded-full bg-[#E8E0D0]/50" title="Has notes" />
                 )}
                 {info?.offers.slice(0, 2).map((offer) => (

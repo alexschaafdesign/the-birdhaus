@@ -90,6 +90,7 @@ export default function BookingDashboard({
   const [shows, setShows] = useState(() => initialShows.map((s) => ({ ...s, id: Number(s.id) })));
   const [view, setView] = useState<'calendar' | 'list'>('calendar');
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [paintAvailability, setPaintAvailability] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const offers = useMemo(
@@ -363,7 +364,7 @@ export default function BookingDashboard({
         </div>
       )}
 
-      <div className="mb-6 flex gap-2">
+      <div className="mb-6 flex flex-wrap items-center gap-2">
         {(['calendar', 'list'] as const).map((option) => (
           <button
             key={option}
@@ -377,6 +378,18 @@ export default function BookingDashboard({
             {option}
           </button>
         ))}
+        {view === 'calendar' && (
+          <button
+            onClick={() => setPaintAvailability((prev) => !prev)}
+            className={`ml-2 rounded px-3 py-1.5 font-mono text-sm uppercase tracking-widest transition-colors ${
+              paintAvailability
+                ? 'border border-green-500/60 bg-green-500/15 text-green-400'
+                : 'border border-[#E8E0D0]/30 text-[#E8E0D0]/60 hover:text-[#E8E0D0]'
+            }`}
+          >
+            ✎ mark available
+          </button>
+        )}
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
@@ -387,6 +400,8 @@ export default function BookingDashboard({
               today={today}
               selectedDate={selectedDate}
               onSelectDate={(date) => setSelectedDate((prev) => (prev === date ? null : date))}
+              paintMode={paintAvailability}
+              onPaintDay={toggleAvailable}
             />
           ) : (
             <BookingListView
@@ -396,7 +411,11 @@ export default function BookingDashboard({
               onSelectDate={(date) => setSelectedDate((prev) => (prev === date ? null : date))}
             />
           )}
+        </div>
 
+        {/* Day panel sits above the rail so a clicked day's details land at
+            eye level next to the calendar, not below the fold. */}
+        <div className="min-w-0 space-y-4">
           {selectedInfo && (
             <DayPanel
               info={selectedInfo}
@@ -412,19 +431,18 @@ export default function BookingDashboard({
               onDeleteNote={deleteNote}
             />
           )}
+          <ProspectRail
+            prospects={prospects}
+            holds={holds}
+            onAdd={addProspect}
+            onUpdate={updateProspect}
+            onDelete={deleteProspect}
+            onSelectDate={(date) => {
+              setView('calendar');
+              setSelectedDate(date);
+            }}
+          />
         </div>
-
-        <ProspectRail
-          prospects={prospects}
-          holds={holds}
-          onAdd={addProspect}
-          onUpdate={updateProspect}
-          onDelete={deleteProspect}
-          onSelectDate={(date) => {
-            setView('calendar');
-            setSelectedDate(date);
-          }}
-        />
       </div>
     </div>
   );

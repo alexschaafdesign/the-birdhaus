@@ -81,7 +81,7 @@ export default function DayPanel({
   return (
     // Inline card under the calendar on desktop; bottom sheet on mobile so the
     // panel is reachable from either view without covering the whole screen.
-    <div className="fixed inset-x-0 bottom-0 z-40 max-h-[70vh] overflow-y-auto rounded-t-xl border-t border-[#E8E0D0]/20 bg-[#171412] p-4 shadow-2xl lg:static lg:z-auto lg:mt-6 lg:max-h-none lg:overflow-visible lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none">
+    <div className="fixed inset-x-0 bottom-0 z-40 max-h-[70vh] overflow-y-auto rounded-t-xl border-t border-[#E8E0D0]/20 bg-[#171412] p-4 shadow-2xl lg:static lg:z-auto lg:max-h-none lg:overflow-visible lg:rounded-lg lg:border lg:border-yellow-400/40 lg:bg-transparent lg:p-4 lg:shadow-none">
       <div className="mb-4 flex items-start justify-between gap-3">
         <div>
           <h3 className="text-lg font-bold">{longDate}</h3>
@@ -119,6 +119,42 @@ export default function DayPanel({
             </button>
           </div>
         )}
+
+        {/* The first note doubles as the day's label on the calendar grid. */}
+        <Section title="Notes / ideas">
+          {info.notes.length > 0 && (
+            <ul className="mb-3 space-y-1.5">
+              {info.notes.map((note) => (
+                <li key={note.id} className="flex items-start gap-2 text-sm">
+                  <span className="flex-1 whitespace-pre-wrap text-[#E8E0D0]/80">{note.body}</span>
+                  <button
+                    onClick={() => onDeleteNote(note)}
+                    aria-label="Delete note"
+                    className="px-1 text-[#E8E0D0]/40 hover:text-red-400"
+                  >
+                    ×
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          <form onSubmit={handleAddNote} className="flex items-center gap-2">
+            <input
+              value={noteDraft}
+              onChange={(e) => setNoteDraft(e.target.value)}
+              placeholder="e.g. “Fresh Cuts maybe”, “Comedy show?”"
+              className={`${inputClass} min-w-0 flex-1`}
+            />
+            <button
+              type="submit"
+              disabled={!noteDraft.trim()}
+              className="rounded border border-[#E8E0D0]/30 px-3 py-1.5 text-sm hover:bg-[#E8E0D0]/10 disabled:opacity-40"
+            >
+              + Note
+            </button>
+          </form>
+          <p className="mt-2 text-xs text-[#E8E0D0]/40">The first note shows on the calendar cell.</p>
+        </Section>
 
         {info.offers.length > 0 && (
           <Section title="Offered via submissions">
@@ -255,39 +291,6 @@ export default function DayPanel({
           )}
         </Section>
 
-        <Section title="Notes">
-          {info.notes.length > 0 && (
-            <ul className="mb-3 space-y-1.5">
-              {info.notes.map((note) => (
-                <li key={note.id} className="flex items-start gap-2 text-sm">
-                  <span className="flex-1 whitespace-pre-wrap text-[#E8E0D0]/80">{note.body}</span>
-                  <button
-                    onClick={() => onDeleteNote(note)}
-                    aria-label="Delete note"
-                    className="px-1 text-[#E8E0D0]/40 hover:text-red-400"
-                  >
-                    ×
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-          <form onSubmit={handleAddNote} className="flex items-center gap-2">
-            <input
-              value={noteDraft}
-              onChange={(e) => setNoteDraft(e.target.value)}
-              placeholder="Idea or note for this date…"
-              className={`${inputClass} min-w-0 flex-1`}
-            />
-            <button
-              type="submit"
-              disabled={!noteDraft.trim()}
-              className="rounded border border-[#E8E0D0]/30 px-3 py-1.5 text-sm hover:bg-[#E8E0D0]/10 disabled:opacity-40"
-            >
-              + Note
-            </button>
-          </form>
-        </Section>
       </div>
     </div>
   );
