@@ -9,6 +9,7 @@ import SongMetaEditor from '@/components/band/SongMetaEditor';
 import BandVersionCard from '@/components/band/BandVersionCard';
 import BandVersionUpload from '@/components/band/BandVersionUpload';
 import BandSongComments from '@/components/band/BandSongComments';
+import { bandVersionToPlayerTrack } from '@/lib/player-tracks';
 
 export async function generateMetadata({
   params,
@@ -52,6 +53,11 @@ export default async function WorkspaceSongPage({
     createdAt: r.createdAt,
     body: r.body,
   }));
+  // The song's versions as a play queue for the global player.
+  const songHref = `/w/${workspace.slug}/songs/${song.id}`;
+  const playQueue = versions
+    .filter((v) => v.url)
+    .map((v) => bandVersionToPlayerTrack(v, song.title, songHref));
 
   return (
     <main className="mx-auto w-full max-w-3xl px-5 py-6 text-[#E8E0D0] sm:px-8 sm:py-8">
@@ -92,6 +98,9 @@ export default async function WorkspaceSongPage({
                 )}
                 canEdit={canModerate || (viewerMemberId !== null && v.uploadedBy === viewerMemberId)}
                 lyricsRevisions={revisionRefs}
+                songTitle={song.title}
+                songHref={songHref}
+                queue={playQueue}
               />
             ))}
           </div>

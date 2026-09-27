@@ -6,7 +6,8 @@ import { useRouter } from 'next/navigation';
 import type { BandSong } from '@/lib/band-songs';
 import type { BandSongGroup } from '@/lib/band-groups';
 import BandGroupsView from '@/components/band/BandGroupsView';
-import { BandAudioProvider, BandPlayButton } from '@/components/band/BandAudio';
+import { BandPlayButton } from '@/components/band/BandAudio';
+import { bandSongToPlayerTrack, type PlayerTrack } from '@/lib/player-tracks';
 import {
   BAND_SONG_STATUSES,
   BAND_SONG_STATUS_LABEL,
@@ -248,8 +249,17 @@ export default function BandSongList({
     setUngroupedOnly(false);
   }
 
+  // The visible list as a play queue for the global player: a finished song
+  // auto-advances to the next row's latest version.
+  const playQueue = useMemo<PlayerTrack[]>(
+    () =>
+      filtered
+        .map((s) => bandSongToPlayerTrack(s, workspace.slug))
+        .filter((t): t is PlayerTrack => t !== null),
+    [filtered, workspace.slug]
+  );
+
   return (
-    <BandAudioProvider>
     <div>
       {/* Master list vs. sectioned Groups browse. */}
       <div className="mb-5 flex gap-1.5">
@@ -453,9 +463,8 @@ export default function BandSongList({
                 <div className="flex min-w-0 items-center gap-2">
                   {song.latestVersionId && song.latestVersionUrl && (
                     <BandPlayButton
-                      versionId={song.latestVersionId}
-                      url={song.latestVersionUrl}
-                      title={song.title}
+                      track={bandSongToPlayerTrack(song, workspace.slug)!}
+                      queue={playQueue}
                     />
                   )}
                   {song.pinned && (
@@ -582,7 +591,6 @@ export default function BandSongList({
         </>
       )}
     </div>
-    </BandAudioProvider>
   );
 }
 

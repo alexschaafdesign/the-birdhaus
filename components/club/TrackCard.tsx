@@ -3,14 +3,17 @@
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import type { ClubTrack, ClubTrackComment } from '@/lib/club-music';
-import WaveformPlayer, { type TrackControls, type WaveformMarker } from './WaveformPlayer';
+import WaveformPlayer, { type WaveformMarker } from './WaveformPlayer';
+import { useGlobalPlayer } from '@/components/player/GlobalPlayer';
+import { clubTrackToPlayerTrack, type PlayerTrack } from '@/lib/player-tracks';
 import ReactionBar from './ReactionBar';
 import MemberAvatar from './MemberAvatar';
 
-// One track: native audio player, uploader credit, and the track's comment
-// thread. Comments belong to the TRACK, so the same thread shows wherever the
-// track appears (a round, the Singles shelf, its own page). The optional
-// audio callbacks let PlaylistTracks pause siblings and auto-advance.
+// One track: audio player, uploader credit, and the track's comment thread.
+// Comments belong to the TRACK, so the same thread shows wherever the track
+// appears (a round, the Singles shelf, its own page). Playback goes through
+// the site-wide player (bottom bar); the optional `queue` is the list this
+// track plays within, so a finished track auto-advances there.
 //
 // `compact` (list views) collapses the notes + comment thread behind a
 // one-line "💬 8 comments · 📝 notes" toggle so a busy round stays scannable —
@@ -28,9 +31,7 @@ export default function TrackCard({
   compact = false,
   dense = false,
   contextLabel,
-  onPlay,
-  onEnded,
-  registerControls,
+  queue,
   onTrackDeleted,
 }: {
   track: ClubTrack;
@@ -40,9 +41,7 @@ export default function TrackCard({
   compact?: boolean;
   dense?: boolean;
   contextLabel?: string;
-  onPlay?: () => void;
-  onEnded?: () => void;
-  registerControls?: (controls: TrackControls | null) => void;
+  queue?: PlayerTrack[];
   onTrackDeleted?: () => void;
 }) {
   // Dense implies compact — the collapse logic below keys off this.
@@ -71,13 +70,11 @@ export default function TrackCard({
     el.style.height = `${Math.min(el.scrollHeight, 160)}px`;
   }
 
-  // The player's live controls (seek/getCurrentTime) — also forwarded to the
-  // parent playlist so it can pause siblings / auto-advance.
-  const controlsRef = useRef<TrackControls | null>(null);
-  function handleRegister(c: TrackControls | null) {
-    controlsRef.current = c;
-    registerControls?.(c);
-  }
+  // This track as the global player sees it — key `club:<id>` — for seeking
+  // to comment timestamps and reading the live playhead.
+  const player = useGlobalPlayer();
+  const playerTrack = clubTrackToPlayerTrack(track);
+  const isCurrent = player.current?.key === playerTrack.key;
 
   // Deep links (#track-<id>, or #comment-<id> in this thread) must land on an
   // EXPANDED card — PlaylistTracks opens the day section and scrolls; this
@@ -109,7 +106,7 @@ export default function TrackCard({
     setBusy(true);
     setError(null);
     const timestampSeconds = pinTime
-      ? Math.floor(controlsRef.current?.getCurrentTime() ?? playhead)
+      ? Math.floor(isCurrent ? player.getCurrentTime() : playhead)
       : null;
     try {
       const res = await fetch(`/api/club/tracks/${track.id}/comments`, {
@@ -258,20 +255,17 @@ export default function TrackCard({
 
       {track.peaks && track.peaks.length > 0 ? (
         <WaveformPlayer
-          url={track.url}
-          peaks={track.peaks}
-          durationSeconds={track.durationSeconds}
+          track={playerTrack}
+          queue={queue}
           markers={markers}
           height={dense ? 36 : 72}
-          onPlay={onPlay}
-          onEnded={onEnded}
           onTimeSecond={setPlayhead}
-          registerControls={handleRegister}
         />
       ) : (
         // Tracks uploaded before waveforms existed (or whose decode failed)
-        // fall back to the native player.
-        <NativeAudioFallback url={track.url} />
+        // fall back to the native player — pausing the global one so the two
+        // never play over each other.
+        <NativeAudioFallback url={track.url} onStarted={player.pause} />
       )}
 
       {collapsed && (
@@ -321,7 +315,9 @@ export default function TrackCard({
                   {c.timestampSeconds !== null && (
                     <button
                       type="button"
-                      onClick={() => controlsRef.current?.seek(c.timestampSeconds as number)}
+                      onClick={() =>
+                        player.seekTrack(playerTrack, c.timestampSeconds as number, queue)
+                      }
                       className="rounded bg-[#c8a26a]/15 px-1.5 py-0.5 font-mono text-[11px] tabular-nums text-[#c8a26a] transition hover:bg-[#c8a26a]/25"
                     >
                       {fmtTime(c.timestampSeconds)}
@@ -438,7 +434,7 @@ export default function TrackCard({
 // uploaded before the converter existed) just sits at 0:00 with no
 // feedback; catching the media error is the only way the member learns the
 // track (not their connection) is the problem.
-function NativeAudioFallback({ url }: { url: string }) {
+function NativeAudioFallback({ url, onStarted }: { url: string; onStarted?: () => void }) {
   const [failed, setFailed] = useState<'decode' | 'load' | null>(null);
   return (
     <div>
@@ -447,6 +443,7 @@ function NativeAudioFallback({ url }: { url: string }) {
         controls
         preload="none"
         className="mt-1 w-full"
+        onPlay={onStarted}
         onError={(e) => {
           const code = e.currentTarget.error?.code;
           // 3 = decode failed, 4 = format/src unsupported → the file itself;

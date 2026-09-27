@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import type { BandSong } from '@/lib/band-songs';
 import type { BandSongGroup } from '@/lib/band-groups';
 import { BandPlayButton } from '@/components/band/BandAudio';
+import { bandSongToPlayerTrack, type PlayerTrack } from '@/lib/player-tracks';
 import {
   BAND_SONG_STATUSES,
   BAND_SONG_STATUS_LABEL,
@@ -197,6 +198,14 @@ export default function BandGroupsView({
   }, [songs]);
   const ungroupedCount = songs.filter((s) => !groupCountBySong.has(s.id)).length;
 
+  // Play-queue view of a song list for the global player (auto-advance
+  // follows the visible order; songs with no recording drop out).
+  function toQueue(list: BandSong[]): PlayerTrack[] {
+    return list
+      .map((s) => bandSongToPlayerTrack(s, workspace.slug))
+      .filter((t): t is PlayerTrack => t !== null);
+  }
+
   const masterList = useMemo(() => {
     const q = search.trim().toLowerCase();
     return songs.filter((s) => {
@@ -304,9 +313,8 @@ export default function BandGroupsView({
                   <span className="shrink-0 text-[#E8E0D0]/30">⋮⋮</span>
                   {song.latestVersionId && song.latestVersionUrl && (
                     <BandPlayButton
-                      versionId={song.latestVersionId}
-                      url={song.latestVersionUrl}
-                      title={song.title}
+                      track={bandSongToPlayerTrack(song, workspace.slug)!}
+                      queue={toQueue(masterList)}
                     />
                   )}
                   <Link
@@ -515,9 +523,8 @@ export default function BandGroupsView({
                       </span>
                       {song.latestVersionId && song.latestVersionUrl && (
                         <BandPlayButton
-                          versionId={song.latestVersionId}
-                          url={song.latestVersionUrl}
-                          title={song.title}
+                          track={bandSongToPlayerTrack(song, workspace.slug)!}
+                          queue={toQueue(members)}
                         />
                       )}
                       <Link

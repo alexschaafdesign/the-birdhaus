@@ -1,106 +1,29 @@
 'use client';
 
-import { createContext, useCallback, useContext, useRef, useState } from 'react';
+import { useGlobalPlayer } from '@/components/player/GlobalPlayer';
+import type { PlayerTrack } from '@/lib/player-tracks';
 
-// Lightweight one-at-a-time audio for the list views. The full waveform player
-// (components/club/WaveformPlayer) is too heavy for dense rows, so inline play
-// on the "All songs" and "Groups" lists rides on a single shared <audio>
-// element: starting one track swaps the source and pauses whatever was going.
-// Playback streams from the same gated /api/ostrich/audio/<versionId> URL the
-// song page uses (302 → presigned GET), which a media element follows fine.
-interface BandAudioState {
-  // The version id currently playing, or mid-buffer loading, if any.
-  playingId: number | null;
-  loadingId: number | null;
-  toggle: (versionId: number, url: string) => void;
-}
+// Compact play/pause toggles for the band list rows. These used to ride on a
+// list-local shared <audio>; now they're thin controls over the site-wide
+// player (GlobalPlayer), so a track started here keeps playing in the bottom
+// bar across navigation, and starting anything else replaces it. `queue` is
+// the visible list order, for auto-advance.
 
-const BandAudioContext = createContext<BandAudioState | null>(null);
-
-export function useBandAudio(): BandAudioState | null {
-  return useContext(BandAudioContext);
-}
-
-export function BandAudioProvider({ children }: { children: React.ReactNode }) {
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  // Which version's source is loaded into the element (survives pause/resume).
-  const loadedIdRef = useRef<number | null>(null);
-  const [playingId, setPlayingId] = useState<number | null>(null);
-  const [loadingId, setLoadingId] = useState<number | null>(null);
-
-  const ensureAudio = useCallback(() => {
-    if (audioRef.current) return audioRef.current;
-    const audio = new Audio();
-    audio.preload = 'none';
-    // State is driven off the element's events so a stall, an error, or the
-    // track ending all settle the UI without extra bookkeeping.
-    audio.addEventListener('play', () => setLoadingId(loadedIdRef.current));
-    audio.addEventListener('waiting', () => setLoadingId(loadedIdRef.current));
-    audio.addEventListener('playing', () => {
-      setLoadingId(null);
-      setPlayingId(loadedIdRef.current);
-    });
-    audio.addEventListener('pause', () => setPlayingId(null));
-    audio.addEventListener('ended', () => {
-      setPlayingId(null);
-      setLoadingId(null);
-    });
-    audio.addEventListener('error', () => {
-      setPlayingId(null);
-      setLoadingId(null);
-    });
-    audioRef.current = audio;
-    return audio;
-  }, []);
-
-  const toggle = useCallback(
-    (versionId: number, url: string) => {
-      const audio = ensureAudio();
-      if (loadedIdRef.current === versionId) {
-        // Same track loaded: pause if playing, resume otherwise.
-        if (!audio.paused && !audio.ended) {
-          audio.pause();
-          return;
-        }
-        setLoadingId(versionId);
-        audio.play().catch(() => setLoadingId(null));
-        return;
-      }
-      // New track — swap the source and start. Assigning src + play() aborts
-      // any current playback (the pause listener clears its state).
-      loadedIdRef.current = versionId;
-      audio.src = url;
-      setLoadingId(versionId);
-      audio.play().catch(() => setLoadingId(null));
-    },
-    [ensureAudio]
-  );
-
-  return (
-    <BandAudioContext.Provider value={{ playingId, loadingId, toggle }}>
-      {children}
-    </BandAudioContext.Provider>
-  );
-}
-
-// A compact play/pause toggle for a list row. Renders nothing outside a
-// provider or without a playable url. Stops click propagation so it never
-// triggers the surrounding row Link or a drag.
+// A compact play/pause toggle for a list row. Stops click propagation so it
+// never triggers the surrounding row Link or a drag.
 export function BandPlayButton({
-  versionId,
-  url,
-  title,
+  track,
+  queue,
   className = '',
 }: {
-  versionId: number;
-  url: string;
-  title: string;
+  track: PlayerTrack;
+  queue?: PlayerTrack[];
   className?: string;
 }) {
-  const audio = useBandAudio();
-  if (!audio) return null;
-  const isPlaying = audio.playingId === versionId;
-  const isLoading = audio.loadingId === versionId;
+  const player = useGlobalPlayer();
+  const isCurrent = player.current?.key === track.key;
+  const isPlaying = isCurrent && player.playing;
+  const isLoading = isCurrent && player.loading && !player.playing;
   return (
     <button
       type="button"
@@ -108,9 +31,10 @@ export function BandPlayButton({
       onClick={(e) => {
         e.preventDefault();
         e.stopPropagation();
-        audio.toggle(versionId, url);
+        if (isCurrent) player.toggle();
+        else player.play(track, { queue });
       }}
-      aria-label={isPlaying ? `Pause ${title}` : `Play ${title}`}
+      aria-label={isPlaying ? `Pause ${track.title}` : `Play ${track.title}`}
       title={isPlaying ? 'Pause' : 'Play'}
       className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border transition ${
         isPlaying || isLoading

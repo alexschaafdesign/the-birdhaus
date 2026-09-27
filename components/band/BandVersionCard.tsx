@@ -4,6 +4,8 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { BandSongComment, BandSongVersion } from '@/lib/band-songs';
 import WaveformPlayer from '@/components/club/WaveformPlayer';
+import { useGlobalPlayer } from '@/components/player/GlobalPlayer';
+import { bandVersionToPlayerTrack, type PlayerTrack } from '@/lib/player-tracks';
 
 const inputBase =
   'w-full rounded-md border border-[#E8E0D0]/20 bg-[#E8E0D0]/[0.03] px-3 py-2 text-sm text-[#E8E0D0] placeholder:text-[#E8E0D0]/30 focus:border-[#E8E0D0]/50 focus:outline-none transition';
@@ -17,13 +19,23 @@ export default function BandVersionCard({
   markers,
   canEdit,
   lyricsRevisions = [],
+  songTitle,
+  songHref,
+  queue,
 }: {
   version: BandSongVersion;
   markers: BandSongComment[];
   canEdit: boolean;
   // Newest first, same list the Lyrics section shows.
   lyricsRevisions?: Array<{ id: number; createdAt: string; body: string }>;
+  // For the global player's bottom bar: what to call this recording and where
+  // its title links back to.
+  songTitle: string;
+  songHref: string;
+  // The song's other versions, so a finished take auto-advances.
+  queue?: PlayerTrack[];
 }) {
+  const player = useGlobalPlayer();
   const pinned = lyricsRevisions.find((r) => r.id === version.lyricsRevisionId) ?? null;
   const [lyricsOpen, setLyricsOpen] = useState(false);
   const [repinning, setRepinning] = useState(false);
@@ -159,9 +171,8 @@ export default function BandVersionCard({
 
       {version.peaks ? (
         <WaveformPlayer
-          url={version.url}
-          peaks={version.peaks}
-          durationSeconds={version.durationSeconds}
+          track={bandVersionToPlayerTrack(version, songTitle, songHref)}
+          queue={queue}
           markers={markers.map((c) => ({
             id: c.id,
             timestampSeconds: c.timestampSeconds ?? 0,
@@ -172,8 +183,15 @@ export default function BandVersionCard({
         />
       ) : (
         // No peaks (the browser couldn't decode this codec at upload time) —
-        // fall back to the native player.
-        <audio controls preload="none" src={version.url} className="w-full" />
+        // fall back to the native player, pausing the global one so the two
+        // never play over each other.
+        <audio
+          controls
+          preload="none"
+          src={version.url}
+          className="w-full"
+          onPlay={player.pause}
+        />
       )}
 
       {lyricsRevisions.length > 0 && (

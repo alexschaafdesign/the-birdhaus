@@ -1,11 +1,11 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { ClubTrack, ClubTrackComment } from '@/lib/club-music';
 import type { DaysOpenDefault } from '@/lib/song-club';
 import TrackCard from './TrackCard';
-import type { TrackControls } from './WaveformPlayer';
+import { clubTrackToPlayerTrack, type PlayerTrack } from '@/lib/player-tracks';
 
 // Parse "YYYY-MM-DD" as LOCAL midnight — a bare date string would parse as
 // UTC midnight and render the previous day in Central time.
@@ -82,7 +82,6 @@ export default function PlaylistTracks({
   const [error, setError] = useState<string | null>(null);
   // Per-viewer expand/collapse choices, on top of the admin default.
   const [overrides, setOverrides] = useState<Record<string, boolean>>({});
-  const controlsRef = useRef<Map<number, TrackControls>>(new Map());
 
   const collapsible = collapseByDay && !!today && !!eventStartDate && !!storageKey;
   const storageId = `sc-days:${storageKey ?? ''}`;
@@ -183,22 +182,13 @@ export default function PlaylistTracks({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  function setControls(trackId: number, controls: TrackControls | null) {
-    if (controls) controlsRef.current.set(trackId, controls);
-    else controlsRef.current.delete(trackId);
-  }
-
-  function pauseOthers(trackId: number) {
-    for (const [id, c] of controlsRef.current) {
-      if (id !== trackId) c.pause();
-    }
-  }
-
-  function playNext(trackId: number) {
-    const index = ordered.findIndex((t) => t.id === trackId);
-    const next = index >= 0 ? ordered[index + 1] : undefined;
-    if (next) controlsRef.current.get(next.id)?.play();
-  }
+  // The round as a play queue, in render order: the global player pauses
+  // whatever else was going and auto-advances down this list when a track
+  // ends — even after navigating away from this page.
+  const playQueue = useMemo<PlayerTrack[]>(
+    () => ordered.filter((t) => t.url).map(clubTrackToPlayerTrack),
+    [ordered]
+  );
 
   async function patch(payload: Record<string, unknown>) {
     setError(null);
@@ -290,9 +280,7 @@ export default function PlaylistTracks({
           viewerMemberId={viewerMemberId}
           isAdmin={isAdmin}
           compact
-          registerControls={(c) => setControls(track.id, c)}
-          onPlay={() => pauseOthers(track.id)}
-          onEnded={() => playNext(track.id)}
+          queue={playQueue}
           onTrackDeleted={() => {
             setTracks((prev) => prev.filter((t) => t.id !== track.id));
             router.refresh();
