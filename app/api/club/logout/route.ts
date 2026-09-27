@@ -1,11 +1,10 @@
 import { NextResponse } from 'next/server';
-import { CLUB_SESSION_COOKIE } from '@/lib/club-auth';
-import { SESSION_COOKIE } from '@/lib/auth';
+import { clearSessionCookies } from '@/lib/club-session';
 
 export async function POST(request: Request) {
   const response = NextResponse.redirect(new URL('/song-club/login', request.url), 303);
-  response.cookies.delete(CLUB_SESSION_COOKIE);
-  // Staff hold the admin cookie too — clear it so "log out" fully signs out.
-  response.cookies.delete(SESSION_COOKIE);
+  // Clear the club cookie and — since staff hold it too — the admin cookie, each
+  // in its host-only and (production) apex variant. See clearSessionCookies.
+  clearSessionCookies(response);
   return response;
 }
