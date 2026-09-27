@@ -43,6 +43,7 @@ export async function grantSessionCookies(
 ): Promise<void> {
   const secure = process.env.NODE_ENV === 'production';
   const domain = sessionCookieDomain();
+  const isStaff = roles.includes('staff');
 
   response.cookies.set(CLUB_SESSION_COOKIE, createClubSessionToken(userId, sessionEpoch), {
     httpOnly: true,
@@ -53,7 +54,7 @@ export async function grantSessionCookies(
     maxAge: CLUB_SESSION_MAX_AGE_SECONDS,
   });
   const issued = [CLUB_SESSION_COOKIE];
-  if (roles.includes('staff')) {
+  if (isStaff) {
     response.cookies.set(SESSION_COOKIE, await createStaffSessionToken(userId, sessionEpoch), {
       httpOnly: true,
       secure,
@@ -75,6 +76,18 @@ export async function grantSessionCookies(
   // whole set-cookie header (see appendExpiredCookie).
   if (domain) {
     for (const name of issued) appendExpiredCookie(response, name);
+  }
+
+  // A non-staff account gets no admin cookie — but a leftover admin cookie from
+  // a previous staff session on this browser would still be sent and read as an
+  // admin session (isAdminSession keys off it), and nothing above overwrites it.
+  // Expire it so the new account can't inherit admin: the host-only variant in
+  // any environment (nothing here replaces it, unlike the widening clears above),
+  // plus the apex variant in production. Same headers.append, after all
+  // response.cookies.* writes. Staff issuance is unchanged (it sets the cookie).
+  if (!isStaff) {
+    appendExpiredCookie(response, SESSION_COOKIE);
+    if (domain) appendExpiredCookie(response, SESSION_COOKIE, domain);
   }
 }
 
