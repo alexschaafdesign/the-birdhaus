@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { getClubMember } from '@/lib/club-members';
 import { isAdminSession } from '@/lib/admin-session';
+import { portalRedirect } from '@/lib/site';
 import ClubLoginForm from '@/components/club/ClubLoginForm';
 import SongClubLogo from '@/components/club/SongClubLogo';
 
@@ -20,15 +21,15 @@ export default async function ClubLoginPage({
 }) {
   // The admin session always counts as being in the club — never show a login
   // prompt to Alex.
-  if (await isAdminSession()) redirect('/song-club');
+  if (await isAdminSession()) redirect(portalRedirect('/song-club'));
   const member = await getClubMember();
-  if (member?.roles.includes('song_club')) redirect('/song-club');
+  if (member?.roles.includes('song_club')) redirect(portalRedirect('/song-club'));
   // A band member (real `band` role) that's already active goes straight to the
   // Yellow Ostrich workspace instead of seeing a login form. Deliberately NOT
   // getBandMember() here: that also admits staff, and a staff session with a
   // lapsed admin cookie must fall through to the login form (→ /admin), not get
   // funneled into the band workspace.
-  if (member?.roles.includes('band')) redirect('/yellow-ostrich');
+  if (member?.roles.includes('band')) redirect(portalRedirect('/yellow-ostrich'));
   const rawNext = (await searchParams).next;
   const next =
     rawNext && (rawNext.startsWith('/song-club/') || rawNext.startsWith('/yellow-ostrich'))

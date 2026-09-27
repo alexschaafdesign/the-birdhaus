@@ -6,12 +6,12 @@
 // underlying action (posting, publishing). Each returns how many were emailed.
 
 import { sql } from './db';
-import { SITE_URL } from './site';
+import { PORTAL_URL } from './site';
 import { getGroupNotificationRecipients, getNotificationRecipients } from './club-members';
 import { buildAnnouncementEmail, buildClubEventEmail, sendEmailBatch } from './club-email';
 import { claimEventNotification, slugify, type SongClubEvent } from './song-club';
 
-const PORTAL_URL = `${SITE_URL}/song-club`;
+const PORTAL_HOME = `${PORTAL_URL}/song-club`;
 
 // "2026-08-15" -> "Saturday, August 15" for the event email.
 function formatEventDate(isoDate: string): string {
@@ -38,7 +38,7 @@ export async function notifyAnnouncement(body: string): Promise<number> {
   const recipients = await getNotificationRecipients('announcements');
   return sendEmailBatch(
     recipients.map((r) =>
-      buildAnnouncementEmail({ to: r.email, recipientName: r.name, body, portalUrl: PORTAL_URL })
+      buildAnnouncementEmail({ to: r.email, recipientName: r.name, body, portalUrl: PORTAL_HOME })
     )
   );
 }
@@ -54,7 +54,7 @@ export async function notifyGroupPost(groupId: number, body: string): Promise<nu
     where g.id = ${groupId}
   `;
   if (!group) return 0;
-  const groupUrl = `${SITE_URL}/song-club/${group.slug}/${slugify(group.name)}`;
+  const groupUrl = `${PORTAL_URL}/song-club/${group.slug}/${slugify(group.name)}`;
   const recipients = await getGroupNotificationRecipients(groupId);
   return sendEmailBatch(
     recipients.map((r) =>
@@ -69,7 +69,7 @@ export async function notifyNewEvent(input: {
   dateLabel: string;
 }): Promise<number> {
   const recipients = await getNotificationRecipients('events');
-  const eventUrl = `${SITE_URL}/song-club/${input.slug}`;
+  const eventUrl = `${PORTAL_URL}/song-club/${input.slug}`;
   return sendEmailBatch(
     recipients.map((r) =>
       buildClubEventEmail({

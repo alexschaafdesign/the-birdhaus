@@ -42,8 +42,15 @@ export default function ClubSetPasswordForm({ token, next }: { token: string; ne
       // An explicit portal `next` wins; otherwise follow the server's dest
       // (crew/staff accounts land in /admin).
       const target = dest !== '/song-club' ? dest : (data?.dest ?? dest);
-      router.push(target);
-      router.refresh();
+      // The server may hand back an absolute portal URL (once the portal lives
+      // on its own subdomain); router.push only handles same-origin paths, so
+      // send cross-origin destinations through a full navigation.
+      if (/^https?:\/\//i.test(target)) {
+        window.location.assign(target);
+      } else {
+        router.push(target);
+        router.refresh();
+      }
       return;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong');

@@ -5,6 +5,7 @@ import { getClubMember } from '@/lib/club-members';
 import { isAdminSession } from '@/lib/admin-session';
 import { cloudinaryTransform } from '@/lib/cloudinary-url';
 import { listWorkspacesForUser } from '@/lib/workspaces';
+import { portalRedirect } from '@/lib/site';
 import ClubLoginForm from '@/components/club/ClubLoginForm';
 
 // Neutral, Birdhaus-branded login for everyone who has an account (crew,
@@ -46,16 +47,17 @@ export default async function LoginPage({
   // lapsed belongs on the login form (to re-mint it → /admin), not funneled
   // into the band workspace. So the band branch checks the real `band` role
   // here, not getBandMember() (which also admits staff).
-  if (await isAdminSession()) redirect(next ?? '/admin');
+  // `next` is a validated portal/workspace path; /admin stays on the main site.
+  if (await isAdminSession()) redirect(next ? portalRedirect(next) : '/admin');
   const member = await getClubMember();
-  if (member && next) redirect(next);
-  if (member?.roles.includes('song_club')) redirect('/song-club');
-  if (member?.roles.includes('band')) redirect('/yellow-ostrich');
+  if (member && next) redirect(portalRedirect(next));
+  if (member?.roles.includes('song_club')) redirect(portalRedirect('/song-club'));
+  if (member?.roles.includes('band')) redirect(portalRedirect('/yellow-ostrich'));
   if (member) {
     // No Birdhaus roles at all — an invited outside songwriter. Their
     // workspace is the only place they can go.
     const [workspace] = await listWorkspacesForUser(member.id);
-    if (workspace) redirect(`/w/${workspace.slug}`);
+    if (workspace) redirect(portalRedirect(`/w/${workspace.slug}`));
   }
 
   return (

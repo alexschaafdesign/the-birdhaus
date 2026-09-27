@@ -49,8 +49,15 @@ export default function ClubLoginForm({ next }: { next?: string }) {
         // An explicit portal `next` wins; otherwise follow the server's dest
         // (which sends crew/staff logins to /admin).
         const target = dest !== '/song-club' ? dest : (data?.dest ?? dest);
-        router.push(target);
-        router.refresh();
+        // The server may hand back an absolute portal URL (once the portal lives
+        // on its own subdomain); router.push only handles same-origin paths, so
+        // send cross-origin destinations through a full navigation.
+        if (/^https?:\/\//i.test(target)) {
+          window.location.assign(target);
+        } else {
+          router.push(target);
+          router.refresh();
+        }
         return; // keep the button disabled through the redirect
       }
     } catch (err) {

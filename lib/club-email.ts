@@ -3,7 +3,7 @@
 // single-use set-password link to /song-club/invite/<token>.
 
 import { Resend } from 'resend';
-import { SITE_URL } from './site';
+import { SITE_URL, PORTAL_URL } from './site';
 import { splitName } from './name';
 
 const NOTIFY_EMAIL = 'alex@thebirdhaus.org';
@@ -39,7 +39,7 @@ function esc(s: string): string {
 }
 
 export function setupLinkFor(token: string, next?: string): string {
-  const base = `${SITE_URL}/song-club/invite/${token}`;
+  const base = `${PORTAL_URL}/song-club/invite/${token}`;
   // `next` is a safe relative path (validated by the caller) to send the member
   // to after they set their password — e.g. back to an event to auto-join.
   return next ? `${base}?next=${encodeURIComponent(next)}` : base;
