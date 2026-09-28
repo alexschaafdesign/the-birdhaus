@@ -6,12 +6,14 @@
 
 import { sql } from './db';
 import type { ClubActor } from './club-members';
+import { isClubReactionEmoji, type ClubReaction } from './club-reactions';
 
 export interface ClubTrack {
   id: number;
   memberId: number | null;
   fromAdmin: boolean;
   uploaderName: string;
+  uploaderAvatarUrl: string | null;
   title: string;
   notes: string | null;
   url: string;
@@ -19,6 +21,14 @@ export interface ClubTrack {
   durationSeconds: number | null;
   createdAt: string;
   commentCount: number;
+  // Round-scoped (from song_club_playlist_tracks): which song-a-day day the
+  // track was filed under, and the admin's highlight star. null/false outside
+  // a round context (standalone/single-track queries).
+  day: string | null;
+  isHighlight: boolean;
+  // Hearts on the track, oldest-first. memberId null = "the Birdhaus". The
+  // client derives count and "did I like this" from it.
+  likes: Array<{ memberId: number | null; name: string }>;
 }
 
 export interface ClubPlaylist {
@@ -41,29 +51,92 @@ export interface ClubTrackComment {
   body: string;
   timestampSeconds: number | null;
   createdAt: string;
+  reactions: ClubReaction[];
 }
 
 const MAX_COMMENT_LENGTH = 5000;
+
+// Reactions for a set of comments, grouped per comment then per emoji (both
+// in first-seen order). Used by trackComments and playlistComments.
+async function reactionsForComments(
+  commentIds: number[]
+): Promise<Map<number, ClubReaction[]>> {
+  const map = new Map<number, ClubReaction[]>();
+  if (commentIds.length === 0) return map;
+  const rows = await sql<
+    Array<{ comment_id: number; emoji: string; member_id: number | null; member_name: string | null }>
+  >`
+    select r.comment_id, r.emoji, r.member_id, m.name as member_name
+    from song_club_comment_reactions r
+    left join users m on m.id = r.member_id
+    where r.comment_id = any(${commentIds})
+    order by r.created_at asc, r.id asc
+  `;
+  for (const r of rows) {
+    const commentId = Number(r.comment_id);
+    const list = map.get(commentId) ?? [];
+    if (!map.has(commentId)) map.set(commentId, list);
+    let bucket = list.find((b) => b.emoji === r.emoji);
+    if (!bucket) {
+      bucket = { emoji: r.emoji, reactors: [] };
+      list.push(bucket);
+    }
+    bucket.reactors.push({
+      memberId: r.member_id === null ? null : Number(r.member_id),
+      name: r.member_id === null ? 'the Birdhaus' : r.member_name ?? 'Former member',
+    });
+  }
+  return map;
+}
 
 interface TrackRow {
   id: number;
   member_id: number | null;
   from_admin: boolean;
   member_name: string | null;
+  avatar_url: string | null;
   title: string;
   notes: string | null;
-  url: string;
+  url: string | null;
+  r2_key: string | null;
   peaks: number[] | null;
   duration_seconds: number | null;
   created_at: string;
   comment_count: number;
+  likes: Array<{ memberId: number | null; name: string | null }>;
+  day?: string | null;
+  is_highlight?: boolean;
 }
 
+// The track's hearts as a JSON column, so every track query carries them
+// without extra round-trips (shared by both SELECT fragments below).
+const LIKES_SELECT = sql`
+  (select coalesce(json_agg(json_build_object('memberId', l.member_id, 'name', lu.name)
+                            order by l.created_at asc, l.id asc), '[]'::json)
+   from song_club_track_likes l
+   left join users lu on lu.id = l.member_id
+   where l.track_id = t.id) as likes
+`;
+
 const TRACK_SELECT = sql`
-  select t.id, t.member_id, t.from_admin, m.name as member_name, t.title,
-         t.notes, t.url, t.peaks, t.duration_seconds, t.created_at::text as created_at,
+  select t.id, t.member_id, t.from_admin, m.name as member_name, m.avatar_url, t.title,
+         t.notes, t.url, t.r2_key, t.peaks, t.duration_seconds, t.created_at::text as created_at,
          (select count(*)::int from song_club_track_comments c where c.track_id = t.id)
-           as comment_count
+           as comment_count,
+         ${LIKES_SELECT}
+  from song_club_tracks t
+  left join users m on m.id = t.member_id
+`;
+
+// Same, plus the round-scoped columns — for queries that join
+// song_club_playlist_tracks as `pt` (day + highlight live on the join row).
+const TRACK_SELECT_IN_ROUND = sql`
+  select t.id, t.member_id, t.from_admin, m.name as member_name, m.avatar_url, t.title,
+         t.notes, t.url, t.r2_key, t.peaks, t.duration_seconds, t.created_at::text as created_at,
+         pt.day::text as day, pt.is_highlight,
+         (select count(*)::int from song_club_track_comments c where c.track_id = t.id)
+           as comment_count,
+         ${LIKES_SELECT}
   from song_club_tracks t
   left join users m on m.id = t.member_id
 `;
@@ -74,14 +147,62 @@ function mapTrack(r: TrackRow): ClubTrack {
     memberId: r.member_id === null ? null : Number(r.member_id),
     fromAdmin: r.from_admin,
     uploaderName: r.from_admin ? 'the Birdhaus' : r.member_name ?? 'Former member',
+    uploaderAvatarUrl: r.from_admin ? null : r.avatar_url,
     title: r.title,
     notes: r.notes,
-    url: r.url,
+    // Migrated tracks play through the session-gated route (which 302s to a
+    // presigned GET on the private bucket); un-migrated ones fall back to the
+    // legacy public URL so nothing breaks mid-migration.
+    url: r.r2_key ? `/api/club/audio/${Number(r.id)}` : r.url ?? '',
     peaks: Array.isArray(r.peaks) ? r.peaks : null,
     durationSeconds: r.duration_seconds === null ? null : Number(r.duration_seconds),
     createdAt: r.created_at,
     commentCount: Number(r.comment_count),
+    likes: (Array.isArray(r.likes) ? r.likes : []).map((l) => ({
+      memberId: l.memberId === null ? null : Number(l.memberId),
+      name: l.memberId === null ? 'the Birdhaus' : l.name ?? 'Former member',
+    })),
+    day: r.day ?? null,
+    isHighlight: r.is_highlight === true,
   };
+}
+
+// Toggle the caller's heart on a track: like if they haven't, unlike if they
+// have. Returns the track's refreshed like list, or null if the track is gone.
+export async function toggleTrackLike(
+  trackId: number,
+  by: ClubActor
+): Promise<Array<{ memberId: number | null; name: string }> | null> {
+  const [track] = await sql<Array<{ id: number }>>`
+    select id from song_club_tracks where id = ${trackId}
+  `;
+  if (!track) return null;
+  const removed =
+    'admin' in by
+      ? await sql`
+          delete from song_club_track_likes
+          where track_id = ${trackId} and member_id is null`
+      : await sql`
+          delete from song_club_track_likes
+          where track_id = ${trackId} and member_id = ${by.memberId}`;
+  if (removed.count === 0) {
+    await sql`
+      insert into song_club_track_likes (track_id, member_id, from_admin)
+      values (${trackId}, ${'admin' in by ? null : by.memberId}, ${'admin' in by})
+      on conflict do nothing
+    `;
+  }
+  const rows = await sql<Array<{ member_id: number | null; name: string | null }>>`
+    select l.member_id, lu.name
+    from song_club_track_likes l
+    left join users lu on lu.id = l.member_id
+    where l.track_id = ${trackId}
+    order by l.created_at asc, l.id asc
+  `;
+  return rows.map((r) => ({
+    memberId: r.member_id === null ? null : Number(r.member_id),
+    name: r.member_id === null ? 'the Birdhaus' : r.name ?? 'Former member',
+  }));
 }
 
 // --- playlists (admin-created only; the routes enforce it) ---
@@ -141,16 +262,60 @@ export async function listStandaloneRounds(): Promise<ClubPlaylist[]> {
   return rows.map(mapPlaylist);
 }
 
-// The event (if any) that links to this round — its flyer is the round's cover.
-export async function getRoundEvent(
-  playlistId: number
-): Promise<{ id: number; slug: string; title: string; flyerUrl: string | null } | null> {
-  const [r] = await sql<Array<{ id: number; slug: string; title: string; flyer_url: string | null }>>`
-    select id, slug, title, flyer_url from song_club_events
+// The event (if any) that links to this round — its flyer is the round's
+// cover, and its date range drives the upload form's day picker.
+export async function getRoundEvent(playlistId: number): Promise<{
+  id: number;
+  slug: string;
+  title: string;
+  flyerUrl: string | null;
+  eventDate: string;
+  endDate: string | null;
+} | null> {
+  const [r] = await sql<
+    Array<{
+      id: number;
+      slug: string;
+      title: string;
+      flyer_url: string | null;
+      event_date: string;
+      end_date: string | null;
+    }>
+  >`
+    select id, slug, title, flyer_url, event_date::text as event_date,
+           end_date::text as end_date
+    from song_club_events
     where playlist_id = ${playlistId}
     order by id asc limit 1
   `;
-  return r ? { id: Number(r.id), slug: r.slug, title: r.title, flyerUrl: r.flyer_url } : null;
+  return r
+    ? {
+        id: Number(r.id),
+        slug: r.slug,
+        title: r.title,
+        flyerUrl: r.flyer_url,
+        eventDate: r.event_date,
+        endDate: r.end_date,
+      }
+    : null;
+}
+
+// Date ranges of every event-linked round, keyed by playlist id — drives the
+// upload form's day picker (rounds without an event get no picker).
+export async function listRoundEventRanges(): Promise<
+  Record<number, { start: string; end: string }>
+> {
+  const rows = await sql<Array<{ playlist_id: number; start_day: string; end_day: string }>>`
+    select playlist_id, event_date::text as start_day,
+           coalesce(end_date, event_date)::text as end_day
+    from song_club_events
+    where playlist_id is not null
+  `;
+  const ranges: Record<number, { start: string; end: string }> = {};
+  for (const r of rows) {
+    ranges[Number(r.playlist_id)] = { start: r.start_day, end: r.end_day };
+  }
+  return ranges;
 }
 
 export async function createPlaylist(input: {
@@ -206,12 +371,235 @@ export async function updatePlaylist(
 
 export async function playlistTracks(playlistId: number): Promise<ClubTrack[]> {
   const rows = await sql<TrackRow[]>`
-    ${TRACK_SELECT}
+    ${TRACK_SELECT_IN_ROUND}
     join song_club_playlist_tracks pt on pt.track_id = t.id
     where pt.playlist_id = ${playlistId}
     order by pt.position asc, t.id asc
   `;
   return rows.map(mapTrack);
+}
+
+// A group's slice of an event round. The group is DERIVED from each track's
+// uploader: their group_id on song_club_event_attendees for this event.
+// groupId null = the "unassigned" slice — uploaders with no group yet, plus
+// tracks whose uploader isn't (or is no longer) on the roster, so nothing is
+// ever invisible. Ordered for day-header rendering: day ascending (undated
+// last), then round position.
+export async function playlistTracksByGroup(
+  playlistId: number,
+  eventId: number,
+  groupId: number | null
+): Promise<ClubTrack[]> {
+  const rows = await sql<TrackRow[]>`
+    ${TRACK_SELECT_IN_ROUND}
+    join song_club_playlist_tracks pt on pt.track_id = t.id
+    left join song_club_event_attendees a
+      on a.user_id = t.member_id and a.event_id = ${eventId}
+    where pt.playlist_id = ${playlistId}
+      and ${groupId === null ? sql`a.group_id is null` : sql`a.group_id = ${groupId}`}
+    order by pt.day asc nulls last, pt.position asc, t.id asc
+  `;
+  return rows.map(mapTrack);
+}
+
+// The event page's cross-group feed: the round's newest tracks, all groups
+// mixed, each tagged with its uploader's group name (derived from the
+// attendee row, same as playlistTracksByGroup). Newest-first — songs as they
+// come in — with the round's total so the caller can link to the full list.
+export async function recentRoundTracks(
+  playlistId: number,
+  eventId: number,
+  limit: number
+): Promise<{ tracks: ClubTrack[]; groupNames: Record<number, string | null>; total: number }> {
+  const rows = await sql<Array<TrackRow & { group_name: string | null; total_count: number }>>`
+    select q.*, g.name as group_name, count(*) over ()::int as total_count
+    from (
+      ${TRACK_SELECT_IN_ROUND}
+      join song_club_playlist_tracks pt on pt.track_id = t.id
+      where pt.playlist_id = ${playlistId}
+    ) q
+    left join song_club_event_attendees a
+      on a.user_id = q.member_id and a.event_id = ${eventId}
+    left join song_club_groups g on g.id = a.group_id
+    order by q.id desc
+    limit ${limit}
+  `;
+  const groupNames: Record<number, string | null> = {};
+  for (const r of rows) groupNames[Number(r.id)] = r.group_name;
+  return {
+    tracks: rows.map(mapTrack),
+    groupNames,
+    total: rows.length > 0 ? Number(rows[0].total_count) : 0,
+  };
+}
+
+// Per-group song tallies for the event page's group directory: total tracks
+// in the round, and how many landed "today" (caller passes the Central date —
+// getTodayCentral()). A track's group is derived from its uploader's attendee
+// row, same as playlistTracksByGroup.
+export async function groupTrackCounts(
+  playlistId: number,
+  eventId: number,
+  todayCentral: string
+): Promise<Map<number, { total: number; today: number }>> {
+  const rows = await sql<Array<{ group_id: number; total: number; today: number }>>`
+    select a.group_id, count(*)::int as total,
+           count(*) filter (
+             where (t.created_at at time zone 'America/Chicago')::date = ${todayCentral}::date
+           )::int as today
+    from song_club_tracks t
+    join song_club_playlist_tracks pt on pt.track_id = t.id
+    join song_club_event_attendees a
+      on a.user_id = t.member_id and a.event_id = ${eventId}
+    where pt.playlist_id = ${playlistId} and a.group_id is not null
+    group by a.group_id
+  `;
+  return new Map(
+    rows.map((r) => [Number(r.group_id), { total: Number(r.total), today: Number(r.today) }])
+  );
+}
+
+// Who's uploaded today, per group — feeds the group cards' roster strip
+// ("4/10 today" as avatars + hollow dots). Uses the track's filed DAY
+// (pt.day, same as the day picker), so a after-midnight upload filed to
+// yesterday counts for yesterday. Uploaded members sort first.
+export async function groupUploadRoster(
+  playlistId: number,
+  eventId: number,
+  day: string
+): Promise<
+  Map<number, Array<{ memberId: number; name: string; avatarUrl: string | null; uploadedToday: boolean }>>
+> {
+  const rows = await sql<
+    Array<{
+      group_id: number;
+      member_id: number;
+      name: string;
+      avatar_url: string | null;
+      uploaded_today: boolean;
+    }>
+  >`
+    select a.group_id, u.id as member_id, u.name, u.avatar_url,
+           exists (
+             select 1 from song_club_playlist_tracks pt
+             join song_club_tracks t on t.id = pt.track_id
+             where pt.playlist_id = ${playlistId}
+               and t.member_id = u.id
+               and pt.day = ${day}::date
+           ) as uploaded_today
+    from song_club_event_attendees a
+    join users u on u.id = a.user_id
+    where a.event_id = ${eventId} and a.group_id is not null
+    order by uploaded_today desc, u.name asc
+  `;
+  const map = new Map<
+    number,
+    Array<{ memberId: number; name: string; avatarUrl: string | null; uploadedToday: boolean }>
+  >();
+  for (const r of rows) {
+    const groupId = Number(r.group_id);
+    const list = map.get(groupId) ?? [];
+    if (!map.has(groupId)) map.set(groupId, list);
+    list.push({
+      memberId: Number(r.member_id),
+      name: r.name,
+      avatarUrl: r.avatar_url,
+      uploadedToday: r.uploaded_today,
+    });
+  }
+  return map;
+}
+
+// Songs filed per day of a round (pt.day), keyed YYYY-MM-DD — feeds the
+// event page's day-strip tracker. Tracks without a day are simply absent.
+export async function playlistDayCounts(playlistId: number): Promise<Record<string, number>> {
+  const rows = await sql<Array<{ day: string; n: number }>>`
+    select pt.day::text as day, count(*)::int as n
+    from song_club_playlist_tracks pt
+    where pt.playlist_id = ${playlistId} and pt.day is not null
+    group by pt.day
+  `;
+  return Object.fromEntries(rows.map((r) => [r.day, Number(r.n)]));
+}
+
+// How many distinct song-a-day days each member has uploaded into a round,
+// keyed by user id — feeds the Songwriters list's "X/10" completion badge.
+// Counts the filed DAY (pt.day), so two songs on one day count once and a
+// gapless run equals the days elapsed. Members with no uploads are absent
+// (the caller defaults them to 0).
+export async function memberUploadDayCounts(
+  playlistId: number
+): Promise<Record<number, number>> {
+  const rows = await sql<Array<{ user_id: number; days: number }>>`
+    select t.member_id as user_id, count(distinct pt.day)::int as days
+    from song_club_playlist_tracks pt
+    join song_club_tracks t on t.id = pt.track_id
+    where pt.playlist_id = ${playlistId}
+      and pt.day is not null
+      and t.member_id is not null
+    group by t.member_id
+  `;
+  return Object.fromEntries(rows.map((r) => [Number(r.user_id), Number(r.days)]));
+}
+
+// Like playlistDayCounts, but only tracks from ONE group's members — the
+// group page's day strip. Group derivation matches playlistTracksByGroup.
+export async function groupDayCounts(
+  playlistId: number,
+  eventId: number,
+  groupId: number
+): Promise<Record<string, number>> {
+  const rows = await sql<Array<{ day: string; n: number }>>`
+    select pt.day::text as day, count(*)::int as n
+    from song_club_playlist_tracks pt
+    join song_club_tracks t on t.id = pt.track_id
+    join song_club_event_attendees a
+      on a.user_id = t.member_id and a.event_id = ${eventId}
+    where pt.playlist_id = ${playlistId} and pt.day is not null
+      and a.group_id = ${groupId}
+    group by pt.day
+  `;
+  return Object.fromEntries(rows.map((r) => [r.day, Number(r.n)]));
+}
+
+// One member's own tracks in a round — the "your songs so far" reel on the
+// event page. Day ascending (undated last) so playing top-to-bottom replays
+// their song-a-day run in order.
+export async function memberRoundTracks(
+  playlistId: number,
+  memberId: number
+): Promise<ClubTrack[]> {
+  const rows = await sql<TrackRow[]>`
+    ${TRACK_SELECT_IN_ROUND}
+    join song_club_playlist_tracks pt on pt.track_id = t.id
+    where pt.playlist_id = ${playlistId} and t.member_id = ${memberId}
+    order by pt.day asc nulls last, pt.position asc, t.id asc
+  `;
+  return rows.map(mapTrack);
+}
+
+// The admin-starred tracks of a round, for the event page's Highlights block.
+export async function highlightTracks(playlistId: number): Promise<ClubTrack[]> {
+  const rows = await sql<TrackRow[]>`
+    ${TRACK_SELECT_IN_ROUND}
+    join song_club_playlist_tracks pt on pt.track_id = t.id
+    where pt.playlist_id = ${playlistId} and pt.is_highlight = true
+    order by pt.position asc, t.id asc
+  `;
+  return rows.map(mapTrack);
+}
+
+// Admin-only (routes enforce it): star/unstar a track within a round.
+export async function setTrackHighlight(
+  playlistId: number,
+  trackId: number,
+  isHighlight: boolean
+): Promise<boolean> {
+  const result = await sql`
+    update song_club_playlist_tracks set is_highlight = ${isHighlight}
+    where playlist_id = ${playlistId} and track_id = ${trackId}
+  `;
+  return result.count > 0;
 }
 
 // Tracks that aren't in any playlist — the "Singles" shelf on the portal.
@@ -226,6 +614,16 @@ export async function standaloneTracks(): Promise<ClubTrack[]> {
   return rows.map(mapTrack);
 }
 
+// For the gated audio route: just the storage pointers, no joins.
+export async function getTrackAudioRef(
+  id: number
+): Promise<{ r2Key: string | null; url: string | null } | null> {
+  const [row] = await sql<Array<{ r2_key: string | null; url: string | null }>>`
+    select r2_key, url from song_club_tracks where id = ${id}
+  `;
+  return row ? { r2Key: row.r2_key, url: row.url } : null;
+}
+
 export async function getTrack(id: number): Promise<ClubTrack | null> {
   const rows = await sql<TrackRow[]>`${TRACK_SELECT} where t.id = ${id}`;
   return rows[0] ? mapTrack(rows[0]) : null;
@@ -235,10 +633,16 @@ export async function createTrack(input: {
   actor: ClubActor;
   title: string;
   notes?: string | null;
-  url: string;
+  // Private-bucket uploads set r2Key and no url; url remains for anything
+  // legacy-shaped. At least one must be present.
+  url?: string | null;
+  r2Key?: string | null;
   contentType?: string | null;
   sizeBytes?: number | null;
   playlistId?: number | null;
+  // Which song-a-day day this upload files under (YYYY-MM-DD; routes validate
+  // against the event's range). Only meaningful with a playlistId.
+  day?: string | null;
   peaks?: number[] | null;
   durationSeconds?: number | null;
 }): Promise<ClubTrack | null> {
@@ -252,11 +656,13 @@ export async function createTrack(input: {
       ? (sql.json(input.peaks.map((n) => (Number.isFinite(n) ? Math.max(0, Math.min(1, n)) : 0)) as unknown as Parameters<typeof sql.json>[0]))
       : null;
 
+  if (!input.url && !input.r2Key) return null;
+
   const [row] = await sql<Array<{ id: number }>>`
     insert into song_club_tracks
-      (member_id, from_admin, title, notes, url, content_type, size_bytes, peaks, duration_seconds)
+      (member_id, from_admin, title, notes, url, r2_key, content_type, size_bytes, peaks, duration_seconds)
     values (${fromAdmin ? null : (input.actor as { memberId: number }).memberId}, ${fromAdmin},
-            ${title}, ${notes}, ${input.url},
+            ${title}, ${notes}, ${input.url ?? null}, ${input.r2Key ?? null},
             ${input.contentType ?? null}, ${input.sizeBytes ?? null}, ${peaks},
             ${typeof input.durationSeconds === 'number' && input.durationSeconds > 0 ? input.durationSeconds : null})
     returning id
@@ -266,9 +672,9 @@ export async function createTrack(input: {
   if (input.playlistId) {
     // Appends to the round; a bogus playlistId just leaves the track standalone.
     await sql`
-      insert into song_club_playlist_tracks (playlist_id, track_id, position)
+      insert into song_club_playlist_tracks (playlist_id, track_id, position, day)
       select ${input.playlistId}, ${trackId},
-             coalesce(max(position), 0) + 1
+             coalesce(max(position), 0) + 1, ${input.day ?? null}
       from song_club_playlist_tracks where playlist_id = ${input.playlistId}
       on conflict do nothing
     `.catch(() => {});
@@ -337,6 +743,7 @@ export async function trackComments(trackId: number): Promise<ClubTrackComment[]
     where c.track_id = ${trackId}
     order by c.created_at asc, c.id asc
   `;
+  const reactions = await reactionsForComments(rows.map((r) => Number(r.id)));
   return rows.map((r) => ({
     id: Number(r.id),
     trackId: Number(r.track_id),
@@ -347,6 +754,7 @@ export async function trackComments(trackId: number): Promise<ClubTrackComment[]
     body: r.body,
     timestampSeconds: r.timestamp_seconds === null ? null : Number(r.timestamp_seconds),
     createdAt: r.created_at,
+    reactions: reactions.get(Number(r.id)) ?? [],
   }));
 }
 
@@ -376,6 +784,7 @@ export async function playlistComments(
     where pt.playlist_id = ${playlistId}
     order by c.created_at asc, c.id asc
   `;
+  const reactions = await reactionsForComments(rows.map((r) => Number(r.id)));
   const byTrack: Record<number, ClubTrackComment[]> = {};
   for (const r of rows) {
     const comment: ClubTrackComment = {
@@ -388,10 +797,42 @@ export async function playlistComments(
       body: r.body,
       timestampSeconds: r.timestamp_seconds === null ? null : Number(r.timestamp_seconds),
       createdAt: r.created_at,
+      reactions: reactions.get(Number(r.id)) ?? [],
     };
     (byTrack[comment.trackId] ??= []).push(comment);
   }
   return byTrack;
+}
+
+// Slack-style toggle on a track comment: add the emoji if this person hasn't
+// used it there, remove it if they have. Returns the comment's track id (for
+// the thread refresh), or null if the comment is gone / the emoji isn't ours.
+export async function toggleCommentReaction(
+  commentId: number,
+  by: ClubActor,
+  emoji: string
+): Promise<number | null> {
+  if (!isClubReactionEmoji(emoji)) return null;
+  const [comment] = await sql<Array<{ track_id: number }>>`
+    select track_id from song_club_track_comments where id = ${commentId}
+  `;
+  if (!comment) return null;
+  const removed =
+    'admin' in by
+      ? await sql`
+          delete from song_club_comment_reactions
+          where comment_id = ${commentId} and member_id is null and emoji = ${emoji}`
+      : await sql`
+          delete from song_club_comment_reactions
+          where comment_id = ${commentId} and member_id = ${by.memberId} and emoji = ${emoji}`;
+  if (removed.count === 0) {
+    await sql`
+      insert into song_club_comment_reactions (comment_id, member_id, from_admin, emoji)
+      values (${commentId}, ${'admin' in by ? null : by.memberId}, ${'admin' in by}, ${emoji})
+      on conflict do nothing
+    `;
+  }
+  return Number(comment.track_id);
 }
 
 export async function createComment(input: {

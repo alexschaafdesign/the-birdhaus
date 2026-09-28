@@ -166,6 +166,17 @@ export function normalizeAdvanceVars(input: unknown): SavedAdvanceVars {
 // can share it without a circular import).
 export const normalizeExtraEmails = normalizeEmailList;
 
+// The saved Portal schedule rows for a show (show_advances.vars.schedule), or []
+// if no advance draft exists yet. Lets the TV board's "prefill from Portal
+// schedule" reuse the actual times entered on the portal instead of a template.
+export async function getSavedScheduleRows(showId: number): Promise<ScheduleRow[]> {
+  const [row] = await sql<Array<{ vars: unknown }>>`
+    select vars from show_advances where show_id = ${showId}
+  `;
+  if (!row) return [];
+  return normalizeAdvanceVars(row.vars).schedule;
+}
+
 export interface AdvanceRecipient {
   bandId: number;
   name: string;

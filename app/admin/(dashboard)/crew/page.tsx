@@ -13,7 +13,7 @@ export default async function AdminCrewPage() {
   const crew = await listCrew();
 
   return (
-    <main className="mx-auto w-full max-w-4xl px-6 py-8 text-[#E8E0D0]">
+    <main className="mx-auto w-full max-w-6xl px-6 py-8 text-[#E8E0D0]">
       <div className="mb-6">
         <h2 className="text-xl font-medium">Crew</h2>
         <p className="mt-1 text-sm text-[#E8E0D0]/55">

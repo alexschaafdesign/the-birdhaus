@@ -166,7 +166,7 @@ export default function SoundEngineerForm({
         </div>
 
         <div>
-          <label className="block text-xs uppercase tracking-wide text-[#E8E0D0]/40 mb-1">Payment handle</label>
+          <label className="block text-xs uppercase tracking-wide text-[#E8E0D0]/40 mb-1">Payout handle (Venmo)</label>
           <input
             value={paymentMethod}
             onChange={(e) => setPaymentMethod(e.target.value)}

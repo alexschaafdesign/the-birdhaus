@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
+import { revalidateTag } from 'next/cache';
 import { sql } from '@/lib/db';
 import { getProgramOrBlank, isTvMode, type ScheduleWindow, type BoardRow } from '@/lib/tv-program';
+import { TV_FEED_TAG } from '@/lib/tv-feed';
 import { requireAdmin } from '@/lib/admin-session';
 
 // Global TV program (070_tv_program.sql). Auth is enforced centrally in
@@ -30,7 +32,8 @@ function cleanBoardRows(value: unknown): BoardRow[] | null {
     const time = typeof (r as BoardRow).time === 'string' ? (r as BoardRow).time.trim() : '';
     const label = typeof (r as BoardRow).label === 'string' ? (r as BoardRow).label.trim() : '';
     if (!time && !label) continue; // drop fully-empty rows
-    out.push({ time, label });
+    const secondary = (r as BoardRow).secondary === true;
+    out.push(secondary ? { time, label, secondary } : { time, label });
   }
   return out;
 }
@@ -120,5 +123,7 @@ export async function PATCH(request: Request) {
   // created lazily on first edit — then apply the update.
   await sql`insert into tv_program (show_id, default_mode) values (${showId}, 'screensaver') on conflict do nothing`;
   await sql`update tv_program set ${setClause}, updated_at = now() where show_id is not distinct from ${showId}`;
+  // { expire: 0 } = expire now, so the next /api/tv poll re-reads the DB.
+  revalidateTag(TV_FEED_TAG, { expire: 0 });
   return NextResponse.json({ ok: true });
 }

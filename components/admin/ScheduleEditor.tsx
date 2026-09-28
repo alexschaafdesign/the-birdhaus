@@ -53,11 +53,12 @@ function pad2(n: number): string {
   return n < 10 ? `0${n}` : `${n}`;
 }
 
-// Format structured fields back to the stored string. On-the-hour times drop
-// ":00" ("8" not "8:00"), matching how these usually read; "pm" is appended.
+// Format structured fields back to the stored string. Minutes are always kept
+// (on-the-hour reads "8:00" not "8", since the picker made you choose them);
+// "pm" is appended.
 function formatTime(t: ParsedTime): string {
   if (t.startH === null) return '';
-  const part = (h: number, m: number) => (m ? `${h}:${pad2(m)}` : `${h}`);
+  const part = (h: number, m: number) => `${h}:${pad2(m)}`;
   let s = part(t.startH, t.startM);
   if (t.endH !== null) s += `–${part(t.endH, t.endM)}`;
   return `${s}pm`;
@@ -162,14 +163,25 @@ function TimeField({ value, onChange }: { value: string; onChange: (t: string) =
 }
 
 // Default schedule template, derived so it reproduces the standard Birdhaus
-// timing exactly for a 3-band show and scales for any lineup size:
+// timing exactly for a 3-band show and scales for any lineup size. bandNames
+// arrive in bill order (headliner first, opener last), matching the Details tab:
 //   4:00pm  sound engineer arrives / load-in
-//   4:30pm  soundchecks, 1 hr apart, in REVERSE set order (headliner first)
+//   4:30pm  soundchecks, 1 hr apart, in bill order (headliner soundchecks first)
 //   +30min  doors, after the last soundcheck
-//   +1hr    first set after doors; 35-min sets with 15-min changeovers
+//   +1hr    sets in play order (opener first, headliner last); 35-min sets with
+//           15-min changeovers
 //   +45min  house clear, after the last set
 // All PM. Uses formatTime so the strings round-trip through the time picker.
-function buildScheduleTemplate(bandNames: string[]): ScheduleRow[] {
+//
+// opts.soundchecks=false drops the load-in + soundcheck rows (the TV board wants
+// just doors/sets/house clear). Doors/set/house-clear TIMES are unchanged either
+// way, so a show's board and advance sheet stay consistent. opts.secondaryBookends
+// marks Doors + House clear as muted "secondary" board notes.
+function buildScheduleTemplate(
+  bandNames: string[],
+  opts: { soundchecks?: boolean; secondaryBookends?: boolean } = {}
+): ScheduleRow[] {
+  const { soundchecks = true, secondaryBookends = false } = opts;
   const clean = bandNames.map((n) => n.trim()).filter(Boolean);
   const n = clean.length;
 
@@ -189,42 +201,78 @@ function buildScheduleTemplate(bandNames: string[]): ScheduleRow[] {
   };
 
   const rows: ScheduleRow[] = [];
-  rows.push({ time: at(16 * 60), label: 'Sound engineer arrives — bands can start loading in' });
 
-  // Soundchecks in reverse set order (headliner first), 1 hr apart from 4:30pm.
+  // Soundcheck window still anchors the doors time even when it isn't shown, so
+  // the TV board and advance sheet agree on when doors/sets/house clear land.
   const scStart = 16 * 60 + 30;
-  [...clean].reverse().forEach((name, i) => {
-    rows.push({ time: at(scStart + i * 60), label: `${name} soundcheck` });
-  });
+  if (soundchecks) {
+    rows.push({ time: at(16 * 60), label: 'Sound engineer arrives — bands can start loading in' });
+    // Soundchecks in bill order (headliner first), 1 hr apart from 4:30pm.
+    clean.forEach((name, i) => {
+      rows.push({ time: at(scStart + i * 60), label: `${name} soundcheck` });
+    });
+  }
 
   const doors = scStart + Math.max(n - 1, 0) * 60 + 30; // 30 min after last soundcheck
-  rows.push({ time: at(doors), label: 'Doors' });
+  rows.push({ time: at(doors), label: 'Doors', ...(secondaryBookends && { secondary: true }) });
 
-  // Sets in set order from doors + 1 hr: 35-min sets, 15-min changeovers.
+  // Sets in play order (opener first, headliner last) from doors + 1 hr:
+  // 35-min sets, 15-min changeovers.
   const setStart = doors + 60;
   const setStep = 50; // 35-min set + 15-min changeover
-  clean.forEach((name, i) => {
+  [...clean].reverse().forEach((name, i) => {
     const s = setStart + i * setStep;
     rows.push({ time: range(s, s + 35), label: name });
   });
 
   const lastSetEnd = setStart + Math.max(n - 1, 0) * setStep + 35;
-  rows.push({ time: at(lastSetEnd + 45), label: 'House clear' });
+  rows.push({ time: at(lastSetEnd + 45), label: 'House clear', ...(secondaryBookends && { secondary: true }) });
 
   return rows;
 }
 
+// Distills the Portal schedule down to the TV board: drop the load-in and
+// soundcheck rows (the tube only wants what an attendee cares about), keep the
+// band sets as primary rows, and mark Doors / House clear as muted "secondary"
+// bookends — matching how buildScheduleTemplate lays the board out, but using
+// the real times the admin entered on the portal rather than a template.
+function isSoundcheckRow(label: string): boolean {
+  return /soundcheck|sound\s*check|load[-\s]?in|sound engineer/i.test(label);
+}
+function isBookendRow(label: string): boolean {
+  return /\bdoors\b|house\s*(clear|close)/i.test(label);
+}
+function buildBoardFromSchedule(schedule: ScheduleRow[]): ScheduleRow[] {
+  return schedule
+    .filter((r) => (r.time.trim() || r.label.trim()) && !isSoundcheckRow(r.label))
+    .map((r) => ({
+      time: r.time,
+      label: r.label,
+      ...(isBookendRow(r.label) && { secondary: true }),
+    }));
+}
+
 // Structured schedule: an ordered list of {time, label} rows. "Prefill from
 // lineup" scaffolds the standard show timing (see buildScheduleTemplate) —
-// load-in, soundchecks, doors, sets, and house clear, with times filled in.
+// load-in, soundchecks, doors, sets, and house clear, with times filled in. On
+// the TV board, when a Portal schedule exists, prefill instead pulls those real
+// times (see buildBoardFromSchedule); it falls back to the template otherwise.
 export default function ScheduleEditor({
   rows,
   bandNames,
+  portalSchedule = [],
   onChange,
+  tvBoard = false,
 }: {
   rows: ScheduleRow[];
   bandNames: string[];
+  // The show's saved Portal schedule, used by the TV board's prefill. Empty on
+  // the portal editor itself and on the global (no-show) TV program.
+  portalSchedule?: ScheduleRow[];
   onChange: (rows: ScheduleRow[]) => void;
+  // TV-board context: show the per-row "secondary" toggle and prefill just
+  // doors/sets/house clear (no load-in or soundchecks), with muted bookends.
+  tvBoard?: boolean;
 }) {
   function update(i: number, patch: Partial<ScheduleRow>) {
     onChange(rows.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
@@ -242,10 +290,23 @@ export default function ScheduleEditor({
     [next[i], next[j]] = [next[j], next[i]];
     onChange(next);
   }
+  // On the TV board, prefer the real Portal schedule when the admin has entered
+  // one; the lineup template is the fallback (and the only source off the board).
+  const boardFromPortal = tvBoard ? buildBoardFromSchedule(portalSchedule) : [];
+  const usePortal = boardFromPortal.length > 0;
+
   function prefill() {
     const hasContent = rows.some((r) => r.time.trim() || r.label.trim());
-    if (hasContent && !confirm('Replace the current schedule with a lineup template?')) return;
-    onChange(buildScheduleTemplate(bandNames));
+    const source = usePortal ? 'Portal schedule' : 'lineup template';
+    if (hasContent && !confirm(`Replace the current schedule with the ${source}?`)) return;
+    onChange(
+      usePortal
+        ? boardFromPortal
+        : buildScheduleTemplate(
+            bandNames,
+            tvBoard ? { soundchecks: false, secondaryBookends: true } : {}
+          )
+    );
   }
 
   return (
@@ -263,6 +324,20 @@ export default function ScheduleEditor({
                 className={`${inputClass} flex-1 min-w-[8rem]`}
                 aria-label="Description"
               />
+              {tvBoard && (
+                <label
+                  className="flex items-center gap-1 text-xs text-[#E8E0D0]/50 shrink-0 cursor-pointer select-none"
+                  title="Show this row smaller and muted on the tube (doors, house clear, notes)"
+                >
+                  <input
+                    type="checkbox"
+                    checked={!!row.secondary}
+                    onChange={(e) => update(i, { secondary: e.target.checked })}
+                    className="accent-[#E8E0D0]"
+                  />
+                  secondary
+                </label>
+              )}
               <div className="flex items-center shrink-0 text-[#E8E0D0]/40">
                 <button
                   type="button"
@@ -303,13 +378,13 @@ export default function ScheduleEditor({
         >
           + Add row
         </button>
-        {bandNames.length > 0 && (
+        {(bandNames.length > 0 || usePortal) && (
           <button
             type="button"
             onClick={prefill}
             className="text-xs text-[#E8E0D0]/45 hover:text-[#E8E0D0] underline"
           >
-            Prefill from lineup
+            {usePortal ? 'Prefill from Portal schedule' : 'Prefill from lineup'}
           </button>
         )}
       </div>

@@ -2,7 +2,7 @@ import { sql } from './db';
 import { uploadFileToR2, ADVANCE_ATTACHMENTS_FOLDER } from './r2';
 import { notifyAdvanceActivity } from './advance-email';
 import { getAdvanceWatchers } from './advance-watchers';
-import { htmlToText } from './reply-text';
+import { htmlToText, splitReplyQuote } from './reply-text';
 
 // One message as the public portal shows it. Deliberately PII-free: no
 // from_email / to_emails (the raw thread carries band + engineer addresses that
@@ -70,7 +70,12 @@ export async function getPortalThread(showId: number): Promise<PortalMessage[]> 
   `;
   return rows
     .map((r) => {
-      const body = (r.body_text?.trim() || (r.body_html ? htmlToText(r.body_html) : '')).trim();
+      const raw = (r.body_text?.trim() || (r.body_html ? htmlToText(r.body_html) : '')).trim();
+      // Emailed band replies carry the re-quoted advance below the new message
+      // ("On <date> … wrote:", ">" lines, Outlook headers). Peel it off so the
+      // portal shows just what they wrote — same treatment as the Inputs tab.
+      // Only inbound: outbound Birdhaus posts are composed in-app and clean.
+      const body = r.direction === 'inbound' ? splitReplyQuote(raw).body.trim() : raw;
       return {
         id: Number(r.id),
         direction: r.direction,

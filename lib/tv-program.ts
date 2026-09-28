@@ -20,6 +20,8 @@ export interface ScheduleWindow {
 export interface BoardRow {
   time: string;
   label: string;
+  // Render as a muted "secondary" note on the tube (doors, house clear, etc.).
+  secondary?: boolean;
 }
 
 export interface TvProgram {
@@ -68,7 +70,8 @@ function parseBoardRows(value: unknown): BoardRow[] {
     if (r && typeof r === 'object') {
       const time = typeof (r as BoardRow).time === 'string' ? (r as BoardRow).time : '';
       const label = typeof (r as BoardRow).label === 'string' ? (r as BoardRow).label : '';
-      if (time || label) out.push({ time, label });
+      const secondary = (r as BoardRow).secondary === true;
+      if (time || label) out.push(secondary ? { time, label, secondary } : { time, label });
     }
   }
   return out;
@@ -127,6 +130,31 @@ export async function getProgramOrBlank(showId: number | null): Promise<TvProgra
   return (await getProgram(showId)) ?? blankProgram();
 }
 
+// The venue day, rolling at midnight America/Chicago (matches /api/tv's date).
+export function getVenueToday(): string {
+  return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Chicago' });
+}
+
+// What the tube is actually serving right now: tonight's show program if a show
+// dated today has one, else the global program. The global admin uses this so
+// its override controls act on what's LIVE — a show program outranks global on
+// its date, so a "global" force would otherwise never reach the tube.
+export interface LiveTubeTarget {
+  showId: number | null;
+  title: string | null;
+  program: TvProgram;
+}
+export async function getLiveTubeTarget(): Promise<LiveTubeTarget> {
+  const today = getVenueToday();
+  const [showRow] = await sql<Array<{ id: number; title: string | null }>>`
+    select id, title from shows where date = ${today} order by id asc limit 1
+  `;
+  const showId = showRow ? Number(showRow.id) : null;
+  const showProgram = showId !== null ? await getProgram(showId) : null;
+  if (showProgram) return { showId, title: showRow?.title ?? null, program: showProgram };
+  return { showId: null, title: null, program: await getGlobalProgram() };
+}
+
 // Active cards for a scope, in display order (for the feed).
 export async function getActiveCards(
   showId: number | null
@@ -160,9 +188,9 @@ export async function getAllCards(showId: number | null): Promise<TvCard[]> {
   }));
 }
 
-// Minutes since 04:00 (the venue day rolls at 4am, so evening and after-midnight
-// times sort onto one line), for a 24h "HH:MM". null if unparseable.
-const DAY_START_MIN = 4 * 60;
+// Minutes since midnight (the venue day rolls at midnight) for a 24h "HH:MM".
+// null if unparseable.
+const DAY_START_MIN = 0;
 function slotOf(hhmm: string): number | null {
   const m = /^(\d{1,2}):(\d{2})$/.exec(hhmm.trim());
   if (!m) return null;
@@ -189,7 +217,7 @@ export function resolveMode(program: TvProgram, nowSlot: number): TvMode {
   return mode;
 }
 
-// Current venue-local slot (minutes since 04:00) from a real instant.
+// Current venue-local slot (minutes since midnight) from a real instant.
 export function venueNowSlot(now: Date): number {
   const parts = new Intl.DateTimeFormat('en-US', {
     timeZone: 'America/Chicago',

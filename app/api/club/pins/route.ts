@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server';
-import { getClubMember } from '@/lib/club-members';
+import { getClubPortalMember } from '@/lib/club-members';
 import { isAdminSession } from '@/lib/admin-session';
 import { createPin, getPins, type ClubPinKind } from '@/lib/club-board';
 import { isValidHttpUrl } from '@/lib/club-embed';
-import { uploadFileToR2, SONG_CLUB_FILES_FOLDER } from '@/lib/r2';
+import { SONG_CLUB_FILES_FOLDER } from '@/lib/r2';
+import { uploadFileToPrivateR2 } from '@/lib/r2-private';
 import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
 
 // Vercel route handlers cap request bodies around 4.5 MB, so that's the file
@@ -14,7 +15,7 @@ const MAX_FILE_BYTES = 4 * 1024 * 1024;
 //  - multipart/form-data with `file` + `title`  -> re-hosted in R2, kind 'file'
 //  - JSON { kind: 'embed' | 'link', title, url } -> stored as-is
 export async function POST(request: Request) {
-  const member = await getClubMember();
+  const member = await getClubPortalMember();
   const author = member ? member.id : (await isAdminSession()) ? ('admin' as const) : null;
   if (author === null) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -45,7 +46,9 @@ export async function POST(request: Request) {
     const rawTitle = form?.get('title');
     const title = (typeof rawTitle === 'string' ? rawTitle.trim() : '') || file.name;
 
-    const url = await uploadFileToR2(
+    // Straight to the PRIVATE bucket — file pins are members-only, and the
+    // pin's download link goes through the session-gated /api/club/file route.
+    const r2Key = await uploadFileToPrivateR2(
       SONG_CLUB_FILES_FOLDER,
       Buffer.from(await file.arrayBuffer()),
       file.type || 'application/octet-stream',
@@ -55,7 +58,7 @@ export async function POST(request: Request) {
       author,
       kind: 'file',
       title,
-      url,
+      r2Key,
       contentType: file.type || null,
       sizeBytes: file.size,
       featured: form?.get('featured') === 'true',

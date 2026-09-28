@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import BandNameInput, { type BandMatch, type TwinSceneBandOption } from './BandNameInput';
 import AddBandModal from './AddBandModal';
-import SoundEngineerNameInput, { type SoundEngineerMatch } from './SoundEngineerNameInput';
 import PhotographerNameInput, { type PhotographerMatch } from './PhotographerNameInput';
 import ImageUploadField from './ImageUploadField';
 import ShowDateAvailability from './ShowDateAvailability';
@@ -126,22 +125,9 @@ interface PhotoEntry {
 }
 
 // Sound-engineer statuses from the API, kept in sync with lib/sound-engineers.ts.
+// The engineer roster/status is edited on the Crew tab now; this type is retained
+// only for the initialValues shape the page still passes.
 type SoundEngineerStatus = 'confirmed' | 'asked' | 'declined';
-
-const ENGINEER_STATUS_OPTIONS: { value: SoundEngineerStatus; label: string }[] = [
-  { value: 'asked', label: 'Asked' },
-  { value: 'confirmed', label: 'Confirmed' },
-  { value: 'declined', label: 'Declined' },
-];
-
-// One row in the unified sound-engineer list: an engineer (picked from the
-// registry or freshly typed) plus where they stand — asked / confirmed /
-// declined. At most one row may be 'confirmed' per show (enforced on save).
-interface EngineerEntry {
-  soundEngineerId: number | null;
-  name: string;
-  status: SoundEngineerStatus;
-}
 
 export interface ShowFormInitialValues {
   id?: number;
@@ -191,7 +177,6 @@ interface FormState {
   flyer: string;
   bands: Band[];
   description: string;
-  doorPersonName: string;
   ticketUrl: string;
   externalTicketUrl: string;
   // Online ticket cap as a string ('' = no cap) so the input can be cleared.
@@ -202,10 +187,6 @@ interface FormState {
   // Gallery photos with their per-photo photographer credit (id only; name is
   // cached separately for display). Uploading is the only way to add.
   photos: PhotoEntry[];
-  // Registry photographer booked to shoot this show (shows.photographer_id) —
-  // drives the crew photographer's Queue. Also seeds activePhotographer below so
-  // uploaded photos default to being credited to them.
-  assignedPhotographer: { id: number | null; name: string };
   // The photographer newly uploaded photos are credited to, and the target for
   // click-to-recredit. Not persisted on its own — it just drives new entries.
   activePhotographer: { id: number | null; name: string };
@@ -217,12 +198,44 @@ interface FormState {
   announced: boolean;
   targetBandCount: number;
   advanceSent: boolean;
-  // Every engineer touched for this show, each with a status. ids are null until
-  // a freshly-typed name resolves to a registry row on save.
-  engineers: EngineerEntry[];
 }
 
 function initFormState(initial?: ShowFormInitialValues): FormState {
+  const bands = (initial?.bands ?? []).map((b) =>
+    typeof b === 'string'
+      ? { bandId: null, name: b, instagram: '', bio: '', photo: '' }
+      : {
+          bandId: b.bandId ?? null,
+          name: b.name,
+          instagram: b.instagram ?? '',
+          bio: b.bio ?? '',
+          photo: b.photo ?? '',
+        }
+  );
+
+  const existingVideos: Video[] = (initial?.videos ?? []).map((v) => ({
+    youtube: v.youtube,
+    title: v.title,
+    // Reverse-map each stored bandId back to a position in the bands list
+    // above so the pickers pre-select correctly. Bands no longer in this
+    // show's lineup are dropped.
+    bandIndexes: (v.bandIds ?? [])
+      .map((id) =>
+        (initial?.bands ?? []).findIndex((b) => typeof b !== 'string' && b.bandId === Number(id))
+      )
+      .filter((idx) => idx >= 0),
+  }));
+
+  // For a past show that has no videos yet, seed one empty video row per band
+  // (pre-tagged to that band) so filling in the recap is a matter of pasting
+  // links, not adding rows one at a time. Blank rows are dropped on save, and
+  // "+ add video" still works for shows that need more.
+  const isPast = /^\d{4}-\d{2}-\d{2}$/.test(initial?.date ?? '') && (initial?.date ?? '') < todayISODate();
+  const videos: Video[] =
+    isPast && existingVideos.length === 0 && bands.length > 0
+      ? bands.map((_, i) => ({ youtube: '', title: '', bandIndexes: [i] }))
+      : existingVideos;
+
   return {
     slug: initial?.slug ?? '',
     slugTouched: Boolean(initial?.slug),
@@ -231,19 +244,8 @@ function initFormState(initial?: ShowFormInitialValues): FormState {
     doorsTime: initial?.doorsTime ?? '',
     showTime: initial?.showTime ?? '',
     flyer: initial?.flyer ?? '',
-    bands: (initial?.bands ?? []).map((b) =>
-      typeof b === 'string'
-        ? { bandId: null, name: b, instagram: '', bio: '', photo: '' }
-        : {
-            bandId: b.bandId ?? null,
-            name: b.name,
-            instagram: b.instagram ?? '',
-            bio: b.bio ?? '',
-            photo: b.photo ?? '',
-          }
-    ),
+    bands,
     description: initial?.description ?? '',
-    doorPersonName: initial?.doorPersonName ?? '',
     ticketUrl: initial?.ticketUrl ?? '',
     externalTicketUrl: initial?.externalTicketUrl ?? '',
     ticketLimit:
@@ -251,29 +253,15 @@ function initFormState(initial?: ShowFormInitialValues): FormState {
         ? ''
         : String(initial.ticketLimit),
     rsvpForm: initial?.rsvpForm ?? true,
-    videos: (initial?.videos ?? []).map((v) => ({
-      youtube: v.youtube,
-      title: v.title,
-      // Reverse-map each stored bandId back to a position in the bands list
-      // above so the pickers pre-select correctly. Bands no longer in this
-      // show's lineup are dropped.
-      bandIndexes: (v.bandIds ?? [])
-        .map((id) =>
-          (initial?.bands ?? []).findIndex((b) => typeof b !== 'string' && b.bandId === Number(id))
-        )
-        .filter((idx) => idx >= 0),
-    })),
+    videos,
     audio: initial?.audio ?? [],
     photos: (initial?.photos ?? []).map((p) =>
       typeof p === 'string'
         ? { url: p, photographerId: null }
         : { url: p.url, photographerId: p.photographerId ?? null }
     ),
-    assignedPhotographer: {
-      id: initial?.assignedPhotographerId ?? null,
-      name: initial?.assignedPhotographerName ?? '',
-    },
-    // Uploads default to crediting the assigned photographer.
+    // Uploads default to crediting the show's assigned photographer (set on the
+    // Crew tab); the photographer booking itself lives there now.
     activePhotographer: {
       id: initial?.assignedPhotographerId ?? null,
       name: initial?.assignedPhotographerName ?? '',
@@ -295,11 +283,6 @@ function initFormState(initial?: ShowFormInitialValues): FormState {
     announced: initial?.announced ?? false,
     targetBandCount: initial?.targetBandCount ?? 3,
     advanceSent: initial?.advanceSent ?? false,
-    engineers: (initial?.soundEngineers ?? []).map((e) => ({
-      soundEngineerId: e.soundEngineerId ?? null,
-      name: e.name,
-      status: e.status,
-    })),
   };
 }
 
@@ -318,17 +301,22 @@ export default function ShowForm({
   const router = useRouter();
   const [form, setForm] = useState<FormState>(() => initFormState(initialValues));
   const [submitting, setSubmitting] = useState(false);
+  const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // The Details form is split into two focused views over one shared form/save:
+  // "Show & lineup" (identity, bands, engineers) and "Public page & tickets"
+  // (tickets, media, page content). Past shows default to the public view since
+  // the gallery is the main post-show task.
+  const [view, setView] = useState<'show' | 'public'>(() => {
+    const d = initialValues?.date;
+    return d && /^\d{4}-\d{2}-\d{2}$/.test(d) && d < todayISODate() ? 'public' : 'show';
+  });
   const [photosUploading, setPhotosUploading] = useState(false);
   const [photosUploadProgress, setPhotosUploadProgress] = useState<{ done: number; total: number } | null>(
     null
   );
   const photosFileInputRef = useRef<HTMLInputElement>(null);
   const [twinSceneBands, setTwinSceneBands] = useState<TwinSceneBandOption[]>([]);
-  // Full door-person roster for the door-person dropdown below, loaded once on
-  // mount. Best-effort: on a failed fetch the dropdown just shows whatever name
-  // is already saved (preserved as its own option) plus "Unassigned".
-  const [doorPersons, setDoorPersons] = useState<string[]>([]);
   // Which band row (index) opened the full band modal, and the name to prefill
   // it with. `editBandId` set → edit that existing band's Twin Scene profile;
   // absent → create a new band. null when the modal is closed.
@@ -361,25 +349,6 @@ export default function ShowForm({
       })
       .catch(() => {
         // degrade to local-only typeahead
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  // Load the door-person roster once for the dropdown. The query-less GET
-  // returns the full list ordered by name.
-  useEffect(() => {
-    let cancelled = false;
-    fetch('/api/admin/door-persons')
-      .then((res) => (res.ok ? res.json() : []))
-      .then((data) => {
-        if (!cancelled && Array.isArray(data)) {
-          setDoorPersons(data.map((d: { name: string }) => d.name));
-        }
-      })
-      .catch(() => {
-        // degrade to just the saved value + "Unassigned"
       });
     return () => {
       cancelled = true;
@@ -479,47 +448,6 @@ export default function ShowForm({
     setForm((prev) => ({ ...prev, audio: prev.audio.filter((_, i) => i !== index) }));
   }
 
-  // Retyping an engineer's name severs the link to a registry row — it either
-  // re-matches on save or becomes a new engineer.
-  function updateEngineerName(index: number, value: string) {
-    setForm((prev) => {
-      const engineers = [...prev.engineers];
-      engineers[index] = { ...engineers[index], name: value, soundEngineerId: null };
-      return { ...prev, engineers };
-    });
-  }
-  function selectEngineer(index: number, match: SoundEngineerMatch) {
-    setForm((prev) => {
-      const engineers = [...prev.engineers];
-      engineers[index] = { ...engineers[index], name: match.name, soundEngineerId: match.id };
-      return { ...prev, engineers };
-    });
-  }
-  function setEngineerStatus(index: number, status: SoundEngineerStatus) {
-    setForm((prev) => {
-      // Only one engineer can be confirmed per show, so promoting one demotes
-      // any previously-confirmed row back to 'asked'.
-      const engineers = prev.engineers.map((e, i) => {
-        if (i === index) return { ...e, status };
-        if (status === 'confirmed' && e.status === 'confirmed') return { ...e, status: 'asked' as const };
-        return e;
-      });
-      return { ...prev, engineers };
-    });
-  }
-  function addEngineer() {
-    setForm((prev) => ({
-      ...prev,
-      engineers: [...prev.engineers, { soundEngineerId: null, name: '', status: 'asked' }],
-    }));
-  }
-  function removeEngineer(index: number) {
-    setForm((prev) => ({
-      ...prev,
-      engineers: prev.engineers.filter((_, i) => i !== index),
-    }));
-  }
-
   // Uploads one or more files and appends them to the gallery, each credited to
   // the currently-selected photographer (form.activePhotographer). Uploads
   // sequentially (not Promise.all) so photosUploadProgress advances one at a
@@ -575,10 +503,12 @@ export default function ShowForm({
 
     if (!form.title.trim()) {
       setError('Title is required');
+      setView('show');
       return;
     }
     if (!/^\d{4}-\d{2}-\d{2}$/.test(form.date)) {
       setError('Date is required');
+      setView('show');
       return;
     }
 
@@ -600,29 +530,6 @@ export default function ShowForm({
       ...(b.bandId ? { bandId: b.bandId } : {}),
     }));
 
-    // Flatten the unified engineer list, dropping blank rows and deduping by
-    // name (case-insensitively) so the server's uniqueness check passes. Guard
-    // against more than one confirmed row slipping through — the UI enforces a
-    // single confirmed, but demote any extras to 'asked' just in case.
-    const soundEngineers: Array<{
-      soundEngineerId: number | null;
-      name: string;
-      status: SoundEngineerStatus;
-    }> = [];
-    const seenEngineerNames = new Set<string>();
-    let hasConfirmed = false;
-    for (const engineer of form.engineers) {
-      const name = engineer.name.trim();
-      if (!name || seenEngineerNames.has(name.toLowerCase())) continue;
-      seenEngineerNames.add(name.toLowerCase());
-      let status = engineer.status;
-      if (status === 'confirmed') {
-        if (hasConfirmed) status = 'asked';
-        else hasConfirmed = true;
-      }
-      soundEngineers.push({ soundEngineerId: engineer.soundEngineerId, name, status });
-    }
-
     const payload = {
       title: form.title.trim(),
       slug: slugify(form.slug) || undefined,
@@ -642,16 +549,15 @@ export default function ShowForm({
       // sent: on create it defaults to null, and on edit an omitted key leaves
       // any existing legacy credit untouched (the public page prefers per-photo
       // credits over it anyway).
-      // Sent even when blank (empty string, not undefined) so clearing it on
-      // edit actually persists — both show routes normalize blank to null.
-      doorPersonName: form.doorPersonName.trim(),
       ticketUrl: form.ticketUrl.trim(),
       externalTicketUrl: form.externalTicketUrl.trim(),
       // '' clears the cap (null = unlimited); otherwise the parsed integer.
       ticketLimit: form.ticketLimit.trim() === '' ? null : Number(form.ticketLimit.trim()),
       rsvpForm: form.rsvpForm,
       videos: form.videos
-        .filter((v) => v.youtube.trim() && v.title.trim())
+        // Title is optional — keep any row that has a YouTube URL so a
+        // blank title no longer silently drops the video on save.
+        .filter((v) => v.youtube.trim())
         .map((v) => {
           // Remap each selected band from its original lineup position to where
           // it lands in the filtered (non-empty) bands array the server resolves.
@@ -668,14 +574,12 @@ export default function ShowForm({
       photos: form.photos
         .map((p) => ({ url: p.url.trim(), photographerId: p.photographerId }))
         .filter((p) => p.url),
-      assignedPhotographerId: form.assignedPhotographer.id,
       photoFolder: form.photoFolder.trim(),
       photoCredit: form.photoCredit.trim(),
       content: form.content,
       announced: form.announced,
       targetBandCount: form.targetBandCount,
       advanceSent: form.advanceSent,
-      soundEngineers,
     };
 
     setSubmitting(true);
@@ -689,8 +593,17 @@ export default function ShowForm({
       });
       const body = await res.json().catch(() => null);
       if (!res.ok) throw new Error(body?.error || 'Failed to save show');
-      router.push('/admin/shows');
-      router.refresh();
+      // Editing inside the per-show workspace: stay put and refresh so the tab
+      // badges and other tabs pick up the change — no more bouncing to the shows
+      // list mid-edit. Creating a show (or the standalone form) still navigates.
+      if (mode === 'edit' && embedded) {
+        router.refresh();
+        setSaved(true);
+        setTimeout(() => setSaved(false), 2500);
+      } else {
+        router.push('/admin/shows');
+        router.refresh();
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save show');
     } finally {
@@ -816,36 +729,6 @@ export default function ShowForm({
         </div>
 
         <div className="pt-4 border-t border-[#E8E0D0]/10 space-y-3">
-          <div>
-            <label className="block text-xs uppercase tracking-wide text-[#E8E0D0]/40 mb-1">
-              Assigned photographer
-            </label>
-            <PhotographerNameInput
-              value={form.assignedPhotographer.name}
-              onChange={(value) =>
-                setForm((prev) => ({ ...prev, assignedPhotographer: { id: null, name: value } }))
-              }
-              onSelect={(match: PhotographerMatch) =>
-                setForm((prev) => ({
-                  ...prev,
-                  assignedPhotographer: { id: match.id, name: match.name },
-                  photographerNames: { ...prev.photographerNames, [match.id]: match.name },
-                  // If no per-photo credit has been chosen yet, default uploads
-                  // to the assigned photographer.
-                  activePhotographer:
-                    prev.activePhotographer.id == null
-                      ? { id: match.id, name: match.name }
-                      : prev.activePhotographer,
-                }))
-              }
-              placeholder="Who's shooting this show?"
-              className={`${inputClass} w-full sm:max-w-sm`}
-            />
-            <p className="mt-1 text-xs text-[#E8E0D0]/40 max-w-prose">
-              Books a photographer to shoot this show. It shows up in their crew Queue, and past
-              shows with no photos yet get a “needs photos” flag on their end.
-            </p>
-          </div>
           <div>
             <label className="block text-xs uppercase tracking-wide text-[#E8E0D0]/40 mb-1">
               Photographer for these photos
@@ -1003,27 +886,39 @@ export default function ShowForm({
         </div>
       )}
 
+      <div className="inline-flex rounded-lg border border-[#E8E0D0]/25 p-0.5 text-sm">
+        {([
+          ['show', 'Show & lineup'],
+          ['public', 'Public page & tickets'],
+        ] as const).map(([value, label]) => (
+          <button
+            key={value}
+            type="button"
+            onClick={() => setView(value)}
+            className={`rounded-md px-3 py-1.5 transition-colors ${
+              view === value
+                ? 'bg-[#E8E0D0] text-[#2A2420] font-medium'
+                : 'text-[#E8E0D0]/60 hover:text-[#E8E0D0]'
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {view === 'show' && (
+      <>
       <Section
         title="Show details"
         action={
-          <div className="flex items-center gap-4">
-            <label className="flex items-center gap-1.5 text-xs text-[#E8E0D0]/70 whitespace-nowrap">
-              <input
-                type="checkbox"
-                checked={form.announced}
-                onChange={(e) => set('announced', e.target.checked)}
-              />
-              Announced
-            </label>
-            <label className="flex items-center gap-1.5 text-xs text-[#E8E0D0]/70 whitespace-nowrap">
-              <input
-                type="checkbox"
-                checked={form.advanceSent}
-                onChange={(e) => set('advanceSent', e.target.checked)}
-              />
-              Advanced via email
-            </label>
-          </div>
+          <label className="flex items-center gap-1.5 text-xs text-[#E8E0D0]/70 whitespace-nowrap">
+            <input
+              type="checkbox"
+              checked={form.announced}
+              onChange={(e) => set('announced', e.target.checked)}
+            />
+            Announced
+          </label>
         }
       >
       <div className="grid gap-3 sm:grid-cols-2">
@@ -1096,10 +991,6 @@ export default function ShowForm({
         </div>
       </div>
       </Section>
-
-      {/* For past shows the gallery is the priority, so surface it right here,
-          expanded. Upcoming shows render it lower down, collapsed. */}
-      {isPastShow && videosPhotosSection(true)}
 
       {!isPastShow && <ShowDateAvailability date={form.date} />}
 
@@ -1185,111 +1076,37 @@ export default function ShowForm({
           ))}
           {form.bands.length === 0 && <p className="text-xs text-[#E8E0D0]/30">No bands added yet.</p>}
         </div>
-      </Section>
-
-      <Section
-        title="Sound engineers"
-        collapsible
-        action={
-          <button
-            type="button"
-            onClick={addEngineer}
-            className="text-xs border border-[#E8E0D0]/30 rounded px-2 py-1 hover:bg-[#E8E0D0]/10"
-          >
-            + add engineer
-          </button>
-        }
-      >
-        <div className="space-y-2">
-          {form.engineers.map((engineer, index) => (
-            <div key={index} className="grid gap-2 sm:grid-cols-[1fr_auto_auto] items-start">
-              <div>
-                <SoundEngineerNameInput
-                  placeholder="Choose or type an engineer…"
-                  value={engineer.name}
-                  onChange={(value) => updateEngineerName(index, value)}
-                  onSelect={(match) => selectEngineer(index, match)}
-                  className={`${inputClass} w-full`}
-                />
-                {engineer.soundEngineerId && (
-                  <p className="mt-1 flex items-center gap-1.5 text-xs text-green-400/70">
-                    <span>Linked to existing engineer</span>
-                    <Link
-                      href={`/admin/sound-engineers/${engineer.soundEngineerId}`}
-                      target="_blank"
-                      className="text-[#E8E0D0]/60 underline decoration-dotted underline-offset-2 hover:text-[#E8E0D0]"
-                    >
-                      view profile ↗
-                    </Link>
-                  </p>
-                )}
-              </div>
-              <select
-                value={engineer.status}
-                onChange={(e) => setEngineerStatus(index, e.target.value as SoundEngineerStatus)}
-                className={`${inputClass} sm:w-32`}
-              >
-                {ENGINEER_STATUS_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value} className="text-[#2A2420]">
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
-              <button
-                type="button"
-                onClick={() => removeEngineer(index)}
-                className="text-red-400/70 hover:text-red-400 text-sm px-2 py-1.5"
-              >
-                Remove
-              </button>
-            </div>
-          ))}
-          {form.engineers.length === 0 && (
-            <p className="text-xs text-[#E8E0D0]/30">
-              Add each engineer you&apos;ve reached out to and set their status — mark one
-              &ldquo;Confirmed&rdquo; once they&apos;re locked in.
-            </p>
-          )}
-        </div>
-      </Section>
-
-      <Section title="Door person" collapsible>
-        <div>
-          <label className="block text-xs uppercase tracking-wide text-[#E8E0D0]/40 mb-1">Door person name</label>
-          {(() => {
-            // Match the saved name to the roster case-insensitively so the
-            // dropdown highlights the registry's casing; keep an unmatched
-            // saved value (e.g. one typed before the roster existed) as its own
-            // option so it's never silently dropped on save.
-            const name = form.doorPersonName;
-            const matched = doorPersons.find(
-              (n) => n.trim().toLowerCase() === name.trim().toLowerCase()
-            );
-            return (
-              <select
-                value={matched ?? name}
-                onChange={(e) => set('doorPersonName', e.target.value)}
-                className={`${inputClass} w-full sm:max-w-sm`}
-              >
-                <option value="" className="text-[#2A2420]">Unassigned</option>
-                {name && !matched && (
-                  <option value={name} className="text-[#2A2420]">{name}</option>
-                )}
-                {doorPersons.map((n) => (
-                  <option key={n} value={n} className="text-[#2A2420]">
-                    {n}
-                  </option>
-                ))}
-              </select>
-            );
-          })()}
-          <p className="mt-1 text-xs text-[#E8E0D0]/30">
-            Who&apos;s working the door. Pre-fills the door-person payee on this show&apos;s{' '}
-            settlement — manage the roster under Crew → Door People.
+        {mode === 'edit' && initialValues?.id && (
+          <p className="mt-3 text-xs text-[#E8E0D0]/40">
+            Band emails &amp; payout handles are on the{' '}
+            <Link
+              href={`/admin/shows/${initialValues.id}/crew`}
+              className="underline decoration-dotted underline-offset-2 hover:text-[#E8E0D0]"
+            >
+              Crew tab
+            </Link>
+            .
           </p>
-        </div>
+        )}
       </Section>
 
+      {mode === 'edit' && initialValues?.id && (
+        <p className="text-xs text-[#E8E0D0]/40">
+          Sound engineers, band contacts, the door person, and the photographer live on the{' '}
+          <Link
+            href={`/admin/shows/${initialValues.id}/crew`}
+            className="underline decoration-dotted underline-offset-2 hover:text-[#E8E0D0]"
+          >
+            Crew tab
+          </Link>
+          .
+        </p>
+      )}
+      </>
+      )}
+
+      {view === 'public' && (
+      <>
       <Section title="Tickets & visibility" collapsible>
         <div className="grid gap-3 sm:grid-cols-2">
         <div>
@@ -1401,7 +1218,7 @@ export default function ShowForm({
         </Section>
       )}
 
-      {!isPastShow && videosPhotosSection(false)}
+      {videosPhotosSection(isPastShow)}
 
       <Section
         title="Audio"
@@ -1478,6 +1295,8 @@ export default function ShowForm({
           </div>
         </div>
       </details>
+      </>
+      )}
 
       <div className="flex items-center justify-between pt-2 border-t border-[#E8E0D0]/10">
         {mode === 'edit' ? (
@@ -1487,13 +1306,16 @@ export default function ShowForm({
         ) : (
           <span />
         )}
-        <button
-          type="submit"
-          disabled={submitting}
-          className="bg-[#E8E0D0] text-[#2A2420] border border-[#E8E0D0] rounded px-6 py-2 text-sm font-medium hover:bg-[#E8E0D0]/90 transition-colors disabled:opacity-50"
-        >
-          {submitting ? 'Saving...' : mode === 'create' ? 'Create show' : 'Save changes'}
-        </button>
+        <div className="flex items-center gap-3">
+          {saved && <span className="text-sm text-emerald-300">Saved ✓</span>}
+          <button
+            type="submit"
+            disabled={submitting}
+            className="bg-[#E8E0D0] text-[#2A2420] border border-[#E8E0D0] rounded px-6 py-2 text-sm font-medium hover:bg-[#E8E0D0]/90 transition-colors disabled:opacity-50"
+          >
+            {submitting ? 'Saving...' : mode === 'create' ? 'Create show' : 'Save changes'}
+          </button>
+        </div>
       </div>
     </form>
     </>

@@ -39,7 +39,7 @@ const navItems: NavItem[] = [
   { type: 'link', href: '/contact', label: 'Contact' },
 ];
 
-export default function Header({ isAdmin }: { isAdmin?: boolean }) {
+export default function Header({ isAdmin = false }: { isAdmin?: boolean }) {
   const pathname = usePathname();
   const router = useRouter();
   const [openDropdown, setOpenDropdown] = useState(false);
@@ -117,8 +117,8 @@ export default function Header({ isAdmin }: { isAdmin?: boolean }) {
   const dividerClass = onPhoto ? 'bg-paper/30' : 'bg-ink/20';
 
   const initial = me ? me.firstName.charAt(0).toUpperCase() || '?' : '?';
-  // The admin dashboard has its own nav + logout (AdminNav/LogoutButton), so
-  // skip the header's auth area there to avoid a duplicate account menu.
+  // On /admin the yellow admin split button (below) already carries the account
+  // menu + Log out, so skip the header's club auth area to avoid a duplicate.
   const showAuth = !pathname.startsWith('/admin');
 
   return (

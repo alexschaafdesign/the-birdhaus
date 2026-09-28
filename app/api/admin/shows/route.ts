@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
-import { revalidatePath } from 'next/cache';
+import { revalidatePath, revalidateTag } from 'next/cache';
 import { sql } from '@/lib/db';
+import { TV_FEED_TAG } from '@/lib/tv-feed';
 import {
   ISO_DATE_RE,
   isValidBandsInput,
@@ -148,6 +149,10 @@ export async function POST(request: Request) {
     revalidatePath('/bands/[slug]', 'page');
     revalidatePath('/shows');
     revalidatePath('/bands');
+    // A show dated today is tonight's TV program — drop the feed cache so the
+    // next /api/tv poll re-reads. (Unconditional: a date edited to/from today
+    // matters too; a far-future show just costs one extra poll read.)
+    revalidateTag(TV_FEED_TAG, { expire: 0 });
     return NextResponse.json(row, { status: 201 });
   } catch (error) {
     if (error instanceof Error && 'code' in error && error.code === '23505') {

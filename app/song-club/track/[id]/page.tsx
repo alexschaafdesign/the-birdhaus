@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import { getClubPortalMember } from '@/lib/club-members';
 import { isAdminSession } from '@/lib/admin-session';
 import { getTrack, trackComments } from '@/lib/club-music';
@@ -20,7 +20,8 @@ export default async function ClubTrackPage({
 }) {
   const member = await getClubPortalMember();
   const admin = member ? false : await isAdminSession();
-  // Guests may view a track read-only; commenting prompts login (in TrackCard).
+  // Members-only: logged-out visitors land on the public /song-club landing.
+  if (!member && !admin) redirect('/song-club');
 
   const id = Number((await params).id);
   if (!Number.isInteger(id)) notFound();

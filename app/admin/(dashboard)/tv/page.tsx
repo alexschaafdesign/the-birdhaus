@@ -1,4 +1,4 @@
-import { getGlobalProgram, getAllCards } from '@/lib/tv-program';
+import { getGlobalProgram, getAllCards, getLiveTubeTarget } from '@/lib/tv-program';
 import { getAllTvImages } from '@/lib/tv-images';
 import TvProgramControl from '@/components/admin/TvProgramControl';
 import TvCardsList from '@/components/admin/TvCardsList';
@@ -8,10 +8,11 @@ import TvPreview from '@/components/admin/TvPreview';
 export const dynamic = 'force-dynamic';
 
 export default async function AdminTvPage() {
-  const [program, cards, images] = await Promise.all([
+  const [program, cards, images, liveTube] = await Promise.all([
     getGlobalProgram(),
     getAllCards(null),
     getAllTvImages(),
+    getLiveTubeTarget(),
   ]);
 
   return (
@@ -25,7 +26,7 @@ export default async function AdminTvPage() {
         </p>
       </div>
 
-      <TvProgramControl initialProgram={program} />
+      <TvProgramControl initialProgram={program} liveTube={liveTube} />
 
       <div className="border-t border-[#E8E0D0]/15 pt-8">
         <TvPreview />

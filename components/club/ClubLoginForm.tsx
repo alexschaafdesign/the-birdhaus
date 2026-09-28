@@ -12,7 +12,8 @@ const labelClass = 'mb-1 block text-xs font-medium uppercase tracking-wide text-
 export default function ClubLoginForm({ next }: { next?: string }) {
   const router = useRouter();
   const dest =
-    next && (next.startsWith('/song-club/') || next.startsWith('/yellow-ostrich'))
+    next &&
+    (next.startsWith('/song-club/') || next.startsWith('/yellow-ostrich') || next.startsWith('/w/'))
       ? next
       : '/song-club';
   const [email, setEmail] = useState('');
@@ -48,8 +49,15 @@ export default function ClubLoginForm({ next }: { next?: string }) {
         // An explicit portal `next` wins; otherwise follow the server's dest
         // (which sends crew/staff logins to /admin).
         const target = dest !== '/song-club' ? dest : (data?.dest ?? dest);
-        router.push(target);
-        router.refresh();
+        // The server may hand back an absolute portal URL (once the portal lives
+        // on its own subdomain); router.push only handles same-origin paths, so
+        // send cross-origin destinations through a full navigation.
+        if (/^https?:\/\//i.test(target)) {
+          window.location.assign(target);
+        } else {
+          router.push(target);
+          router.refresh();
+        }
         return; // keep the button disabled through the redirect
       }
     } catch (err) {

@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { getClubActor, getMemberById } from '@/lib/club-members';
 import { createComment, getTrackCommentNotifyTarget, trackComments } from '@/lib/club-music';
 import { sendTrackCommentEmail } from '@/lib/club-email';
-import { SITE_URL } from '@/lib/site';
+import { PORTAL_URL } from '@/lib/site';
 
 // Comment on a track. Returns the refreshed thread for that track, and
 // best-effort emails the uploader (if they want comment notifications and
@@ -53,7 +53,7 @@ async function notifyUploader(
       uploaderName: target.name,
       commenterName,
       trackTitle: target.title,
-      trackUrl: `${SITE_URL}/song-club/track/${trackId}`,
+      trackUrl: `${PORTAL_URL}/song-club/track/${trackId}`,
       comment,
     });
   } catch (e) {

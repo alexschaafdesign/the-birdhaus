@@ -10,10 +10,14 @@ import { BAND_SONG_STATUSES, type BandSongStatus } from './band-constants';
 
 export interface BandSong {
   id: number;
+  workspaceId: number;
   title: string;
   status: BandSongStatus;
   tags: string[];
   notes: string | null;
+  // Current lyrics (latest revision body) — on the list so master-list
+  // search can match a lyric line. Null when the song has none yet.
+  lyrics: string | null;
   pinned: boolean;
   createdBy: number | null;
   creatorName: string | null;
@@ -23,12 +27,19 @@ export interface BandSong {
   commentCount: number;
   latestVersionLabel: string | null;
   latestVersionAt: string | null;
+  // The latest version's id + playable URL, so the list views can offer inline
+  // play without loading every version. Null when the song has no audio yet.
+  latestVersionId: number | null;
+  latestVersionUrl: string | null;
 }
 
 export interface BandSongVersion {
   id: number;
   songId: number;
   label: string;
+  // "Lyrics as recorded" — the lyrics revision current when this version was
+  // uploaded (auto-set at registration, re-pinnable).
+  lyricsRevisionId: number | null;
   url: string;
   sizeBytes: number | null;
   peaks: number[] | null;
@@ -56,10 +67,11 @@ const MAX_NOTES_LENGTH = 5000;
 const MAX_COMMENT_LENGTH = 5000;
 const MAX_TAGS = 20;
 
-// Deletes and edits of other people's uploads/comments: staff and the admin
-// session moderate; everyone else only touches their own.
+// Deletes and edits of other people's uploads/comments: staff, the admin
+// session, and the workspace's owner moderate; everyone else only touches
+// their own. (The owner flag is set per-workspace by lib/workspaces.)
 function canModerate(by: BandActor): boolean {
-  return 'admin' in by || by.staff;
+  return 'admin' in by || by.staff || by.owner === true;
 }
 
 function actorMemberId(by: BandActor): number | null {
@@ -88,10 +100,12 @@ export function sanitizeTags(input: unknown): string[] {
 
 interface SongRow {
   id: number;
+  workspace_id: number;
   title: string;
   status: BandSongStatus;
   tags: string[];
   notes: string | null;
+  lyrics: string | null;
   pinned: boolean;
   created_by: number | null;
   creator_name: string | null;
@@ -101,32 +115,45 @@ interface SongRow {
   comment_count: number;
   latest_version_label: string | null;
   latest_version_at: string | null;
+  latest_version_id: number | null;
+  latest_version_r2_key: string | null;
+  latest_version_url: string | null;
 }
 
 const SONG_SELECT = sql`
-  select s.id, s.title, s.status, s.tags, s.notes, s.pinned,
+  select s.id, s.workspace_id, s.title, s.status, s.tags, s.notes, s.pinned,
          s.created_by, u.name as creator_name,
          s.created_at::text as created_at, s.updated_at::text as updated_at,
          (select count(*)::int from band_song_versions v where v.song_id = s.id)
            as version_count,
          (select count(*)::int from band_song_comments c where c.song_id = s.id)
            as comment_count,
-         lv.label as latest_version_label, lv.created_at as latest_version_at
+         lv.label as latest_version_label, lv.created_at as latest_version_at,
+         lv.id as latest_version_id, lv.r2_key as latest_version_r2_key,
+         lv.url as latest_version_url,
+         ly.body as lyrics
   from band_songs s
   left join users u on u.id = s.created_by
   left join lateral (
-    select v.label, v.created_at::text as created_at from band_song_versions v
+    select v.id, v.label, v.r2_key, v.url, v.created_at::text as created_at
+    from band_song_versions v
     where v.song_id = s.id order by v.created_at desc, v.id desc limit 1
   ) lv on true
+  left join lateral (
+    select r.body from band_song_lyrics_revisions r
+    where r.song_id = s.id order by r.id desc limit 1
+  ) ly on true
 `;
 
 function mapSong(r: SongRow): BandSong {
   return {
     id: Number(r.id),
+    workspaceId: Number(r.workspace_id),
     title: r.title,
     status: r.status,
     tags: Array.isArray(r.tags) ? r.tags : [],
     notes: r.notes,
+    lyrics: r.lyrics?.trim() ? r.lyrics : null,
     pinned: r.pinned,
     createdBy: r.created_by === null ? null : Number(r.created_by),
     creatorName: r.creator_name,
@@ -136,14 +163,24 @@ function mapSong(r: SongRow): BandSong {
     commentCount: Number(r.comment_count),
     latestVersionLabel: r.latest_version_label,
     latestVersionAt: r.latest_version_at,
+    latestVersionId: r.latest_version_id == null ? null : Number(r.latest_version_id),
+    // Same rule as mapVersion: migrated versions play through the gated route,
+    // legacy ones through their public url. No pointer at all → not playable.
+    latestVersionUrl:
+      r.latest_version_id == null
+        ? null
+        : r.latest_version_r2_key
+          ? `/api/ostrich/audio/${Number(r.latest_version_id)}`
+          : r.latest_version_url ?? null,
   };
 }
 
 // --- songs ---
 
-export async function listSongs(): Promise<BandSong[]> {
+export async function listSongs(workspaceId: number): Promise<BandSong[]> {
   const rows = await sql<SongRow[]>`
-    ${SONG_SELECT} order by s.pinned desc, s.updated_at desc, s.id desc
+    ${SONG_SELECT} where s.workspace_id = ${workspaceId}
+    order by s.pinned desc, s.updated_at desc, s.id desc
   `;
   return rows.map(mapSong);
 }
@@ -153,16 +190,19 @@ export async function getSong(id: number): Promise<BandSong | null> {
   return r ? mapSong(r) : null;
 }
 
-// Every tag in use, for the filter chips and the tag-input autocomplete.
-export async function distinctTags(): Promise<string[]> {
+// Every tag in use in this workspace, for the filter chips and autocomplete.
+export async function distinctTags(workspaceId: number): Promise<string[]> {
   const rows = await sql<Array<{ tag: string }>>`
-    select distinct t.tag from band_songs, unnest(tags) as t(tag) order by t.tag asc
+    select distinct t.tag from band_songs, unnest(tags) as t(tag)
+    where workspace_id = ${workspaceId}
+    order by t.tag asc
   `;
   return rows.map((r) => r.tag);
 }
 
 export async function createSong(input: {
   actor: BandActor;
+  workspaceId: number;
   title: string;
   status?: unknown;
   tags?: unknown;
@@ -174,8 +214,9 @@ export async function createSong(input: {
   const tags = sanitizeTags(input.tags);
   const notes = input.notes?.trim().slice(0, MAX_NOTES_LENGTH) || null;
   const [row] = await sql<Array<{ id: number }>>`
-    insert into band_songs (title, status, tags, notes, created_by)
-    values (${title}, ${status}, ${tags}, ${notes}, ${actorMemberId(input.actor)})
+    insert into band_songs (workspace_id, title, status, tags, notes, created_by)
+    values (${input.workspaceId}, ${title}, ${status}, ${tags}, ${notes},
+            ${actorMemberId(input.actor)})
     returning id
   `;
   return getSong(Number(row.id));
@@ -227,7 +268,9 @@ interface VersionRow {
   id: number;
   song_id: number;
   label: string;
-  url: string;
+  lyrics_revision_id: number | null;
+  url: string | null;
+  r2_key: string | null;
   size_bytes: number | null;
   peaks: number[] | null;
   duration_seconds: number | null;
@@ -237,7 +280,7 @@ interface VersionRow {
 }
 
 const VERSION_SELECT = sql`
-  select v.id, v.song_id, v.label, v.url, v.size_bytes, v.peaks,
+  select v.id, v.song_id, v.label, v.lyrics_revision_id, v.url, v.r2_key, v.size_bytes, v.peaks,
          v.duration_seconds, v.uploaded_by, u.name as uploader_name,
          v.created_at::text as created_at
   from band_song_versions v
@@ -249,7 +292,10 @@ function mapVersion(r: VersionRow): BandSongVersion {
     id: Number(r.id),
     songId: Number(r.song_id),
     label: r.label,
-    url: r.url,
+    lyricsRevisionId: r.lyrics_revision_id === null ? null : Number(r.lyrics_revision_id),
+    // Migrated versions play through the session-gated route (302 → presigned
+    // GET on the private bucket); un-migrated ones use the legacy public URL.
+    url: r.r2_key ? `/api/ostrich/audio/${Number(r.id)}` : r.url ?? '',
     sizeBytes: r.size_bytes === null ? null : Number(r.size_bytes),
     peaks: Array.isArray(r.peaks) ? r.peaks : null,
     durationSeconds: r.duration_seconds === null ? null : Number(r.duration_seconds),
@@ -257,6 +303,16 @@ function mapVersion(r: VersionRow): BandSongVersion {
     uploaderName: r.uploader_name ?? (r.uploaded_by === null ? 'the Birdhaus' : 'Former member'),
     createdAt: r.created_at,
   };
+}
+
+// For the gated audio route: just the storage pointers, no joins.
+export async function getVersionAudioRef(
+  id: number
+): Promise<{ r2Key: string | null; url: string | null } | null> {
+  const [row] = await sql<Array<{ r2_key: string | null; url: string | null }>>`
+    select r2_key, url from band_song_versions where id = ${id}
+  `;
+  return row ? { r2Key: row.r2_key, url: row.url } : null;
 }
 
 export async function songVersions(songId: number): Promise<BandSongVersion[]> {
@@ -271,7 +327,10 @@ export async function createVersion(input: {
   actor: BandActor;
   songId: number;
   label: string;
-  url: string;
+  // Private-bucket uploads set r2Key and no url; url remains for anything
+  // legacy-shaped. At least one must be present.
+  url?: string | null;
+  r2Key?: string | null;
   contentType?: string | null;
   sizeBytes?: number | null;
   peaks?: number[] | null;
@@ -289,13 +348,19 @@ export async function createVersion(input: {
       ? (sql.json(input.peaks.map((n) => (Number.isFinite(n) ? Math.max(0, Math.min(1, n)) : 0)) as unknown as Parameters<typeof sql.json>[0]))
       : null;
 
+  if (!input.url && !input.r2Key) return null;
+
   const [row] = await sql<Array<{ id: number }>>`
     insert into band_song_versions
-      (song_id, label, url, content_type, size_bytes, peaks, duration_seconds, uploaded_by)
-    values (${input.songId}, ${label}, ${input.url},
+      (song_id, label, url, r2_key, content_type, size_bytes, peaks, duration_seconds, uploaded_by,
+       lyrics_revision_id)
+    values (${input.songId}, ${label}, ${input.url ?? null}, ${input.r2Key ?? null},
             ${input.contentType ?? null}, ${input.sizeBytes ?? null}, ${peaks},
             ${typeof input.durationSeconds === 'number' && input.durationSeconds > 0 ? input.durationSeconds : null},
-            ${actorMemberId(input.actor)})
+            ${actorMemberId(input.actor)},
+            -- Snapshot: "lyrics as recorded" = the song's current revision.
+            (select id from band_song_lyrics_revisions
+             where song_id = ${input.songId} order by id desc limit 1))
     returning id
   `;
   // A new version counts as activity — float the song in "recently active".

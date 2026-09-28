@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { INPUT_CATALOG, OTHER_INPUT_KEY } from '@/lib/input-catalog';
+import { normalizeScheduleTime } from '@/lib/schedule-time';
 import type { ShowHubData } from '@/lib/show-hub';
 
 type HubBand = ShowHubData['inputsByBand'][number];
@@ -19,6 +20,7 @@ interface EditItem {
   customLabel: string;
   quantity: number;
   note: string;
+  useHouse: boolean;
 }
 
 // Contextual reminders shown under a row when a band picks gear the house
@@ -44,6 +46,7 @@ function toEditItems(band: HubBand): EditItem[] {
     customLabel: it.customLabel ?? '',
     quantity: it.quantity,
     note: it.note ?? '',
+    useHouse: it.useHouse,
   }));
 }
 
@@ -55,7 +58,7 @@ function toEditItems(band: HubBand): EditItem[] {
 function initialEditItems(band: HubBand): EditItem[] {
   const saved = toEditItems(band);
   if (saved.length > 0) return saved;
-  return [{ uid: nextUid(), itemType: 'vocal_mic', customLabel: '', quantity: 1, note: '' }];
+  return [{ uid: nextUid(), itemType: 'vocal_mic', customLabel: '', quantity: 1, note: '', useHouse: false }];
 }
 
 // A band's own stage-plot upload + input-list builder. Remounted (via a key on
@@ -63,13 +66,20 @@ function initialEditItems(band: HubBand): EditItem[] {
 // band's saved data. Writes only its own band via the token-gated /api/hub routes.
 export default function HubSubmission({
   token,
-  band,
+  band: bandProp,
   schedule,
+  disabled = false,
 }: {
   token: string;
-  band: HubBand;
+  // Null when no band is selected yet: the form still renders (so bands see what
+  // they'll need to fill in) but every control is disabled via the fieldset below.
+  band: HubBand | null;
   schedule: ScheduleRows;
+  disabled?: boolean;
 }) {
+  // Placeholder band for the disabled preview so the seed/state helpers have a
+  // shape to read. Its id is never used to write — the fieldset blocks all input.
+  const band: HubBand = bandProp ?? { bandId: -1, name: '', items: [], stagePlotAttachments: [] };
   const [rows, setRows] = useState<EditItem[]>(() => initialEditItems(band));
   const [savedSnapshot, setSavedSnapshot] = useState(() => snapshot(toEditItems(band)));
   const [files, setFiles] = useState<Attachment[]>(band.stagePlotAttachments);
@@ -87,7 +97,7 @@ export default function HubSubmission({
   function addRow() {
     setRows((prev) => [
       ...prev,
-      { uid: nextUid(), itemType: INPUT_CATALOG[0].key, customLabel: '', quantity: 1, note: '' },
+      { uid: nextUid(), itemType: INPUT_CATALOG[0].key, customLabel: '', quantity: 1, note: '', useHouse: false },
     ]);
   }
   function removeRow(uid: string) {
@@ -123,6 +133,7 @@ export default function HubSubmission({
       customLabel: r.itemType === OTHER_INPUT_KEY ? r.customLabel : null,
       quantity: r.quantity,
       note: r.note,
+      useHouse: r.useHouse,
       sortOrder: i,
     }));
     try {
@@ -139,6 +150,7 @@ export default function HubSubmission({
         customLabel: it.customLabel ?? '',
         quantity: it.quantity,
         note: it.note ?? '',
+        useHouse: it.useHouse,
       }));
       setRows(next);
       setSavedSnapshot(snapshot(next));
@@ -151,7 +163,13 @@ export default function HubSubmission({
   }
 
   return (
-    <div className="space-y-6">
+    // A disabled fieldset natively blocks every nested control (inputs, selects,
+    // file upload, buttons) — one switch to lock the whole form until a band is
+    // picked, with a dimmed look to match.
+    <fieldset
+      disabled={disabled}
+      className={`space-y-6 ${disabled ? 'opacity-45 select-none' : ''}`}
+    >
       {error && (
         <div className="border border-red-400/40 bg-red-400/10 text-red-200 text-sm rounded px-4 py-2">
           {error}
@@ -271,7 +289,15 @@ export default function HubSubmission({
                     </button>
                   </div>
                   {houseHint && (
-                    <p className="pl-[4.5rem] text-xs text-[#c8a26a]/90">{houseHint}</p>
+                    <label className="flex items-start gap-2 pl-[4.5rem] text-xs text-[#c8a26a]/90 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={row.useHouse}
+                        onChange={(e) => updateRow(row.uid, { useHouse: e.target.checked })}
+                        className="mt-0.5 accent-[#c8a26a]"
+                      />
+                      <span>{houseHint}</span>
+                    </label>
                   )}
                 </div>
               );
@@ -310,7 +336,7 @@ export default function HubSubmission({
         <h3 className="text-sm font-semibold text-[#E8E0D0]">The schedule</h3>
         <ScheduleTask token={token} bandId={band.bandId} schedule={schedule} />
       </div>
-    </div>
+    </fieldset>
   );
 }
 
@@ -422,12 +448,16 @@ function ScheduleTask({
 
   return (
     <div className="space-y-3">
+      {/* max-content time column so long ranges never wrap — matches the
+          Schedule card in ShowHubView. */}
       {schedule.length > 0 ? (
-        <ul className="rounded-lg bg-[#E8E0D0]/[0.04] p-3 space-y-1">
+        <ul className="grid grid-cols-[max-content_1fr] gap-x-3 gap-y-1 rounded-lg bg-[#E8E0D0]/[0.04] p-3">
           {schedule.map((row, i) => (
-            <li key={i} className="flex gap-3 text-sm">
-              <span className="w-24 shrink-0 font-semibold tabular-nums text-[#E8E0D0]">{row.time}</span>
-              <span className="text-[#E8E0D0]/85">{row.label}</span>
+            <li key={i} className="contents text-sm">
+              <span className="whitespace-nowrap font-semibold tabular-nums text-sm text-[#E8E0D0]">
+                {normalizeScheduleTime(row.time)}
+              </span>
+              <span className="text-sm text-[#E8E0D0]/85">{row.label}</span>
             </li>
           ))}
         </ul>
@@ -488,6 +518,6 @@ function ScheduleTask({
 // Dirty-tracking snapshot — everything but the client-only uid.
 function snapshot(rows: EditItem[]): string {
   return JSON.stringify(
-    rows.map((r) => ({ itemType: r.itemType, customLabel: r.customLabel, quantity: r.quantity, note: r.note }))
+    rows.map((r) => ({ itemType: r.itemType, customLabel: r.customLabel, quantity: r.quantity, note: r.note, useHouse: r.useHouse }))
   );
 }

@@ -491,6 +491,10 @@ export function HubAdminRecipients({ state }: { state: ShowAdvanceState }) {
           <li className="text-[#E8E0D0]/40">No bands on this show yet.</li>
         )}
       </ul>
+      <p className="text-xs text-[#E8E0D0]/40 -mt-1">
+        Email and payout handle save to the band&rsquo;s profile — the same values used on the
+        settlement and every future show.
+      </p>
 
       <div className="space-y-2 border-t border-[#E8E0D0]/10 pt-4">
         <p className="text-xs uppercase tracking-wide text-[#E8E0D0]/60">Sound engineer</p>
@@ -652,7 +656,7 @@ function BandContactRow({
         <input
           value={venmo}
           onChange={(e) => setVenmo(e.target.value)}
-          placeholder="Venmo / payout handle (private)"
+          placeholder="Payout handle (Venmo) — private"
           className={`${inputClass} flex-1 min-w-[12rem]`}
           aria-label={`${name} payout handle`}
         />

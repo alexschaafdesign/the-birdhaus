@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { sql } from '@/lib/db';
 import { getProgramOrBlank, getAllCards } from '@/lib/tv-program';
+import { getSavedScheduleRows } from '@/lib/advance';
 import TvProgramControl from '@/components/admin/TvProgramControl';
 import TvCardsList from '@/components/admin/TvCardsList';
 import TvPreview from '@/components/admin/TvPreview';
@@ -26,9 +27,10 @@ export default async function ShowTvPage({ params }: { params: Promise<{ id: str
   `;
   const bandNames = bandRows.map((r) => r.name);
 
-  const [program, cards] = await Promise.all([
+  const [program, cards, portalSchedule] = await Promise.all([
     getProgramOrBlank(showId),
     getAllCards(showId),
+    getSavedScheduleRows(showId),
   ]);
 
   return (
@@ -45,7 +47,12 @@ export default async function ShowTvPage({ params }: { params: Promise<{ id: str
         settings.
       </p>
 
-      <TvProgramControl initialProgram={program} showId={showId} bandNames={bandNames} />
+      <TvProgramControl
+        initialProgram={program}
+        showId={showId}
+        bandNames={bandNames}
+        portalSchedule={portalSchedule}
+      />
 
       <div className="border-t border-[#E8E0D0]/15 pt-8">
         <TvPreview showId={showId} />

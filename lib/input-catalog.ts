@@ -53,6 +53,12 @@ export function isInputCatalogKey(key: unknown): key is string {
   return typeof key === 'string' && BY_KEY.has(key);
 }
 
+// True for gear the venue commonly provides (has a houseLabel) — the only items
+// that can carry a "will use house amp/kit" flag. 'other' never qualifies.
+export function isHouseEligible(key: string): boolean {
+  return !!BY_KEY.get(key)?.houseLabel;
+}
+
 // Sort index for a key, so totals list in catalog order (unknown keys last).
 export function inputCatalogOrder(key: string): number {
   const i = INPUT_CATALOG.findIndex((c) => c.key === key);

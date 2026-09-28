@@ -1,8 +1,10 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import type { ClubPin } from '@/lib/club-board';
 import { embedSrcFor, isSamplyEmbed, isVideoEmbed } from '@/lib/club-embed';
+import MemberAvatar from './MemberAvatar';
 
 // Pinned files, players, and links at the top of the Song Club portal.
 // Admin-featured pins render as a large player block above everything else;
@@ -74,14 +76,17 @@ export default function ClubPins({
             {pin.title}
           </span>
           <span className="flex shrink-0 items-baseline gap-2">
-            <span className="text-[10px] text-[#E8E0D0]/35">
-              {pin.authorName} · {formatWhen(pin.createdAt)}
+            <span className="flex items-center gap-1 text-[11px] text-[#E8E0D0]/35">
+              <MemberAvatar name={pin.authorName} avatarUrl={pin.avatarUrl} />
+              <span>
+                {pin.authorName} · {formatWhen(pin.createdAt)}
+              </span>
             </span>
             {isAdmin && (
               <button
                 type="button"
                 onClick={() => setFeatured(pin.id, !pin.featured)}
-                className="text-[10px] text-[#c8a26a]/70 transition hover:text-[#c8a26a]"
+                className="text-[11px] text-[#c8a26a]/70 transition hover:text-[#c8a26a]"
               >
                 {pin.featured ? 'unfeature' : 'feature'}
               </button>
@@ -90,7 +95,7 @@ export default function ClubPins({
               <button
                 type="button"
                 onClick={() => remove(pin.id)}
-                className="text-[10px] text-[#E8E0D0]/35 transition hover:text-[#F5A3A3]"
+                className="text-[11px] text-[#E8E0D0]/35 transition hover:text-[#F5A3A3]"
               >
                 remove
               </button>
@@ -164,12 +169,12 @@ export default function ClubPins({
             {adding ? 'Close' : '+ Pin something'}
           </button>
         ) : (
-          <a
+          <Link
             href="/song-club/login"
             className="text-xs text-[#E8E0D0]/45 underline-offset-2 transition hover:text-[#E8E0D0] hover:underline"
           >
             Log in to pin
-          </a>
+          </Link>
         )}
       </div>
 
@@ -292,7 +297,7 @@ function AddPinForm({
             onChange={(e) => setUrl(e.target.value)}
             className={inputBase}
           />
-          <p className="mt-1 text-[11px] text-[#E8E0D0]/40">
+          <p className="mt-1 text-xs text-[#E8E0D0]/40">
             Samply, Bandcamp, SoundCloud, Spotify, YouTube, Vimeo, and Drive
             links show up as players — anything else pins as a link.
           </p>
@@ -305,7 +310,7 @@ function AddPinForm({
             onChange={(e) => setFile(e.target.files?.[0] ?? null)}
             className="block w-full text-sm text-[#E8E0D0]/70 file:mr-3 file:rounded file:border-0 file:bg-[#E8E0D0]/15 file:px-3 file:py-1.5 file:text-sm file:text-[#E8E0D0]"
           />
-          <p className="mt-1 text-[11px] text-[#E8E0D0]/40">
+          <p className="mt-1 text-xs text-[#E8E0D0]/40">
             Up to 4 MB — good for PDFs, lyric sheets, images. For audio, pin a
             Samply or Bandcamp link instead.
           </p>
@@ -368,5 +373,11 @@ function formatBytes(bytes: number): string {
 function formatWhen(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '';
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  // Club home timezone, NOT the runtime's: the server renders in UTC and the
+  // viewer hydrates in their own zone — different text = hydration mismatch.
+  return d.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    timeZone: 'America/Chicago',
+  });
 }

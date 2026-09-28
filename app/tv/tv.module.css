@@ -149,13 +149,14 @@
 }
 
 .eyebrow {
-  font-size: 20px;
-  letter-spacing: 0.28em;
+  font-size: 36px;
+  font-weight: 800;
+  letter-spacing: 0.3em;
   color: var(--cyan);
   display: flex;
   align-items: center;
   gap: 10px;
-  min-height: 24px;
+  min-height: 42px;
 }
 .dot {
   width: 13px;
@@ -257,9 +258,9 @@
 .boardLabel {
   color: var(--ink);
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  /* Let long names (e.g. "Kacie Jewel Hill") wrap to a second line rather than
+     clip with an ellipsis — the fixed 640x480 tube has no room to grow wider. */
+  overflow-wrap: anywhere;
 }
 /* the row whose time has most recently passed — "now" on the run-of-show.
    Color + weight only, so the current row stands out without shifting the
@@ -268,6 +269,22 @@
 .boardRowNow .boardLabel {
   color: var(--cyan);
   font-weight: 700;
+}
+
+/* a "secondary" row (doors, house clear, notes) — opts out of the two-column
+   grid to sit as one smaller, muted, centered line spanning the full width. */
+.boardRowSecondary {
+  display: flex;
+  grid-column: 1 / -1;
+  justify-content: center;
+  align-items: baseline;
+  gap: 0.35em;
+}
+.boardRowSecondary .boardTime,
+.boardRowSecondary .boardLabel {
+  color: var(--ink);
+  font-size: 0.85em;
+  overflow: visible;
 }
 
 /* doors/times line pinned to the slide's bottom edge */

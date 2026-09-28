@@ -87,7 +87,7 @@ const INVITE_TOKEN_TTL_SECONDS = 60 * 60 * 24 * 30; // invites linger a month
 const RESET_TOKEN_TTL_SECONDS = 60 * 60 * 2; // resets are short-lived
 
 const COLUMNS = sql`
-  id, email, name, status, (password_hash is not null) as has_password,
+  id::int as id, email, name, status, (password_hash is not null) as has_password,
   avatar_url, bio, links, notify_track_comments, notify_announcements, notify_events,
   (select coalesce(array_agg(r.role order by r.role), '{}')
      from user_roles r where r.user_id = users.id) as roles,
@@ -340,6 +340,22 @@ export async function getNotificationRecipients(
   `;
 }
 
+// Recipients for a GROUP board email: only that group's assigned members —
+// never the full event roster, never the whole club. Same announcement
+// opt-out applies.
+export async function getGroupNotificationRecipients(
+  groupId: number
+): Promise<Array<{ id: number; email: string; name: string }>> {
+  return sql<Array<{ id: number; email: string; name: string }>>`
+    select u.id, u.email, u.name
+    from song_club_event_attendees a
+    join users u on u.id = a.user_id
+    join user_roles r on r.user_id = u.id and r.role = 'song_club'
+    where a.group_id = ${groupId}
+      and u.status = 'active' and u.notify_announcements = true
+  `;
+}
+
 // --- self-service account settings (/account) ---
 
 export async function updateProfile(
@@ -429,7 +445,12 @@ export async function getClubPortalMember(): Promise<ClubMember | null> {
 export type ClubActor = { memberId: number } | { admin: true };
 
 export async function getClubActor(): Promise<ClubActor | null> {
-  const member = await getClubMember();
+  // Portal-role-gated: a staff-only login (Alex's unified account, which holds
+  // `staff` but not `song_club`) has a valid club session yet isn't a portal
+  // member, so it must resolve to "the Birdhaus" — matching how the /club pages
+  // decide identity (getClubPortalMember, else admin). Using the un-gated
+  // getClubMember here misidentified staff as a bare member post-auth-unification.
+  const member = await getClubPortalMember();
   if (member) return { memberId: member.id };
   return (await isAdminSession()) ? { admin: true } : null;
 }
@@ -443,11 +464,13 @@ export async function getBandMember(): Promise<ClubMember | null> {
     : null;
 }
 
-// Whoever is acting on the band workspace. Unlike ClubActor, staff members
-// keep their memberId (so uploads and comments stay attributed to a person,
-// not "the Birdhaus") and carry a `staff` flag for moderation rights.
-// {admin: true} only means a cookie-only admin session with no member login.
-export type BandActor = { memberId: number; staff: boolean } | { admin: true };
+// Whoever is acting on a songwriting workspace. Unlike ClubActor, staff
+// members keep their memberId (so uploads and comments stay attributed to a
+// person, not "the Birdhaus") and carry a `staff` flag for moderation rights.
+// `owner` is per-workspace moderation (set by lib/workspaces when the actor
+// owns the workspace in question). {admin: true} only means a cookie-only
+// admin session with no member login.
+export type BandActor = { memberId: number; staff: boolean; owner?: boolean } | { admin: true };
 
 export async function getBandActor(): Promise<BandActor | null> {
   const member = await getBandMember();

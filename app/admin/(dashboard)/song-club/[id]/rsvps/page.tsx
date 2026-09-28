@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation';
 import { getEventById } from '@/lib/song-club';
 import { getRsvpsForEvent } from '@/lib/song-club-rsvps';
 import { getEventSignups } from '@/lib/club-events';
+import { listGroups } from '@/lib/club-groups';
 import SongClubRsvpBlast from '@/components/admin/SongClubRsvpBlast';
 import EventSignupsTable from '@/components/admin/EventSignupsTable';
 
@@ -35,9 +36,12 @@ export default async function SongClubRsvpsPage({
   // Online (Song-a-day) events collect sign-ups via the participate flow, not
   // the RSVP form — show that roster instead.
   if (event.format === 'online') {
-    const signups = await getEventSignups(event.id);
+    const [signups, groups] = await Promise.all([
+      getEventSignups(event.id),
+      listGroups(event.id),
+    ]);
     return (
-      <main className="mx-auto w-full max-w-3xl px-6 py-8 text-[#E8E0D0]">
+      <main className="mx-auto w-full max-w-6xl px-6 py-8 text-[#E8E0D0]">
         <Link
           href="/admin/song-club"
           className="text-sm text-[#E8E0D0]/50 transition hover:text-[#E8E0D0]"
@@ -52,7 +56,11 @@ export default async function SongClubRsvpsPage({
           </p>
         </div>
 
-        <EventSignupsTable eventId={event.id} initialSignups={signups} />
+        <EventSignupsTable
+          eventId={event.id}
+          initialSignups={signups}
+          initialGroups={groups}
+        />
       </main>
     );
   }
@@ -60,7 +68,7 @@ export default async function SongClubRsvpsPage({
   const { rsvps, totalCount, totalGuests } = await getRsvpsForEvent(event.id);
 
   return (
-    <main className="mx-auto w-full max-w-3xl px-6 py-8 text-[#E8E0D0]">
+    <main className="mx-auto w-full max-w-6xl px-6 py-8 text-[#E8E0D0]">
       <Link
         href="/admin/song-club"
         className="text-sm text-[#E8E0D0]/50 transition hover:text-[#E8E0D0]"

@@ -35,9 +35,11 @@ export default function RoundLockToggle({
       type="button"
       onClick={toggle}
       disabled={busy}
-      className="rounded-md border border-[#c8a26a]/50 px-3 py-1.5 text-xs font-medium text-[#c8a26a] transition hover:bg-[#c8a26a]/10 disabled:opacity-50"
+      title={locked ? 'Click to open song uploads' : 'Click to close song uploads'}
+      className="inline-flex items-center gap-1.5 rounded-md border border-[#c8a26a]/50 px-3 py-1.5 text-xs font-medium text-[#c8a26a] transition hover:bg-[#c8a26a]/10 disabled:opacity-50"
     >
-      {busy ? '…' : locked ? '🔓 Open uploads' : '🔒 Lock uploads'}
+      <span aria-hidden>{locked ? '🔒' : '🔓'}</span>
+      {busy ? '…' : locked ? 'Song uploads: closed' : 'Song uploads: open'}
     </button>
   );
 }

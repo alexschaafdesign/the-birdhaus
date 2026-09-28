@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
+import { revalidateTag } from 'next/cache';
 import { sql } from '@/lib/db';
 import { getAllCards } from '@/lib/tv-program';
+import { TV_FEED_TAG } from '@/lib/tv-feed';
 import { requireAdmin } from '@/lib/admin-session';
 
 // Announcement cards for 'cards' mode (070_tv_program.sql). Auth is enforced
@@ -39,5 +41,6 @@ export async function POST(request: Request) {
     values (${showId}, ${headline}, ${nullableTrim(body?.subtext)}, ${nullableTrim(body?.image)}, ${next})
     returning id
   `;
+  revalidateTag(TV_FEED_TAG, { expire: 0 }); // next /api/tv poll re-reads the DB
   return NextResponse.json({ id: Number(row.id) }, { status: 201 });
 }

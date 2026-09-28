@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server';
-import { getBandActor } from '@/lib/club-members';
+import { actorForSong } from '@/lib/workspaces';
 import { deleteSong, updateSong } from '@/lib/band-songs';
 
-// Metadata edits are collaborative — any band actor can retitle, retag, or
-// move a song through the pipeline.
+// Metadata edits are collaborative — any workspace member can retitle,
+// retag, or move a song through the pipeline. Missing song and no-access
+// both 404 so ids don't leak across workspaces.
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -12,8 +13,8 @@ export async function PATCH(
   if (!Number.isInteger(id)) {
     return NextResponse.json({ error: 'Invalid id' }, { status: 400 });
   }
-  const actor = await getBandActor();
-  if (!actor) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const scoped = await actorForSong(id);
+  if (!scoped) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
   const body = await request.json().catch(() => null);
   const song = await updateSong(id, {
@@ -28,7 +29,8 @@ export async function PATCH(
   return NextResponse.json({ song });
 }
 
-// Whole-song delete (versions + comments cascade): creator or staff/admin.
+// Whole-song delete (versions + comments cascade): creator or moderator
+// (workspace owner, staff, admin).
 export async function DELETE(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -37,10 +39,10 @@ export async function DELETE(
   if (!Number.isInteger(id)) {
     return NextResponse.json({ error: 'Invalid id' }, { status: 400 });
   }
-  const actor = await getBandActor();
-  if (!actor) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const scoped = await actorForSong(id);
+  if (!scoped) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
-  if (!(await deleteSong(id, actor))) {
+  if (!(await deleteSong(id, scoped.actor))) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 });
   }
   return NextResponse.json({ ok: true });

@@ -29,8 +29,8 @@ const POLL_MS = 60_000; // re-fetch /api/tv
 const DWELL_MS = 8_000; // per-slide hold (rotation)
 const FADE_MS = 600; // matches .deck's opacity transition
 
-// The venue day runs until 04:00, so schedule math is in "minutes since 04:00".
-const DAY_START_MIN = 4 * 60;
+// The venue day rolls at midnight, so schedule math is in "minutes since midnight".
+const DAY_START_MIN = 0;
 const VENUE_TZ = 'America/Chicago';
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -63,6 +63,7 @@ interface TvProgram {
 interface TvBoardRow {
   time: string;
   label: string;
+  secondary?: boolean;
 }
 interface TvBoard {
   title: string | null;
@@ -119,14 +120,14 @@ function formatDate(iso: string | null | undefined): string {
     .toUpperCase();
 }
 
-// Minutes since 04:00 for a real venue instant.
+// Minutes since midnight for a real venue instant.
 function slotOfParts(v: VenueParts): number {
   let mins = v.hh * 60 + v.mm + v.ss / 60;
   if (mins < DAY_START_MIN) mins += 24 * 60;
   return mins - DAY_START_MIN;
 }
 
-// Minutes since 04:00 for a board row's free-text time ("7:30pm", "8–8:30pm",
+// Minutes since midnight for a board row's free-text time ("7:30pm", "8–8:30pm",
 // "8"). PM is assumed, matching the schedule editor. Uses the row's START time.
 function boardStartSlot(time: string): number | null {
   const cleaned = time.toLowerCase().replace(/am|pm/g, '').replace(/\s+/g, '');
@@ -143,19 +144,33 @@ function boardStartSlot(time: string): number | null {
   return mins - DAY_START_MIN;
 }
 
+// Board times are free text ("7pm", "8", "7:30-8:00pm"). Show the full clock
+// value by filling in missing minutes, so a bare hour reads "8:00pm" not "8pm".
+// The meridiem, range separators, and spacing are left exactly as entered — a
+// range like "7:30-8:00pm" is untouched.
+function fullBoardTime(raw: string): string {
+  if (!raw) return raw;
+  return raw.replace(
+    /(\d{1,2})(:\d{2})?(\s*(?:am|pm))?/gi,
+    (_m, h: string, min: string | undefined, mer: string | undefined) =>
+      `${h}${min ?? ':00'}${mer ?? ''}`
+  );
+}
+
 // Index of the "current" board row: the last one whose start time has passed.
 // -1 before anything has started (or no clock).
 function currentBoardIndex(rows: TvBoardRow[], nowSlot: number | null): number {
   if (nowSlot === null) return -1;
   let idx = -1;
   rows.forEach((r, i) => {
+    if (r.secondary) return; // notes (doors/house clear) never take the "now" highlight
     const s = boardStartSlot(r.time);
     if (s !== null && nowSlot >= s) idx = i;
   });
   return idx;
 }
 
-// Minutes since 04:00 for a schedule window's 24h "HH:MM"; null if malformed.
+// Minutes since midnight for a schedule window's 24h "HH:MM"; null if malformed.
 function slotOfHHMM(value: string): number | null {
   const m = /^(\d{1,2}):(\d{2})$/.exec(value.trim());
   if (!m) return null;
@@ -645,9 +660,11 @@ export default function TvScreen() {
           {rows.map((r, i) => (
             <div
               key={i}
-              className={`${styles.boardRow} ${i === nowIdx ? styles.boardRowNow : ''}`}
+              className={`${styles.boardRow} ${r.secondary ? styles.boardRowSecondary : ''} ${
+                i === nowIdx ? styles.boardRowNow : ''
+              }`}
             >
-              <span className={styles.boardTime}>{r.time}</span>
+              <span className={styles.boardTime}>{fullBoardTime(r.time)}</span>
               <span className={styles.boardLabel}>{r.label}</span>
             </div>
           ))}

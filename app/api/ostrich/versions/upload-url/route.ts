@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
-import { getBandActor } from '@/lib/club-members';
-import { createPresignedUploadUrl, BAND_SONGS_FOLDER } from '@/lib/r2';
-import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
+import { actorForAnyWorkspace } from '@/lib/workspaces';
+import { BAND_SONGS_FOLDER } from '@/lib/r2';
+import { createPrivatePresignedUploadUrl, createUploadGrant } from '@/lib/r2-private';
+import { checkRateLimit } from '@/lib/rate-limit';
 
 // Audio only. Some browsers report no MIME type for audio files, so the
 // extension is the fallback source of truth. (Mirrors the Song Club
@@ -24,10 +25,15 @@ const MAX_VERSION_BYTES = 250 * 1024 * 1024; // plenty for a WAV, still a sanity
 // so the audio goes straight to R2. Step 2 (POST /api/ostrich/songs/[id]/versions)
 // registers the uploaded key as a version.
 export async function POST(request: Request) {
-  const actor = await getBandActor();
+  // Any workspace member may presign; the register step re-authorizes
+  // against the target song's own workspace.
+  const actor = await actorForAnyWorkspace();
   if (!actor) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const allowed = await checkRateLimit(`band-upload:${getClientIp(request)}`, 20, 60 * 60);
+  // Keyed per authenticated actor (everyone here is logged in) and sized for
+  // a folder-scale bulk import, not one-at-a-time uploads.
+  const actorKey = 'admin' in actor ? 'admin' : `m${actor.memberId}`;
+  const allowed = await checkRateLimit(`band-upload:${actorKey}`, 150, 60 * 60);
   if (!allowed) {
     return NextResponse.json(
       { error: 'Too many uploads at once — wait a bit.' },
@@ -54,10 +60,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Uploads can be up to 250 MB.' }, { status: 400 });
   }
 
-  const { key, uploadUrl } = await createPresignedUploadUrl(
+  // Private bucket, size signed into the PUT; the grant binds the key to
+  // this actor for the register step. (Mirrors the club track route.)
+  const { key, uploadUrl } = await createPrivatePresignedUploadUrl(
     BAND_SONGS_FOLDER,
     contentType,
+    sizeBytes,
     filename
   );
-  return NextResponse.json({ key, uploadUrl, contentType });
+  const uploadToken = createUploadGrant(key, 'admin' in actor ? 'admin' : actor.memberId);
+  return NextResponse.json({ key, uploadUrl, contentType, uploadToken });
 }

@@ -128,7 +128,7 @@ export default function BandSongComments({
               value={versionId}
               onChange={(e) => setVersionId(e.target.value)}
               aria-label="About which version"
-              className={`${inputBase} w-auto`}
+              className="rounded-md border border-[#E8E0D0]/20 bg-[#E8E0D0]/[0.03] px-3 py-2 text-sm text-[#E8E0D0] transition focus:border-[#E8E0D0]/50 focus:outline-none"
             >
               <option value="">About the song</option>
               {versions.map((v) => (

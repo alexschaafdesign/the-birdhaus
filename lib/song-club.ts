@@ -23,9 +23,26 @@ export interface SongClubEvent {
   published: boolean;
   playlist_id: number | null;
   format: 'in_person' | 'online';
+  days_open_default: DaysOpenDefault;
   notified_at: string | null;
   created_at: string;
   updated_at: string;
+}
+
+// How much of a song-a-day's day list opens by default (migration 084).
+export type DaysOpenDefault = 'current' | 'current_and_previous' | 'all';
+
+export const DAYS_OPEN_VALUES: DaysOpenDefault[] = ['current', 'current_and_previous', 'all'];
+
+export async function setDaysOpenDefault(
+  eventId: number,
+  value: DaysOpenDefault
+): Promise<boolean> {
+  if (!DAYS_OPEN_VALUES.includes(value)) return false;
+  const result = await sql`
+    update song_club_events set days_open_default = ${value} where id = ${eventId}
+  `;
+  return result.count > 0;
 }
 
 // The shape the admin form posts / the API layer accepts. Slug is derived, not
@@ -45,12 +62,13 @@ export interface SongClubEventInput {
   published: boolean;
   playlistId: number | null;
   format: 'in_person' | 'online';
+  daysOpenDefault: DaysOpenDefault;
 }
 
 const COLUMNS = sql`
   id, slug, title, event_date::text as event_date, end_date::text as end_date,
   start_time, end_time, venue_name, address, arrival_notes, description, body,
-  flyer_url, published, playlist_id, format,
+  flyer_url, published, playlist_id, format, days_open_default,
   notified_at::text as notified_at, created_at, updated_at
 `;
 
@@ -72,6 +90,7 @@ export interface SongClubEventBody {
   published?: unknown;
   playlistId?: unknown;
   format?: unknown;
+  daysOpenDefault?: unknown;
 }
 
 function optionalTrim(value: unknown): string | null {
@@ -119,6 +138,9 @@ export function buildEventInput(
         ? body.playlistId
         : null,
     format: body.format === 'online' ? 'online' : 'in_person',
+    daysOpenDefault: DAYS_OPEN_VALUES.includes(body.daysOpenDefault as DaysOpenDefault)
+      ? (body.daysOpenDefault as DaysOpenDefault)
+      : 'current',
   };
 }
 
@@ -185,12 +207,14 @@ export async function createEvent(input: SongClubEventInput): Promise<SongClubEv
   const [row] = await sql<SongClubEvent[]>`
     insert into song_club_events
       (slug, title, event_date, end_date, start_time, end_time, venue_name, address,
-       arrival_notes, description, body, flyer_url, published, playlist_id, format)
+       arrival_notes, description, body, flyer_url, published, playlist_id, format,
+       days_open_default)
     values
       (${slug}, ${input.title}, ${input.eventDate}, ${input.endDate}, ${input.startTime},
        ${input.endTime}, ${input.venueName}, ${input.address},
        ${input.arrivalNotes}, ${input.description}, ${input.body}, ${input.flyerUrl},
-       ${input.published}, ${input.playlistId}, ${input.format})
+       ${input.published}, ${input.playlistId}, ${input.format},
+       ${input.daysOpenDefault})
     returning ${COLUMNS}
   `;
   return row;
@@ -218,6 +242,7 @@ export async function updateEvent(
       published = ${input.published},
       playlist_id = ${input.playlistId},
       format = ${input.format},
+      days_open_default = ${input.daysOpenDefault},
       updated_at = now()
     where id = ${id}
     returning ${COLUMNS}
