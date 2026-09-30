@@ -1,7 +1,7 @@
 /* ─────────────────────────────────────────────────────────────────────
    Birdhaus design tokens — GENERATED FILE, DO NOT EDIT BY HAND.
    Source: DESIGN SYSTEM - BIRDHAUS (Figma published library)
-   Captured: 2026-09-02   ·   Regenerate: `npm run tokens`
+   Captured: 2026-09-30   ·   Regenerate: `npm run tokens`
    Edit values in app/redesign/tokens.figma.json, never here.
    ───────────────────────────────────────────────────────────────────── */
 
@@ -15,12 +15,6 @@
   --color-text-primary: #16150f;
   --color-text-inverse: #f0ede4;
   --color-accent-red: #982726;
-  --color-wash-blue: #4951b721;
-  --color-wash-red: #b42f2c14;
-  --color-wash-green: #48aa5d21;
-  --color-series-fresh-cuts: #e1e42f;
-  --color-chroma-yellow: #ffd900;
-  --color-chroma-magenta: #e3008c;
   --color-bars-1-gray: #bfbfbf;
   --color-bars-2-yellow: #bfbf00;
   --color-bars-3-cyan: #00bfbf;
@@ -28,6 +22,39 @@
   --color-bars-5-magenta: #bf00bf;
   --color-bars-6-red: #bf0000;
   --color-bars-7-blue: #0000bf;
+  --color-surface-ink-raised: #1e1b14;  /* Cards and hover rows on the ink ground. */
+  --color-line-ink: #2e2b22;  /* Row dividers and hairlines on ink. */
+  --color-text-secondary: #c9c3b5;  /* Stone. Body copy on ink. 10.4:1. */
+  --color-text-muted: #a8a294;  /* Ash. Set times, dates, nav on ink. 7.2:1. */
+  --color-text-meta: #9c978a;  /* Dust. Specs, captions, fine print on ink. 6.3:1. */
+  --color-accent-brick: #ca6252;  /* The one red on ink: catalogue IDs and section labels. 4.7:1. accent/red is for print on paper. */
+  --color-tape-phosphor: #c9f4ee;  /* Screens only: OSD text, timestamps, timecode, tape slate. */
+  --color-tape-tally: #d9412f;  /* REC light only. */
+  --color-ball-oxblood: #8c2e28;  /* Disco ball rim. */
+  --color-ball-ash: #a8a294;  /* Disco ball rim. */
+  --color-ball-cream: #eadbb8;  /* Disco ball main highlight. */
+  --color-ball-red: #a8463c;  /* Disco ball second highlight. */
+  --color-ball-teal: #7fd8cf;  /* Disco ball small teal spot — the only cold note on the ball. */
+
+  /* ⚠ DEPRECATED — flagged in Figma, not part of the 2027 palette. Still
+     emitted so existing uses keep resolving; do not use in new work.
+     Remove from Figma first, then `npm run tokens` drops them here. */
+  --color-wash-blue: #4951b721;  /* DEPRECATED (2027 palette): not part of the 2027 palette. Remove once nothing is bound to it. */
+  --color-wash-red: #b42f2c14;  /* DEPRECATED (2027 palette): not part of the 2027 palette. Remove once nothing is bound to it. */
+  --color-wash-green: #48aa5d21;  /* DEPRECATED (2027 palette): not part of the 2027 palette. Remove once nothing is bound to it. */
+  --color-series-fresh-cuts: #e1e42f;  /* DEPRECATED (2027 palette): use series/fc. */
+  --color-chroma-yellow: #ffd900;  /* DEPRECATED (2027 palette): not part of the 2027 palette. Remove once nothing is bound to it. */
+  --color-chroma-magenta: #e3008c;  /* DEPRECATED (2027 palette): not part of the 2027 palette. Remove once nothing is bound to it. */
+}
+
+/* ── Colors — aliases. Semantic names that point at another token (Figma
+   variable alias). Resolved at use site; no value of their own. */
+@theme inline {
+  --color-series-bh: var(--color-bars-1-gray);  /* Live night tick. Everyday, stays neutral. */
+  --color-series-fc: var(--color-bars-2-yellow);  /* Fresh Cuts tick. */
+  --color-series-video: var(--color-bars-3-cyan);  /* BHV and Basement Tapes (BT) tick. */
+  --color-series-tape: var(--color-bars-4-green);  /* BHR tape release tick. */
+  --color-series-song-club: var(--color-bars-5-magenta);  /* Song Club (SC) tick. */
 }
 
 /* ── Type sizes — context-varying. Web is the :root default; the four
@@ -218,6 +245,7 @@
 /* ── Text styles (reference) — composite Figma text styles, all Berkeley
    Mono. Size → the --text-* token named; leading/tracking/weight raw.
    Not emitted as classes yet (tokens-only pass).
+   Captured 2026-09-02 — NOT re-captured on 2026-09-30.
 
    Display/1 — XL 128       w400  --text-display-1  lh 95%  tracking -2px
    Display/2 — L 88         w400  --text-display-2  lh 90%  tracking 0%

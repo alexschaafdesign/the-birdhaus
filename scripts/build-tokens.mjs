@@ -13,7 +13,14 @@
 //                    collection is single-mode (or every value is identical
 //                    across modes), no --bh-* layer and no mode selector are
 //                    emitted — the tokens are plain @theme literals.
-//   @theme inline  — semantics: --color-* / --text-* resolve --bh-* at use site
+//   @theme inline  — semantics: --color-* / --text-* resolve --bh-* at use site,
+//                    and Figma variable ALIASES (e.g. series/fc -> bars/2-yellow)
+//                    resolve the target's --color-* — the alias stays an alias,
+//                    never a copied hex.
+//
+// Figma variable descriptions ride along as trailing comments. A description
+// starting with "DEPRECATED" moves the token into a flagged block at the end of
+// its tier — still emitted (existing bindings keep working), but marked.
 //
 // Axes compose and are independent:
 //   [data-theme=dark]  flips mode-varying COLORS (Light default on :root)
@@ -39,17 +46,38 @@ const sizeSlug = (name) => slug(name.replace(/^size\//, ''));
 
 const allEqual = (vals) => vals.every((v) => v === vals[0]);
 
+// Alias values are captured as { alias: "<figma name>" }. An alias must point
+// at the same target in every mode — a per-mode alias would need the --bh-*
+// layer and hasn't come up, so fail loudly rather than emit something wrong.
+const aliasOf = (v, modes) => {
+  const vals = modes.map((m) => v.values[m]);
+  const isAlias = (x) => x !== null && typeof x === 'object' && 'alias' in x;
+  if (!vals.some(isAlias)) return null;
+  if (!vals.every((x) => isAlias(x) && x.alias === vals[0].alias)) {
+    throw new Error(v.name + ': alias differs across modes (unsupported)');
+  }
+  return vals[0].alias;
+};
+const isDeprecated = (v) => /^DEPRECATED\b/.test(v.description || '');
+const note = (v) => (v.description ? '  /* ' + v.description + ' */' : '');
+
 const out = [];
 const p = (s = '') => out.push(s);
 
 // ---- classify -------------------------------------------------------------
 const colorModes = data.colors.modes;
-const modeInvariantColors = data.colors.variables.filter((v) =>
+const aliasColors = data.colors.variables.filter((v) => aliasOf(v, colorModes));
+const literalColors = data.colors.variables.filter((v) => !aliasColors.includes(v));
+for (const v of aliasColors) {
+  const target = aliasOf(v, colorModes);
+  if (!data.colors.variables.some((t) => t.name === target)) {
+    throw new Error(v.name + ': alias target ' + target + ' is not in the snapshot');
+  }
+}
+const modeInvariantColors = literalColors.filter((v) =>
   allEqual(colorModes.map((m) => v.values[m]))
 );
-const modeVaryingColors = data.colors.variables.filter(
-  (v) => !modeInvariantColors.includes(v)
-);
+const modeVaryingColors = literalColors.filter((v) => !modeInvariantColors.includes(v));
 const colorVaries = modeVaryingColors.length > 0;
 
 const contextInvariantSizes = data.sizes.variables.filter((v) =>
@@ -78,8 +106,17 @@ p(
     ? '  /* Colors — mode-invariant (identical across ' + colorModes.join('/') + '): literals */'
     : '  /* Colors — single-mode collection (' + colorModes.join(', ') + '): all literals */'
 );
-for (const v of modeInvariantColors) {
-  p('  --color-' + slug(v.name) + ': ' + v.values[colorModes[0]] + ';');
+const colorLiteral = (v) => '  --color-' + slug(v.name) + ': ' + v.values[colorModes[0]] + ';';
+for (const v of modeInvariantColors.filter((v) => !isDeprecated(v))) {
+  p(colorLiteral(v) + note(v));
+}
+const deprecatedLiterals = modeInvariantColors.filter(isDeprecated);
+if (deprecatedLiterals.length) {
+  p();
+  p('  /* ⚠ DEPRECATED — flagged in Figma, not part of the 2027 palette. Still');
+  p('     emitted so existing uses keep resolving; do not use in new work.');
+  p('     Remove from Figma first, then `npm run tokens` drops them here. */');
+  for (const v of deprecatedLiterals) p(colorLiteral(v) + note(v));
 }
 if (contextInvariantSizes.length) {
   p();
@@ -139,6 +176,22 @@ if (colorVaries) {
   p();
 }
 
+// ---- color ALIASES: @theme inline over the target's --color-* ---------------
+// Semantic tier. The utility (bg-series-fc) inlines var(--color-bars-2-yellow),
+// so retuning the bar in Figma retunes every alias with it.
+if (aliasColors.length) {
+  p('/* ── Colors — aliases. Semantic names that point at another token (Figma');
+  p('   variable alias). Resolved at use site; no value of their own. */');
+  p('@theme inline {');
+  for (const v of aliasColors) {
+    const line =
+      '  --color-' + slug(v.name) + ': var(--color-' + slug(aliasOf(v, colorModes)) + ');';
+    p(line + (isDeprecated(v) ? '  /* ⚠ ' : '  /* ') + (v.description || '→ ' + aliasOf(v, colorModes)) + ' */');
+  }
+  p('}');
+  p();
+}
+
 // ---- context-varying SIZES: raw --bh-size-* layer + @theme inline ---------
 const sel = data.sizes.modeSelectors;
 const [webMode, ...otherModes] = data.sizes.modes;
@@ -180,6 +233,9 @@ const fmtLen = (l) =>
 p('/* ── Text styles (reference) — composite Figma text styles, all Berkeley');
 p('   Mono. Size → the --text-* token named; leading/tracking/weight raw.');
 p('   Not emitted as classes yet (tokens-only pass).');
+if (data.textStylesCapturedAt && data.textStylesCapturedAt !== data.capturedAt) {
+  p('   Captured ' + data.textStylesCapturedAt + ' — NOT re-captured on ' + data.capturedAt + '.');
+}
 p('');
 for (const t of data.textStyles) {
   const sizeTok = '--text-' + sizeSlug(t.sizeVar);
@@ -198,7 +254,8 @@ p();
 writeFileSync(OUT, out.join('\n'));
 console.log(
   'Wrote ' + OUT + '  (' +
-    modeInvariantColors.length + ' invariant + ' + modeVaryingColors.length + ' mode-varying colors, ' +
+    modeInvariantColors.length + ' invariant + ' + modeVaryingColors.length + ' mode-varying + ' +
+    aliasColors.length + ' alias colors, ' +
     contextInvariantSizes.length + ' invariant + ' + contextVaryingSizes.length + ' context-varying sizes, ' +
     data.textStyles.length + ' text styles)'
 );

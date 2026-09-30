@@ -27,43 +27,85 @@ const CONTEXTS: { id: Ctx; label: string }[] = [
 ];
 
 // Literal class strings so Tailwind's scanner generates each utility. Grouped
-// per the spec: surface, text, accent, wash, series, chroma, then the 7 bars.
-const SOLID_GROUPS: { label: string; swatches: { token: string; bg: string }[] }[] = [
+// by Figma family: surface, line, text, accent, tape, ball, series aliases;
+// then the 7 bars; then the deprecated tokens, last and labelled.
+type Swatch = { token: string; bg: string; alias?: string };
+
+const SOLID_GROUPS: { label: string; swatches: Swatch[] }[] = [
   {
     label: 'surface',
     swatches: [
       { token: 'surface-paper', bg: 'bg-surface-paper' },
       { token: 'surface-ink', bg: 'bg-surface-ink' },
+      { token: 'surface-ink-raised', bg: 'bg-surface-ink-raised' },
     ],
   },
+  { label: 'line', swatches: [{ token: 'line-ink', bg: 'bg-line-ink' }] },
   {
     label: 'text',
     swatches: [
       { token: 'text-primary', bg: 'bg-text-primary' },
       { token: 'text-inverse', bg: 'bg-text-inverse' },
+      { token: 'text-secondary', bg: 'bg-text-secondary' },
+      { token: 'text-muted', bg: 'bg-text-muted' },
+      { token: 'text-meta', bg: 'bg-text-meta' },
     ],
   },
-  { label: 'accent', swatches: [{ token: 'accent-red', bg: 'bg-accent-red' }] },
-  { label: 'series', swatches: [{ token: 'series-fresh-cuts', bg: 'bg-series-fresh-cuts' }] },
   {
-    label: 'chroma',
+    label: 'accent',
     swatches: [
-      { token: 'chroma-yellow', bg: 'bg-chroma-yellow' },
-      { token: 'chroma-magenta', bg: 'bg-chroma-magenta' },
+      { token: 'accent-red', bg: 'bg-accent-red' },
+      { token: 'accent-brick', bg: 'bg-accent-brick' },
+    ],
+  },
+  {
+    label: 'tape',
+    swatches: [
+      { token: 'tape-phosphor', bg: 'bg-tape-phosphor' },
+      { token: 'tape-tally', bg: 'bg-tape-tally' },
+    ],
+  },
+  {
+    label: 'ball',
+    swatches: [
+      { token: 'ball-oxblood', bg: 'bg-ball-oxblood' },
+      { token: 'ball-ash', bg: 'bg-ball-ash' },
+      { token: 'ball-cream', bg: 'bg-ball-cream' },
+      { token: 'ball-red', bg: 'bg-ball-red' },
+      { token: 'ball-teal', bg: 'bg-ball-teal' },
+    ],
+  },
+  // Aliases sit in @theme inline, so --color-series-* is NOT a :root custom
+  // property — the reading checks the alias TARGET's var instead.
+  {
+    label: 'series (aliases of bars)',
+    swatches: [
+      { token: 'series-bh', bg: 'bg-series-bh', alias: 'bars-1-gray' },
+      { token: 'series-fc', bg: 'bg-series-fc', alias: 'bars-2-yellow' },
+      { token: 'series-video', bg: 'bg-series-video', alias: 'bars-3-cyan' },
+      { token: 'series-tape', bg: 'bg-series-tape', alias: 'bars-4-green' },
+      { token: 'series-song-club', bg: 'bg-series-song-club', alias: 'bars-5-magenta' },
     ],
   },
 ];
 
+// Deprecated in Figma (2027 palette) — still emitted so existing uses resolve.
+const DEPRECATED_SOLIDS: Swatch[] = [
+  { token: 'series-fresh-cuts', bg: 'bg-series-fresh-cuts' },
+  { token: 'chroma-yellow', bg: 'bg-chroma-yellow' },
+  { token: 'chroma-magenta', bg: 'bg-chroma-magenta' },
+];
+
 // Washes carry alpha — shown over both surface-ink and surface-paper so the
-// translucency is actually visible.
-const WASHES: { token: string; bg: string }[] = [
+// translucency is actually visible. Also deprecated.
+const WASHES: Swatch[] = [
   { token: 'wash-blue', bg: 'bg-wash-blue' },
   { token: 'wash-red', bg: 'bg-wash-red' },
   { token: 'wash-green', bg: 'bg-wash-green' },
 ];
 
 // Canonical SMPTE order: gray, yellow, cyan, green, magenta, red, blue.
-const BARS: { token: string; bg: string }[] = [
+const BARS: Swatch[] = [
   { token: 'bars-1-gray', bg: 'bg-bars-1-gray' },
   { token: 'bars-2-yellow', bg: 'bg-bars-2-yellow' },
   { token: 'bars-3-cyan', bg: 'bg-bars-3-cyan' },
@@ -74,7 +116,10 @@ const BARS: { token: string; bg: string }[] = [
 ];
 
 const COLOR_TOTAL =
-  SOLID_GROUPS.reduce((n, g) => n + g.swatches.length, 0) + WASHES.length + BARS.length; // 18
+  SOLID_GROUPS.reduce((n, g) => n + g.swatches.length, 0) +
+  BARS.length +
+  DEPRECATED_SOLIDS.length +
+  WASHES.length; // 36
 
 // All 28 --text-* utilities, literal class strings for the scanner.
 const SIZES: { token: string; cls: string }[] = [
@@ -124,10 +169,19 @@ function ReadOut({ reading }: { reading?: Reading }) {
   return <span>{reading.value}</span>;
 }
 
-function ColorMeta({ token, reading }: { token: string; reading?: Reading }) {
+function ColorMeta({
+  token,
+  alias,
+  reading,
+}: {
+  token: string;
+  alias?: string;
+  reading?: Reading;
+}) {
   return (
     <div className="mt-1 text-xs leading-tight">
       <div className="text-surface-ink">{token}</div>
+      {alias && <div className="text-surface-ink/60">→ {alias}</div>}
       <div className="text-surface-ink/60">
         <ReadOut reading={reading} />
       </div>
@@ -153,7 +207,8 @@ export default function TokenSpecimen() {
       if (!token) return;
       const cs = getComputedStyle(el);
       const bg = cs.backgroundColor;
-      const cssVar = cs.getPropertyValue('--color-' + token).trim();
+      const varToken = el.getAttribute('data-color-alias') || token;
+      const cssVar = cs.getPropertyValue('--color-' + varToken).trim();
       next[token] = { value: bg, ok: cssVar !== '' && !TRANSPARENT.has(bg) };
     });
     setColorReadings(next);
@@ -227,32 +282,18 @@ export default function TokenSpecimen() {
                       <div
                         className={`border-surface-ink/20 h-16 border ${s.bg}`}
                         data-color-token={s.token}
+                        data-color-alias={s.alias}
                       />
-                      <ColorMeta token={s.token} reading={colorReadings[s.token]} />
+                      <ColorMeta
+                        token={s.token}
+                        alias={s.alias}
+                        reading={colorReadings[s.token]}
+                      />
                     </div>
                   ))}
                 </div>
               </div>
             ))}
-
-            {/* washes over ink + paper */}
-            <div>
-              <div className="text-data-overline-11 text-surface-ink/50 mb-2 uppercase">
-                wash <span className="normal-case">(over surface-ink · surface-paper)</span>
-              </div>
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                {WASHES.map((w) => (
-                  <div key={w.token}>
-                    <div className="border-surface-ink/20 relative flex h-16 border">
-                      <div className="bg-surface-ink flex-1" />
-                      <div className="bg-surface-paper flex-1" />
-                      <div className={`absolute inset-0 ${w.bg}`} data-color-token={w.token} />
-                    </div>
-                    <ColorMeta token={w.token} reading={colorReadings[w.token]} />
-                  </div>
-                ))}
-              </div>
-            </div>
 
             {/* SMPTE bars — contiguous strip in canonical order */}
             <div>
@@ -271,6 +312,45 @@ export default function TokenSpecimen() {
                     <div className="text-surface-ink/60">
                       <ReadOut reading={colorReadings[b.token]} />
                     </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* deprecated — flagged in Figma (2027 palette), still emitted */}
+            <div className="border-accent-red/40 border-t border-dashed pt-6">
+              <div className="text-data-overline-11 text-accent-red mb-1 uppercase">
+                deprecated{' '}
+                <span className="normal-case">(2027 palette — don&apos;t use in new work)</span>
+              </div>
+              <p className="text-data-spec-12 text-surface-ink/50 mb-4 max-w-prose">
+                Still in tokens.css so existing uses resolve. series-fresh-cuts → use series-fc.
+              </p>
+              <div className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
+                {DEPRECATED_SOLIDS.map((s) => (
+                  <div key={s.token}>
+                    <div
+                      className={`border-surface-ink/20 h-16 border ${s.bg}`}
+                      data-color-token={s.token}
+                    />
+                    <ColorMeta token={s.token} reading={colorReadings[s.token]} />
+                  </div>
+                ))}
+              </div>
+
+              {/* washes over ink + paper */}
+              <div className="text-data-overline-11 text-surface-ink/50 mb-2 uppercase">
+                wash <span className="normal-case">(over surface-ink · surface-paper)</span>
+              </div>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                {WASHES.map((w) => (
+                  <div key={w.token}>
+                    <div className="border-surface-ink/20 relative flex h-16 border">
+                      <div className="bg-surface-ink flex-1" />
+                      <div className="bg-surface-paper flex-1" />
+                      <div className={`absolute inset-0 ${w.bg}`} data-color-token={w.token} />
+                    </div>
+                    <ColorMeta token={w.token} reading={colorReadings[w.token]} />
                   </div>
                 ))}
               </div>
