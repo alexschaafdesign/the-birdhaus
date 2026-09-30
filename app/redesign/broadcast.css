@@ -2,37 +2,9 @@
    Everything lives under .broadcast-root so it can't leak into the rest of the
    site (which still runs the Courier paper theme from globals.css). */
 
-/* Berkeley Mono — self-hosted, licensed. Files live in
-   public/fonts/berkeley-mono/ (converted from the licensed .otf to .woff2).
-   The `local()` first-entries let a system install win if present. */
-@font-face {
-  font-family: "Berkeley Mono";
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-  src: local("Berkeley Mono"), url("/fonts/berkeley-mono/BerkeleyMono-Regular.woff2") format("woff2");
-}
-@font-face {
-  font-family: "Berkeley Mono";
-  font-style: italic;
-  font-weight: 400;
-  font-display: swap;
-  src: local("Berkeley Mono Oblique"), url("/fonts/berkeley-mono/BerkeleyMono-Oblique.woff2") format("woff2");
-}
-@font-face {
-  font-family: "Berkeley Mono";
-  font-style: normal;
-  font-weight: 700;
-  font-display: swap;
-  src: local("Berkeley Mono Bold"), url("/fonts/berkeley-mono/BerkeleyMono-Bold.woff2") format("woff2");
-}
-@font-face {
-  font-family: "Berkeley Mono";
-  font-style: italic;
-  font-weight: 700;
-  font-display: swap;
-  src: local("Berkeley Mono Bold Oblique"), url("/fonts/berkeley-mono/BerkeleyMono-Bold-Oblique.woff2") format("woff2");
-}
+/* Type: the DS face, CommitMono, via the --font-commit-mono token (tokens.css).
+   Its @font-face lives in commit-mono.css, imported globally from globals.css,
+   so nothing is declared here. */
 
 .broadcast-root {
   /* Confirmed tokens from the Figma micro-graphic specimen. */
@@ -54,7 +26,7 @@
   --bx-chroma-m: #e3008c;
   --bx-sliver-blue: #009ee3;
 
-  --bx-mono: "Berkeley Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --bx-mono: var(--font-commit-mono);
   --bx-grotesk: var(--font-grotesk), var(--bx-mono);
 
   position: relative;
