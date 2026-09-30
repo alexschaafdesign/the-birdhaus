@@ -6,7 +6,7 @@ import type { ComponentProps } from 'react';
 // `active` flag marks the current page (visual + aria-current). No hex/px here.
 
 const BASE =
-  'font-berkeley text-ui-nav-item-14 tracking-wide transition-colors ' +
+  'font-commit-mono text-ui-nav-item-14 tracking-wide transition-colors ' +
   'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-red';
 
 export type NavLinkProps = ComponentProps<typeof Link> & { active?: boolean };

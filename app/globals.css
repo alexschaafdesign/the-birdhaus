@@ -4,6 +4,8 @@
    inert for the live site: new token names, unconsumed; no data-theme/
    data-context triggers wired yet. */
 @import "./redesign/tokens.css";
+/* CommitMono @font-face for --font-commit-mono (self-hosted, OFL). */
+@import "./redesign/commit-mono.css";
 
 /* 2027 light "lo-fi VHS" palette: warm paper + ink, straight corners, hard
    shadows, primary-RGB accents. Back-of-house (admin, /hub, /door) still uses

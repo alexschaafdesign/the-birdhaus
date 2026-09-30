@@ -6,8 +6,8 @@
    ───────────────────────────────────────────────────────────────────── */
 
 @theme {
-  /* Type face */
-  --font-berkeley: "Berkeley Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  /* Type face — self-hosted CommitMono 400/700 (app/redesign/commit-mono.css) */
+  --font-commit-mono: "CommitMono", ui-monospace, "SF Mono", Menlo, monospace;
 
   /* Colors — single-mode collection (Light): all literals */
   --color-surface-paper: #f0ede4;
@@ -242,17 +242,16 @@
   --text-tv-body-22: var(--bh-size-tv-body-22);
 }
 
-/* ── Text styles (reference) — composite Figma text styles, all Berkeley
-   Mono. Size → the --text-* token named; leading/tracking/weight raw.
+/* ── Text styles (reference) — composite Figma text styles, all CommitMono.
+   Size → the --text-* token named; leading/tracking/weight raw.
    Not emitted as classes yet (tokens-only pass).
-   Captured 2026-09-02 — NOT re-captured on 2026-09-30.
 
-   Display/1 — XL 128       w400  --text-display-1  lh 95%  tracking -2px
-   Display/2 — L 88         w400  --text-display-2  lh 90%  tracking 0%
-   Display/3 — M 64         w400  --text-display-3  lh 100%  tracking -1px
-   Display/4 — Chroma 104   w700  --text-display-4  lh auto  tracking -1px
-   Header/1 — 48            w400  --text-header-1  lh auto  tracking 0%
-   Header/2 — 32 Bold       w700  --text-header-2  lh auto  tracking 0%
+   Display/1 — XL 96        w400  --text-display-1  lh 95%  tracking -2px
+   Display/2 — L 72         w400  --text-display-2  lh 90%  tracking 0%
+   Display/3 — M 52         w400  --text-display-3  lh 100%  tracking -1px
+   Display/4 — Chroma 80    w700  --text-display-4  lh auto  tracking -1px
+   Header/1 — 40            w400  --text-header-1  lh auto  tracking 0%
+   Header/2 — 30 Bold       w700  --text-header-2  lh auto  tracking 0%
    Header/3 — 24            w400  --text-header-3  lh auto  tracking 0%
    Header/4 — 20            w400  --text-header-4  lh auto  tracking 0%
    Body/1 — 18              w400  --text-body-1  lh auto  tracking 0%

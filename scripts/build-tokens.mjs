@@ -98,8 +98,20 @@ p();
 
 // ---- @theme primitives ----------------------------------------------------
 p('@theme {');
-p('  /* Type face */');
-p('  --font-berkeley: ' + data.font.family + ';');
+// Every Figma text style must use the DS family at a weight we self-host
+// (app/redesign/commit-mono.css). Fail loudly on drift — a new weight in Figma
+// would otherwise fall back to a browser-synthesised bold without anyone noticing.
+const faceName = data.font.family.split(',')[0].trim().replace(/^"|"$/g, '');
+for (const t of data.textStyles) {
+  if (!t.font.startsWith(faceName + ' ')) {
+    throw new Error(t.name + ': font ' + t.font + ' is not ' + faceName);
+  }
+  if (!data.font.weights.includes(t.weight)) {
+    throw new Error(t.name + ': weight ' + t.weight + ' is not self-hosted (' + data.font.weights.join('/') + ')');
+  }
+}
+p('  /* Type face — self-hosted ' + faceName + ' ' + data.font.weights.join('/') + ' (app/redesign/commit-mono.css) */');
+p('  --font-' + data.font.token + ': ' + data.font.family + ';');
 p();
 p(
   colorVaries
@@ -230,8 +242,8 @@ if (contextVaryingSizes.length) {
 const fmtLen = (l) =>
   !l ? '—' : l.unit === 'AUTO' ? 'auto' : l.unit === 'PERCENT' ? l.value + '%' : l.value + 'px';
 
-p('/* ── Text styles (reference) — composite Figma text styles, all Berkeley');
-p('   Mono. Size → the --text-* token named; leading/tracking/weight raw.');
+p('/* ── Text styles (reference) — composite Figma text styles, all ' + faceName + '.');
+p('   Size → the --text-* token named; leading/tracking/weight raw.');
 p('   Not emitted as classes yet (tokens-only pass).');
 if (data.textStylesCapturedAt && data.textStylesCapturedAt !== data.capturedAt) {
   p('   Captured ' + data.textStylesCapturedAt + ' — NOT re-captured on ' + data.capturedAt + '.');

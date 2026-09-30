@@ -36,7 +36,7 @@ export default function ComponentGallery() {
 
   return (
     <main
-      className="bg-surface-paper text-surface-ink font-berkeley min-h-screen px-6 py-10"
+      className="bg-surface-paper text-surface-ink font-commit-mono min-h-screen px-6 py-10"
       style={{ WebkitTextStroke: 0 }}
     >
       <div className="mx-auto max-w-5xl">
@@ -80,7 +80,7 @@ export default function ComponentGallery() {
           <section>
             <h2 className="text-header-3 mb-1">Button</h2>
             <p className="text-data-caption-13 text-surface-ink/60 mb-4">
-              variant: solid · accent · outline — square corners, Berkeley Mono, text-ui-button-15
+              variant: solid · accent · outline — square corners, CommitMono, text-ui-button-15
             </p>
 
             <div className="text-data-overline-11 text-surface-ink/50 mb-2 uppercase">

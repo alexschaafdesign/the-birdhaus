@@ -12,6 +12,8 @@
 //   against the resolved `--bh-size-*` raw var; a broken utility inherits a
 //   different size -> FAIL. That comparison is also what makes the live
 //   [data-context] re-resolve observable.
+// - The type face is checked through document.fonts: each self-hosted
+//   CommitMono weight must load from its @font-face, else FAIL.
 
 import { useEffect, useRef, useState } from 'react';
 
@@ -121,6 +123,13 @@ const COLOR_TOTAL =
   DEPRECATED_SOLIDS.length +
   WASHES.length; // 36
 
+// The self-hosted weights (app/redesign/commit-mono.css) — the only two the
+// Figma text styles use. Literal classes for the scanner.
+const FACES: { weight: string; label: string; cls: string }[] = [
+  { weight: '400', label: 'Regular', cls: 'font-normal' },
+  { weight: '700', label: 'Bold', cls: 'font-bold' },
+];
+
 // All 28 --text-* utilities, literal class strings for the scanner.
 const SIZES: { token: string; cls: string }[] = [
   { token: 'display-1', cls: 'text-display-1' },
@@ -193,9 +202,38 @@ export default function TokenSpecimen() {
   const [context, setContext] = useState<Ctx>('web');
   const [colorReadings, setColorReadings] = useState<Record<string, Reading>>({});
   const [sizeReadings, setSizeReadings] = useState<Record<string, Reading>>({});
+  const [faceReadings, setFaceReadings] = useState<Record<string, Reading>>({});
 
+  const mainRef = useRef<HTMLElement>(null);
   const colorRef = useRef<HTMLDivElement>(null);
   const typeRef = useRef<HTMLDivElement>(null);
+
+  // Type face: take the family from the computed font-family (so a broken
+  // --font-commit-mono surfaces here), then ask document.fonts to load each
+  // self-hosted weight. Only a face that actually loaded from our @font-face
+  // passes — a 404'd file or a fallback monospace is a FAIL.
+  useEffect(() => {
+    const main = mainRef.current;
+    if (!main) return;
+    const family = getComputedStyle(main).fontFamily.split(',')[0].trim().replace(/^"|"$/g, '');
+    let cancelled = false;
+    Promise.all(
+      FACES.map(async (f) => {
+        try {
+          const loaded = await document.fonts.load(`${f.weight} 1em "${family}"`);
+          const ok = loaded.some((face) => face.status === 'loaded');
+          return [f.weight, { value: `${family} ${f.weight}`, ok }] as const;
+        } catch {
+          return [f.weight, { value: `${family} ${f.weight}`, ok: false }] as const;
+        }
+      })
+    ).then((entries) => {
+      if (!cancelled) setFaceReadings(Object.fromEntries(entries));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Colors are context-independent: read once after mount.
   useEffect(() => {
@@ -234,11 +272,13 @@ export default function TokenSpecimen() {
 
   const colorOk = Object.values(colorReadings).filter((r) => r.ok).length;
   const sizeOk = Object.values(sizeReadings).filter((r) => r.ok).length;
+  const faceOk = Object.values(faceReadings).filter((r) => r.ok).length;
   const activeCtx = CONTEXTS.find((c) => c.id === context);
 
   return (
     <main
-      className="bg-surface-paper text-surface-ink font-berkeley min-h-screen px-6 py-10"
+      ref={mainRef}
+      className="bg-surface-paper text-surface-ink font-commit-mono min-h-screen px-6 py-10"
       style={{ WebkitTextStroke: 0 }}
     >
       <div className="mx-auto max-w-5xl">
@@ -262,6 +302,10 @@ export default function TokenSpecimen() {
             <span className="text-surface-ink/40"> · </span>
             <span className={sizeOk === SIZES.length ? 'text-surface-ink' : 'text-accent-red'}>
               sizes {sizeOk}/{SIZES.length}
+            </span>
+            <span className="text-surface-ink/40"> · </span>
+            <span className={faceOk === FACES.length ? 'text-surface-ink' : 'text-accent-red'}>
+              faces {faceOk}/{FACES.length}
             </span>
           </p>
         </header>
@@ -358,11 +402,41 @@ export default function TokenSpecimen() {
           </div>
         </section>
 
+        {/* ---- TYPE FACE ---------------------------------------------- */}
+        <section className="mb-14">
+          <h2 className="text-header-3 mb-2">Type face</h2>
+          <p className="text-body-3 text-surface-ink/70 mb-4 max-w-prose">
+            <span className="text-surface-ink">font-commit-mono</span> — self-hosted CommitMono,
+            the two weights the Figma text styles use. Each passes only if{' '}
+            <span className="text-surface-ink">document.fonts</span> loaded our @font-face file.
+          </p>
+          <div className="flex flex-col">
+            {FACES.map((f) => (
+              <div
+                key={f.weight}
+                className="border-surface-ink/10 flex items-baseline gap-4 border-b py-2"
+              >
+                <div className="w-56 shrink-0 text-xs leading-tight">
+                  <div className="text-surface-ink">
+                    {f.label} {f.weight}
+                  </div>
+                  <div className="text-surface-ink/60">
+                    <ReadOut reading={faceReadings[f.weight]} />
+                  </div>
+                </div>
+                <div className={`text-header-3 min-w-0 flex-1 truncate ${f.cls}`}>
+                  {SPECIMEN} · 0O 1lI {'{}'} =&gt; !=
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+
         {/* ---- TYPE SCALE --------------------------------------------- */}
         <section>
           <h2 className="text-header-3 mb-2">Type scale</h2>
           <p className="text-body-3 text-surface-ink/70 mb-4 max-w-prose">
-            Each line is Berkeley Mono at a <span className="text-surface-ink">--text-*</span>{' '}
+            Each line is CommitMono at a <span className="text-surface-ink">--text-*</span>{' '}
             utility. Switch context to re-resolve the whole scale live — the resolved px
             beside each token updates in place. Current:{' '}
             <span className="text-surface-ink">{activeCtx?.label}</span>.

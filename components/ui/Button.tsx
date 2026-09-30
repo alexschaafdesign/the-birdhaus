@@ -10,7 +10,7 @@ type Variant = 'solid' | 'accent' | 'outline';
 
 const BASE =
   'inline-flex items-center justify-center rounded-none border px-4 py-2 ' +
-  'font-berkeley text-ui-button-15 transition-colors ' +
+  'font-commit-mono text-ui-button-15 transition-colors ' +
   'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-red ' +
   'disabled:pointer-events-none disabled:opacity-50';
 
