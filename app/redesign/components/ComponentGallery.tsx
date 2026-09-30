@@ -1,6 +1,6 @@
 'use client';
 
-// Preview for the DS primitives (Button, NavLink), rendered from components/ui
+// Preview for the DS primitives (Button, NavLink, SeriesTick), rendered from components/ui
 // and styled only with --color-* / --text-* tokens. Same posture as the tokens
 // specimen: noindex, and a [data-context] switcher so the components' type
 // re-resolves live (web/print/social/tv/mobile) — a way to see the TV sizing
@@ -9,6 +9,7 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { NavLink } from '@/components/ui/NavLink';
+import { SeriesTick, type Series } from '@/components/ui/SeriesTick';
 
 type Ctx = 'web' | 'print' | 'social' | 'tv' | 'mobile';
 
@@ -18,6 +19,15 @@ const CONTEXTS: { id: Ctx; label: string }[] = [
   { id: 'social', label: 'Social 1080' },
   { id: 'tv', label: 'TV 720×480' },
   { id: 'mobile', label: 'Mobile 390' },
+];
+
+// Sample catalogue IDs, one per series — preview copy, not real catalogue data.
+const SERIES_SAMPLES: { series: Series; id: string }[] = [
+  { series: 'bh', id: 'BH-0142' },
+  { series: 'fc', id: 'FC-018' },
+  { series: 'video', id: 'BHV-031' },
+  { series: 'tape', id: 'BHR-007' },
+  { series: 'song-club', id: 'SC-012' },
 ];
 
 export default function ComponentGallery() {
@@ -106,6 +116,24 @@ export default function ComponentGallery() {
               <NavLink href="/redesign">Fresh Cuts</NavLink>
               <NavLink href="/redesign">Contact</NavLink>
             </nav>
+          </section>
+
+          {/* ---- Series Tick ----------------------------------------- */}
+          <section>
+            <h2 className="text-header-3 mb-1">Series Tick</h2>
+            <p className="text-data-caption-13 text-surface-ink/60 mb-4">
+              series: bh · fc · video · tape · song-club — bg-series-* (aliases of bars/*),
+              decorative + aria-hidden, sits before a catalogue ID
+            </p>
+            <div className="flex flex-col gap-3">
+              {SERIES_SAMPLES.map((s) => (
+                <div key={s.series} className="flex items-center gap-2">
+                  <SeriesTick series={s.series} />
+                  <span className="text-data-catalogue-id-16 font-bold">{s.id}</span>
+                  <span className="text-data-caption-13 text-surface-ink/50">{s.series}</span>
+                </div>
+              ))}
+            </div>
           </section>
         </div>
       </div>
