@@ -7,6 +7,18 @@
 /* CommitMono @font-face for --font-commit-mono (self-hosted, OFL). */
 @import "./redesign/commit-mono.css";
 
+/* DS interaction states (components/ui/Button). Real :hover / :active drive
+   them; [data-preview-state] on an ancestor forces one so /redesign/components
+   can show every state statically — states stay CSS, never component props. */
+@custom-variant ui-hover {
+  @media (hover: hover) { &:hover:not(:disabled) { @slot; } }
+  [data-preview-state="hover"] & { @slot; }
+}
+@custom-variant ui-pressed {
+  &:active:not(:disabled) { @slot; }
+  [data-preview-state="pressed"] & { @slot; }
+}
+
 /* 2027 light "lo-fi VHS" palette: warm paper + ink, straight corners, hard
    shadows, primary-RGB accents. Back-of-house (admin, /hub, /door) still uses
    the old dark shell colors, set locally on those routes. */

@@ -7,7 +7,7 @@
 // before /tv is written. Separate route, deliberately not folded into /tokens.
 
 import { useState } from 'react';
-import { Button } from '@/components/ui/Button';
+import { Button, type ButtonProps } from '@/components/ui/Button';
 import { NavLink } from '@/components/ui/NavLink';
 import { SeriesTick, type Series } from '@/components/ui/SeriesTick';
 
@@ -29,6 +29,11 @@ const SERIES_SAMPLES: { series: Series; id: string }[] = [
   { series: 'tape', id: 'BHR-007' },
   { series: 'song-club', id: 'SC-012' },
 ];
+
+// Every Figma Button combination: 3 variants × 2 sizes × 4 states = 24.
+const BUTTON_VARIANTS: NonNullable<ButtonProps['variant']>[] = ['primary', 'secondary', 'ghost'];
+const BUTTON_SIZES: NonNullable<ButtonProps['size']>[] = ['m', 's'];
+const BUTTON_STATES = ['default', 'hover', 'pressed', 'disabled'] as const;
 
 export default function ComponentGallery() {
   const [context, setContext] = useState<Ctx>('web');
@@ -80,25 +85,44 @@ export default function ComponentGallery() {
           <section>
             <h2 className="text-header-3 mb-1">Button</h2>
             <p className="text-data-caption-13 text-surface-ink/60 mb-4">
-              variant: solid · accent · outline — square corners, CommitMono, text-ui-button-15
+              variant: primary · secondary · ghost — size: m · s — states are CSS (hover,
+              pressed, disabled), forced here via data-preview-state
             </p>
 
-            <div className="text-data-overline-11 text-surface-ink/50 mb-2 uppercase">
-              on surface-paper
-            </div>
-            <div className="mb-6 flex flex-wrap items-center gap-4">
-              <Button>Solid</Button>
-              <Button variant="accent">Accent</Button>
-              <Button variant="outline">Outline</Button>
-              <Button disabled>Disabled</Button>
-            </div>
-
-            <div className="text-data-overline-11 text-surface-ink/50 mb-2 uppercase">
-              on surface-ink
-            </div>
-            <div className="bg-surface-ink flex flex-wrap items-center gap-4 p-6">
-              <Button>Solid</Button>
-              <Button variant="accent">Accent</Button>
+            {/* TODO: buttons on surface-ink. Figma defines no ink variant (the
+                color collection is Light-only), so there's no ink panel until
+                a page needs one and it's designed — don't invent an inversion. */}
+            <div className="overflow-x-auto">
+              <table className="border-separate border-spacing-x-6 border-spacing-y-4">
+                <thead>
+                  <tr className="text-data-overline-11 text-surface-ink/50 text-left uppercase">
+                    <th className="font-normal">variant · size</th>
+                    {BUTTON_STATES.map((st) => (
+                      <th key={st} className="font-normal">
+                        {st}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {BUTTON_VARIANTS.flatMap((variant) =>
+                    BUTTON_SIZES.map((size) => (
+                      <tr key={`${variant}-${size}`}>
+                        <td className="text-data-caption-13 text-surface-ink/60">
+                          {variant} · {size}
+                        </td>
+                        {BUTTON_STATES.map((st) => (
+                          <td key={st} data-preview-state={st}>
+                            <Button variant={variant} size={size} disabled={st === 'disabled'}>
+                              RSVP
+                            </Button>
+                          </td>
+                        ))}
+                      </tr>
+                    )),
+                  )}
+                </tbody>
+              </table>
             </div>
           </section>
 
