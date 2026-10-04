@@ -16,9 +16,11 @@ const PORTAL_HOST_ALSO = 'login|account|api|_';
 
 function portalSplitRedirects() {
   if (!PORTAL_SPLIT) return [];
-  const siteHost = new URL(SITE_URL).hostname;
+  // Match both the bare and www hostnames, whichever SITE_URL uses (www today;
+  // Vercel 307s the bare domain to it, but a request can still arrive bare).
+  const bareSiteHost = new URL(SITE_URL).hostname.replace(/^www\./, '');
   const portalHost = new URL(PORTAL_URL).hostname;
-  const toPortal = [siteHost, `www.${siteHost}`].flatMap((host) => [
+  const toPortal = [bareSiteHost, `www.${bareSiteHost}`].flatMap((host) => [
     {
       source: `/:seg(${PORTAL_PAGES})`,
       has: [{ type: 'host' as const, value: host }],

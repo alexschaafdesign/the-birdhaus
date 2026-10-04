@@ -1,8 +1,10 @@
 // Canonical production origin, used for metadataBase, sitemap, robots, and
 // absolute Open Graph URLs. Override with NEXT_PUBLIC_SITE_URL if the domain
-// ever changes; falls back to the production domain otherwise.
+// ever changes; falls back to the production domain otherwise. www is the
+// primary host — Vercel 307s the bare domain to it, so links built from the
+// bare origin would cost every visitor an extra hop.
 export const SITE_URL = (
-  process.env.NEXT_PUBLIC_SITE_URL ?? 'https://thebirdhaus.org'
+  process.env.NEXT_PUBLIC_SITE_URL ?? 'https://www.thebirdhaus.org'
 ).replace(/\/$/, '');
 
 // Origin that serves the Song Club portal and /w/ workspaces. Same as SITE_URL

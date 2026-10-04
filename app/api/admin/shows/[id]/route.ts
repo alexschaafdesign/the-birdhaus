@@ -114,8 +114,10 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     const [current] = await sql<{ ticket_url: string | null }[]>`
       select ticket_url from shows where id = ${showId}
     `;
-    const prefix = `${SITE_URL}/shows/`;
-    if (current?.ticket_url?.startsWith(prefix) && current.ticket_url.endsWith('/tickets')) {
+    // Rows saved before SITE_URL moved to www carry the bare origin; match both.
+    const prefixes = [SITE_URL, SITE_URL.replace('://www.', '://')].map((o) => `${o}/shows/`);
+    const ticketUrl = current?.ticket_url;
+    if (ticketUrl && prefixes.some((p) => ticketUrl.startsWith(p)) && ticketUrl.endsWith('/tickets')) {
       const newTicketUrl = `${SITE_URL}/shows/${slug}/tickets`;
       const existing = updates.find((u) => u.column === 'ticket_url');
       if (existing) existing.value = newTicketUrl;
