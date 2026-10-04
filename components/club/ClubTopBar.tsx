@@ -1,12 +1,16 @@
 import Link from 'next/link';
 import { getClubPortalMember } from '@/lib/club-members';
 import { isAdminSession } from '@/lib/admin-session';
+import { PORTAL_SPLIT } from '@/lib/site';
 import ClubUserMenu from './ClubUserMenu';
 
 // Persistent Song Club bar: logo (home link) + the user menu / admin controls /
 // a Log in link. Rendered at the top of each portal page's <main>. Guests see a
-// Log in link; there's no separate club layout anymore.
+// Log in link; there's no separate club layout anymore. With the domain split
+// on, these pages only render on the portal host, whose shell header
+// (components/portal/PortalShell) already carries this — so render nothing.
 export default async function ClubTopBar() {
+  if (PORTAL_SPLIT) return null;
   const member = await getClubPortalMember();
   const admin = member ? false : await isAdminSession();
 

@@ -96,7 +96,7 @@ export default async function SongClubPage() {
       </header>
 
       {/* Events — the club's primary organizer. Each links to its hub. */}
-      <section className="mb-8">
+      <section id="events" className="mb-8">
         <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-[#E8E0D0]/45">
           Events
         </h2>

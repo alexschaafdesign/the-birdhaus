@@ -5,6 +5,8 @@ import Header from "@/components/Header";
 import { GlobalPlayerProvider } from "@/components/player/GlobalPlayer";
 import PlayerBar from "@/components/player/PlayerBar";
 import { isAdminSession } from "@/lib/admin-session";
+import { onPortalHost } from "@/lib/portal-host";
+import PortalShell from "@/components/portal/PortalShell";
 import { SITE_URL, SITE_NAME, SITE_DESCRIPTION } from "@/lib/site";
 
 const instrumentSans = Instrument_Sans({
@@ -49,7 +51,9 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const isAdmin = await isAdminSession();
+  // Every page already renders per request (isAdminSession reads cookies), so
+  // the host check adds no dynamism. Portal host → Fresh Cuts shell.
+  const [isAdmin, portal] = await Promise.all([isAdminSession(), onPortalHost()]);
 
   return (
     <html lang="en" style={{ backgroundColor: "#2A2420", color: "#E8E0D0" }}>
@@ -58,8 +62,14 @@ export default async function RootLayout({
             client-side navigation; the bar pins to the bottom of every page
             while a track is loaded. */}
         <GlobalPlayerProvider>
-          <Header isAdmin={isAdmin} />
-          {children}
+          {portal ? (
+            <PortalShell>{children}</PortalShell>
+          ) : (
+            <>
+              <Header isAdmin={isAdmin} />
+              {children}
+            </>
+          )}
           <PlayerBar />
         </GlobalPlayerProvider>
       </body>
