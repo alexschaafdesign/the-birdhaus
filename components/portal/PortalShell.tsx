@@ -4,6 +4,8 @@ import { listWorkspacesForUser } from '@/lib/workspaces';
 import { SITE_URL } from '@/lib/site';
 import PortalLogoutButton from './PortalLogoutButton';
 
+const footerLink = 'underline-offset-2 transition hover:text-[#E8E0D0]/70 hover:underline';
+
 const navLink =
   'text-[#E8E0D0]/70 underline-offset-2 transition hover:text-[#E8E0D0] hover:underline';
 
@@ -48,8 +50,12 @@ export default async function PortalShell({ children }: { children: React.ReactN
       </header>
       {children}
       <footer className="mx-auto w-full max-w-3xl px-5 pt-10 pb-8 text-xs text-[#E8E0D0]/40 sm:px-8">
-        <a href={SITE_URL} className="underline-offset-2 transition hover:text-[#E8E0D0]/70 hover:underline">
+        <a href={SITE_URL} className={footerLink}>
           by Birdhaus
+        </a>
+        {' · '}
+        <a href={`${SITE_URL}/fresh-cuts`} className={footerLink}>
+          Live nights
         </a>
       </footer>
     </>
