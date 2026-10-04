@@ -47,11 +47,11 @@ export default async function FreshCutsPage() {
         <FreshCutsIntro content={content} isAdmin={isAdmin} />
 
         {/* The songwriter portal shares the name; point people at it. */}
-        <p className="mb-12 text-sm text-[#E8E0D0]/60">
+        <p className="mb-12 text-sm text-ink/60">
           Writing new songs between nights? Share them on{' '}
           <a
             href={PORTAL_SPLIT ? PORTAL_URL : '/song-club'}
-            className="underline underline-offset-2 hover:text-[#E8E0D0]"
+            className="underline underline-offset-2 hover:text-ink"
           >
             {PORTAL_NAME}
           </a>

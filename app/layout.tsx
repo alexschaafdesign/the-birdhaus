@@ -88,6 +88,11 @@ export async function generateMetadata(): Promise<Metadata> {
   return (await onPortalHost()) ? portalMetadata : birdhausMetadata;
 }
 
+// The portal (Fresh Cuts) hasn't been through the 2027 redesign: its pages
+// still use main's light-on-dark text, so the portal host keeps main's dark
+// page colors instead of this branch's paper/ink.
+const PORTAL_PAGE_COLORS = { backgroundColor: "#2A2420", color: "#E8E0D0" };
+
 // Ink, matching the dark logo band at the top of every page.
 export const viewport: Viewport = {
   themeColor: "#1A1712",
@@ -103,8 +108,11 @@ export default async function RootLayout({
   const [isAdmin, portal] = await Promise.all([isAdminSession(), onPortalHost()]);
 
   return (
-    <html lang="en" style={{ backgroundColor: "#F2EEE3", color: "#1A1712" }}>
-      <body className={`${instrumentSans.variable} ${plexMono.variable}`} style={{ color: "#1A1712" }}>
+    <html lang="en" style={portal ? PORTAL_PAGE_COLORS : { backgroundColor: "#F2EEE3", color: "#1A1712" }}>
+      <body
+        className={`${instrumentSans.variable} ${plexMono.variable}`}
+        style={{ color: portal ? PORTAL_PAGE_COLORS.color : "#1A1712" }}
+      >
         {/* The provider lives at the root so audio keeps playing across
             client-side navigation; the bar pins to the bottom of every page
             while a track is loaded. */}
