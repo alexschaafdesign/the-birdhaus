@@ -14,13 +14,18 @@
 //                    across modes), no --bh-* layer and no mode selector are
 //                    emitted — the tokens are plain @theme literals.
 //   @theme inline  — semantics: --color-* / --text-* resolve --bh-* at use site,
-//                    and Figma variable ALIASES (e.g. series/fc -> bars/2-yellow)
+//                    and Figma variable ALIASES (e.g. series/fc -> spectrum/amber)
 //                    resolve the target's --color-* — the alias stays an alias,
 //                    never a copied hex.
 //
 // Figma variable descriptions ride along as trailing comments. A description
 // starting with "DEPRECATED" moves the token into a flagged block at the end of
 // its tier — still emitted (existing bindings keep working), but marked.
+//
+// The legacy/* group is NOT emitted. Figma parks retired tokens there (pre-2027
+// values kept for reference); they stay in the snapshot so the history is
+// diffable, but nothing in code should resolve them. A live token aliasing a
+// legacy/* one fails the build.
 //
 // Axes compose and are independent:
 //   [data-theme=dark]  flips mode-varying COLORS (Light default on :root)
@@ -38,6 +43,10 @@ const SRC = process.env.TOKENS_SRC || join(root, 'app/redesign/tokens.figma.json
 const OUT = process.env.TOKENS_OUT || join(root, 'app/redesign/tokens.css');
 
 const data = JSON.parse(readFileSync(SRC, 'utf8'));
+
+const isLegacy = (name) => name.startsWith('legacy/');
+const legacyColors = data.colors.variables.filter((v) => isLegacy(v.name));
+data.colors.variables = data.colors.variables.filter((v) => !isLegacy(v.name));
 
 // Figma group separator `/` becomes a CSS-safe `-`.
 const slug = (name) => name.replace(/\//g, '-');
@@ -70,6 +79,9 @@ const aliasColors = data.colors.variables.filter((v) => aliasOf(v, colorModes));
 const literalColors = data.colors.variables.filter((v) => !aliasColors.includes(v));
 for (const v of aliasColors) {
   const target = aliasOf(v, colorModes);
+  if (isLegacy(target)) {
+    throw new Error(v.name + ': aliases ' + target + ' (legacy/* is not emitted)');
+  }
   if (!data.colors.variables.some((t) => t.name === target)) {
     throw new Error(v.name + ': alias target ' + target + ' is not in the snapshot');
   }
@@ -93,6 +105,9 @@ p('   Birdhaus design tokens — GENERATED FILE, DO NOT EDIT BY HAND.');
 p('   Source: ' + data.source + ' (Figma published library)');
 p('   Captured: ' + data.capturedAt + '   ·   Regenerate: `npm run tokens`');
 p('   Edit values in app/redesign/tokens.figma.json, never here.');
+if (legacyColors.length) {
+  p('   ' + legacyColors.length + ' legacy/* colors in the snapshot are intentionally not emitted.');
+}
 p('   ───────────────────────────────────────────────────────────────────── */');
 p();
 
@@ -189,7 +204,7 @@ if (colorVaries) {
 }
 
 // ---- color ALIASES: @theme inline over the target's --color-* ---------------
-// Semantic tier. The utility (bg-series-fc) inlines var(--color-bars-2-yellow),
+// Semantic tier. The utility (bg-series-fc) inlines var(--color-spectrum-amber),
 // so retuning the bar in Figma retunes every alias with it.
 if (aliasColors.length) {
   p('/* ── Colors — aliases. Semantic names that point at another token (Figma');
@@ -267,7 +282,7 @@ writeFileSync(OUT, out.join('\n'));
 console.log(
   'Wrote ' + OUT + '  (' +
     modeInvariantColors.length + ' invariant + ' + modeVaryingColors.length + ' mode-varying + ' +
-    aliasColors.length + ' alias colors, ' +
+    aliasColors.length + ' alias colors (' + legacyColors.length + ' legacy skipped), ' +
     contextInvariantSizes.length + ' invariant + ' + contextVaryingSizes.length + ' context-varying sizes, ' +
     data.textStyles.length + ' text styles)'
 );
