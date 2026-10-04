@@ -2,9 +2,11 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { getMemberBySetupToken } from '@/lib/club-members';
 import ClubSetPasswordForm from '@/components/club/ClubSetPasswordForm';
+import { PORTAL_HEADING, PORTAL_NAME, PORTAL_PLACE, PORTAL_SPLIT } from '@/lib/site';
 
 export const metadata: Metadata = {
-  title: 'Join Song Club',
+  // Absolute on the portal so it isn't "Join Fresh Cuts · Fresh Cuts".
+  title: PORTAL_SPLIT ? { absolute: `Join ${PORTAL_NAME}` } : `Join ${PORTAL_NAME}`,
   robots: { index: false, follow: false },
 };
 
@@ -27,7 +29,7 @@ export default async function ClubInvitePage({
   if (!member) {
     return (
       <main className="mx-auto w-full max-w-sm px-5 py-10 text-[#E8E0D0] sm:py-14">
-        <h1 className="text-2xl font-semibold">Song Club portal</h1>
+        <h1 className="text-2xl font-semibold">{PORTAL_HEADING}</h1>
         <p className="mt-3 text-sm text-[#E8E0D0]/70">
           This link is invalid or has expired — invite links are single-use.
         </p>
@@ -49,7 +51,7 @@ export default async function ClubInvitePage({
   const isCrew = !member.roles.includes('song_club');
   const joinLine = isCrew
     ? `Pick a password for ${member.email} to get into the Birdhaus admin.`
-    : `Pick a password for ${member.email} to join the Song Club portal.`;
+    : `Pick a password for ${member.email} to join ${PORTAL_PLACE}.`;
   return (
     <main className="mx-auto w-full max-w-sm px-5 py-10 text-[#E8E0D0] sm:py-14">
       <h1 className="text-2xl font-semibold">

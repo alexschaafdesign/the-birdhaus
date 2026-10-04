@@ -40,5 +40,19 @@ export const SITE_NAME = 'the BIRDHAUS';
 // The portal's own identity on its host (titles, link previews, manifest).
 export const PORTAL_SITE_NAME = 'Fresh Cuts';
 export const PORTAL_DESCRIPTION = 'Fresh Cuts — songs, events, and the group thread.';
+
+// The portal's name in visible copy (pages, member emails, the main nav):
+// "Fresh Cuts" once the split is on, the old Song Club wording until then.
+// Three forms because the old copy said "Song Club", "Song Club portal", and
+// "the Song Club portal" in different spots.
+export const PORTAL_NAME = PORTAL_SPLIT ? PORTAL_SITE_NAME : 'Song Club';
+export const PORTAL_HEADING = PORTAL_SPLIT ? PORTAL_SITE_NAME : 'Song Club portal';
+export const PORTAL_PLACE = PORTAL_SPLIT ? PORTAL_SITE_NAME : 'the Song Club portal';
+
+// Page titles that read "Song Club — <detail>" before the split; after it the
+// root template already appends "· Fresh Cuts", so just the detail.
+export function portalPageTitle(detail: string): string {
+  return PORTAL_SPLIT ? detail.charAt(0).toUpperCase() + detail.slice(1) : `Song Club — ${detail}`;
+}
 export const SITE_DESCRIPTION =
   'A DIY house venue and record label in Powderhorn, Minneapolis.';

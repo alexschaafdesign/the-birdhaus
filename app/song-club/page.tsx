@@ -8,9 +8,11 @@ import ClubPins from '@/components/club/ClubPins';
 import ClubBoard from '@/components/club/ClubBoard';
 import SongClubLogo from '@/components/club/SongClubLogo';
 import ClubUserMenu from '@/components/club/ClubUserMenu';
+import { PORTAL_NAME, PORTAL_SPLIT } from '@/lib/site';
 
 export const metadata: Metadata = {
-  title: 'Song Club',
+  // Absolute on the portal so it isn't "Fresh Cuts · Fresh Cuts".
+  title: PORTAL_SPLIT ? { absolute: PORTAL_NAME } : PORTAL_NAME,
   description: 'A Birdhaus songwriting community — events, songs, and the group thread.',
 };
 
@@ -30,7 +32,7 @@ export default async function SongClubPage() {
     return (
       <main className="mx-auto w-full max-w-xl px-5 py-16 text-center text-[#E8E0D0] sm:px-8">
         <SongClubLogo className="mx-auto h-20 w-20" />
-        <h1 className="mt-5 text-3xl font-semibold">Song Club</h1>
+        <h1 className="mt-5 text-3xl font-semibold">{PORTAL_NAME}</h1>
         <p className="mx-auto mt-3 max-w-md text-[15px] leading-relaxed text-[#E8E0D0]/70">
           A Birdhaus songwriting community — song-a-day challenges, monthly meetups,
           and a place to share works in progress. What&apos;s shared here stays
@@ -66,7 +68,7 @@ export default async function SongClubPage() {
         <div className="flex items-center gap-4">
           <SongClubLogo className="h-14 w-14 sm:h-16 sm:w-16" />
           <div>
-            <h1 className="text-2xl font-semibold sm:text-3xl">Song Club</h1>
+            <h1 className="text-2xl font-semibold sm:text-3xl">{PORTAL_NAME}</h1>
             <p className="mt-1 text-sm text-[#E8E0D0]/60">
               {canAct
                 ? 'Events, songs, and the group thread.'
@@ -147,7 +149,7 @@ export default async function SongClubPage() {
 
       <section className="mt-8">
         <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-[#E8E0D0]/45">
-          Song Club chat
+          {PORTAL_NAME} chat
         </h2>
         <ClubBoard
           initialPosts={posts}

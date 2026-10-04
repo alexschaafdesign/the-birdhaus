@@ -3,9 +3,10 @@ import { redirect } from 'next/navigation';
 import { getClubMember } from '@/lib/club-members';
 import AccountSettings from '@/components/club/AccountSettings';
 import ClubTopBar from '@/components/club/ClubTopBar';
+import { portalPageTitle } from '@/lib/site';
 
 export const metadata: Metadata = {
-  title: 'Song Club — account',
+  title: portalPageTitle('account'),
   robots: { index: false, follow: false },
 };
 

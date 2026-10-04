@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { notFound, redirect } from 'next/navigation';
 import Link from 'next/link';
-import { PORTAL_SPLIT, PORTAL_SITE_NAME, SITE_NAME } from '@/lib/site';
+import { PORTAL_NAME, PORTAL_SPLIT, PORTAL_SITE_NAME, SITE_NAME } from '@/lib/site';
 import { getEventBySlug, getTodayCentral } from '@/lib/song-club';
 import { getClubPortalMember } from '@/lib/club-members';
 import { isAdminSession } from '@/lib/admin-session';
@@ -74,10 +74,10 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { slug } = await params;
   const event = await getEventBySlug(slug);
-  if (!event || !event.published) return { title: 'Song Club' };
+  if (!event || !event.published) return { title: PORTAL_NAME };
   return {
-    title: `${event.title} — Song Club`,
-    description: event.description?.slice(0, 200) ?? 'A Birdhaus Song Club event.',
+    title: PORTAL_SPLIT ? event.title : `${event.title} — Song Club`,
+    description: event.description?.slice(0, 200) ?? (PORTAL_SPLIT ? `A ${PORTAL_NAME} event.` : 'A Birdhaus Song Club event.'),
     // Relative url resolves against the portal origin (app/song-club/layout.tsx).
     openGraph: {
       url: `/song-club/${slug}`,

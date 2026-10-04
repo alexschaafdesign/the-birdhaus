@@ -5,9 +5,10 @@ import { isAdminSession } from '@/lib/admin-session';
 import { getTrack, trackComments } from '@/lib/club-music';
 import SingleTrackView from '@/components/club/SingleTrackView';
 import ClubTopBar from '@/components/club/ClubTopBar';
+import { portalPageTitle } from '@/lib/site';
 
 export const metadata: Metadata = {
-  title: 'Song Club — track',
+  title: portalPageTitle('track'),
   robots: { index: false, follow: false },
 };
 

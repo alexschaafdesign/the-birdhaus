@@ -6,7 +6,7 @@ import { getClubMember } from '@/lib/club-members';
 import { isAdminSession } from '@/lib/admin-session';
 import { cloudinaryTransform } from '@/lib/cloudinary-url';
 import { listWorkspacesForUser } from '@/lib/workspaces';
-import { portalRedirect } from '@/lib/site';
+import { PORTAL_SITE_NAME, portalRedirect } from '@/lib/site';
 import ClubLoginForm from '@/components/club/ClubLoginForm';
 
 // Neutral, Birdhaus-branded login for everyone who has an account (crew,
@@ -64,19 +64,25 @@ export default async function LoginPage({
     if (workspace) redirect(portalRedirect(`/w/${workspace.slug}`));
   }
 
+  const portal = await onPortalHost();
+
   return (
     <main className="mx-auto w-full max-w-sm px-5 py-10 text-[#E8E0D0] sm:py-14">
       <div className="mb-6 flex justify-center">
-        <Image
-          src={LOGO_URL}
-          alt="The Birdhaus"
-          width={0}
-          height={0}
-          sizes="280px"
-          priority
-          unoptimized
-          className="h-auto w-full max-w-[280px]"
-        />
+        {portal ? (
+          <p className="text-3xl font-semibold tracking-wide">{PORTAL_SITE_NAME}</p>
+        ) : (
+          <Image
+            src={LOGO_URL}
+            alt="The Birdhaus"
+            width={0}
+            height={0}
+            sizes="280px"
+            priority
+            unoptimized
+            className="h-auto w-full max-w-[280px]"
+          />
+        )}
       </div>
       <h1 className="text-2xl font-semibold">Log in</h1>
       <p className="mt-1 text-sm text-[#E8E0D0]/60">For crew, photographers, and members.</p>

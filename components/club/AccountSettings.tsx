@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { ClubMember, ProfileLink } from '@/lib/club-members';
 import { downscaleImage } from '@/lib/downscale-image';
+import { PORTAL_NAME } from '@/lib/site';
 
 const inputBase =
   'w-full rounded-md border border-[#E8E0D0]/20 bg-[#E8E0D0]/[0.03] px-3 py-2 text-sm text-[#E8E0D0] placeholder:text-[#E8E0D0]/30 focus:border-[#E8E0D0]/50 focus:outline-none transition';
@@ -231,7 +232,7 @@ export default function AccountSettings({ member }: { member: ClubMember }) {
             onChange={(v) => setPrefs({ ...prefs, notifyAnnouncements: v })}
           />
           <Toggle
-            label="A new Song Club event is scheduled"
+            label={`A new ${PORTAL_NAME} event is scheduled`}
             checked={prefs.notifyEvents}
             onChange={(v) => setPrefs({ ...prefs, notifyEvents: v })}
           />

@@ -3,7 +3,15 @@
 // single-use set-password link to /song-club/invite/<token>.
 
 import { Resend } from 'resend';
-import { SITE_URL, PORTAL_URL } from './site';
+import {
+  SITE_URL,
+  PORTAL_URL,
+  PORTAL_SPLIT,
+  PORTAL_SITE_NAME,
+  PORTAL_NAME,
+  PORTAL_HEADING,
+  PORTAL_PLACE,
+} from './site';
 import { splitName } from './name';
 
 const NOTIFY_EMAIL = 'alex@thebirdhaus.org';
@@ -64,7 +72,7 @@ export async function sendClubInviteEmail({
   const text = [
     greeting,
     '',
-    "You're invited to the Song Club portal — a private space for the club to",
+    `You're invited to ${PORTAL_PLACE} — a private space for the club to`,
     'share songs, files, and messages between meetups.',
     '',
     'Pick a password to join:',
@@ -76,16 +84,16 @@ export async function sendClubInviteEmail({
   ].join('\n');
 
   const html = `<p>${esc(greeting)}</p>
-<p>You're invited to the <strong>Song Club portal</strong> — a private space for the club to share songs, files, and messages between meetups.</p>
+<p>You're invited to ${PORTAL_SPLIT ? '' : 'the '}<strong>${PORTAL_HEADING}</strong> — a private space for the club to share songs, files, and messages between meetups.</p>
 <p><a href="${esc(link)}" style="display: inline-block; background: #2A2420; color: #E8E0D0; padding: 10px 18px; border-radius: 6px; text-decoration: none; font-weight: 600;">Pick a password &amp; join</a></p>
 <p style="font-size: 13px; color: #777;">Or paste this link into your browser:<br>${esc(link)}</p>
 <p style="font-size: 13px; color: #777;">This link is just for you — please don't forward it.</p>
 <p>— the BIRDHAUS</p>`;
 
   const { error } = await getResendClient().emails.send({
-    from,
+    from: portalFrom(from),
     to: email,
-    subject: "You're invited to the Song Club portal",
+    subject: `You're invited to ${PORTAL_PLACE}`,
     html,
     text,
   });
@@ -196,7 +204,7 @@ export async function sendTrackCommentEmail({
 <p>— the BIRDHAUS</p>`;
 
   const { error } = await getResendClient().emails.send({
-    from,
+    from: portalFrom(from),
     to,
     subject: `${commenterName} commented on "${trackTitle}"`,
     html,
@@ -215,6 +223,15 @@ export interface ResendEmailPayload {
   subject: string;
   html: string;
   text: string;
+}
+
+// Member-facing portal emails go out under the portal's name once the split is
+// on — same address, so deliverability doesn't change. RESEND_FROM_EMAIL may
+// be a bare address or "Name <address>".
+function portalFrom(from: string): string {
+  if (!PORTAL_SPLIT) return from;
+  const address = from.match(/<([^>]+)>/)?.[1] ?? from.trim();
+  return `${PORTAL_SITE_NAME} <${address}>`;
 }
 
 function requireFrom(): string {
@@ -272,7 +289,7 @@ export function buildAnnouncementEmail({
   const text = [
     greeting,
     '',
-    'New from the Birdhaus in the Song Club portal:',
+    `New from the Birdhaus in ${PORTAL_PLACE}:`,
     '',
     body,
     '',
@@ -284,13 +301,13 @@ export function buildAnnouncementEmail({
   ].join('\n');
 
   const html = `<p>${esc(greeting)}</p>
-<p>New from the Birdhaus in the Song Club portal:</p>
+<p>New from the Birdhaus in ${PORTAL_PLACE}:</p>
 <blockquote style="border-left: 3px solid #c8a26a; margin: 12px 0; padding: 4px 0 4px 12px; color: #444; white-space: pre-wrap;">${esc(body)}</blockquote>
 <p><a href="${esc(portalUrl)}" style="display: inline-block; background: #2A2420; color: #E8E0D0; padding: 8px 16px; border-radius: 6px; text-decoration: none; font-weight: 600;">Open the portal</a></p>
 <p style="font-size: 12px; color: #999;">To stop announcement emails, turn them off in your account settings.</p>
 <p>— the BIRDHAUS</p>`;
 
-  return { from: requireFrom(), to, subject: 'New in the Song Club portal', html, text };
+  return { from: portalFrom(requireFrom()), to, subject: `New in ${PORTAL_PLACE}`, html, text };
 }
 
 // A newly-published Song Club event, emailed to a member who wants event
@@ -314,7 +331,7 @@ export function buildClubEventEmail({
   const text = [
     greeting,
     '',
-    `New Song Club event: ${title} — ${dateLabel}.`,
+    `New ${PORTAL_NAME} event: ${title} — ${dateLabel}.`,
     '',
     `Details & RSVP: ${eventUrl}`,
     '',
@@ -324,12 +341,12 @@ export function buildClubEventEmail({
   ].join('\n');
 
   const html = `<p>${esc(greeting)}</p>
-<p>New Song Club event: <strong>${esc(title)}</strong> — ${esc(dateLabel)}.</p>
+<p>New ${PORTAL_NAME} event: <strong>${esc(title)}</strong> — ${esc(dateLabel)}.</p>
 <p><a href="${esc(eventUrl)}" style="display: inline-block; background: #2A2420; color: #E8E0D0; padding: 8px 16px; border-radius: 6px; text-decoration: none; font-weight: 600;">Details &amp; RSVP</a></p>
 <p style="font-size: 12px; color: #999;">To stop event emails, turn them off in your account settings.</p>
 <p>— the BIRDHAUS</p>`;
 
-  return { from: requireFrom(), to, subject: `New Song Club event: ${title}`, html, text };
+  return { from: portalFrom(requireFrom()), to, subject: `New ${PORTAL_NAME} event: ${title}`, html, text };
 }
 
 // Self-signup: confirm your email + set a password. Same link target as an
@@ -355,7 +372,7 @@ export async function sendClubSignupEmail({
   const text = [
     greeting,
     '',
-    'Confirm your email and set a password to join the Song Club portal:',
+    `Confirm your email and set a password to join ${PORTAL_PLACE}:`,
     link,
     '',
     "If you didn't request this, you can ignore this email.",
@@ -364,16 +381,16 @@ export async function sendClubSignupEmail({
   ].join('\n');
 
   const html = `<p>${esc(greeting)}</p>
-<p>Confirm your email and set a password to join the <strong>Song Club portal</strong>:</p>
+<p>Confirm your email and set a password to join ${PORTAL_SPLIT ? '' : 'the '}<strong>${PORTAL_HEADING}</strong>:</p>
 <p><a href="${esc(link)}" style="display: inline-block; background: #2A2420; color: #E8E0D0; padding: 10px 18px; border-radius: 6px; text-decoration: none; font-weight: 600;">Confirm &amp; set password</a></p>
 <p style="font-size: 13px; color: #777;">Or paste this link into your browser:<br>${esc(link)}</p>
 <p style="font-size: 13px; color: #777;">If you didn't request this, you can ignore this email.</p>
 <p>— the BIRDHAUS</p>`;
 
   const { error } = await getResendClient().emails.send({
-    from,
+    from: portalFrom(from),
     to: email,
-    subject: 'Confirm your email to join Song Club',
+    subject: `Confirm your email to join ${PORTAL_NAME}`,
     html,
     text,
   });
@@ -443,7 +460,7 @@ export async function sendClubPasswordResetEmail({
   const text = [
     greeting,
     '',
-    'Someone (hopefully you) asked to reset your Song Club portal password.',
+    `Someone (hopefully you) asked to reset your ${PORTAL_HEADING} password.`,
     'Set a new one here (link expires in 2 hours):',
     link,
     '',
@@ -453,16 +470,16 @@ export async function sendClubPasswordResetEmail({
   ].join('\n');
 
   const html = `<p>${esc(greeting)}</p>
-<p>Someone (hopefully you) asked to reset your Song Club portal password.</p>
+<p>Someone (hopefully you) asked to reset your ${PORTAL_HEADING} password.</p>
 <p><a href="${esc(link)}" style="display: inline-block; background: #2A2420; color: #E8E0D0; padding: 10px 18px; border-radius: 6px; text-decoration: none; font-weight: 600;">Set a new password</a></p>
 <p style="font-size: 13px; color: #777;">The link expires in 2 hours. Or paste it into your browser:<br>${esc(link)}</p>
 <p style="font-size: 13px; color: #777;">If you didn't ask for this, you can ignore this email.</p>
 <p>— the BIRDHAUS</p>`;
 
   const { error } = await getResendClient().emails.send({
-    from,
+    from: portalFrom(from),
     to: email,
-    subject: 'Reset your Song Club portal password',
+    subject: `Reset your ${PORTAL_HEADING} password`,
     html,
     text,
   });
