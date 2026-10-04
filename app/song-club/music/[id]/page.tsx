@@ -10,9 +10,10 @@ import DeletePlaylistButton from '@/components/club/DeletePlaylistButton';
 import RoundCover from '@/components/club/RoundCover';
 import ClubTopBar from '@/components/club/ClubTopBar';
 import RoundLockToggle from '@/components/club/RoundLockToggle';
+import { PORTAL_NAME, portalPageTitle } from '@/lib/site';
 
 export const metadata: Metadata = {
-  title: 'Song Club — playlist',
+  title: portalPageTitle('playlist'),
   robots: { index: false, follow: false },
 };
 
@@ -58,7 +59,7 @@ export default async function ClubPlaylistPage({
         href={roundEvent ? `/song-club/${roundEvent.slug}` : '/song-club'}
         className="text-sm text-[#E8E0D0]/50 transition hover:text-[#E8E0D0]"
       >
-        ← {roundEvent ? roundEvent.title : 'Song Club'}
+        ← {roundEvent ? roundEvent.title : PORTAL_NAME}
       </Link>
 
       <header className="mt-4 mb-6">

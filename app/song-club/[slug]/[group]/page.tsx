@@ -12,6 +12,7 @@ import ClubTopBar from '@/components/club/ClubTopBar';
 import PlaylistTracks from '@/components/club/PlaylistTracks';
 import ClubBoard from '@/components/club/ClubBoard';
 import DayStrip from '@/components/club/DayStrip';
+import { PORTAL_NAME, PORTAL_SPLIT } from '@/lib/site';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,10 +23,12 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { slug, group: groupSlug } = await params;
   const event = await getEventBySlug(slug);
-  if (!event || !event.published) return { title: 'Song Club' };
+  if (!event || !event.published) return { title: PORTAL_NAME };
   const group = await getGroupBySlug(event.id, groupSlug);
   return {
-    title: group ? `${group.name} — ${event.title} — Song Club` : `${event.title} — Song Club`,
+    title: PORTAL_SPLIT
+      ? group ? `${group.name} — ${event.title}` : event.title
+      : group ? `${group.name} — ${event.title} — Song Club` : `${event.title} — Song Club`,
     robots: { index: false, follow: false },
   };
 }

@@ -6,9 +6,10 @@ import { isAdminSession } from '@/lib/admin-session';
 import { portalRedirect } from '@/lib/site';
 import ClubLoginForm from '@/components/club/ClubLoginForm';
 import SongClubLogo from '@/components/club/SongClubLogo';
+import { PORTAL_HEADING, PORTAL_NAME, portalPageTitle } from '@/lib/site';
 
 export const metadata: Metadata = {
-  title: 'Song Club — log in',
+  title: portalPageTitle('log in'),
   robots: { index: false, follow: false },
 };
 
@@ -42,13 +43,13 @@ export default async function ClubLoginPage({
       <div className="mb-4">
         <SongClubLogo className="h-24 w-24" />
       </div>
-      <h1 className="text-2xl font-semibold">Song Club portal</h1>
+      <h1 className="text-2xl font-semibold">{PORTAL_HEADING}</h1>
       <p className="mt-1 text-sm text-[#E8E0D0]/60">Log in to the club.</p>
       <div className="mt-6">
         <ClubLoginForm next={next} />
       </div>
       <p className="mt-4 text-sm text-[#E8E0D0]/50">
-        New to Song Club?{' '}
+        New to {PORTAL_NAME}?{' '}
         <Link href={signupHref} className="underline underline-offset-2 hover:text-[#E8E0D0]">
           Sign up
         </Link>

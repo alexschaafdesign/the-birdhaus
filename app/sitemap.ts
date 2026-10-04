@@ -2,11 +2,17 @@ import type { MetadataRoute } from 'next';
 import { getAllShows, getTodayCentral } from '@/lib/shows';
 import { getAllBands } from '@/lib/bands';
 import { getPublicPhotographers, photographerSlug } from '@/lib/photographers';
-import { SITE_URL } from '@/lib/site';
+import { headers } from 'next/headers';
+import { SITE_URL, isPortalHost } from '@/lib/site';
 
 export const dynamic = 'force-dynamic';
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  // Empty on the portal host (robots.txt disallows it there). The main-site
+  // list below never includes Song Club, /w, or vanity paths — keep it that
+  // way, since those 308 to the portal once the split is on.
+  if (isPortalHost((await headers()).get('host'))) return [];
+
   const staticPaths = ['', '/archive', '/bands', '/videos', '/upcoming', '/contact'];
   const staticEntries: MetadataRoute.Sitemap = staticPaths.map((path) => ({
     url: `${SITE_URL}${path}`,

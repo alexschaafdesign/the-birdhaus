@@ -5,9 +5,10 @@ import { isAdminSession } from '@/lib/admin-session';
 import { listPlaylists, listRoundEventRanges } from '@/lib/club-music';
 import UploadTrackForm from '@/components/club/UploadTrackForm';
 import ClubTopBar from '@/components/club/ClubTopBar';
+import { portalPageTitle } from '@/lib/site';
 
 export const metadata: Metadata = {
-  title: 'Song Club — upload a song',
+  title: portalPageTitle('upload a song'),
   robots: { index: false, follow: false },
 };
 

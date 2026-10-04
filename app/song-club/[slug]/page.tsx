@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { notFound, redirect } from 'next/navigation';
 import Link from 'next/link';
+import { PORTAL_NAME, PORTAL_SPLIT, PORTAL_SITE_NAME, SITE_NAME } from '@/lib/site';
 import { getEventBySlug, getTodayCentral } from '@/lib/song-club';
 import { getClubPortalMember } from '@/lib/club-members';
 import { isAdminSession } from '@/lib/admin-session';
@@ -71,12 +72,18 @@ export async function generateMetadata({
 }: {
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
-  const event = await getEventBySlug((await params).slug);
-  if (!event || !event.published) return { title: 'Song Club' };
+  const { slug } = await params;
+  const event = await getEventBySlug(slug);
+  if (!event || !event.published) return { title: PORTAL_NAME };
   return {
-    title: `${event.title} — Song Club`,
-    description: event.description?.slice(0, 200) ?? 'A Birdhaus Song Club event.',
-    openGraph: event.flyer_url ? { images: [event.flyer_url] } : undefined,
+    title: PORTAL_SPLIT ? event.title : `${event.title} — Song Club`,
+    description: event.description?.slice(0, 200) ?? (PORTAL_SPLIT ? `A ${PORTAL_NAME} event.` : 'A Birdhaus Song Club event.'),
+    // Relative url resolves against the portal origin (app/song-club/layout.tsx).
+    openGraph: {
+      url: `/song-club/${slug}`,
+      siteName: PORTAL_SPLIT ? PORTAL_SITE_NAME : SITE_NAME,
+      ...(event.flyer_url && { images: [event.flyer_url] }),
+    },
   };
 }
 

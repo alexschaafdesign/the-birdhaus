@@ -5,9 +5,10 @@ import { getClubPortalMember } from '@/lib/club-members';
 import { isAdminSession } from '@/lib/admin-session';
 import ClubSignupForm from '@/components/club/ClubSignupForm';
 import SongClubLogo from '@/components/club/SongClubLogo';
+import { PORTAL_NAME, portalPageTitle } from '@/lib/site';
 
 export const metadata: Metadata = {
-  title: 'Song Club — sign up',
+  title: portalPageTitle('sign up'),
   robots: { index: false, follow: false },
 };
 
@@ -28,7 +29,7 @@ export default async function ClubSignupPage({
       <div className="mb-4">
         <SongClubLogo className="h-20 w-20" />
       </div>
-      <h1 className="text-2xl font-semibold">Join Song Club</h1>
+      <h1 className="text-2xl font-semibold">Join {PORTAL_NAME}</h1>
       <p className="mt-1 text-sm text-[#E8E0D0]/60">
         Sign up to see the club, then unlock the events you took part in.
       </p>

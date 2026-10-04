@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import type { Show } from '@/lib/shows';
+import { portalRedirect } from '@/lib/site';
 
 function formatCardDate(dateStr: string) {
   const [year, month, day] = dateStr.split('-').map(Number);
@@ -18,7 +19,7 @@ export default function ShowCard({ show, draft }: { show: Show; draft?: boolean 
   const href = draft
     ? `/admin/shows/${show.id}`
     : isSongClub
-      ? `/song-club/${show.slug}`
+      ? portalRedirect(`/song-club/${show.slug}`)
       : `/shows/${show.slug}`;
 
   return (

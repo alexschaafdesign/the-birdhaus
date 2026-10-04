@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { PORTAL_SPLIT } from '@/lib/site';
 
 // The Song Club logo, clickable to view full-screen over a scrim (like a photo
 // lightbox). Close by clicking the scrim, hitting Escape, or the ✕. Kept as a
@@ -22,6 +23,9 @@ export default function SongClubLogo({ className = 'h-16 w-16' }: { className?: 
       document.body.style.overflow = prevOverflow;
     };
   }, [open]);
+
+  // Song Club artwork; with the split on these pages are the Fresh Cuts portal.
+  if (PORTAL_SPLIT) return null;
 
   return (
     <>

@@ -5,7 +5,16 @@ import Header from "@/components/Header";
 import { GlobalPlayerProvider } from "@/components/player/GlobalPlayer";
 import PlayerBar from "@/components/player/PlayerBar";
 import { isAdminSession } from "@/lib/admin-session";
-import { SITE_URL, SITE_NAME, SITE_DESCRIPTION } from "@/lib/site";
+import { onPortalHost } from "@/lib/portal-host";
+import PortalShell from "@/components/portal/PortalShell";
+import {
+  SITE_URL,
+  SITE_NAME,
+  SITE_DESCRIPTION,
+  PORTAL_URL,
+  PORTAL_SITE_NAME,
+  PORTAL_DESCRIPTION,
+} from "@/lib/site";
 
 const instrumentSans = Instrument_Sans({
   subsets: ["latin"],
@@ -18,7 +27,7 @@ const plexMono = IBM_Plex_Mono({
   variable: "--font-plex-mono",
 });
 
-export const metadata: Metadata = {
+const birdhausMetadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
     default: SITE_NAME,
@@ -47,6 +56,38 @@ export const metadata: Metadata = {
   },
 };
 
+// The portal host's identity. Icons and the web manifest come from host
+// rewrites in next.config.ts, so the main site's static icon routes stay as-is.
+const portalMetadata: Metadata = {
+  metadataBase: new URL(PORTAL_URL),
+  title: {
+    default: PORTAL_SITE_NAME,
+    template: `%s · ${PORTAL_SITE_NAME}`,
+  },
+  description: PORTAL_DESCRIPTION,
+  openGraph: {
+    type: "website",
+    siteName: PORTAL_SITE_NAME,
+    title: PORTAL_SITE_NAME,
+    description: PORTAL_DESCRIPTION,
+    url: PORTAL_URL,
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: PORTAL_SITE_NAME,
+    description: PORTAL_DESCRIPTION,
+  },
+  appleWebApp: {
+    capable: true,
+    title: PORTAL_SITE_NAME,
+    statusBarStyle: "black-translucent",
+  },
+};
+
+export async function generateMetadata(): Promise<Metadata> {
+  return (await onPortalHost()) ? portalMetadata : birdhausMetadata;
+}
+
 // Ink, matching the dark logo band at the top of every page.
 export const viewport: Viewport = {
   themeColor: "#1A1712",
@@ -57,7 +98,9 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const isAdmin = await isAdminSession();
+  // Every page already renders per request (isAdminSession reads cookies), so
+  // the host check adds no dynamism. Portal host → Fresh Cuts shell.
+  const [isAdmin, portal] = await Promise.all([isAdminSession(), onPortalHost()]);
 
   return (
     <html lang="en" style={{ backgroundColor: "#F2EEE3", color: "#1A1712" }}>
@@ -66,8 +109,14 @@ export default async function RootLayout({
             client-side navigation; the bar pins to the bottom of every page
             while a track is loaded. */}
         <GlobalPlayerProvider>
-          <Header isAdmin={isAdmin} />
-          {children}
+          {portal ? (
+            <PortalShell>{children}</PortalShell>
+          ) : (
+            <>
+              <Header isAdmin={isAdmin} />
+              {children}
+            </>
+          )}
           <PlayerBar />
         </GlobalPlayerProvider>
       </body>
