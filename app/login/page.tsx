@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { onPortalHost } from '@/lib/portal-host';
 import Image from 'next/image';
 import { redirect } from 'next/navigation';
 import { getClubMember } from '@/lib/club-members';
@@ -21,10 +22,13 @@ const LOGO_URL = cloudinaryTransform(
   768
 );
 
-export const metadata: Metadata = {
-  title: 'The Birdhaus — log in',
-  robots: { index: false, follow: false },
-};
+// Shared by both hosts; the portal's root title template adds "· Fresh Cuts".
+export async function generateMetadata(): Promise<Metadata> {
+  return {
+    title: (await onPortalHost()) ? 'Log in' : 'The Birdhaus — log in',
+    robots: { index: false, follow: false },
+  };
+}
 
 export const dynamic = 'force-dynamic';
 

@@ -7,13 +7,20 @@ import PlayerBar from "@/components/player/PlayerBar";
 import { isAdminSession } from "@/lib/admin-session";
 import { onPortalHost } from "@/lib/portal-host";
 import PortalShell from "@/components/portal/PortalShell";
-import { SITE_URL, SITE_NAME, SITE_DESCRIPTION } from "@/lib/site";
+import {
+  SITE_URL,
+  SITE_NAME,
+  SITE_DESCRIPTION,
+  PORTAL_URL,
+  PORTAL_SITE_NAME,
+  PORTAL_DESCRIPTION,
+} from "@/lib/site";
 
 const instrumentSans = Instrument_Sans({
   subsets: ["latin"],
 });
 
-export const metadata: Metadata = {
+const birdhausMetadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
     default: SITE_NAME,
@@ -41,6 +48,38 @@ export const metadata: Metadata = {
     statusBarStyle: "black-translucent",
   },
 };
+
+// The portal host's identity. Icons and the web manifest come from host
+// rewrites in next.config.ts, so the main site's static icon routes stay as-is.
+const portalMetadata: Metadata = {
+  metadataBase: new URL(PORTAL_URL),
+  title: {
+    default: PORTAL_SITE_NAME,
+    template: `%s · ${PORTAL_SITE_NAME}`,
+  },
+  description: PORTAL_DESCRIPTION,
+  openGraph: {
+    type: "website",
+    siteName: PORTAL_SITE_NAME,
+    title: PORTAL_SITE_NAME,
+    description: PORTAL_DESCRIPTION,
+    url: PORTAL_URL,
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: PORTAL_SITE_NAME,
+    description: PORTAL_DESCRIPTION,
+  },
+  appleWebApp: {
+    capable: true,
+    title: PORTAL_SITE_NAME,
+    statusBarStyle: "black-translucent",
+  },
+};
+
+export async function generateMetadata(): Promise<Metadata> {
+  return (await onPortalHost()) ? portalMetadata : birdhausMetadata;
+}
 
 export const viewport: Viewport = {
   themeColor: "#2A2420",

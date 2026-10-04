@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { onPortalHost } from '@/lib/portal-host';
 import { redirect } from 'next/navigation';
 import { getClubMember } from '@/lib/club-members';
 import AccountSettings from '@/components/club/AccountSettings';
@@ -8,10 +9,13 @@ import AccountSettings from '@/components/club/AccountSettings';
 // header already provides nav). Linked from the header user menu so crew /
 // photographers manage their account without going through a Song-Club-branded
 // page. Any logged-in user can reach it.
-export const metadata: Metadata = {
-  title: 'The Birdhaus — account',
-  robots: { index: false, follow: false },
-};
+// Shared by both hosts; the portal's root title template adds "· Fresh Cuts".
+export async function generateMetadata(): Promise<Metadata> {
+  return {
+    title: (await onPortalHost()) ? 'Account' : 'The Birdhaus — account',
+    robots: { index: false, follow: false },
+  };
+}
 
 export const dynamic = 'force-dynamic';
 

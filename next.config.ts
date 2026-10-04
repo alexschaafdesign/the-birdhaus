@@ -49,8 +49,15 @@ function portalSplitRedirects() {
 function portalSplitRewrites() {
   if (!PORTAL_SPLIT) return [];
   const portalHost = new URL(PORTAL_URL).hostname;
+  const onPortal = [{ type: 'host' as const, value: portalHost }];
   return [
-    { source: '/', has: [{ type: 'host' as const, value: portalHost }], destination: '/song-club' },
+    { source: '/', has: onPortal, destination: '/song-club' },
+    // Fresh Cuts icons + manifest (public/portal/) in place of the Birdhaus
+    // ones, which stay static app routes on the main host.
+    { source: '/favicon.ico', has: onPortal, destination: '/portal/favicon-48.png' },
+    { source: '/icon.png', has: onPortal, destination: '/portal/icon-32.png' },
+    { source: '/apple-icon.png', has: onPortal, destination: '/portal/apple-icon.png' },
+    { source: '/manifest.webmanifest', has: onPortal, destination: '/portal/manifest.webmanifest' },
   ];
 }
 
