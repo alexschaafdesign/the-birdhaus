@@ -6,7 +6,7 @@ export const SITE_URL = (
 ).replace(/\/$/, '');
 
 // Origin that serves the Song Club portal and /w/ workspaces. Same as SITE_URL
-// today; set NEXT_PUBLIC_PORTAL_URL to a subdomain (e.g. songclub.thebirdhaus.org)
+// today; set NEXT_PUBLIC_PORTAL_URL to a subdomain (e.g. freshcuts.thebirdhaus.org)
 // when the portal moves to its own app. Links that point INTO Song Club or a
 // workspace — invite/reset/announcement emails and post-login redirects — use
 // this instead of SITE_URL, so flipping the env var repoints them all at once.
@@ -20,6 +20,17 @@ export const PORTAL_URL = (
 // once a distinct portal host is configured it returns the absolute portal URL.
 export function portalRedirect(path: string): string {
   return PORTAL_URL === SITE_URL ? path : `${PORTAL_URL}${path}`;
+}
+
+// Domain split: the portal is the same app served on a second host. The host
+// routing (next.config.ts redirects/rewrites), robots, and sitemap all key off
+// PORTAL_SPLIT, so with NEXT_PUBLIC_PORTAL_URL unset — localhost, previews —
+// nothing changes.
+export const PORTAL_SPLIT = new URL(PORTAL_URL).host !== new URL(SITE_URL).host;
+
+// For request-time checks against the Host header (which includes any port).
+export function isPortalHost(host: string | null): boolean {
+  return PORTAL_SPLIT && host === new URL(PORTAL_URL).host;
 }
 
 export const SITE_NAME = 'the BIRDHAUS';

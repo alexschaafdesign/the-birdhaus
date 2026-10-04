@@ -71,12 +71,14 @@ export async function generateMetadata({
 }: {
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
-  const event = await getEventBySlug((await params).slug);
+  const { slug } = await params;
+  const event = await getEventBySlug(slug);
   if (!event || !event.published) return { title: 'Song Club' };
   return {
     title: `${event.title} — Song Club`,
     description: event.description?.slice(0, 200) ?? 'A Birdhaus Song Club event.',
-    openGraph: event.flyer_url ? { images: [event.flyer_url] } : undefined,
+    // Relative url resolves against the portal origin (app/song-club/layout.tsx).
+    openGraph: { url: `/song-club/${slug}`, ...(event.flyer_url && { images: [event.flyer_url] }) },
   };
 }
 
