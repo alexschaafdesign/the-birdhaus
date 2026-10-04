@@ -1,12 +1,13 @@
 import type { ComponentProps } from 'react';
 
-// Birdhaus DS primitive — Content / Series Tick (Figma 176:169). A single SMPTE
-// bar colour placed before a catalogue ID: BH grey (everyday), FC yellow,
-// Video cyan (BHV/BT), Tape green (BHR), Song Club magenta. One saturated note
-// per piece; bar red and blue are never series colours.
+// Birdhaus DS primitive — Content / Series Tick (Figma 176:169). A single
+// spectrum colour placed before a catalogue ID: BH muted (everyday), FC amber,
+// Video violet (BHV/BT), Tape orange (BHR), Song Club magenta. One saturated
+// note per piece; red is reserved as the house accent, never a series colour.
 //
-// Colour comes from the --color-series-* tokens (Figma aliases of bars/*); the
-// 6×14 box is the spacing scale (w-1.5 / h-3.5). No hex or px literals here.
+// Colour comes from the --color-series-* tokens (Figma aliases of spectrum/*,
+// and text/muted for BH); the 6×14 box is the spacing scale (w-1.5 / h-3.5).
+// No hex or px literals here.
 // Purely decorative — the catalogue ID beside it carries the meaning — so it's
 // aria-hidden and a <span> that sits inline with that text.
 
