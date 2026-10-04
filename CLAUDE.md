@@ -8,6 +8,8 @@ the three repos divide ownership and why.
 
 @docs/db-safety.md
 
+Figma is read-only. Never call use_figma, upload_assets, or add_code_connect_map without explicit per-instance approval.
+
 ## Square
 
 Never manually resend pre-081 `payment.updated` events for MULTI-ITEM orders
