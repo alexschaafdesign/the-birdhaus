@@ -202,19 +202,25 @@ async function uniqueSlug(base: string, excludeId?: number): Promise<string> {
   }
 }
 
+// SC-### numbers (096): a new event takes the next number after the highest
+// stored one, never below 005 — 001–004 are reserved for Song-a-day V1–V4,
+// which predate the table. Assigned once at create and stored, so adding an
+// older event later never renumbers anything. Two creates racing would hit
+// the unique index and fail loudly rather than share a number.
 export async function createEvent(input: SongClubEventInput): Promise<SongClubEvent> {
   const slug = await uniqueSlug(slugify(`${input.eventDate}-${input.title}`));
   const [row] = await sql<SongClubEvent[]>`
     insert into song_club_events
       (slug, title, event_date, end_date, start_time, end_time, venue_name, address,
        arrival_notes, description, body, flyer_url, published, playlist_id, format,
-       days_open_default)
+       days_open_default, catalogue_number)
     values
       (${slug}, ${input.title}, ${input.eventDate}, ${input.endDate}, ${input.startTime},
        ${input.endTime}, ${input.venueName}, ${input.address},
        ${input.arrivalNotes}, ${input.description}, ${input.body}, ${input.flyerUrl},
        ${input.published}, ${input.playlistId}, ${input.format},
-       ${input.daysOpenDefault})
+       ${input.daysOpenDefault},
+       (select greatest(coalesce(max(catalogue_number), 0), 4) + 1 from song_club_events))
     returning ${COLUMNS}
   `;
   return row;
