@@ -115,6 +115,8 @@ interface Video {
 interface Audio {
   bandcamp: string;
   title: string;
+  // Set tag (no UI yet) — kept so editing a show doesn't drop it.
+  bandId?: number;
 }
 
 // One gallery photo: its URL plus the registry photographer it's credited to
@@ -122,6 +124,8 @@ interface Audio {
 interface PhotoEntry {
   url: string;
   photographerId: number | null;
+  // Set tag (no UI yet) — kept so editing a show doesn't drop it.
+  bandId?: number;
 }
 
 // Sound-engineer statuses from the API, kept in sync with lib/sound-engineers.ts.
@@ -146,11 +150,13 @@ export interface ShowFormInitialValues {
   ticketLimit?: number | null;
   rsvpForm?: boolean;
   videos?: Array<{ youtube: string; title: string; bandIds?: number[] }>;
-  audio?: Array<{ bandcamp: string; title: string }>;
+  audio?: Array<{ bandcamp: string; title: string; bandId?: number }>;
   // Per-photo entries. photographerName is resolved server-side (from the
   // registry) purely for display next to each thumbnail; only the id is saved.
   // Legacy string[] rows are accepted and treated as uncredited.
-  photos?: Array<string | { url: string; photographerId?: number | null; photographerName?: string | null }>;
+  photos?: Array<
+    string | { url: string; photographerId?: number | null; photographerName?: string | null; bandId?: number }
+  >;
   // Registry photographer booked to shoot this show (shows.photographer_id).
   // Name is resolved server-side for display in the picker.
   assignedPhotographerId?: number | null;
@@ -258,7 +264,7 @@ function initFormState(initial?: ShowFormInitialValues): FormState {
     photos: (initial?.photos ?? []).map((p) =>
       typeof p === 'string'
         ? { url: p, photographerId: null }
-        : { url: p.url, photographerId: p.photographerId ?? null }
+        : { url: p.url, photographerId: p.photographerId ?? null, bandId: p.bandId }
     ),
     // Uploads default to crediting the show's assigned photographer (set on the
     // Crew tab); the photographer booking itself lives there now.
@@ -572,7 +578,8 @@ export default function ShowForm({
         }),
       audio: form.audio.filter((a) => a.bandcamp.trim() && a.title.trim()),
       photos: form.photos
-        .map((p) => ({ url: p.url.trim(), photographerId: p.photographerId }))
+        // bandId (a set tag) has no UI yet; carry it through so a save keeps it.
+        .map((p) => ({ url: p.url.trim(), photographerId: p.photographerId, bandId: p.bandId }))
         .filter((p) => p.url),
       photoFolder: form.photoFolder.trim(),
       photoCredit: form.photoCredit.trim(),

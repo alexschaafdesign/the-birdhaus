@@ -12,6 +12,9 @@ import { sql } from './db';
 export type ShowPhoto = {
   url: string;
   photographerId: number | null;
+  // Optional (096-era archive): the band whose set this photo is from. Absent
+  // = a night-level photo. Same shape as videos' bandIds, one band per photo.
+  bandId?: number;
 };
 
 export interface Show {
@@ -30,7 +33,8 @@ export interface Show {
   externalTicketUrl?: string;
   rsvpForm?: boolean;
   videos: Array<{ youtube: string; title: string; bandIds?: number[] }>;
-  audio?: Array<{ bandcamp: string; title: string }>;
+  // bandId (optional): the set this recording belongs to; absent = the night.
+  audio?: Array<{ bandcamp: string; title: string; bandId?: number }>;
   photos?: ShowPhoto[];
   photoFolder?: string;
   photoCredit?: string;
@@ -383,7 +387,11 @@ export function normalizePhotosInput(input: unknown): ShowPhoto[] {
       const pid = obj.photographerId;
       const photographerId =
         typeof pid === 'number' && Number.isFinite(pid) ? pid : null;
-      out.push({ url, photographerId });
+      // Keep a set tag through every read and admin save; only a real number
+      // counts, and the key is omitted (not null) when untagged.
+      const bid = obj.bandId;
+      const bandId = typeof bid === 'number' && Number.isFinite(bid) ? bid : undefined;
+      out.push(bandId === undefined ? { url, photographerId } : { url, photographerId, bandId });
     }
   }
   return out;
