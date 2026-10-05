@@ -8,8 +8,8 @@ import { SeriesTick, type Series } from './SeriesTick';
 // ID is the registry string (BH-YYMMDD, SC-###…) in Data/Caption 13 Bold,
 // accent-red; date + lineup are UI/Nav Item 14. Date may be a range
 // ("SEP 16 – SEP 25"). Series tick is optional and sits before the ID.
-// Column widths are the Figma ones on the spacing scale (w-24 = 96, w-40 =
-// 160); below sm the date column hugs its text. Hover is surface-paper-shade,
+// Column widths are the Figma ones on the spacing scale (ID w-28 = 112 with a
+// 10 gap to the tick, date w-40 = 160); below sm the date column hugs its text. Hover is surface-paper-shade,
 // the DS "hover rows on paper" token. No hex or px literals here.
 
 export type ShowRowProps = Omit<ComponentProps<typeof Link>, 'children'> & {
@@ -36,7 +36,7 @@ export function ShowRow({
         className
       }
     >
-      <span className="flex w-24 shrink-0 items-center gap-2">
+      <span className="flex w-28 shrink-0 items-center gap-2.5">
         {series && <SeriesTick series={series} />}
         <span className="text-data-caption-13-bold text-accent-red truncate font-bold leading-[1.4] tracking-[--spacing(0.375)]">
           {catalogueId}

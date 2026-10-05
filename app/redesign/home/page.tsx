@@ -2,7 +2,14 @@ import type { Metadata } from 'next';
 import type { ComponentProps } from 'react';
 import { getAllShows, getTodayCentral } from '@/lib/shows';
 import type { Show } from '@/lib/shows';
-import { bandNames, broadcastDate, catalogueId, shortDate, to24h } from '@/lib/catalogue';
+import {
+  bandNames,
+  broadcastDate,
+  catalogueId,
+  isFreshCuts,
+  shortDate,
+  to24h,
+} from '@/lib/catalogue';
 import { NavLink } from '@/components/ui/NavLink';
 import { SmpteBars } from '@/components/ui/SmpteBars';
 import { SectionHeader } from '@/components/ui/SectionHeader';
@@ -70,7 +77,7 @@ const SAMPLE: Model = {
     spec: SPEC,
     action: { href: '#', label: 'RSVP' },
   },
-  rows: SAMPLE_ROWS.map((r) => ({ ...r, href: '#' })),
+  rows: SAMPLE_ROWS.map((r) => ({ ...r, href: '#', series: 'bh' })),
   recordings: SAMPLE_RECORDINGS.map((r) => ({ ...r, href: '#' })),
 };
 
@@ -109,6 +116,7 @@ async function liveModel(): Promise<Model> {
       catalogueId: catalogueId(show.date),
       date: shortDate(show.date),
       lineup: bandNames(show).join(' · ') || show.title,
+      series: isFreshCuts(show.slug) ? 'fc' : 'bh',
     })),
     recordings: past
       .flatMap((show) => show.videos.map((video) => ({ show, video })))
@@ -184,7 +192,7 @@ export default async function RedesignHomePage({
       {/* ---- next show + ball ------------------------------------------ */}
       <section className="flex flex-col gap-6 lg:grid lg:grid-cols-[3fr_2fr] lg:gap-8">
         <div className="flex flex-col gap-6">
-          <SectionHeader label="Next show" rule="m" />
+          <SectionHeader label="Next show" />
           {next ? (
             <NextShow {...next} />
           ) : (
@@ -201,20 +209,19 @@ export default async function RedesignHomePage({
       {/* ---- upcoming -------------------------------------------------- */}
       {rows.length > 0 && (
         <section className="flex flex-col gap-6">
-          <SectionHeader label="Upcoming" count={rows.length} />
+          <SectionHeader label="Upcoming" count={rows.length} rule="none" />
           <div className="flex flex-col">
             {rows.map(({ key, ...row }) => (
               <ShowRow key={key} {...row} />
             ))}
           </div>
-          <SmpteBars bands={1} size="s" />
         </section>
       )}
 
       {/* ---- latest recordings ----------------------------------------- */}
       {recordings.length > 0 && (
         <section className="flex flex-col gap-6">
-          <SectionHeader label="Latest recordings" />
+          <SectionHeader label="Latest recordings" rule="none" />
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
             {recordings.map(({ key, ...card }) => (
               <RecordingCard key={key} {...card} />
