@@ -58,15 +58,15 @@
    capture/broadcast contexts override the same --bh-size-* names.
    Independent of [data-theme]: /tv will opt into [data-context="tv"]. */
 :root {
-  --bh-size-display-1: 96px;
-  --bh-size-display-2: 72px;
-  --bh-size-display-3: 52px;
+  --bh-size-display-1: 80px;
+  --bh-size-display-2: 56px;
+  --bh-size-display-3: 44px;
   --bh-size-display-4: 80px;
-  --bh-size-header-1: 40px;
-  --bh-size-header-2: 30px;
+  --bh-size-header-1: 34px;
+  --bh-size-header-2: 26px;
   --bh-size-header-3: 24px;
   --bh-size-header-4: 20px;
-  --bh-size-body-1: 18px;
+  --bh-size-body-1: 16px;
   --bh-size-body-2: 16px;
   --bh-size-body-3: 14px;
   --bh-size-timecode: 15px;
@@ -186,7 +186,7 @@
   --bh-size-header-2: 24px;
   --bh-size-header-3: 20px;
   --bh-size-header-4: 18px;
-  --bh-size-body-1: 17px;
+  --bh-size-body-1: 16px;
   --bh-size-body-2: 16px;
   --bh-size-body-3: 14px;
   --bh-size-timecode: 14px;
