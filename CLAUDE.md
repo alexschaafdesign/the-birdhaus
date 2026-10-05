@@ -22,10 +22,14 @@ the app does not clear it. (Hit on dev 2026-10-05 by a draft of migration 094.)
 
 Until that's fixed (explicit column lists, or statement preparation disabled
 on the pooled connection — tracked in TODO.md), **no migration may alter
-`shows`, `show_bands`, `bands`, `settlements`, or `submissions`, or any other
-table read with `select *`.** Put new per-show/per-set data in a new table
-keyed by `show_id` (e.g. `show_rig`). Before writing any `alter table`,
-`git grep` the table for `select *`, `.*` and `returning *`.
+`shows`, `bands`, `settlements`, or `submissions`** — the tables the app
+reads with `select *`, `alias.*` or `returning *` (as of 2026-10-05) — **or
+any other table that gains such a read.** Put new per-show data in a new
+table keyed by `show_id` (e.g. `show_rig`). Before writing any `alter table`,
+check every query on that table for a star in its select list or `returning`
+clause; a line grep misses multi-line SQL, so scan the whole template
+literals. (`show_bands` and `song_club_events` are read with explicit
+columns only, so 093/096 altering them is safe.)
 
 ## Square
 

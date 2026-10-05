@@ -31,7 +31,7 @@
 **Found:** 2026-10-05, when a draft migration added columns to `shows` and every pooled `select * from shows` on dev failed with `cached plan must not change result type` (pages 500'd; restarting the app didn't help, the direct host was fine).
 
 **What this covers (pick one, or both):**
-- Replace `select *` / `alias.*` / `returning *` on `shows`, `show_bands`, `bands`, `settlements`, `submissions` with explicit column lists (`lib/shows.ts` getAllShows/getShowBySlug/getShowById, the admin show/band/settlement/submission routes).
+- Replace `select *` / `alias.*` / `returning *` on `shows` (8), `bands` (10), `settlements` (7), `submissions` (4) with explicit column lists (`lib/shows.ts` getAllShows/getShowBySlug/getShowById, `lib/bands.ts`, `lib/settlements.ts`, the admin show/band/settlement/submission routes).
 - Or disable statement preparation on the pooled connection (`prepare: false` in `lib/db.ts`), the usual setting behind PgBouncer.
 - Then lift the CLAUDE.md rule.
 
