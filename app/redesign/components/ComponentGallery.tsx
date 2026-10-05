@@ -1,6 +1,6 @@
 'use client';
 
-// Preview for the DS primitives (Button, NavLink, SeriesTick), rendered from components/ui
+// Preview for the DS primitives (Button, NavLink, SeriesTick, RailHeader), rendered from components/ui
 // and styled only with --color-* / --text-* tokens. Same posture as the tokens
 // specimen: noindex, and a [data-context] switcher so the components' type
 // re-resolves live (web/print/social/tv/mobile) — a way to see the TV sizing
@@ -10,6 +10,8 @@ import { useState } from 'react';
 import { Button, type ButtonProps } from '@/components/ui/Button';
 import { NavLink } from '@/components/ui/NavLink';
 import { SeriesTick, type Series } from '@/components/ui/SeriesTick';
+import { RailHeader } from '@/components/ui/RailHeader';
+import { NAV } from '../home/nav';
 
 type Ctx = 'web' | 'print' | 'social' | 'tv' | 'mobile';
 
@@ -34,6 +36,18 @@ const SERIES_SAMPLES: { series: Series; id: string }[] = [
 const BUTTON_VARIANTS: NonNullable<ButtonProps['variant']>[] = ['primary', 'secondary', 'ghost'];
 const BUTTON_SIZES: NonNullable<ButtonProps['size']>[] = ['m', 's'];
 const BUTTON_STATES = ['default', 'hover', 'pressed', 'disabled'] as const;
+
+// Rail header active state per route (pathname override): one per nav item,
+// plus routes that claim no item.
+const RAIL_ROUTES = [
+  '/redesign/home',
+  '/shows/some-show',
+  '/archive',
+  '/photos/someone',
+  '/contact',
+  '/song-club',
+  '/tv',
+] as const;
 
 export default function ComponentGallery() {
   const [context, setContext] = useState<Ctx>('web');
@@ -155,6 +169,23 @@ export default function ComponentGallery() {
                   <SeriesTick series={s.series} />
                   <span className="text-data-catalogue-id-16 font-bold">{s.id}</span>
                   <span className="text-data-caption-13 text-surface-ink/50">{s.series}</span>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          {/* ---- Rail header ------------------------------------------ */}
+          <section>
+            <h2 className="text-header-3 mb-1">Rail header</h2>
+            <p className="text-body-3 text-surface-ink/70 mb-4 max-w-prose">
+              The site header (Figma 121:4273) rendered for sample routes — the active
+              rail item comes from the route. Desktop at lg+, mobile below.
+            </p>
+            <div className="flex flex-col gap-8 [--rail-h:--spacing(1)]">
+              {RAIL_ROUTES.map((path) => (
+                <div key={path} data-rail-route={path}>
+                  <div className="text-data-spec-12 text-surface-ink/50 mb-2">{path}</div>
+                  <RailHeader entries={NAV} homeHref="/redesign/home" pathname={path} />
                 </div>
               ))}
             </div>

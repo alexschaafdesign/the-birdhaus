@@ -1,5 +1,4 @@
 import type { Metadata } from 'next';
-import Link from 'next/link';
 import type { ComponentProps } from 'react';
 import { getAllShows, getTodayCentral } from '@/lib/shows';
 import type { Show } from '@/lib/shows';
@@ -11,14 +10,13 @@ import {
   shortDate,
   to24h,
 } from '@/lib/catalogue';
-import { NavLink } from '@/components/ui/NavLink';
-import { SmpteBars } from '@/components/ui/SmpteBars';
+import { RailHeader } from '@/components/ui/RailHeader';
+import { NAV } from './nav';
 import { SectionHeader } from '@/components/ui/SectionHeader';
 import { NextShow, type NextShowAct } from '@/components/ui/NextShow';
 import { ShowRow } from '@/components/ui/ShowRow';
 import { RecordingCard } from '@/components/ui/RecordingCard';
 import { DiscoBall } from '@/components/ui/DiscoBall';
-import { BirdhausWordmark } from '@/components/ui/BirdhausWordmark';
 import { SAMPLE_NEXT, SAMPLE_RECORDINGS, SAMPLE_ROWS, SAMPLE_STATS } from './sample';
 
 // 2027 Home, composed from the DS primitives in components/ui — Figma THE
@@ -34,15 +32,6 @@ export const metadata: Metadata = {
 
 // Upcoming/past split per request, same as the live homepage.
 export const dynamic = 'force-dynamic';
-
-const NAV = [
-  { label: 'VENUE', href: '/redesign/home', active: true },
-  { label: 'ARCHIVE', href: '/archive' },
-  // No 2027 routes for these yet.
-  { label: 'LABEL', href: '#' },
-  { label: 'COMMUNITY', href: '#' },
-  { label: 'ABOUT/CONTACT', href: '/contact' },
-];
 
 const RECORDING_COUNT = 5;
 
@@ -147,50 +136,23 @@ export default async function RedesignHomePage({
       style={{ WebkitTextStroke: 0 }}
     >
       {/* ---- header, rail, intro, next show + ball ----------------------
-          The header is logo → rail → nav on narrow screens, so the rail stays
-          under the wordmark (below sm the nav drops to the 12px data size,
-          spread edge to edge, so all five links fit one row), and logo | nav
-          over the rail at lg. Below it, at lg, a grid (content | ball column) whose
-          top edge is the rail's bottom: the ball spans its rows 1–3 as a
-          subgrid — mount + wire through the tagline and intro rows, ball in
-          the Next show row (in flow, so that row always fits it). Desktop
-          only.
+          RailHeader draws the one continuous rail (see components/ui/
+          RailHeader). --rail-h (the rail's thickness) is set here so the
+          header and the hanging ball share it. Below the header, at lg, a
+          grid (content | ball column) whose top edge is the rail's bottom:
+          the ball spans its rows 1–3 as a subgrid — mount + wire through the
+          tagline and intro rows, ball in the Next show row (in flow, so that
+          row always fits it). Desktop only.
           Horizontal: the wire is centred on a fixed line --spacing(61.5) in
-          from the content's right edge — the gap between LABEL and COMMUNITY
-          in the right-aligned nav — so it never hangs under a nav link at
-          any width; the ball is 26.2% of the content (360 at 1440) and
-          centred on that line (margin = line − half the ball). */}
-      <div className="flex flex-col">
-        <header className="grid grid-cols-1 gap-y-2.5 lg:grid-cols-[auto_1fr] lg:items-center lg:gap-x-8">
-          {/* TODO(launch): link the wordmark to / once this replaces the live home. */}
-          <Link
-            href="/redesign/home"
-            aria-label="Birdhaus"
-            className="focus-visible:outline-accent-red order-1 block w-fit max-w-full focus-visible:outline-2 focus-visible:outline-offset-2"
-          >
-            <BirdhausWordmark className="hidden w-96.5 max-w-full lg:block" />
-            <BirdhausWordmark layout="short-tail" className="w-44.75 max-w-full lg:hidden" />
-          </Link>
-          <SmpteBars variant="logo-rail" className="order-2 lg:order-3 lg:col-span-full" />
-          <nav
-            aria-label="Main"
-            className="order-3 flex flex-wrap justify-between gap-x-2 gap-y-2 sm:justify-start sm:gap-x-8.5 lg:order-2 lg:justify-self-end"
-          >
-            {NAV.map((item) => (
-              <NavLink
-                key={item.label}
-                href={item.href}
-                active={item.active}
-                className={`max-sm:text-data-spec-12 pt-1 pb-1.5 leading-[1.3] ${item.active ? 'border-accent-red border-b-2' : ''}`}
-              >
-                {item.label}
-              </NavLink>
-            ))}
-          </nav>
-        </header>
+          from the content's right edge; the ball is 26.2% of the content
+          (360 at 1440) and centred on that line (margin = line − half the
+          ball). */}
+      <div className="flex flex-col [--rail-h:--spacing(1)]">
+        {/* TODO(launch): homeHref → / once this replaces the live home. */}
+        <RailHeader entries={NAV} homeHref="/redesign/home" />
 
         <div className="flex flex-col lg:grid lg:grid-cols-[3fr_2fr] lg:gap-x-8">
-          <div className="text-body-3 mt-2.5 flex flex-wrap justify-between gap-x-8 gap-y-1 lg:col-span-full lg:row-start-1">
+          <div className="text-body-3 mt-3 flex flex-wrap justify-between gap-x-8 gap-y-1 lg:col-span-full lg:row-start-1">
             <p className="leading-normal">A HUMBLE DIY MUSIC EMPIRE IN SOUTH MINNEAPOLIS</p>
             {stats && (
               <p className="text-accent-red leading-[1.5] font-bold">
