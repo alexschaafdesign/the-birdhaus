@@ -57,6 +57,11 @@ function portalSplitRewrites() {
     { source: '/favicon.ico', has: onPortal, destination: '/portal/favicon-48.png' },
     { source: '/icon.png', has: onPortal, destination: '/portal/icon-32.png' },
     { source: '/apple-icon.png', has: onPortal, destination: '/portal/apple-icon.png' },
+    // The main site's disco-ball set adds these paths; keep them Fresh Cuts on
+    // the portal too (iOS requests /apple-touch-icon.png even without a tag).
+    { source: '/favicon-16x16.png', has: onPortal, destination: '/portal/icon-32.png' },
+    { source: '/favicon-32x32.png', has: onPortal, destination: '/portal/icon-32.png' },
+    { source: '/apple-touch-icon.png', has: onPortal, destination: '/portal/apple-icon.png' },
     { source: '/manifest.webmanifest', has: onPortal, destination: '/portal/manifest.webmanifest' },
   ];
 }

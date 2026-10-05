@@ -54,10 +54,21 @@ const birdhausMetadata: Metadata = {
     title: SITE_NAME,
     statusBarStyle: "black-translucent",
   },
+  // Disco-ball favicon set (public/). The web manifest stays app/manifest.ts
+  // (installed app opens /admin); it points at public/icon-192/512.png.
+  icons: {
+    icon: [
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/favicon-32x32.png", type: "image/png", sizes: "32x32" },
+      { url: "/favicon-16x16.png", type: "image/png", sizes: "16x16" },
+    ],
+    apple: "/apple-touch-icon.png",
+  },
 };
 
-// The portal host's identity. Icons and the web manifest come from host
-// rewrites in next.config.ts, so the main site's static icon routes stay as-is.
+// The portal host's identity. Its icon files and web manifest come from host
+// rewrites in next.config.ts (beforeFiles, so they win over public/), which
+// serve the Fresh Cuts icons from public/portal/ at these same paths.
 const portalMetadata: Metadata = {
   metadataBase: new URL(PORTAL_URL),
   title: {
@@ -81,6 +92,15 @@ const portalMetadata: Metadata = {
     capable: true,
     title: PORTAL_SITE_NAME,
     statusBarStyle: "black-translucent",
+  },
+  // The same tags the portal always emitted (they used to come from the
+  // app/icon file conventions, which now belong to the main site's set).
+  icons: {
+    icon: [
+      { url: "/favicon.ico", type: "image/x-icon", sizes: "16x16" },
+      { url: "/icon.png", type: "image/png", sizes: "32x32" },
+    ],
+    apple: { url: "/apple-icon.png", type: "image/png", sizes: "180x180" },
   },
 };
 
