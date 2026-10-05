@@ -1,0 +1,74 @@
+/* DiscoBall motion (components/ui/DiscoBall.tsx). CSS only, transform-only:
+   nothing here touches filter or blur, so the grain filters rasterize once and
+   the compositor just moves the layers. All of it is gated on
+   prefers-reduced-motion: no-preference, so reduced motion gets the static
+   ball. */
+
+/* The ball body: the intersection of the two rims. Two nested ellipse clips
+   (rim-blue, then rim-red) in the rims' own geometry, as percentages of the
+   477 × 467 ball box. The spots live inside, so wherever they drift they
+   never spill onto the rims. Screened as a group onto the rims below. */
+.bodyBack {
+  clip-path: ellipse(47.552% 48.537% at 47.552% 51.462%);
+}
+.bodyFront {
+  clip-path: ellipse(47.552% 48.537% at 52.453% 48.604%);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  /* Sway: the whole ball + wire swings ±0.5° around the mount (top centre). */
+  .sway {
+    transform-origin: 50% 0;
+    animation: disco-sway 7s ease-in-out infinite alternate;
+  }
+
+  /* Scroll-turn: each spot's horizontal position follows page scroll, each a
+     different distance (% of the ball's width), so they slide at different
+     speeds like a turning ball. Browsers without scroll timelines skip this
+     block and show the static ball. */
+  @supports (animation-timeline: scroll()) {
+    .spotBlue,
+    .spotRed,
+    .spotAmber {
+      animation-timing-function: linear;
+      animation-fill-mode: both;
+      animation-timeline: scroll(root block);
+    }
+    .spotBlue {
+      animation-name: disco-drift-blue;
+    }
+    .spotRed {
+      animation-name: disco-drift-red;
+    }
+    .spotAmber {
+      animation-name: disco-drift-amber;
+    }
+  }
+}
+
+@keyframes disco-sway {
+  from {
+    transform: rotate(-0.5deg);
+  }
+  to {
+    transform: rotate(0.5deg);
+  }
+}
+
+@keyframes disco-drift-blue {
+  to {
+    transform: translateX(-10%);
+  }
+}
+
+@keyframes disco-drift-red {
+  to {
+    transform: translateX(-20%);
+  }
+}
+
+@keyframes disco-drift-amber {
+  to {
+    transform: translateX(-30%);
+  }
+}

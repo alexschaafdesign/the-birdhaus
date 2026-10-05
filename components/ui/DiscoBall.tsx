@@ -1,4 +1,5 @@
-import { useId, type ComponentProps } from 'react';
+import { useId, type ComponentProps, type ReactNode } from 'react';
+import styles from './DiscoBall.module.css';
 
 // Birdhaus DS primitive — birdhaus-logo-ball, "Default" variant (the Fresh Cuts
 // and VHS variants come later). Not the /tv broadcast ball in
@@ -24,6 +25,14 @@ import { useId, type ComponentProps } from 'react';
 // --disco-drop below its top (the wire bridges that gap). So the wire runs from
 // wherever the span starts — e.g. just under a rail — to the ball, whatever
 // the text between them does.
+//
+// Motion (DiscoBall.module.css, CSS only): the spots drift sideways with page
+// scroll (animation-timeline: scroll(), each a different distance, clipped to
+// the body — the intersection of the two rims), and the whole ball + wire
+// sways ±0.5° around the mount. Transform-only; the grain filters are never
+// animated, and each spot is its own layer so moving it doesn't re-run its
+// filter. Off under prefers-reduced-motion; static where scroll timelines
+// aren't supported.
 
 // Figma's noise transfer tables: 100 discrete steps, opaque over 17–32 (dark
 // speckle) and 67–82 (light speckle).
@@ -78,80 +87,130 @@ export type DiscoBallProps = Omit<ComponentProps<'div'>, 'children'> & {
   hang?: boolean;
 };
 
-export function DiscoBall({ hang = false, className = '', ...props }: DiscoBallProps) {
-  // useId output can carry characters that aren't valid in url(#…) refs.
-  const id = useId().replace(/[^a-zA-Z0-9_-]/g, '');
-  const grain = `${id}-grain`;
-  const grainSoft = `${id}-grain-soft`;
-  const ball = (
+// The ball box: 477 × 467 Figma units (the frame cropped to the rims). Every
+// layer below shares it, so the spot layers line up with the rims exactly.
+const VIEWBOX = '0 98 477 467';
+
+// One screened spot on its own full-ball layer, so moving it is a plain
+// transform the compositor can do without re-running the grain filter.
+function Spot({
+  id,
+  blur,
+  className,
+  children,
+}: {
+  id: string;
+  blur: number;
+  className: string;
+  children: (filter: string) => ReactNode;
+}) {
+  return (
     <svg
-      viewBox="0 98 477 467"
+      viewBox={VIEWBOX}
       fill="none"
-      className="block h-auto w-full"
+      className={`absolute inset-0 size-full ${className}`}
       aria-hidden="true"
       focusable="false"
     >
       <defs>
-        <GrainBlur id={grain} blur={13.208} />
-        <GrainBlur id={grainSoft} blur={11.74} />
+        <GrainBlur id={id} blur={blur} />
       </defs>
-
-      {/* rims: back then front, multiplied */}
-      <ellipse
-        cx="226.825"
-        cy="338.33"
-        rx="226.825"
-        ry="226.667"
-        className="fill-ball-rim-blue mix-blend-multiply"
-      />
-      <ellipse
-        cx="250.2"
-        cy="324.98"
-        rx="226.825"
-        ry="226.667"
-        className="fill-ball-rim-red mix-blend-multiply"
-      />
-
-      {/* spots, screened */}
-      <ellipse
-        cx="226.4"
-        cy="173.3"
-        rx="101.321"
-        ry="44.167"
-        filter={`url(#${grainSoft})`}
-        className="fill-ball-spot-blue mix-blend-screen"
-      />
-      <ellipse
-        cx="140.8"
-        cy="399.4"
-        rx="78.744"
-        ry="63.97"
-        transform="rotate(46.25 140.8 399.4)"
-        filter={`url(#${grain})`}
-        className="fill-ball-spot-red mix-blend-screen"
-      />
-      <ellipse
-        cx="348.2"
-        cy="354.6"
-        rx="94.027"
-        ry="61.734"
-        transform="rotate(-88.2 348.2 354.6)"
-        filter={`url(#${grain})`}
-        className="fill-ball-spot-amber mix-blend-screen"
-      />
+      {children(`url(#${id})`)}
     </svg>
+  );
+}
+
+export function DiscoBall({ hang = false, className = '', ...props }: DiscoBallProps) {
+  // useId output can carry characters that aren't valid in url(#…) refs.
+  const id = useId().replace(/[^a-zA-Z0-9_-]/g, '');
+  const ball = (
+    <div className="relative w-full">
+      {/* rims: back then front, multiplied */}
+      <svg
+        viewBox={VIEWBOX}
+        fill="none"
+        className="block h-auto w-full"
+        aria-hidden="true"
+        focusable="false"
+      >
+        <ellipse
+          cx="226.825"
+          cy="338.33"
+          rx="226.825"
+          ry="226.667"
+          className="fill-ball-rim-blue mix-blend-multiply"
+        />
+        <ellipse
+          cx="250.2"
+          cy="324.98"
+          rx="226.825"
+          ry="226.667"
+          className="fill-ball-rim-red mix-blend-multiply"
+        />
+      </svg>
+
+      {/* spots, clipped to the body and screened onto it as one group */}
+      <div className={`absolute inset-0 mix-blend-screen ${styles.bodyBack}`}>
+        <div className={`absolute inset-0 ${styles.bodyFront}`}>
+          <Spot id={`${id}-blue`} blur={11.74} className={styles.spotBlue}>
+            {(filter) => (
+              <ellipse
+                cx="226.4"
+                cy="173.3"
+                rx="101.321"
+                ry="44.167"
+                filter={filter}
+                className="fill-ball-spot-blue"
+              />
+            )}
+          </Spot>
+          <Spot id={`${id}-red`} blur={13.208} className={styles.spotRed}>
+            {(filter) => (
+              <ellipse
+                cx="140.8"
+                cy="399.4"
+                rx="78.744"
+                ry="63.97"
+                transform="rotate(46.25 140.8 399.4)"
+                filter={filter}
+                className="fill-ball-spot-red"
+              />
+            )}
+          </Spot>
+          <Spot id={`${id}-amber`} blur={13.208} className={styles.spotAmber}>
+            {(filter) => (
+              <ellipse
+                cx="348.2"
+                cy="354.6"
+                rx="94.027"
+                ry="61.734"
+                transform="rotate(-88.2 348.2 354.6)"
+                filter={filter}
+                className="fill-ball-spot-amber"
+              />
+            )}
+          </Spot>
+        </div>
+      </div>
+    </div>
   );
 
   // aria-hidden after the spread so a caller can't un-hide a decorative mark.
+  // The sway class rotates the root around its top centre: the mount when
+  // hanging, the top of the ball otherwise.
   if (!hang) {
     return (
-      <div {...props} className={className} aria-hidden="true">
+      <div {...props} className={`${styles.sway} ${className}`} aria-hidden="true">
         {ball}
       </div>
     );
   }
   return (
-    <div {...props} className={`grid justify-items-center ${className}`} aria-hidden="true">
+    <div
+      {...props}
+      className={`grid justify-items-center ${styles.sway} ${className}`}
+      aria-hidden="true"
+    >
       <div className="row-[1/-2] flex w-full flex-col items-center">
         <span className="bg-surface-ink aspect-[9/4] w-[2.5%] shrink-0" />
         <span className="bg-surface-ink w-0.25 flex-1" />
