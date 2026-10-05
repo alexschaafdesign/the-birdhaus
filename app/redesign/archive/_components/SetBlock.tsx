@@ -17,8 +17,10 @@ function Heading({ set, summary }: { set: ArchiveSet; summary: string | null }) 
       <span className="text-timecode text-text-meta w-6 shrink-0 tabular-nums">
         {String(set.order).padStart(2, '0')}
       </span>
+      {/* The column stays so band names line up; an unknown time renders
+          nothing, never a placeholder — absent data stays absent. */}
       <span className="text-data-set-time-20 text-text-muted w-14 shrink-0 tabular-nums">
-        {set.start ?? '—'}
+        {set.start}
       </span>
       <h3 className="text-header-4 text-text-inverse min-w-0 flex-1 leading-[1.2] uppercase">
         {set.band}
