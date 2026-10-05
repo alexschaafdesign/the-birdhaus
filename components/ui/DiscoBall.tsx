@@ -29,7 +29,7 @@ import styles from './DiscoBall.module.css';
 // Motion (DiscoBall.module.css, CSS only): the spots drift sideways with page
 // scroll (animation-timeline: scroll(), each a different distance, clipped to
 // the body — the intersection of the two rims), and the whole ball + wire
-// sways ±0.5° around the mount. Transform-only; the grain filters are never
+// sways ±2° around the mount. Transform-only; the grain filters are never
 // animated, and each spot is its own layer so moving it doesn't re-run its
 // filter. Off under prefers-reduced-motion; static where scroll timelines
 // aren't supported.

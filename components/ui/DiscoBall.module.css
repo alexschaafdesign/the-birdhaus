@@ -16,7 +16,7 @@
 }
 
 @media (prefers-reduced-motion: no-preference) {
-  /* Sway: the whole ball + wire swings ±0.5° around the mount (top centre). */
+  /* Sway: the whole ball + wire swings ±2° around the mount (top centre). */
   .sway {
     transform-origin: 50% 0;
     animation: disco-sway 7s ease-in-out infinite alternate;
@@ -48,10 +48,10 @@
 
 @keyframes disco-sway {
   from {
-    transform: rotate(-0.5deg);
+    transform: rotate(-2deg);
   }
   to {
-    transform: rotate(0.5deg);
+    transform: rotate(2deg);
   }
 }
 
