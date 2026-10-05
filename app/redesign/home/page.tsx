@@ -191,11 +191,12 @@ export default async function RedesignHomePage({
 
           <section
             aria-label="The space"
-            className="text-body-1 mt-8 flex flex-col gap-1.5 leading-normal lg:col-start-1 lg:row-start-3"
+            className="text-body-3 mt-8 flex flex-col gap-1.5 leading-normal lg:col-start-1 lg:row-start-3"
           >
-            <p>The Birdhaus is a DIY basement venue in South Minneapolis.</p>
-            <p>Holds about sixty people. Donation at the door. All ages.</p>
-            <p>Every set is captured on 18 channels and multiple cameras.</p>
+            <p>
+              The Birdhaus is a DIY basement venue in South Minneapolis. Donation at the door. All
+              ages.
+            </p>
             <p>RSVP to an event to receive the address and other details.</p>
           </section>
 
