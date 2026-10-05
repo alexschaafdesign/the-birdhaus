@@ -74,6 +74,11 @@
       "TV 720x480": "[data-context=\"tv\"]",
       "Mobile 390": "[data-context=\"mobile\"]"
     },
+    "fluid": {
+      "$comment": "Code-side config, not from Figma: the :root (Web) sizes clamp linearly from the `from` mode at its viewport to the `to` mode at its viewport. Explicit [data-context] modes stay fixed.",
+      "from": { "mode": "Mobile 390", "viewport": 390 },
+      "to": { "mode": "Web", "viewport": 1440 }
+    },
     "variables": [
       { "name": "size/display-1", "values": { "Web": 80, "Print 200dpi": 118, "Social 1080": 112, "TV 720x480": 44, "Mobile 390": 44 } },
       { "name": "size/display-2", "values": { "Web": 56, "Print 200dpi": 86, "Social 1080": 82, "TV 720x480": 40, "Mobile 390": 34 } },

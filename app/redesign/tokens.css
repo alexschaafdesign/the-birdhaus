@@ -57,31 +57,32 @@
 /* ── Type sizes — context-varying. Web is the :root default; the four
    capture/broadcast contexts override the same --bh-size-* names.
    Independent of [data-theme]: /tv will opt into [data-context="tv"]. */
+/* :root is fluid: Mobile 390 at 390px → Web at 1440px viewport, clamped at both ends. */
 :root {
-  --bh-size-display-1: 80px;
-  --bh-size-display-2: 56px;
-  --bh-size-display-3: 44px;
-  --bh-size-display-4: 80px;
-  --bh-size-header-1: 34px;
-  --bh-size-header-2: 26px;
-  --bh-size-header-3: 24px;
-  --bh-size-header-4: 20px;
+  --bh-size-display-1: clamp(44px, 3.4286vw + 30.6286px, 80px);
+  --bh-size-display-2: clamp(34px, 2.0952vw + 25.8286px, 56px);
+  --bh-size-display-3: clamp(32px, 1.1429vw + 27.5429px, 44px);
+  --bh-size-display-4: clamp(40px, 3.8095vw + 25.1429px, 80px);
+  --bh-size-header-1: clamp(30px, 0.381vw + 28.5143px, 34px);
+  --bh-size-header-2: clamp(24px, 0.1905vw + 23.2571px, 26px);
+  --bh-size-header-3: clamp(20px, 0.381vw + 18.5143px, 24px);
+  --bh-size-header-4: clamp(18px, 0.1905vw + 17.2571px, 20px);
   --bh-size-body-1: 16px;
   --bh-size-body-2: 16px;
   --bh-size-body-3: 14px;
-  --bh-size-timecode: 15px;
-  --bh-size-data-set-time-20: 20px;
-  --bh-size-data-catalogue-id-16: 16px;
+  --bh-size-timecode: clamp(14px, 0.0952vw + 13.6286px, 15px);
+  --bh-size-data-set-time-20: clamp(14px, 0.5714vw + 11.7714px, 20px);
+  --bh-size-data-catalogue-id-16: clamp(15px, 0.0952vw + 14.6286px, 16px);
   --bh-size-data-caption-13: 13px;
   --bh-size-data-caption-13-bold: 13px;
-  --bh-size-data-label-11: 11px;
-  --bh-size-data-label-10-small: 10px;
-  --bh-size-data-overline-11: 11px;
+  --bh-size-data-label-11: clamp(11px, -0.0952vw + 12.3714px, 12px);
+  --bh-size-data-label-10-small: clamp(10px, -0.1905vw + 12.7429px, 12px);
+  --bh-size-data-overline-11: clamp(11px, -0.0952vw + 12.3714px, 12px);
   --bh-size-data-spec-12: 12px;
   --bh-size-ui-input-label-12: 12px;
   --bh-size-ui-input-value-16: 16px;
-  --bh-size-ui-nav-item-14: 14px;
-  --bh-size-ui-button-15: 15px;
+  --bh-size-ui-nav-item-14: clamp(14px, -0.0952vw + 15.3714px, 15px);
+  --bh-size-ui-button-15: clamp(15px, -0.0952vw + 16.3714px, 16px);
   --bh-size-ui-link-16: 16px;
   --bh-size-tv-heading-34: 34px;
   --bh-size-tv-label-20: 20px;

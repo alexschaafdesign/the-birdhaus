@@ -31,6 +31,12 @@
 //   [data-theme=dark]  flips mode-varying COLORS (Light default on :root)
 //   [data-context=...] flips context-varying SIZES (Web default on :root)
 //
+// Fluid type: when sizes.fluid is set, the :root (Web) value of each size is a
+// clamp() that scales linearly from its Mobile 390 value at a 390px viewport to
+// its Web value at 1440px, holding each end outside that range. Components get
+// it for free through the same --text-* utilities. Explicit [data-context]
+// modes (print/social/tv/mobile) stay fixed: they describe a known canvas.
+//
 // Paths can be overridden with TOKENS_SRC / TOKENS_OUT (used for testing the
 // single-mode collapse without touching the committed files).
 
@@ -222,14 +228,42 @@ if (aliasColors.length) {
 // ---- context-varying SIZES: raw --bh-size-* layer + @theme inline ---------
 const sel = data.sizes.modeSelectors;
 const [webMode, ...otherModes] = data.sizes.modes;
+const fluid = data.sizes.fluid;
+if (fluid && fluid.to.mode !== webMode) {
+  throw new Error('sizes.fluid.to must be the :root mode (' + webMode + ')');
+}
+for (const end of fluid ? [fluid.from, fluid.to] : []) {
+  if (!data.sizes.modes.includes(end.mode)) throw new Error('sizes.fluid: unknown mode ' + end.mode);
+}
+
+// Trim float noise: 4 decimals, no trailing zeros.
+const num = (n) => String(Number(n.toFixed(4)));
+
+// The :root value for a size: a clamp() between the two fluid ends, or the
+// plain Web px when there's no fluid config or both ends agree.
+const rootSize = (v) => {
+  if (!fluid) return v.values[webMode] + 'px';
+  const a = v.values[fluid.from.mode];
+  const b = v.values[fluid.to.mode];
+  if (a === b) return b + 'px';
+  const slope = (b - a) / (fluid.to.viewport - fluid.from.viewport);
+  const intercept = a - slope * fluid.from.viewport;
+  const sign = intercept < 0 ? ' - ' : ' + ';
+  const preferred = num(slope * 100) + 'vw' + sign + num(Math.abs(intercept)) + 'px';
+  return 'clamp(' + Math.min(a, b) + 'px, ' + preferred + ', ' + Math.max(a, b) + 'px)';
+};
 
 if (contextVaryingSizes.length) {
   p('/* ── Type sizes — context-varying. Web is the :root default; the four');
   p('   capture/broadcast contexts override the same --bh-size-* names.');
   p('   Independent of [data-theme]: /tv will opt into [data-context="tv"]. */');
+  if (fluid) {
+    p('/* :root is fluid: ' + fluid.from.mode + ' at ' + fluid.from.viewport + 'px → ' +
+      fluid.to.mode + ' at ' + fluid.to.viewport + 'px viewport, clamped at both ends. */');
+  }
   p(sel[webMode] + ' {');
   for (const v of contextVaryingSizes) {
-    p('  --bh-size-' + sizeSlug(v.name) + ': ' + v.values[webMode] + 'px;');
+    p('  --bh-size-' + sizeSlug(v.name) + ': ' + rootSize(v) + ';');
   }
   p('}');
   for (const mode of otherModes) {

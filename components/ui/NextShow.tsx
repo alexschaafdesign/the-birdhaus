@@ -8,8 +8,7 @@ import { ButtonArrow, buttonClassName } from './Button';
 //
 // Type follows the Figma text styles: date Data/Timecode 15, ID Data/Catalogue
 // ID 16, set time Data/Set Time 20, band Display/2 (lh 0.9), data band Body/3 +
-// Data/Spec 12. Set times / ID are accent-red, band names text-primary. Below
-// sm the band names step down to Header/1 so long names don't split mid-word.
+// Data/Spec 12. Set times / ID are accent-red, band names text-primary.
 // Corner marks are 26×26 L's (size-6.5, 2px arms = 0.5) — the Chassis
 // component — rotated per corner. The content overlaps the marks by 16 (-my-4),
 // as in Figma. No hex or px literals here.
@@ -81,7 +80,7 @@ export function NextShow({
                   {act.time}
                 </span>
               )}
-              <span className="text-header-1 sm:text-display-2 text-text-primary leading-[0.9] break-words uppercase">
+              <span className="text-display-2 text-text-primary leading-[0.9] break-words uppercase">
                 {act.name}
               </span>
             </li>

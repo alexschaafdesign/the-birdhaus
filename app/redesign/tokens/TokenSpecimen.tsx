@@ -9,9 +9,10 @@
 //   token leaves the swatch transparent -> FAIL.
 // - Sizes sit in @theme inline, so `--text-*` is NOT a :root custom property
 //   (it's inlined into the utility). We instead compare the applied font-size
-//   against the resolved `--bh-size-*` raw var; a broken utility inherits a
-//   different size -> FAIL. That comparison is also what makes the live
-//   [data-context] re-resolve observable.
+//   against the `--bh-size-*` raw var resolved to px through a probe element
+//   (on :root it's a fluid clamp(), so its string isn't a px value); a broken
+//   utility inherits a different size -> FAIL. That comparison is also what
+//   makes the live [data-context] switch and the fluid resize observable.
 // - The type face is checked through document.fonts: each self-hosted
 //   CommitMono weight must load from its @font-face, else FAIL.
 
@@ -246,9 +247,18 @@ export default function TokenSpecimen() {
     setColorReadings(next);
   }, []);
 
-  // Sizes re-resolve when the context changes. Compare the applied font-size to
-  // the resolved --bh-size-* raw var so a broken utility (which would inherit)
-  // is caught, and so the live TV/print/etc. switch is provably reflected.
+  // Web sizes are fluid, so re-read on resize as well as on context change.
+  const [viewportTick, setViewportTick] = useState(0);
+  useEffect(() => {
+    const onResize = () => setViewportTick((n) => n + 1);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+
+  // Sizes re-resolve when the context or viewport changes. Compare the applied
+  // font-size to the --bh-size-* raw var resolved to px by a probe span in the
+  // same context, so a broken utility (which would inherit) is caught and the
+  // live TV/print/etc. switch and fluid scaling are provably reflected.
   useEffect(() => {
     const root = typeRef.current;
     if (!root) return;
@@ -258,11 +268,16 @@ export default function TokenSpecimen() {
       if (!token) return;
       const cs = getComputedStyle(el);
       const applied = cs.fontSize;
-      const expected = cs.getPropertyValue('--bh-size-' + token).trim();
-      next[token] = { value: applied, ok: expected !== '' && applied === expected };
+      const raw = cs.getPropertyValue('--bh-size-' + token).trim();
+      const probe = document.createElement('span');
+      probe.style.fontSize = `var(--bh-size-${token})`;
+      el.appendChild(probe);
+      const expected = getComputedStyle(probe).fontSize;
+      probe.remove();
+      next[token] = { value: applied, ok: raw !== '' && applied === expected };
     });
     setSizeReadings(next);
-  }, [context]);
+  }, [context, viewportTick]);
 
   const colorOk = Object.values(colorReadings).filter((r) => r.ok).length;
   const sizeOk = Object.values(sizeReadings).filter((r) => r.ok).length;
