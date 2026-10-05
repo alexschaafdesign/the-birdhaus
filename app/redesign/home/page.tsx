@@ -144,9 +144,18 @@ export default async function RedesignHomePage({
       className="bg-surface-paper text-surface-ink font-commit-mono flex min-h-screen flex-col gap-8 overflow-x-clip px-4 pt-6 pb-12 sm:px-8"
       style={{ WebkitTextStroke: 0 }}
     >
-      {/* ---- header ---------------------------------------------------- */}
-      <header className="flex flex-col gap-2.5">
-        <div className="flex flex-wrap items-center justify-between gap-x-8 gap-y-4">
+      {/* ---- header, rail, intro, next show + ball ----------------------
+          One block so the ball can hang from the rail: at lg it's a grid
+          (content | ball column) and the ball spans rows 2–4 as a subgrid —
+          mount + wire through the tagline and intro rows, ball in the Next
+          show row (in flow, so that row always fits it). Desktop only.
+          Horizontal: the wire is centred on a fixed line --spacing(61.5) in
+          from the content's right edge — the gap between LABEL and COMMUNITY
+          in the right-aligned nav — so it never hangs under a nav link at
+          any width; the ball is 26.2% of the content (360 at 1440) and
+          centred on that line (margin = line − half the ball). */}
+      <div className="flex flex-col gap-2.5">
+        <header className="flex flex-wrap items-center justify-between gap-x-8 gap-y-4">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="/redesign/birdhaus-logo.svg"
@@ -167,42 +176,44 @@ export default async function RedesignHomePage({
               </NavLink>
             ))}
           </nav>
-        </div>
-        <SmpteBars variant="logo-rail" />
-        <div className="text-body-3 flex flex-wrap justify-between gap-x-8 gap-y-1">
-          <p className="leading-normal">A HUMBLE DIY MUSIC EMPIRE IN SOUTH MINNEAPOLIS</p>
-          {stats && (
-            <p className="text-accent-red leading-[1.5] font-bold">
-              {stats.bands} BANDS · {stats.sets} SETS
-            </p>
-          )}
-        </div>
-      </header>
+        </header>
 
-      {/* ---- the space ------------------------------------------------- */}
-      <section aria-label="The space" className="text-body-1 flex flex-col gap-1.5 leading-normal">
-        <p>The Birdhaus is a DIY basement venue in South Minneapolis.</p>
-        <p>Holds about sixty people. Donation at the door. All ages.</p>
-        <p>Every set is captured on 18 channels and multiple cameras.</p>
-        <p>RSVP to an event to receive the address and other details.</p>
-      </section>
+        <div className="flex flex-col lg:grid lg:grid-cols-[3fr_2fr] lg:gap-x-8">
+          <SmpteBars variant="logo-rail" className="lg:col-span-full lg:row-start-1" />
+          <div className="text-body-3 mt-2.5 flex flex-wrap justify-between gap-x-8 gap-y-1 lg:col-span-full lg:row-start-2">
+            <p className="leading-normal">A HUMBLE DIY MUSIC EMPIRE IN SOUTH MINNEAPOLIS</p>
+            {stats && (
+              <p className="text-accent-red leading-[1.5] font-bold">
+                {stats.bands} BANDS · {stats.sets} SETS
+              </p>
+            )}
+          </div>
 
-      {/* ---- next show + ball ------------------------------------------ */}
-      <section className="flex flex-col gap-6 lg:grid lg:grid-cols-[3fr_2fr] lg:gap-8">
-        <div className="flex flex-col gap-6">
-          <SectionHeader label="Next show" />
-          {next ? (
-            <NextShow {...next} />
-          ) : (
-            <p className="text-body-1">No shows on the books right now. Check back soon.</p>
-          )}
+          <section
+            aria-label="The space"
+            className="text-body-1 mt-8 flex flex-col gap-1.5 leading-normal lg:col-start-1 lg:row-start-3"
+          >
+            <p>The Birdhaus is a DIY basement venue in South Minneapolis.</p>
+            <p>Holds about sixty people. Donation at the door. All ages.</p>
+            <p>Every set is captured on 18 channels and multiple cameras.</p>
+            <p>RSVP to an event to receive the address and other details.</p>
+          </section>
+
+          <section className="mt-8 flex flex-col gap-6 lg:col-start-1 lg:row-start-4">
+            <SectionHeader label="Next show" />
+            {next ? (
+              <NextShow {...next} />
+            ) : (
+              <p className="text-body-1">No shows on the books right now. Check back soon.</p>
+            )}
+          </section>
+
+          <DiscoBall
+            hang
+            className="pointer-events-none hidden w-[26.2%] justify-self-end [--disco-drop:--spacing(22)] lg:col-span-full lg:row-span-3 lg:row-start-2 lg:grid lg:grid-rows-subgrid mr-[calc(--spacing(61.5)-13.1%)]"
+          />
         </div>
-        {/* Hangs from above the section, as in the mockup; desktop only. In
-            flow, so the section is always tall enough to hold it. */}
-        <div className="pointer-events-none hidden lg:-mt-27 lg:block lg:pl-6">
-          <DiscoBall />
-        </div>
-      </section>
+      </div>
 
       {/* ---- upcoming -------------------------------------------------- */}
       {rows.length > 0 && (

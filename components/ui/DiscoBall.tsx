@@ -4,16 +4,26 @@ import { useId, type ComponentProps } from 'react';
 // and VHS variants come later). Not the /tv broadcast ball in
 // components/broadcast — this one is the 2027 DS version.
 //
-// Built as in Figma: a hanging wire (text-meta), then two rims multiplied onto
-// the ground — rim-blue at the back (lower left), rim-red at the front (upper
-// right) — whose overlap is the dark body. Three spots are screened on top:
+// Built as in Figma: two rims multiplied onto the ground — rim-blue at the
+// back (lower left), rim-red at the front (upper right) — whose overlap is the
+// dark body. Three spots are screened on top:
 // spot-blue (top), spot-red (left), spot-amber (right), each blurred with
 // Figma's grain (fractal noise split into a dark and a light speckle layer).
 //
 // Colours are fill-* token utilities. The noise floods use ink/paper rather
 // than Figma's pure black/white (the DS rule: no pure black, no pure white).
-// Geometry is the Figma frame's own units (477 × 565 viewBox), so the ball
-// scales with its container's width. Decorative, so aria-hidden.
+// Geometry is the Figma frame's own units (a 477-wide viewBox cropped to the
+// rims), so the ball scales with its container's width. Decorative, so
+// aria-hidden.
+//
+// hang adds the ink mount (9×4 at the 360-wide Figma size, so 2.5% of the
+// ball's width at 9:4) and a surface-ink wire dropping from it to the ball.
+// The wire's length is the layout's, not the ball's: hang expects the root to
+// be a grid subgrid row span (the caller adds grid-rows-subgrid + row-span-N).
+// The mount + wire fill every row but the last; the ball sits in the last row,
+// --disco-drop below its top (the wire bridges that gap). So the wire runs from
+// wherever the span starts — e.g. just under a rail — to the ball, whatever
+// the text between them does.
 
 // Figma's noise transfer tables: 100 discrete steps, opaque over 17–32 (dark
 // speckle) and 67–82 (light speckle).
@@ -63,19 +73,21 @@ function GrainBlur({ id, blur }: { id: string; blur: number }) {
   );
 }
 
-export type DiscoBallProps = Omit<ComponentProps<'svg'>, 'children' | 'viewBox'>;
+export type DiscoBallProps = Omit<ComponentProps<'div'>, 'children'> & {
+  /** Mount + wire above the ball; needs a subgrid row span (see above). */
+  hang?: boolean;
+};
 
-export function DiscoBall({ className = '', ...props }: DiscoBallProps) {
+export function DiscoBall({ hang = false, className = '', ...props }: DiscoBallProps) {
   // useId output can carry characters that aren't valid in url(#…) refs.
   const id = useId().replace(/[^a-zA-Z0-9_-]/g, '');
   const grain = `${id}-grain`;
   const grainSoft = `${id}-grain-soft`;
-  return (
+  const ball = (
     <svg
-      {...props}
-      viewBox="0 0 477 565"
+      viewBox="0 98 477 467"
       fill="none"
-      className={`block h-auto w-full ${className}`}
+      className="block h-auto w-full"
       aria-hidden="true"
       focusable="false"
     >
@@ -83,9 +95,6 @@ export function DiscoBall({ className = '', ...props }: DiscoBallProps) {
         <GrainBlur id={grain} blur={13.208} />
         <GrainBlur id={grainSoft} blur={11.74} />
       </defs>
-
-      {/* wire */}
-      <rect x="238" y="0" width="1" height="100" className="fill-text-meta" />
 
       {/* rims: back then front, multiplied */}
       <ellipse
@@ -131,6 +140,27 @@ export function DiscoBall({ className = '', ...props }: DiscoBallProps) {
         className="fill-ball-spot-amber mix-blend-screen"
       />
     </svg>
+  );
+
+  // aria-hidden after the spread so a caller can't un-hide a decorative mark.
+  if (!hang) {
+    return (
+      <div {...props} className={className} aria-hidden="true">
+        {ball}
+      </div>
+    );
+  }
+  return (
+    <div {...props} className={`grid justify-items-center ${className}`} aria-hidden="true">
+      <div className="row-[1/-2] flex w-full flex-col items-center">
+        <span className="bg-surface-ink aspect-[9/4] w-[2.5%] shrink-0" />
+        <span className="bg-surface-ink w-0.25 flex-1" />
+      </div>
+      <div className="row-[-2/-1] flex w-full flex-col items-center">
+        <span className="bg-surface-ink h-(--disco-drop,0) w-0.25 shrink-0" />
+        {ball}
+      </div>
+    </div>
   );
 }
 
