@@ -147,17 +147,14 @@ export default async function RedesignHomePage({
       {/* ---- header ---------------------------------------------------- */}
       <header className="flex flex-col gap-2.5">
         <div className="flex flex-wrap items-center justify-between gap-x-8 gap-y-4">
-          <div className="flex w-fit max-w-full flex-col gap-2.5">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/redesign/birdhaus-logo.svg"
-              alt="Birdhaus"
-              width={389}
-              height={62}
-              className="h-auto max-w-full"
-            />
-            <SmpteBars />
-          </div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/redesign/birdhaus-logo.svg"
+            alt="Birdhaus"
+            width={389}
+            height={62}
+            className="h-auto max-w-full"
+          />
           <nav aria-label="Main" className="flex flex-wrap gap-x-8.5 gap-y-2">
             {NAV.map((item) => (
               <NavLink
@@ -171,6 +168,7 @@ export default async function RedesignHomePage({
             ))}
           </nav>
         </div>
+        <SmpteBars variant="logo-rail" />
         <div className="text-body-3 flex flex-wrap justify-between gap-x-8 gap-y-1">
           <p className="leading-normal">A HUMBLE DIY MUSIC EMPIRE IN SOUTH MINNEAPOLIS</p>
           {stats && (
