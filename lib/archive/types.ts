@@ -71,7 +71,7 @@ export type ArchiveSet = {
 
 export type Credits = {
   sound?: string;
-  /** Cameras on the night (shows.camera_count); can exceed operators, since a
+  /** Cameras on the night (show_rig.camera_count); can exceed operators, since a
    *  locked-off camera has none. */
   cameraCount?: number;
   /** Camera operators (show_credits, role 'camera'). */
@@ -85,7 +85,7 @@ export type Release = {
   /** "BHR-012" (tape) or "BHV-004" (video). */
   id: string;
   title: string;
-  url: string;
+  url?: string;
 };
 
 export type Night = {
