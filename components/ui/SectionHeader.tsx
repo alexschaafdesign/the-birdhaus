@@ -7,6 +7,8 @@ import { SmpteBars } from './SmpteBars';
 // The rule is s (2px) by default, m (4px) for weight, or 'none' for a bare
 // label (the Home mockup's Upcoming / Latest recordings headers).
 // The label is a real heading (h2 by default) so sections stay navigable.
+// ground="ink" is for headers inside an ink band: the label takes accent-brick
+// (the one red on ink) and the rule is dropped, since bars-1-ink is the ground.
 
 type Level = 'h2' | 'h3';
 
@@ -15,6 +17,7 @@ export type SectionHeaderProps = Omit<ComponentProps<'div'>, 'children'> & {
   count?: number;
   as?: Level;
   rule?: 's' | 'm' | 'none';
+  ground?: 'paper' | 'ink';
 };
 
 export function SectionHeader({
@@ -22,16 +25,19 @@ export function SectionHeader({
   count,
   as: Heading = 'h2',
   rule = 's',
+  ground = 'paper',
   className = '',
   ...props
 }: SectionHeaderProps) {
   return (
     <div {...props} className={`flex w-full flex-col gap-3 ${className}`}>
-      <Heading className="text-data-overline-11 text-accent-red font-bold leading-[1.3] tracking-[--spacing(0.625)] uppercase">
+      <Heading
+        className={`text-data-overline-11 ${ground === 'ink' ? 'text-accent-brick' : 'text-accent-red'} font-bold leading-[1.3] tracking-[--spacing(0.625)] uppercase`}
+      >
         {label}
         {count !== undefined && ` (${count})`}
       </Heading>
-      {rule !== 'none' && <SmpteBars bands={1} size={rule} />}
+      {rule !== 'none' && ground === 'paper' && <SmpteBars bands={1} size={rule} />}
     </div>
   );
 }

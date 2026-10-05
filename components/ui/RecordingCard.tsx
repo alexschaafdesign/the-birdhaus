@@ -12,6 +12,8 @@ import type { ComponentProps } from 'react';
 // paper" token. Drop a still in via `thumbnail` and it covers the panel. The
 // play mark then sits on a paper square so it reads over any image.
 // Duration is optional (we don't store set lengths yet). No hex or px here.
+// ground="ink" is for a card inside an ink band: secondary text, the ID in
+// accent-brick (the one red on ink), and a raised-ink panel.
 
 export type RecordingCardProps = Omit<ComponentProps<typeof Link>, 'children'> & {
   catalogueId: string;
@@ -19,6 +21,7 @@ export type RecordingCardProps = Omit<ComponentProps<typeof Link>, 'children'> &
   duration?: string;
   /** Still image URL; covers the paper-shade panel. */
   thumbnail?: string;
+  ground?: 'paper' | 'ink';
 };
 
 export function RecordingCard({
@@ -26,19 +29,21 @@ export function RecordingCard({
   title,
   duration,
   thumbnail,
+  ground = 'paper',
   className = '',
   ...props
 }: RecordingCardProps) {
+  const ink = ground === 'ink';
   return (
     <Link
       {...props}
       className={
-        'group text-text-primary flex min-w-0 flex-col gap-2 ' +
+        `group ${ink ? 'text-text-secondary' : 'text-text-primary'} flex min-w-0 flex-col gap-2 ` +
         'focus-visible:outline-accent-red focus-visible:outline-2 focus-visible:outline-offset-2 ' +
         className
       }
     >
-      <span className="bg-surface-paper-shade relative flex aspect-video w-full items-center justify-center overflow-hidden">
+      <span className={`${ink ? 'bg-surface-ink-raised' : 'bg-surface-paper-shade'} relative flex aspect-video w-full items-center justify-center overflow-hidden`}>
         {thumbnail && (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -56,7 +61,7 @@ export function RecordingCard({
         </span>
       </span>
       <span className="flex items-center justify-between gap-2">
-        <span className="text-data-caption-13-bold text-accent-red truncate font-bold leading-[1.4] tracking-[--spacing(0.375)]">
+        <span className={`text-data-caption-13-bold ${ink ? 'text-accent-brick' : 'text-accent-red'} truncate font-bold leading-[1.4] tracking-[--spacing(0.375)]`}>
           {catalogueId}
         </span>
         {duration && (
