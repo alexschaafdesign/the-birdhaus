@@ -237,6 +237,18 @@ export async function getAllShows(): Promise<Show[]> {
   return Promise.all(rows.map((row) => rowToShow(row)));
 }
 
+// Slugs are stored as entered and matched exactly, so a link whose case
+// differs from the stored slug (e.g. an old link from before a slug was
+// lowercased) misses. Returns the stored slug when exactly one show matches
+// case-insensitively — the caller redirects to it — else null. Slug uniqueness
+// is case-sensitive, so two case-only variants would be ambiguous: no match.
+export async function findShowSlugIgnoringCase(slug: string): Promise<string | null> {
+  const rows = await sql<Array<{ slug: string }>>`
+    select slug from shows where lower(slug) = lower(${slug}) limit 2
+  `;
+  return rows.length === 1 ? rows[0].slug : null;
+}
+
 export async function getShowBySlug(slug: string): Promise<Show | null> {
   const [row] = await sql<ShowRow[]>`
     select *, date::text as date, ${bandsJoinFragment()}, ${videosJoinFragment()}
