@@ -33,8 +33,9 @@ import styles from './DiscoBall.module.css';
 // animated, and each spot is its own layer so moving it doesn't re-run its
 // filter. Off under prefers-reduced-motion; static where scroll timelines
 // aren't supported.
-// Glints: four tiny paper stars at fixed points flash one at a time, ~every
-// 10s (one 40s cycle, staggered), inside the sway group so they swing with it.
+// Glints: four specular flashes (core + halo + needle rays, plus-lighter) at
+// points where light would catch, ~one every 10s on irregular cycles; inside
+// the sway group, and riding the scroll-turn with their spot or rim.
 
 // Figma's noise transfer tables: 100 discrete steps, opaque over 17–32 (dark
 // speckle) and 67–82 (light speckle).
@@ -122,32 +123,67 @@ function Spot({
   );
 }
 
-// Glints: tiny four-point stars that flash now and then (DiscoBall.module.css).
-// Positions are % of the ball box, from the Figma geometry: two on the
-// upper-left rim, where the blue crescent meets the body (132° and 155° on
-// the front rim), one on the amber spot's upper-left edge, one off the blue
-// spot's right end. Size is 3.33% of the ball's width (12 at 360). The translate centres each star on its point; the
-// animation's transform (scale/rotate) composes with it.
-const GLINTS = [
-  { at: 'left-[20.63%] top-[12.53%]', delay: styles.glintRimA },
-  { at: 'left-[63.77%] top-[41.24%]', delay: styles.glintAmber },
-  { at: 'left-[9.36%] top-[28.09%]', delay: styles.glintRimB },
-  { at: 'left-[68.01%] top-[13.55%]', delay: styles.glintBlue },
-];
+// Glints: specular flashes (timing in DiscoBall.module.css). Each is light,
+// not a sticker: a pinpoint core, a soft halo (a static radial gradient — the
+// softness is drawn once, never a filter) and needle rays, the horizontal one
+// longest, all surface-paper and blended plus-lighter so it brightens
+// whatever it lands on. Sizes vary (% of the ball's width; the biggest is on
+// the longest cycle, so it's the rarest).
+//
+// Placement follows the light: the amber and blue glints sit on their spots'
+// highlight edges and ride the spot's scroll drift; the two rim glints sit
+// where the blue crescent meets the body (132° and 155° on the front rim) on a
+// layer that turns about that rim, so they slide along its edge. Positions are
+// % of the ball box, from the Figma geometry. The outer span's translate
+// centres the glint on its point; the inner span carries the flash animation.
+type GlintSpec = { at: string; size: string; flash: string };
 
-function Glint({ at, delay }: { at: string; delay: string }) {
+const RIM_GLINTS: GlintSpec[] = [
+  { at: 'left-[20.63%] top-[12.53%]', size: 'w-[3.6%]', flash: styles.glintRimA },
+  { at: 'left-[9.36%] top-[28.09%]', size: 'w-[2.8%]', flash: styles.glintRimB },
+];
+const AMBER_GLINT: GlintSpec = {
+  at: 'left-[63.77%] top-[41.24%]',
+  size: 'w-[4.4%]',
+  flash: styles.glintAmber,
+};
+const BLUE_GLINT: GlintSpec = {
+  at: 'left-[59.75%] top-[7.92%]',
+  size: 'w-[6%]',
+  flash: styles.glintBlue,
+};
+
+function Glint({ at, size, flash }: GlintSpec) {
   return (
-    <svg
-      viewBox="0 0 24 24"
-      className={`absolute w-[3.333%] -translate-1/2 ${at} ${styles.glint} ${delay}`}
-      aria-hidden="true"
-      focusable="false"
-    >
-      <path
-        d="M12 0C12 6.6 17.4 12 24 12C17.4 12 12 17.4 12 24C12 17.4 6.6 12 0 12C6.6 12 12 6.6 12 0Z"
-        className="fill-surface-paper"
-      />
-    </svg>
+    <span className={`absolute aspect-square -translate-1/2 ${size} ${at}`}>
+      <span className={`absolute inset-0 ${styles.glint} ${flash}`}>
+        <span className="absolute inset-[30%] rounded-full bg-[radial-gradient(closest-side,color-mix(in_srgb,var(--color-surface-paper)_75%,transparent),transparent)]" />
+        <svg
+          viewBox="-50 -50 100 100"
+          className="absolute inset-0 size-full"
+          aria-hidden="true"
+          focusable="false"
+        >
+          <path d="M-50 0L0 -1.6L50 0L0 1.6Z" className="fill-surface-paper" />
+          <path d="M0 -34L1.2 0L0 34L-1.2 0Z" className="fill-surface-paper" />
+          <circle r="4" className="fill-surface-paper" />
+        </svg>
+      </span>
+    </span>
+  );
+}
+
+// A full-ball layer for glints that ride a motion (a spot's drift, the rim
+// turn); its class supplies the scroll animation. The plus-lighter blend sits
+// on the layer: a transformed layer is its own compositing group, so a blend
+// on the glint inside it would only meet the empty layer.
+function GlintLayer({ motion, glints }: { motion: string; glints: GlintSpec[] }) {
+  return (
+    <div className={`pointer-events-none absolute inset-0 mix-blend-plus-lighter ${motion}`}>
+      {glints.map((g) => (
+        <Glint key={g.flash} {...g} />
+      ))}
+    </div>
   );
 }
 
@@ -224,9 +260,9 @@ export function DiscoBall({ hang = false, className = '', ...props }: DiscoBallP
         </div>
       </div>
 
-      {GLINTS.map((g) => (
-        <Glint key={g.delay} {...g} />
-      ))}
+      <GlintLayer motion={styles.rimTurn} glints={RIM_GLINTS} />
+      <GlintLayer motion={styles.spotAmber} glints={[AMBER_GLINT]} />
+      <GlintLayer motion={styles.spotBlue} glints={[BLUE_GLINT]} />
     </div>
   );
 

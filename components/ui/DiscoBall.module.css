@@ -1,8 +1,8 @@
-/* DiscoBall motion (components/ui/DiscoBall.tsx). CSS only, transform-only:
-   nothing here touches filter or blur, so the grain filters rasterize once and
-   the compositor just moves the layers. All of it is gated on
+/* DiscoBall motion (components/ui/DiscoBall.tsx). CSS only, transform/opacity
+   only: nothing here touches filter or blur, so the grain filters rasterize
+   once and the compositor just moves the layers. All motion is gated on
    prefers-reduced-motion: no-preference, so reduced motion gets the static
-   ball. */
+   ball (and no glints). */
 
 /* The ball body: the intersection of the two rims. Two nested ellipse clips
    (rim-blue, then rim-red) in the rims' own geometry, as percentages of the
@@ -20,6 +20,12 @@
   opacity: 0;
 }
 
+/* Rim glints ride a layer that turns about the front rim's centre, so on
+   scroll they slide along the rim's edge instead of off it. */
+.rimTurn {
+  transform-origin: 52.453% 48.604%;
+}
+
 @media (prefers-reduced-motion: no-preference) {
   /* Sway: the whole ball + wire swings ±2° around the mount (top centre). */
   .sway {
@@ -27,34 +33,46 @@
     animation: disco-sway 4s ease-in-out infinite alternate;
   }
 
-  /* Glint: four tiny stars share one 40s cycle, staggered 10s apart, so one
-     flashes roughly every 10s, somewhere new each time. Each is visible for
-     ~0.5s (1.25% of 40s): grows 0 → 1 while turning 45°, then shrinks away
-     (turning on to 90°, where the four-point star looks as it started). */
+  /* Glints: specular flashes, not a sprite. Each glint runs its own cycle
+     length (37 / 41 / 43 / 47s) from a staggered start, so on average one
+     flashes about every 10s and the order drifts instead of repeating. A
+     flash is ~650ms: a 70ms snap to a slight overshoot, a brief flicker, then
+     a fade, turning only ~14° — light, not a spin. */
   .glint {
-    animation: disco-glint 40s ease-in-out infinite both;
+    animation-iteration-count: infinite;
+    animation-fill-mode: both;
   }
   .glintRimA {
+    animation-name: disco-glint-rima;
+    animation-duration: 37s;
     animation-delay: 3s;
   }
   .glintAmber {
-    animation-delay: 13s;
+    animation-name: disco-glint-amber;
+    animation-duration: 41s;
+    animation-delay: 12s;
   }
   .glintRimB {
-    animation-delay: 23s;
+    animation-name: disco-glint-rimb;
+    animation-duration: 43s;
+    animation-delay: 21s;
   }
   .glintBlue {
-    animation-delay: 33s;
+    animation-name: disco-glint-blue;
+    animation-duration: 47s;
+    animation-delay: 31s;
   }
 
-  /* Scroll-turn: each spot's horizontal position follows page scroll, each a
-     different distance (% of the ball's width), so they slide at different
-     speeds like a turning ball. Browsers without scroll timelines skip this
-     block and show the static ball. */
+  /* Scroll-turn: a slow turn, not a slide. Each spot's horizontal position
+     follows page scroll by a small, different distance (% of the ball's
+     width), and the rim-glint layer turns ~2° about the front rim. Spot
+     glints share their spot's class, so they ride with it. Browsers without
+     scroll timelines skip this block and show the static ball. */
   @supports (animation-timeline: scroll()) {
     .spotBlue,
     .spotRed,
-    .spotAmber {
+    .spotAmber,
+    .rimTurn {
       animation-timing-function: linear;
       animation-fill-mode: both;
       animation-timeline: scroll(root block);
@@ -67,6 +85,9 @@
     }
     .spotAmber {
       animation-name: disco-drift-amber;
+    }
+    .rimTurn {
+      animation-name: disco-rim-turn;
     }
   }
 }
@@ -82,34 +103,160 @@
 
 @keyframes disco-drift-blue {
   to {
-    transform: translateX(-10%);
+    transform: translateX(-3%);
   }
 }
 
 @keyframes disco-drift-red {
   to {
-    transform: translateX(-20%);
+    transform: translateX(-5%);
   }
 }
 
 @keyframes disco-drift-amber {
   to {
-    transform: translateX(-30%);
+    transform: translateX(-7%);
   }
 }
 
-@keyframes disco-glint {
+@keyframes disco-rim-turn {
+  to {
+    transform: rotate(-2deg);
+  }
+}
+
+/* 37s cycle; flash = first 650ms. */
+@keyframes disco-glint-rima {
   0% {
     opacity: 0;
-    transform: scale(0) rotate(0deg);
+    transform: scale(0.2) rotate(0deg);
+    animation-timing-function: ease-out;
   }
-  0.625% {
+  0.1892% {
     opacity: 1;
-    transform: scale(1) rotate(45deg);
+    transform: scale(1.12) rotate(3deg);
+    animation-timing-function: ease-in-out;
   }
-  1.25%,
+  0.4054% {
+    opacity: 0.9;
+    transform: scale(1) rotate(5deg);
+    animation-timing-function: ease-in-out;
+  }
+  0.6216% {
+    opacity: 0.55;
+    transform: scale(0.96) rotate(7deg);
+    animation-timing-function: ease-in-out;
+  }
+  0.8108% {
+    opacity: 0.85;
+    transform: scale(0.95) rotate(9deg);
+    animation-timing-function: ease-in;
+  }
+  1.7568%,
   100% {
     opacity: 0;
-    transform: scale(0) rotate(90deg);
+    transform: scale(0.55) rotate(14deg);
+  }
+}
+
+/* 41s cycle; flash = first 650ms. */
+@keyframes disco-glint-amber {
+  0% {
+    opacity: 0;
+    transform: scale(0.2) rotate(0deg);
+    animation-timing-function: ease-out;
+  }
+  0.1707% {
+    opacity: 1;
+    transform: scale(1.12) rotate(3deg);
+    animation-timing-function: ease-in-out;
+  }
+  0.3659% {
+    opacity: 0.9;
+    transform: scale(1) rotate(5deg);
+    animation-timing-function: ease-in-out;
+  }
+  0.561% {
+    opacity: 0.55;
+    transform: scale(0.96) rotate(7deg);
+    animation-timing-function: ease-in-out;
+  }
+  0.7317% {
+    opacity: 0.85;
+    transform: scale(0.95) rotate(9deg);
+    animation-timing-function: ease-in;
+  }
+  1.5854%,
+  100% {
+    opacity: 0;
+    transform: scale(0.55) rotate(14deg);
+  }
+}
+
+/* 43s cycle; flash = first 650ms. */
+@keyframes disco-glint-rimb {
+  0% {
+    opacity: 0;
+    transform: scale(0.2) rotate(0deg);
+    animation-timing-function: ease-out;
+  }
+  0.1628% {
+    opacity: 1;
+    transform: scale(1.12) rotate(3deg);
+    animation-timing-function: ease-in-out;
+  }
+  0.3488% {
+    opacity: 0.9;
+    transform: scale(1) rotate(5deg);
+    animation-timing-function: ease-in-out;
+  }
+  0.5349% {
+    opacity: 0.55;
+    transform: scale(0.96) rotate(7deg);
+    animation-timing-function: ease-in-out;
+  }
+  0.6977% {
+    opacity: 0.85;
+    transform: scale(0.95) rotate(9deg);
+    animation-timing-function: ease-in;
+  }
+  1.5116%,
+  100% {
+    opacity: 0;
+    transform: scale(0.55) rotate(14deg);
+  }
+}
+
+/* 47s cycle; flash = first 650ms. */
+@keyframes disco-glint-blue {
+  0% {
+    opacity: 0;
+    transform: scale(0.2) rotate(0deg);
+    animation-timing-function: ease-out;
+  }
+  0.1489% {
+    opacity: 1;
+    transform: scale(1.12) rotate(3deg);
+    animation-timing-function: ease-in-out;
+  }
+  0.3191% {
+    opacity: 0.9;
+    transform: scale(1) rotate(5deg);
+    animation-timing-function: ease-in-out;
+  }
+  0.4894% {
+    opacity: 0.55;
+    transform: scale(0.96) rotate(7deg);
+    animation-timing-function: ease-in-out;
+  }
+  0.6383% {
+    opacity: 0.85;
+    transform: scale(0.95) rotate(9deg);
+    animation-timing-function: ease-in;
+  }
+  1.383%,
+  100% {
+    opacity: 0;
+    transform: scale(0.55) rotate(14deg);
   }
 }
