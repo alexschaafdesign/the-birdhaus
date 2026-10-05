@@ -10,8 +10,9 @@ import { useState } from 'react';
 import { Button, type ButtonProps } from '@/components/ui/Button';
 import { NavLink } from '@/components/ui/NavLink';
 import { SeriesTick, type Series } from '@/components/ui/SeriesTick';
-import { RailHeader } from '@/components/ui/RailHeader';
-import { NAV } from '../home/nav';
+import { CloseIcon, MobileMenuPanel, RailHeader } from '@/components/ui/RailHeader';
+import { activeRailItem } from '@/components/ui/RailNav';
+import { NAV, TAGLINE } from '../home/nav';
 
 type Ctx = 'web' | 'print' | 'social' | 'tv' | 'mobile';
 
@@ -36,6 +37,11 @@ const SERIES_SAMPLES: { series: Series; id: string }[] = [
 const BUTTON_VARIANTS: NonNullable<ButtonProps['variant']>[] = ['primary', 'secondary', 'ghost'];
 const BUTTON_SIZES: NonNullable<ButtonProps['size']>[] = ['m', 's'];
 const BUTTON_STATES = ['default', 'hover', 'pressed', 'disabled'] as const;
+
+// Mobile menu open state per route, and the counts shown in its footer
+// (preview copy, the mockup's numbers).
+const MENU_ROUTES = ['/redesign/home', '/archive', '/contact', '/tv'] as const;
+const SAMPLE_STATS = { bands: 98, sets: 134 };
 
 // Rail header active state per route (pathname override): one per nav item,
 // plus routes that claim no item.
@@ -185,7 +191,44 @@ export default function ComponentGallery() {
               {RAIL_ROUTES.map((path) => (
                 <div key={path} data-rail-route={path}>
                   <div className="text-data-spec-12 text-surface-ink/50 mb-2">{path}</div>
-                  <RailHeader entries={NAV} homeHref="/redesign/home" pathname={path} />
+                  <RailHeader
+                    entries={NAV}
+                    homeHref="/redesign/home"
+                    tagline={TAGLINE}
+                    stats={SAMPLE_STATS}
+                    pathname={path}
+                  />
+                </div>
+              ))}
+            </div>
+          </section>
+
+          {/* ---- Mobile menu (open) ------------------------------------ */}
+          <section>
+            <h2 className="text-header-3 mb-1">Mobile menu (open)</h2>
+            <p className="text-body-3 text-surface-ink/70 mb-4 max-w-prose">
+              The open state of the mobile header (Figma 121:4273, Breakpoint = Mobile menu),
+              rendered bare in a phone-sized frame per route. On the page it&apos;s a modal
+              dialog opened from the menu button.
+            </p>
+            <div className="flex flex-wrap gap-6 [--rail-h:--spacing(1)]">
+              {MENU_ROUTES.map((path) => (
+                <div key={path} data-menu-route={path}>
+                  <div className="text-data-spec-12 text-surface-ink/50 mb-2">{path}</div>
+                  <div className="border-surface-ink/20 bg-surface-paper h-213 w-98.25 overflow-hidden border">
+                    <MobileMenuPanel
+                      entries={NAV}
+                      active={activeRailItem(NAV, path)}
+                      homeHref="/redesign/home"
+                      tagline={TAGLINE}
+                      stats={SAMPLE_STATS}
+                      closeButton={
+                        <span className="text-surface-ink">
+                          <CloseIcon />
+                        </span>
+                      }
+                    />
+                  </div>
                 </div>
               ))}
             </div>

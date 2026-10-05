@@ -11,7 +11,7 @@ import {
   to24h,
 } from '@/lib/catalogue';
 import { RailHeader } from '@/components/ui/RailHeader';
-import { NAV } from './nav';
+import { NAV, TAGLINE } from './nav';
 import { SectionHeader } from '@/components/ui/SectionHeader';
 import { NextShow, type NextShowAct } from '@/components/ui/NextShow';
 import { ShowRow } from '@/components/ui/ShowRow';
@@ -152,11 +152,11 @@ export default async function RedesignHomePage({
           ball). */}
       <div className="flex flex-col [--rail-h:--spacing(1)]">
         {/* TODO(launch): homeHref → / once this replaces the live home. */}
-        <RailHeader entries={NAV} homeHref="/redesign/home" />
+        <RailHeader entries={NAV} homeHref="/redesign/home" tagline={TAGLINE} stats={stats} />
 
         <div className="flex flex-col lg:grid lg:grid-cols-[3fr_2fr] lg:gap-x-8">
           <div className="text-body-3 mt-3 flex flex-wrap justify-between gap-x-8 gap-y-1 lg:col-span-full lg:row-start-1">
-            <p className="leading-normal">A HUMBLE DIY MUSIC EMPIRE IN SOUTH MINNEAPOLIS</p>
+            <p className="leading-normal">{TAGLINE}</p>
             {stats && (
               <p className="text-accent-red leading-[1.5] font-bold">
                 {stats.bands} BANDS · {stats.sets} SETS

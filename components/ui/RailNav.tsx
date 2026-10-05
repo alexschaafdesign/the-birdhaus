@@ -21,6 +21,8 @@ export type RailNavEntry = {
   href: string;
   /** Route prefixes that make this item active ('/shows' matches /shows/x). */
   match: string[];
+  /** Leaves the site (shows ↗ in the mobile menu). */
+  external?: boolean;
 };
 
 // The active item for a path: the first whose prefix matches exactly or at a
