@@ -142,7 +142,10 @@ export default async function RedesignHomePage({
           grid (content | ball column) whose top edge is the rail's bottom:
           the ball spans its rows 1–3 as a subgrid — mount + wire through the
           tagline and intro rows, ball in the Next show row (in flow, so that
-          row always fits it). Desktop only.
+          row always fits it). Desktop only. The grid's top edge is the rail's
+          bottom edge, so the mount hangs from the rail's underside and the
+          wire never crosses it; both ends are structural, so the wire can't
+          detach or overshoot.
           Horizontal: the wire is centred on a fixed line --spacing(61.5) in
           from the content's right edge; the ball is 26.2% of the content
           (360 at 1440) and centred on that line (margin = line − half the

@@ -16,9 +16,10 @@
 }
 
 @media (prefers-reduced-motion: no-preference) {
-  /* Sway: the whole ball + wire swings ±2° around the mount (top centre). */
+  /* Sway: the whole ball + wire swings ±2° around the mount (top centre,
+     raised by --disco-lift when the wire starts above the root's box). */
   .sway {
-    transform-origin: 50% 0;
+    transform-origin: 50% calc(var(--disco-lift, 0rem) * -1);
     animation: disco-sway 4s ease-in-out infinite alternate;
   }
 

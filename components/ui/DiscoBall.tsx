@@ -18,13 +18,16 @@ import styles from './DiscoBall.module.css';
 // aria-hidden.
 //
 // hang adds the ink mount (9×4 at the 360-wide Figma size, so 2.5% of the
-// ball's width at 9:4) and a surface-ink wire dropping from it to the ball.
+// ball's width at 9:4) and a 1px text-meta wire dropping from it to the ball.
 // The wire's length is the layout's, not the ball's: hang expects the root to
 // be a grid subgrid row span (the caller adds grid-rows-subgrid + row-span-N).
 // The mount + wire fill every row but the last; the ball sits in the last row,
 // --disco-drop below its top (the wire bridges that gap). So the wire runs from
-// wherever the span starts — e.g. just under a rail — to the ball, whatever
-// the text between them does.
+// wherever the span starts to the ball, whatever the text between them does.
+// --disco-lift (default 0) can raise the mount + wire start above the span's
+// top edge, with the sway pivot. /redesign/home leaves it at 0: its span starts
+// at the header rail's bottom edge, so the mount hangs from the rail's
+// underside and the wire never crosses the rail.
 //
 // Motion (DiscoBall.module.css, CSS only): the spots drift sideways with page
 // scroll (animation-timeline: scroll(), each a different distance, clipped to
@@ -212,12 +215,12 @@ export function DiscoBall({ hang = false, className = '', ...props }: DiscoBallP
       className={`grid justify-items-center ${styles.sway} ${className}`}
       aria-hidden="true"
     >
-      <div className="row-[1/-2] flex w-full flex-col items-center">
+      <div className="row-[1/-2] -mt-(--disco-lift,0rem) flex w-full flex-col items-center">
         <span className="bg-surface-ink aspect-[9/4] w-[2.5%] shrink-0" />
-        <span className="bg-surface-ink w-0.25 flex-1" />
+        <span className="bg-text-meta w-px flex-1" />
       </div>
       <div className="row-[-2/-1] flex w-full flex-col items-center">
-        <span className="bg-surface-ink h-(--disco-drop,0) w-0.25 shrink-0" />
+        <span className="bg-text-meta h-(--disco-drop,0) w-px shrink-0" />
         {ball}
       </div>
     </div>
