@@ -67,7 +67,7 @@ export default async function ArchiveIndexPage({
         <p className="text-body-3 leading-normal">
           We record every set we can — 18 channels and more than one camera — and staff
           photographers shoot select nights. Choose a night to see whatever survives from it:
-          video, audio, setlists, photos.
+          video, audio, photos, notes.
         </p>
       </section>
 

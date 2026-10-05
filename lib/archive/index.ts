@@ -64,20 +64,21 @@ export function nightSummary(night: Night): string {
   if (hasVideo(night)) parts.push('video');
   if (hasAudio(night)) parts.push('audio');
   if (hasPhotos(night)) parts.push('photos');
-  if (night.sets.some((s) => s.media.setlist?.length)) parts.push('setlists');
+  if (night.sets.some((s) => s.notes)) parts.push('notes');
   if (parts.length === 0 && night.kind === 'sc') parts.push('song club');
   return parts.join(' · ');
 }
 
 // What a single set carries, for its one-line collapsed form: "photos only",
-// "video · setlist", or null when it has nothing of its own.
+// "video · notes", or null when it has nothing of its own.
 export function setSummary(set: ArchiveSet): string | null {
-  const { video, audio, photos, setlist } = set.media;
+  const { video, audio, photos } = set.media;
   const parts = [
     video && 'video',
     audio && 'audio',
-    setlist?.length && 'setlist',
     photos?.length && 'photos',
+    set.notes && 'notes',
+    set.releases?.length && 'release',
   ].filter((p): p is string => !!p);
   if (parts.length === 0) return null;
   return parts.length === 1 ? `${parts[0]} only` : parts.join(' · ');

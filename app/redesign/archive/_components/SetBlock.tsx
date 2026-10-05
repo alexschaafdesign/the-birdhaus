@@ -1,7 +1,8 @@
 import Link from 'next/link';
 import type { ArchiveSet, Night } from '@/lib/archive';
 import { archiveHref, setSummary } from '@/lib/archive';
-import { AudioLink, Duration, PhotoStrip, Setlist, VideoPlayer } from './Media';
+import { SeriesTick } from '@/components/ui/SeriesTick';
+import { AudioLink, Duration, Notes, PhotoStrip, VideoPlayer } from './Media';
 
 // One set in the night band, anchored at #slug. A set with media is a native
 // <details> (no client JS): the night's first set with video renders open,
@@ -59,7 +60,8 @@ export function SetBlock({
     );
   }
 
-  const { video, audio, photos, setlist } = set.media;
+  const { video, audio, photos } = set.media;
+  const { notes, releases } = set;
   const label = `${set.band}, ${night.id}`;
 
   return (
@@ -78,18 +80,35 @@ export function SetBlock({
       </summary>
 
       <div className="flex max-w-6xl flex-col gap-6 pb-8 sm:pl-24">
-        {(video || setlist || audio) && (
+        {(video || notes || audio) && (
           <div className="flex flex-col gap-6 lg:grid lg:grid-cols-[2fr_1fr] lg:gap-8">
             {video && <VideoPlayer video={video} label={label} />}
-            {(setlist?.length || audio) && (
+            {(notes || audio) && (
               <div className="flex flex-col gap-6">
                 {audio && <AudioLink audio={audio} />}
-                {setlist?.length ? <Setlist songs={setlist} /> : null}
+                {notes && <Notes text={notes} />}
               </div>
             )}
           </div>
         )}
         {photos?.length ? <PhotoStrip photos={photos} label={set.band} /> : null}
+
+        {releases?.length ? (
+          <ul className="flex flex-col gap-2">
+            {releases.map((r) => (
+              <li key={r.id}>
+                <a
+                  href={r.url}
+                  className="text-ui-nav-item-14 text-text-inverse hover:text-accent-brick focus-visible:outline-accent-brick flex items-center gap-2.5 leading-[1.3] tracking-[--spacing(0.25)] uppercase focus-visible:outline-2 focus-visible:outline-offset-2"
+                >
+                  <SeriesTick series={r.id.startsWith('BHR') ? 'tape' : 'video'} />
+                  <span className="text-data-caption-13-bold text-accent-brick font-bold">{r.id}</span>
+                  <span className="min-w-0 truncate">{r.title}</span>
+                </a>
+              </li>
+            ))}
+          </ul>
+        ) : null}
 
         <p className="text-data-spec-12 text-text-meta flex flex-wrap gap-x-3 gap-y-1 tracking-[--spacing(0.25)] uppercase">
           {others.length ? (

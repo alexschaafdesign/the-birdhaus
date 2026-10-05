@@ -1,4 +1,4 @@
-import type { ArchiveSet, Night, Photo, SetMedia } from './types';
+import type { ArchiveSet, Night, Photo, Release, SetMedia } from './types';
 
 // Placeholder nights for /redesign/archive?sample — the same role as
 // app/redesign/home/sample.ts: check the layout against the design when the
@@ -8,25 +8,30 @@ import type { ArchiveSet, Night, Photo, SetMedia } from './types';
 // and outbound links are '#'.
 //
 // Media completeness is deliberately mixed so every render path runs:
-//   full set-level media (video, audio, setlist, photos)  BH-260904
+//   full set-level media (video, audio, photos, notes)    BH-260904
+//   a release from one set (BHV-004) and from the night    BH-260904
 //   video on a set that isn't first in running order       BH-260911
 //   night-level photos + Bandcamp, per-set video only      BH-260725, BH-260905
 //   night-level photos only                                BH-260917
-//   set-level photos only / setlists only                  BH-260906, BH-251018
+//   set-level photos only / notes only                     BH-260906, BH-251018
 //   no media at all                                        BH-251206
-//   Song Club, a date range with no sets                   SC-005
+//   Song Club, a date range with no sets                   SC-006
 
 const photos = (n: number, credit?: string): Photo[] =>
   Array.from({ length: n }, () => ({ credit }));
 
 // Sets in running order; `slug` from the band name, as the live adapter does
 // for bands with no Birdhaus slug.
+// The fourth element is the set's media plus its notes / releases.
+type SetExtras = SetMedia & { notes?: string; releases?: Release[] };
+
 function sets(
-  ...rows: Array<[band: string, start: string, durationSec?: number, media?: SetMedia]>
+  ...rows: Array<[band: string, start: string, durationSec?: number, extras?: SetExtras]>
 ): ArchiveSet[] {
-  return rows.map(([band, start, durationSec, media = {}], i) => {
+  return rows.map(([band, start, durationSec, extras = {}], i) => {
+    const { notes, releases, ...media } = extras;
     const slug = band.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-    return { order: i + 1, band, bandSlug: slug, slug, start, durationSec, media };
+    return { order: i + 1, band, bandSlug: slug, slug, start, durationSec, media, notes, releases };
   });
 }
 
@@ -43,7 +48,7 @@ export const SAMPLE_NIGHTS: Night[] = [
       ['Ross Thorn', '21:30', 2460, { video: {}, photos: photos(19, 'Jess Ortiz') }]
     ),
     media: {},
-    credits: { sound: 'Ben Ostrander', cameras: CAMERAS, channels: 18, photos: ['Jess Ortiz'] },
+    credits: { sound: 'Ben Ostrander', cameraCount: 3, cameras: CAMERAS, channels: 18, photos: ['Jess Ortiz'] },
   },
   {
     id: 'BH-260917',
@@ -54,7 +59,7 @@ export const SAMPLE_NIGHTS: Night[] = [
     credits: { sound: 'Ben Ostrander', photos: ['Maya Feld'] },
   },
   {
-    id: 'SC-005',
+    id: 'SC-006',
     kind: 'sc',
     date: '2026-09-16',
     endDate: '2026-09-25',
@@ -68,20 +73,20 @@ export const SAMPLE_NIGHTS: Night[] = [
     kind: 'bh',
     date: '2026-09-11',
     sets: sets(
-      ['Wish Wash', '20:00', undefined, { setlist: ['Lull', 'Pink Noise', 'Car Alarm Lullaby', 'Wish Wash'] }],
+      ['Wish Wash', '20:00', undefined, { notes: 'First show with a drummer.' }],
       [
         'Guest Rooms',
         '20:45',
         2310,
         {
           video: {},
-          setlist: ['Checkout Time', 'Ice Machine', 'Do Not Disturb', 'Continental Breakfast', 'Late Fee'],
+          notes: 'Setlist: Checkout Time, Ice Machine, Do Not Disturb, Continental Breakfast, Late Fee.',
         },
       ],
-      ['Modern Wildlife', '21:30', undefined, { setlist: ['Fern Bar', 'Prairie Fire', 'Lake Street'] }]
+      ['Modern Wildlife', '21:30', undefined, { notes: 'Played with a string section.' }]
     ),
     media: {},
-    credits: { sound: 'Dana Whitcomb', cameras: CAMERAS.slice(0, 2), channels: 18 },
+    credits: { sound: 'Dana Whitcomb', cameraCount: 3, cameras: CAMERAS.slice(0, 2), channels: 18 },
   },
   {
     id: 'BH-260906',
@@ -107,7 +112,7 @@ export const SAMPLE_NIGHTS: Night[] = [
       photos: photos(31, 'Jess Ortiz'),
       audio: [{ bandcamp: '#', title: 'Live at the Birdhaus, 5 Sep 2026' }],
     },
-    credits: { sound: 'Dana Whitcomb', cameras: CAMERAS, channels: 18, photos: ['Jess Ortiz'] },
+    credits: { sound: 'Dana Whitcomb', cameraCount: 3, cameras: CAMERAS, channels: 18, photos: ['Jess Ortiz'] },
   },
   {
     id: 'BH-260904',
@@ -119,7 +124,7 @@ export const SAMPLE_NIGHTS: Night[] = [
         'Cassandra Johnson',
         '20:45',
         2040,
-        { video: {}, setlist: ['Salt Lick', 'Hollow Body', 'Minnehaha', 'Ask Me Later'] },
+        { video: {}, notes: 'Played with a string section.' },
       ],
       [
         'Joe Kaplow',
@@ -128,25 +133,16 @@ export const SAMPLE_NIGHTS: Night[] = [
         {
           video: { durationSec: 1872 },
           audio: { bandcamp: '#', title: 'Joe Kaplow — Live at the Birdhaus' },
-          setlist: [
-            'Basement Light',
-            'Powderhorn',
-            'Dial Tone',
-            'Every Other Sunday',
-            'Long Exposure',
-            'Ceiling Fan',
-            'Goodnight, Lake Street',
-          ],
+          notes:
+            'Setlist: Basement Light, Powderhorn, Dial Tone, Every Other Sunday, Long Exposure, Ceiling Fan, Goodnight, Lake Street.',
+          releases: [{ id: 'BHV-004', title: 'Joe Kaplow — Live at the Birdhaus', url: '#' }],
           photos: photos(26, 'Jess Ortiz'),
         },
       ]
     ),
     media: {},
-    credits: { sound: 'Ben Ostrander', cameras: CAMERAS, channels: 18, photos: ['Jess Ortiz'] },
-    releases: [
-      { id: 'BHV-004', title: 'Joe Kaplow — Live at the Birdhaus', url: '#' },
-      { id: 'BHR-012', title: 'Joe Kaplow — Basement Light (cassette)', url: '#' },
-    ],
+    credits: { sound: 'Ben Ostrander', cameraCount: 3, cameras: CAMERAS, channels: 18, photos: ['Jess Ortiz'] },
+    releases: [{ id: 'BHR-012', title: 'Birdhaus 4 Sep 2026 — the whole night (cassette)', url: '#' }],
   },
   {
     id: 'BH-260725',
@@ -163,7 +159,7 @@ export const SAMPLE_NIGHTS: Night[] = [
       photos: photos(57, 'Maya Feld'),
       audio: [{ bandcamp: '#', title: 'Fresh Cuts 010 — first listens' }],
     },
-    credits: { sound: 'Dana Whitcomb', cameras: CAMERAS.slice(0, 2), channels: 18, photos: ['Maya Feld'] },
+    credits: { sound: 'Dana Whitcomb', cameraCount: 3, cameras: CAMERAS.slice(0, 2), channels: 18, photos: ['Maya Feld'] },
     releases: [{ id: 'BHR-011', title: 'Fresh Cuts 010 (cassette comp)', url: '#' }],
   },
   {
@@ -180,8 +176,8 @@ export const SAMPLE_NIGHTS: Night[] = [
     date: '2025-10-18',
     freshCuts: 8,
     sets: sets(
-      ['Ducksmithson', '19:30', undefined, { setlist: ['New One', 'Newer One', 'Untitled in D'] }],
-      ['Cassandra Johnson', '20:00', undefined, { setlist: ['Minnehaha', 'Salt Lick'] }],
+      ['Ducksmithson', '19:30', undefined, { notes: 'All new songs, per Fresh Cuts rules.' }],
+      ['Cassandra Johnson', '20:00', undefined, { notes: 'Solo, first time playing these out.' }],
       ['Hey Arlo', '20:30']
     ),
     media: { photos: photos(18, 'Jess Ortiz') },
