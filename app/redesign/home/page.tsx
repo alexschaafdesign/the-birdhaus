@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import type { ComponentProps } from 'react';
 import { getAllShows, getTodayCentral } from '@/lib/shows';
 import type { Show } from '@/lib/shows';
@@ -17,6 +18,7 @@ import { NextShow, type NextShowAct } from '@/components/ui/NextShow';
 import { ShowRow } from '@/components/ui/ShowRow';
 import { RecordingCard } from '@/components/ui/RecordingCard';
 import { DiscoBall } from '@/components/ui/DiscoBall';
+import { BirdhausWordmark } from '@/components/ui/BirdhausWordmark';
 import { SAMPLE_NEXT, SAMPLE_RECORDINGS, SAMPLE_ROWS, SAMPLE_STATS } from './sample';
 
 // 2027 Home, composed from the DS primitives in components/ui — Figma THE
@@ -160,14 +162,15 @@ export default async function RedesignHomePage({
           centred on that line (margin = line − half the ball). */}
       <div className="flex flex-col">
         <header className="grid grid-cols-1 gap-y-2.5 lg:grid-cols-[auto_1fr] lg:items-center lg:gap-x-8">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/redesign/birdhaus-logo.svg"
-            alt="Birdhaus"
-            width={389}
-            height={62}
-            className="order-1 h-auto max-w-full"
-          />
+          {/* TODO(launch): link the wordmark to / once this replaces the live home. */}
+          <Link
+            href="/redesign/home"
+            aria-label="Birdhaus"
+            className="focus-visible:outline-accent-red order-1 block w-fit max-w-full focus-visible:outline-2 focus-visible:outline-offset-2"
+          >
+            <BirdhausWordmark className="hidden w-96.5 max-w-full lg:block" />
+            <BirdhausWordmark layout="short-tail" className="w-44.75 max-w-full lg:hidden" />
+          </Link>
           <SmpteBars variant="logo-rail" className="order-2 lg:order-3 lg:col-span-full" />
           <nav
             aria-label="Main"
