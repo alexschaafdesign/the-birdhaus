@@ -33,6 +33,8 @@ import styles from './DiscoBall.module.css';
 // animated, and each spot is its own layer so moving it doesn't re-run its
 // filter. Off under prefers-reduced-motion; static where scroll timelines
 // aren't supported.
+// Glints: four tiny paper stars at fixed points flash one at a time, ~every
+// 10s (one 40s cycle, staggered), inside the sway group so they swing with it.
 
 // Figma's noise transfer tables: 100 discrete steps, opaque over 17–32 (dark
 // speckle) and 67–82 (light speckle).
@@ -120,6 +122,35 @@ function Spot({
   );
 }
 
+// Glints: tiny four-point stars that flash now and then (DiscoBall.module.css).
+// Positions are % of the ball box, from the Figma geometry: two on the
+// upper-left rim, where the blue crescent meets the body (132° and 155° on
+// the front rim), one on the amber spot's upper-left edge, one off the blue
+// spot's right end. Size is 3.33% of the ball's width (12 at 360). The translate centres each star on its point; the
+// animation's transform (scale/rotate) composes with it.
+const GLINTS = [
+  { at: 'left-[20.63%] top-[12.53%]', delay: styles.glintRimA },
+  { at: 'left-[63.77%] top-[41.24%]', delay: styles.glintAmber },
+  { at: 'left-[9.36%] top-[28.09%]', delay: styles.glintRimB },
+  { at: 'left-[68.01%] top-[13.55%]', delay: styles.glintBlue },
+];
+
+function Glint({ at, delay }: { at: string; delay: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className={`absolute w-[3.333%] -translate-1/2 ${at} ${styles.glint} ${delay}`}
+      aria-hidden="true"
+      focusable="false"
+    >
+      <path
+        d="M12 0C12 6.6 17.4 12 24 12C17.4 12 12 17.4 12 24C12 17.4 6.6 12 0 12C6.6 12 12 6.6 12 0Z"
+        className="fill-surface-paper"
+      />
+    </svg>
+  );
+}
+
 export function DiscoBall({ hang = false, className = '', ...props }: DiscoBallProps) {
   // useId output can carry characters that aren't valid in url(#…) refs.
   const id = useId().replace(/[^a-zA-Z0-9_-]/g, '');
@@ -192,6 +223,10 @@ export function DiscoBall({ hang = false, className = '', ...props }: DiscoBallP
           </Spot>
         </div>
       </div>
+
+      {GLINTS.map((g) => (
+        <Glint key={g.delay} {...g} />
+      ))}
     </div>
   );
 

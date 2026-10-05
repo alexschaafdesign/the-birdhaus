@@ -15,11 +15,36 @@
   clip-path: ellipse(47.552% 48.537% at 52.453% 48.604%);
 }
 
+/* Glints: hidden by default (and so under reduced motion). */
+.glint {
+  opacity: 0;
+}
+
 @media (prefers-reduced-motion: no-preference) {
   /* Sway: the whole ball + wire swings ±2° around the mount (top centre). */
   .sway {
     transform-origin: 50% 0;
     animation: disco-sway 4s ease-in-out infinite alternate;
+  }
+
+  /* Glint: four tiny stars share one 40s cycle, staggered 10s apart, so one
+     flashes roughly every 10s, somewhere new each time. Each is visible for
+     ~0.5s (1.25% of 40s): grows 0 → 1 while turning 45°, then shrinks away
+     (turning on to 90°, where the four-point star looks as it started). */
+  .glint {
+    animation: disco-glint 40s ease-in-out infinite both;
+  }
+  .glintRimA {
+    animation-delay: 3s;
+  }
+  .glintAmber {
+    animation-delay: 13s;
+  }
+  .glintRimB {
+    animation-delay: 23s;
+  }
+  .glintBlue {
+    animation-delay: 33s;
   }
 
   /* Scroll-turn: each spot's horizontal position follows page scroll, each a
@@ -70,5 +95,21 @@
 @keyframes disco-drift-amber {
   to {
     transform: translateX(-30%);
+  }
+}
+
+@keyframes disco-glint {
+  0% {
+    opacity: 0;
+    transform: scale(0) rotate(0deg);
+  }
+  0.625% {
+    opacity: 1;
+    transform: scale(1) rotate(45deg);
+  }
+  1.25%,
+  100% {
+    opacity: 0;
+    transform: scale(0) rotate(90deg);
   }
 }
