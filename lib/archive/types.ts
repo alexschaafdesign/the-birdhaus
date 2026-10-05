@@ -1,0 +1,99 @@
+// The 2027 Archive's data model: Night → Sets → Media. The /redesign/archive
+// pages only ever see these types. Live nights are adapted from the shows table
+// (./live.ts); ?sample nights come from ./fixtures.ts. Neither is a second list
+// of nights — the shows table stays the one source.
+//
+// Media is allowed at BOTH levels because the real data is split that way:
+// video is tagged per band (band_videos), while photos and audio are stored per
+// show. Night-level media renders once in the night band; set-level media
+// renders inside its set block.
+
+// BH: a live night (BH-YYMMDD). SC: a Song Club event (SC-###).
+export type NightKind = 'bh' | 'sc';
+
+// The index's series filter. FC is a BH night carrying a Fresh Cuts tag, so it
+// filters separately from plain BH nights.
+export type SeriesFilter = 'bh' | 'fc' | 'sc';
+
+export type Video = {
+  /** YouTube id. Absent on ?sample fixtures, which render a still panel. */
+  youtube?: string;
+  title?: string;
+  /** Seconds. Not stored on real videos yet. */
+  durationSec?: number;
+};
+
+export type Audio = {
+  /** Bandcamp album/track page, or the embed URL the show form stores. */
+  bandcamp: string;
+  title?: string;
+};
+
+export type Photo = {
+  /** Absent on ?sample fixtures, which render a placeholder tile. */
+  url?: string;
+  credit?: string;
+};
+
+export type SetMedia = {
+  video?: Video;
+  audio?: Audio;
+  photos?: Photo[];
+  setlist?: string[];
+};
+
+export type NightMedia = {
+  /** Videos not tagged to any one band (e.g. a full-night cut). */
+  videos?: Video[];
+  audio?: Audio[];
+  photos?: Photo[];
+  /** Cloudinary folder; its photos are fetched on the detail page only. */
+  photoFolder?: string;
+};
+
+export type ArchiveSet = {
+  /** 1-based running order. */
+  order: number;
+  band: string;
+  /** The band's Birdhaus slug, when it's in the bands table. */
+  bandSlug?: string;
+  /** Anchor on the detail page (#slug), unique within the night. */
+  slug: string;
+  /** "21:30" (24h). */
+  start?: string;
+  durationSec?: number;
+  media: SetMedia;
+};
+
+export type Credits = {
+  sound?: string;
+  cameras?: string[];
+  /** Recorded channel count (e.g. 18). */
+  channels?: number;
+  photos?: string[];
+};
+
+export type Release = {
+  /** "BHR-012" (tape) or "BHV-004" (video). */
+  id: string;
+  title: string;
+  url: string;
+};
+
+export type Night = {
+  /** "BH-260904", "SC-005". */
+  id: string;
+  kind: NightKind;
+  /** "YYYY-MM-DD". */
+  date: string;
+  /** Multi-day events (Song Club) only. */
+  endDate?: string;
+  /** Fresh Cuts installment number, on BH nights in the series. */
+  freshCuts?: number;
+  /** Shown in place of a lineup when there are no sets (Song Club). */
+  title?: string;
+  sets: ArchiveSet[];
+  media: NightMedia;
+  credits: Credits;
+  releases?: Release[];
+};
