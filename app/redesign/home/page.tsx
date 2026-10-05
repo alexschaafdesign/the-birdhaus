@@ -145,9 +145,10 @@ export default async function RedesignHomePage({
       style={{ WebkitTextStroke: 0 }}
     >
       {/* ---- header, rail, intro, next show + ball ----------------------
-          The header is logo → rail → nav on narrow screens (so the rail stays
-          under the wordmark however the nav wraps) and logo | nav over the
-          rail at lg. Below it, at lg, a grid (content | ball column) whose
+          The header is logo → rail → nav on narrow screens, so the rail stays
+          under the wordmark (below sm the nav drops to the 12px data size,
+          spread edge to edge, so all five links fit one row), and logo | nav
+          over the rail at lg. Below it, at lg, a grid (content | ball column) whose
           top edge is the rail's bottom: the ball spans its rows 1–3 as a
           subgrid — mount + wire through the tagline and intro rows, ball in
           the Next show row (in flow, so that row always fits it). Desktop
@@ -170,14 +171,14 @@ export default async function RedesignHomePage({
           <SmpteBars variant="logo-rail" className="order-2 lg:order-3 lg:col-span-full" />
           <nav
             aria-label="Main"
-            className="order-3 flex flex-wrap gap-x-8.5 gap-y-2 lg:order-2 lg:justify-self-end"
+            className="order-3 flex flex-wrap justify-between gap-x-2 gap-y-2 sm:justify-start sm:gap-x-8.5 lg:order-2 lg:justify-self-end"
           >
             {NAV.map((item) => (
               <NavLink
                 key={item.label}
                 href={item.href}
                 active={item.active}
-                className={`pt-1 pb-1.5 leading-[1.3] ${item.active ? 'border-accent-red border-b-2' : ''}`}
+                className={`max-sm:text-data-spec-12 pt-1 pb-1.5 leading-[1.3] ${item.active ? 'border-accent-red border-b-2' : ''}`}
               >
                 {item.label}
               </NavLink>
