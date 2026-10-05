@@ -19,7 +19,7 @@
   /* Sway: the whole ball + wire swings ±2° around the mount (top centre). */
   .sway {
     transform-origin: 50% 0;
-    animation: disco-sway 7s ease-in-out infinite alternate;
+    animation: disco-sway 4s ease-in-out infinite alternate;
   }
 
   /* Scroll-turn: each spot's horizontal position follows page scroll, each a
