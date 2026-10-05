@@ -145,26 +145,33 @@ export default async function RedesignHomePage({
       style={{ WebkitTextStroke: 0 }}
     >
       {/* ---- header, rail, intro, next show + ball ----------------------
-          One block so the ball can hang from the rail: at lg it's a grid
-          (content | ball column) and the ball spans rows 2–4 as a subgrid —
-          mount + wire through the tagline and intro rows, ball in the Next
-          show row (in flow, so that row always fits it). Desktop only.
+          The header is logo → rail → nav on narrow screens (so the rail stays
+          under the wordmark however the nav wraps) and logo | nav over the
+          rail at lg. Below it, at lg, a grid (content | ball column) whose
+          top edge is the rail's bottom: the ball spans its rows 1–3 as a
+          subgrid — mount + wire through the tagline and intro rows, ball in
+          the Next show row (in flow, so that row always fits it). Desktop
+          only.
           Horizontal: the wire is centred on a fixed line --spacing(61.5) in
           from the content's right edge — the gap between LABEL and COMMUNITY
           in the right-aligned nav — so it never hangs under a nav link at
           any width; the ball is 26.2% of the content (360 at 1440) and
           centred on that line (margin = line − half the ball). */}
-      <div className="flex flex-col gap-2.5">
-        <header className="flex flex-wrap items-center justify-between gap-x-8 gap-y-4">
+      <div className="flex flex-col">
+        <header className="grid grid-cols-1 gap-y-2.5 lg:grid-cols-[auto_1fr] lg:items-center lg:gap-x-8">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="/redesign/birdhaus-logo.svg"
             alt="Birdhaus"
             width={389}
             height={62}
-            className="h-auto max-w-full"
+            className="order-1 h-auto max-w-full"
           />
-          <nav aria-label="Main" className="flex flex-wrap gap-x-8.5 gap-y-2">
+          <SmpteBars variant="logo-rail" className="order-2 lg:order-3 lg:col-span-full" />
+          <nav
+            aria-label="Main"
+            className="order-3 flex flex-wrap gap-x-8.5 gap-y-2 lg:order-2 lg:justify-self-end"
+          >
             {NAV.map((item) => (
               <NavLink
                 key={item.label}
@@ -179,8 +186,7 @@ export default async function RedesignHomePage({
         </header>
 
         <div className="flex flex-col lg:grid lg:grid-cols-[3fr_2fr] lg:gap-x-8">
-          <SmpteBars variant="logo-rail" className="lg:col-span-full lg:row-start-1" />
-          <div className="text-body-3 mt-2.5 flex flex-wrap justify-between gap-x-8 gap-y-1 lg:col-span-full lg:row-start-2">
+          <div className="text-body-3 mt-2.5 flex flex-wrap justify-between gap-x-8 gap-y-1 lg:col-span-full lg:row-start-1">
             <p className="leading-normal">A HUMBLE DIY MUSIC EMPIRE IN SOUTH MINNEAPOLIS</p>
             {stats && (
               <p className="text-accent-red leading-[1.5] font-bold">
@@ -191,7 +197,7 @@ export default async function RedesignHomePage({
 
           <section
             aria-label="The space"
-            className="text-body-3 mt-8 flex flex-col gap-1.5 leading-normal lg:col-start-1 lg:row-start-3"
+            className="text-body-3 mt-8 flex flex-col gap-1.5 leading-normal lg:col-start-1 lg:row-start-2"
           >
             <p>
               The Birdhaus is a DIY basement venue in South Minneapolis. Donation at the door. All
@@ -200,7 +206,7 @@ export default async function RedesignHomePage({
             <p>RSVP to an event to receive the address and other details.</p>
           </section>
 
-          <section className="mt-8 flex flex-col gap-6 lg:col-start-1 lg:row-start-4">
+          <section className="mt-8 flex flex-col gap-6 lg:col-start-1 lg:row-start-3">
             <SectionHeader label="Next show" rule="none" />
             {next ? (
               <NextShow {...next} />
@@ -211,7 +217,7 @@ export default async function RedesignHomePage({
 
           <DiscoBall
             hang
-            className="pointer-events-none hidden w-[26.2%] justify-self-end [--disco-drop:--spacing(22)] lg:col-span-full lg:row-span-3 lg:row-start-2 lg:grid lg:grid-rows-subgrid mr-[calc(--spacing(61.5)-13.1%)]"
+            className="pointer-events-none hidden w-[26.2%] justify-self-end [--disco-drop:--spacing(22)] lg:col-span-full lg:row-span-3 lg:row-start-1 lg:grid lg:grid-rows-subgrid mr-[calc(--spacing(61.5)-13.1%)]"
           />
         </div>
       </div>
