@@ -9,8 +9,8 @@ import type { ComponentProps } from 'react';
 // px-6.5 = 26, gap-2.5 = 10 …) — the DS spacing scale doesn't cover them.
 // Corners are square per the DS rule. No hex or px literals live here.
 
-type Variant = 'primary' | 'secondary' | 'ghost';
-type Size = 'm' | 's';
+export type Variant = 'primary' | 'secondary' | 'ghost';
+export type Size = 'm' | 's';
 
 const BASE =
   'inline-flex shrink-0 items-center justify-center gap-2.5 rounded-none ' +
@@ -43,6 +43,24 @@ const PADDING: Record<Size, string> = { m: 'px-6.5', s: 'px-4.5' };
 
 const ICON_SIZES: Record<Size, string> = { m: 'size-4', s: 'size-3.5' };
 
+// The class string, exported so a link (next/link) can wear the same button
+// styling — e.g. NextShow's RSVP — without nesting a <button> in an <a>.
+export function buttonClassName(variant: Variant = 'primary', size: Size = 'm') {
+  const padding = variant === 'ghost' ? 'px-0' : PADDING[size];
+  return `${BASE} ${VARIANTS[variant]} ${SIZES[size]} ${padding}`;
+}
+
+// Figma's Icon / arrow-right, used as a mask so it takes the label's color
+// (currentColor) through every state.
+export function ButtonArrow({ size = 'm' }: { size?: Size }) {
+  return (
+    <span
+      aria-hidden
+      className={`${ICON_SIZES[size]} shrink-0 bg-current mask-[url(/redesign/icons/arrow-right.svg)] mask-contain mask-center mask-no-repeat`}
+    />
+  );
+}
+
 export type ButtonProps = ComponentProps<'button'> & {
   variant?: Variant;
   size?: Size;
@@ -58,21 +76,10 @@ export function Button({
   children,
   ...props
 }: ButtonProps) {
-  const padding = variant === 'ghost' ? 'px-0' : PADDING[size];
   return (
-    <button
-      className={`${BASE} ${VARIANTS[variant]} ${SIZES[size]} ${padding} ${className}`}
-      {...props}
-    >
+    <button className={`${buttonClassName(variant, size)} ${className}`} {...props}>
       {children}
-      {arrow && (
-        // Figma's Icon / arrow-right, used as a mask so it takes the label's
-        // color (currentColor) through every state.
-        <span
-          aria-hidden
-          className={`${ICON_SIZES[size]} shrink-0 bg-current mask-[url(/redesign/icons/arrow-right.svg)] mask-contain mask-center mask-no-repeat`}
-        />
-      )}
+      {arrow && <ButtonArrow size={size} />}
     </button>
   );
 }

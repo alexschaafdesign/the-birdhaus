@@ -1,8 +1,9 @@
 /* ─────────────────────────────────────────────────────────────────────
    Birdhaus design tokens — GENERATED FILE, DO NOT EDIT BY HAND.
    Source: DESIGN SYSTEM - BIRDHAUS (Figma published library)
-   Captured: 2026-09-30   ·   Regenerate: `npm run tokens`
+   Captured: 2026-10-04   ·   Regenerate: `npm run tokens`
    Edit values in app/redesign/tokens.figma.json, never here.
+   18 legacy/* colors in the snapshot are intentionally not emitted.
    ───────────────────────────────────────────────────────────────────── */
 
 @theme {
@@ -14,14 +15,7 @@
   --color-surface-ink: #16150f;
   --color-text-primary: #16150f;
   --color-text-inverse: #f0ede4;
-  --color-accent-red: #982726;
-  --color-bars-1-gray: #bfbfbf;
-  --color-bars-2-yellow: #bfbf00;
-  --color-bars-3-cyan: #00bfbf;
-  --color-bars-4-green: #00bf00;
-  --color-bars-5-magenta: #bf00bf;
-  --color-bars-6-red: #bf0000;
-  --color-bars-7-blue: #0000bf;
+  --color-accent-red: #d60023;
   --color-surface-ink-raised: #1e1b14;  /* Cards and hover rows on the ink ground. */
   --color-line-ink: #2e2b22;  /* Row dividers and hairlines on ink. */
   --color-text-secondary: #c9c3b5;  /* Stone. Body copy on ink. 10.4:1. */
@@ -30,61 +24,65 @@
   --color-accent-brick: #ca6252;  /* The one red on ink: catalogue IDs and section labels. 4.7:1. accent/red is for print on paper. */
   --color-tape-phosphor: #c9f4ee;  /* Screens only: OSD text, timestamps, timecode, tape slate. */
   --color-tape-tally: #d9412f;  /* REC light only. */
-  --color-ball-oxblood: #8c2e28;  /* Disco ball rim. */
-  --color-ball-ash: #a8a294;  /* Disco ball rim. */
-  --color-ball-cream: #eadbb8;  /* Disco ball main highlight. */
-  --color-ball-red: #a8463c;  /* Disco ball second highlight. */
-  --color-ball-teal: #7fd8cf;  /* Disco ball small teal spot — the only cold note on the ball. */
-
-  /* ⚠ DEPRECATED — flagged in Figma, not part of the 2027 palette. Still
-     emitted so existing uses keep resolving; do not use in new work.
-     Remove from Figma first, then `npm run tokens` drops them here. */
-  --color-wash-blue: #4951b721;  /* DEPRECATED (2027 palette): not part of the 2027 palette. Remove once nothing is bound to it. */
-  --color-wash-red: #b42f2c14;  /* DEPRECATED (2027 palette): not part of the 2027 palette. Remove once nothing is bound to it. */
-  --color-wash-green: #48aa5d21;  /* DEPRECATED (2027 palette): not part of the 2027 palette. Remove once nothing is bound to it. */
-  --color-series-fresh-cuts: #e1e42f;  /* DEPRECATED (2027 palette): use series/fc. */
-  --color-chroma-yellow: #ffd900;  /* DEPRECATED (2027 palette): not part of the 2027 palette. Remove once nothing is bound to it. */
-  --color-chroma-magenta: #e3008c;  /* DEPRECATED (2027 palette): not part of the 2027 palette. Remove once nothing is bound to it. */
+  --color-ball-rim-red: #990019;  /* Disco ball front rim. */
+  --color-ball-rim-blue: #304cc2;  /* Disco ball back rim. */
+  --color-ball-spot-red: #f00026;  /* Disco ball second highlight. */
+  --color-ball-spot-blue: #2d47ad;  /* Disco ball top spot — the cold note on the ball. */
+  --color-surface-paper-shade: #e6e1d4;  /* Slightly darker paper: hover rows and quiet panels on the paper ground. */
+  --color-spectrum-violet: #4c00b9;  /* 2027 spectrum. 8.9:1 on paper, 1.7:1 on ink. */
+  --color-spectrum-magenta: #b200d8;  /* 2027 spectrum. 4.6:1 on paper, 3.4:1 on ink. */
+  --color-spectrum-red: #ff002a;  /* 2027 spectrum. 3.4:1 on paper, 4.6:1 on ink. Fills, bars and light only — not for text on paper; use accent/red for red text. */
+  --color-spectrum-orange: #ff6500;  /* 2027 spectrum. 2.5:1 on paper, 6.2:1 on ink. Fills, bars and light only — not for text on paper; use accent/red for red text. */
+  --color-spectrum-amber: #fdc900;  /* 2027 spectrum. 1.3:1 on paper, 11.8:1 on ink. Fills, bars and light only — not for text on paper; use accent/red for red text. */
 }
 
 /* ── Colors — aliases. Semantic names that point at another token (Figma
    variable alias). Resolved at use site; no value of their own. */
 @theme inline {
-  --color-series-bh: var(--color-bars-1-gray);  /* Live night tick. Everyday, stays neutral. */
-  --color-series-fc: var(--color-bars-2-yellow);  /* Fresh Cuts tick. */
-  --color-series-video: var(--color-bars-3-cyan);  /* BHV and Basement Tapes (BT) tick. */
-  --color-series-tape: var(--color-bars-4-green);  /* BHR tape release tick. */
-  --color-series-song-club: var(--color-bars-5-magenta);  /* Song Club (SC) tick. */
+  --color-bars-1-ink: var(--color-surface-ink);  /* Band 1. Aliases surface/ink. */
+  --color-bars-2-violet: var(--color-spectrum-violet);  /* Band 2. */
+  --color-bars-3-magenta: var(--color-spectrum-magenta);  /* Band 3. */
+  --color-bars-4-red: var(--color-spectrum-red);  /* Band 4. */
+  --color-bars-5-orange: var(--color-spectrum-orange);  /* Band 5. */
+  --color-bars-6-amber: var(--color-spectrum-amber);  /* Band 6. */
+  --color-bars-7-paper: var(--color-surface-paper);  /* Band 7. Aliases surface/paper — invisible on the paper ground; hide it there or use the six-band bar. */
+  --color-ball-spot-amber: var(--color-spectrum-amber);  /* Disco ball main highlight. Aliases spectrum/amber. */
+  --color-series-bh: var(--color-text-muted);  /* Live night tick. Everyday, stays neutral (text/muted). Red is reserved as the house accent. */
+  --color-series-fc: var(--color-spectrum-amber);  /* Fresh Cuts tick. Amber. */
+  --color-series-video: var(--color-spectrum-violet);  /* BHV and Basement Tapes (BT) tick. Violet. */
+  --color-series-tape: var(--color-spectrum-orange);  /* BHR tape release tick. Orange. */
+  --color-series-song-club: var(--color-spectrum-magenta);  /* Song Club (SC) tick. Magenta. */
 }
 
 /* ── Type sizes — context-varying. Web is the :root default; the four
    capture/broadcast contexts override the same --bh-size-* names.
    Independent of [data-theme]: /tv will opt into [data-context="tv"]. */
+/* :root is fluid: Mobile 390 at 390px → Web at 1440px viewport, clamped at both ends. */
 :root {
-  --bh-size-display-1: 96px;
-  --bh-size-display-2: 72px;
-  --bh-size-display-3: 52px;
-  --bh-size-display-4: 80px;
-  --bh-size-header-1: 40px;
-  --bh-size-header-2: 30px;
-  --bh-size-header-3: 24px;
-  --bh-size-header-4: 20px;
-  --bh-size-body-1: 18px;
+  --bh-size-display-1: clamp(44px, 3.4286vw + 30.6286px, 80px);
+  --bh-size-display-2: clamp(34px, 2.0952vw + 25.8286px, 56px);
+  --bh-size-display-3: clamp(32px, 1.1429vw + 27.5429px, 44px);
+  --bh-size-display-4: clamp(40px, 3.8095vw + 25.1429px, 80px);
+  --bh-size-header-1: clamp(30px, 0.381vw + 28.5143px, 34px);
+  --bh-size-header-2: clamp(24px, 0.1905vw + 23.2571px, 26px);
+  --bh-size-header-3: clamp(20px, 0.381vw + 18.5143px, 24px);
+  --bh-size-header-4: clamp(18px, 0.1905vw + 17.2571px, 20px);
+  --bh-size-body-1: 16px;
   --bh-size-body-2: 16px;
   --bh-size-body-3: 14px;
-  --bh-size-timecode: 15px;
-  --bh-size-data-set-time-20: 20px;
-  --bh-size-data-catalogue-id-16: 16px;
+  --bh-size-timecode: clamp(14px, 0.0952vw + 13.6286px, 15px);
+  --bh-size-data-set-time-20: clamp(14px, 0.5714vw + 11.7714px, 20px);
+  --bh-size-data-catalogue-id-16: clamp(15px, 0.0952vw + 14.6286px, 16px);
   --bh-size-data-caption-13: 13px;
   --bh-size-data-caption-13-bold: 13px;
-  --bh-size-data-label-11: 11px;
-  --bh-size-data-label-10-small: 10px;
-  --bh-size-data-overline-11: 11px;
+  --bh-size-data-label-11: clamp(11px, -0.0952vw + 12.3714px, 12px);
+  --bh-size-data-label-10-small: clamp(10px, -0.1905vw + 12.7429px, 12px);
+  --bh-size-data-overline-11: clamp(11px, -0.0952vw + 12.3714px, 12px);
   --bh-size-data-spec-12: 12px;
   --bh-size-ui-input-label-12: 12px;
   --bh-size-ui-input-value-16: 16px;
-  --bh-size-ui-nav-item-14: 14px;
-  --bh-size-ui-button-15: 15px;
+  --bh-size-ui-nav-item-14: clamp(14px, -0.0952vw + 15.3714px, 15px);
+  --bh-size-ui-button-15: clamp(15px, -0.0952vw + 16.3714px, 16px);
   --bh-size-ui-link-16: 16px;
   --bh-size-tv-heading-34: 34px;
   --bh-size-tv-label-20: 20px;
@@ -189,7 +187,7 @@
   --bh-size-header-2: 24px;
   --bh-size-header-3: 20px;
   --bh-size-header-4: 18px;
-  --bh-size-body-1: 17px;
+  --bh-size-body-1: 16px;
   --bh-size-body-2: 16px;
   --bh-size-body-3: 14px;
   --bh-size-timecode: 14px;
