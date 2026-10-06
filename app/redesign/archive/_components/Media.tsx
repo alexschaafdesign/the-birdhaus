@@ -77,6 +77,49 @@ export function PhotoStrip({ photos, label }: { photos: Photo[]; label: string }
   );
 }
 
+// The set's further videos, under its main player. Each opens on YouTube;
+// without a youtube id (?sample fixtures) it's the title alone.
+export function MoreVideos({ videos, label }: { videos: Video[]; label: string }) {
+  return (
+    <div className="flex flex-col gap-2">
+      <p className="text-data-overline-11 text-text-meta font-bold tracking-[--spacing(0.625)] uppercase">
+        Also from this set
+      </p>
+      <ul className="flex flex-col gap-2">
+        {videos.map((v, i) => {
+          const text = v.title || `${label} — video ${i + 2}`;
+          const mark = (
+            <span
+              aria-hidden
+              className="block size-3.5 shrink-0 bg-current mask-[url(/redesign/icons/play.svg)] mask-contain mask-center mask-no-repeat"
+            />
+          );
+          return (
+            <li key={v.youtube ?? i}>
+              {v.youtube ? (
+                <a
+                  href={`https://www.youtube.com/watch?v=${v.youtube}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={`text-body-3 text-text-inverse hover:text-accent-brick flex items-center gap-2 ${FOCUS}`}
+                >
+                  {mark}
+                  <span className="min-w-0">{text}</span>
+                </a>
+              ) : (
+                <span className="text-body-3 text-text-inverse flex items-center gap-2">
+                  {mark}
+                  <span className="min-w-0">{text}</span>
+                </span>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
 export function AudioLink({ audio }: { audio: Audio }) {
   return (
     <a

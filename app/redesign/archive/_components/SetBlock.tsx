@@ -2,7 +2,7 @@ import Link from 'next/link';
 import type { ArchiveSet, Night } from '@/lib/archive';
 import { archiveHref, setSummary } from '@/lib/archive';
 import { SeriesTick } from '@/components/ui/SeriesTick';
-import { AudioLink, Duration, Notes, PhotoStrip, VideoPlayer } from './Media';
+import { AudioLink, Duration, MoreVideos, Notes, PhotoStrip, VideoPlayer } from './Media';
 
 // One set in the night band, anchored at #slug. A set with media is a native
 // <details> (no client JS): the night's first set with video renders open,
@@ -60,7 +60,7 @@ export function SetBlock({
     );
   }
 
-  const { video, audio, photos } = set.media;
+  const { video, moreVideos, audio, photos } = set.media;
   const { notes, releases } = set;
   const label = `${set.band}, ${night.id}`;
 
@@ -82,7 +82,12 @@ export function SetBlock({
       <div className="flex max-w-6xl flex-col gap-6 pb-8 sm:pl-24">
         {(video || notes || audio) && (
           <div className="flex flex-col gap-6 lg:grid lg:grid-cols-[2fr_1fr] lg:gap-8">
-            {video && <VideoPlayer video={video} label={label} />}
+            {video && (
+              <div className="flex flex-col gap-4">
+                <VideoPlayer video={video} label={label} />
+                {moreVideos?.length ? <MoreVideos videos={moreVideos} label={label} /> : null}
+              </div>
+            )}
             {(notes || audio) && (
               <div className="flex flex-col gap-6">
                 {audio && <AudioLink audio={audio} />}

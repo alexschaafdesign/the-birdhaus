@@ -95,8 +95,9 @@ function setsFor(
       return { order: i + 1, band: band.name, slug, media: {} };
     }
 
-    // A set gets the first video / audio tagged to its band, and every photo.
-    const video = show.videos.find((v) => v.bandIds?.some((id) => Number(id) === bandId));
+    // A set's first tagged video is its player and the rest list under it;
+    // it gets the first audio tagged to its band, and every photo.
+    const [video, ...moreVideos] = show.videos.filter((v) => v.bandIds?.some((id) => Number(id) === bandId));
     const audio = (show.audio ?? []).find((a) => a.bandId != null && Number(a.bandId) === bandId);
     const photos = photosOf(bandId);
     const key = setKey(show.id, bandId);
@@ -109,6 +110,9 @@ function setsFor(
       start: ('setStart' in band && to24h(band.setStart)) || undefined,
       media: {
         ...(video && { video: { youtube: video.youtube, title: video.title } }),
+        ...(moreVideos.length > 0 && {
+          moreVideos: moreVideos.map((v) => ({ youtube: v.youtube, title: v.title })),
+        }),
         ...(audio && { audio: { bandcamp: audio.bandcamp, title: audio.title } }),
         ...(photos.length > 0 && { photos }),
       },
@@ -184,7 +188,9 @@ export async function getLiveNights(): Promise<Night[]> {
     const sets = setsFor(show, bandSlugs, extras, (bandId) =>
       allPhotos.filter((p) => p.set === bandId).map((p) => p.photo)
     );
-    const setVideos = new Set(sets.map((s) => s.media.video?.youtube).filter(Boolean));
+    const setVideos = new Set(
+      sets.flatMap((s) => [s.media.video, ...(s.media.moreVideos ?? [])]).map((v) => v?.youtube).filter(Boolean)
+    );
 
     const legacyPhotographer =
       typeof show.photographer === 'string' ? show.photographer : show.photographer?.name;
@@ -207,7 +213,8 @@ export async function getLiveNights(): Promise<Night[]> {
       title: sets.length === 0 ? show.title : undefined,
       sets,
       media: {
-        // Untagged videos (no band) belong to the night as a whole.
+        // Videos on no set (untagged, or tagged only to a band not in the
+        // lineup) belong to the night as a whole.
         videos: show.videos
           .filter((v) => !setVideos.has(v.youtube))
           .map((v) => ({ youtube: v.youtube, title: v.title })),

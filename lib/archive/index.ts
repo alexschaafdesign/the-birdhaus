@@ -72,9 +72,9 @@ export function nightSummary(night: Night): string {
 // What a single set carries, for its one-line collapsed form: "photos only",
 // "video · notes", or null when it has nothing of its own.
 export function setSummary(set: ArchiveSet): string | null {
-  const { video, audio, photos } = set.media;
+  const { video, moreVideos, audio, photos } = set.media;
   const parts = [
-    video && 'video',
+    video && (moreVideos?.length ? `${moreVideos.length + 1} videos` : 'video'),
     audio && 'audio',
     photos?.length && 'photos',
     set.notes && 'notes',

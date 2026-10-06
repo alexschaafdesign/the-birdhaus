@@ -9,6 +9,7 @@ import type { ArchiveSet, Night, Photo, Release, SetMedia } from './types';
 //
 // Media completeness is deliberately mixed so every render path runs:
 //   full set-level media (video, audio, photos, notes)    BH-260904
+//   a set with two videos ("Also from this set")           BH-260904
 //   a release from one set (BHV-004) and from the night    BH-260904
 //   video on a set that isn't first in running order       BH-260911
 //   night-level photos + Bandcamp, per-set video only      BH-260725, BH-260905
@@ -132,6 +133,7 @@ export const SAMPLE_NIGHTS: Night[] = [
         1872,
         {
           video: { durationSec: 1872 },
+          moreVideos: [{ title: 'Lake Street (encore, phone camera)' }],
           audio: { bandcamp: '#', title: 'Joe Kaplow — Live at the Birdhaus' },
           notes:
             'Setlist: Basement Light, Powderhorn, Dial Tone, Every Other Sunday, Long Exposure, Ceiling Fan, Goodnight, Lake Street.',

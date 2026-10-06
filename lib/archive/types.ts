@@ -36,7 +36,11 @@ export type Photo = {
 };
 
 export type SetMedia = {
+  /** The set's main player: the first video tagged to its band. */
   video?: Video;
+  /** Every further video tagged to the set, listed under the player ("Also
+   *  from this set") so none is hidden or misfiled as a full-night video. */
+  moreVideos?: Video[];
   audio?: Audio;
   photos?: Photo[];
 };
