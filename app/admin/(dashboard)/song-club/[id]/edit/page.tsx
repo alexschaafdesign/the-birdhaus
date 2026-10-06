@@ -42,7 +42,8 @@ export default async function EditSongClubEventPage({
           body: event.body ?? '',
           flyerUrl: event.flyer_url ?? '',
           published: event.published,
-          playlistId: event.playlist_id,
+          // bigint → string from the driver; the form's select expects a number.
+          playlistId: event.playlist_id != null ? Number(event.playlist_id) : null,
           format: event.format,
           daysOpenDefault: event.days_open_default,
         }}
