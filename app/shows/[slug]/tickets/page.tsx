@@ -1,6 +1,6 @@
-import { getShowBySlug, getTicketAvailability } from '@/lib/shows';
+import { findShowSlugIgnoringCase, getShowBySlug, getTicketAvailability } from '@/lib/shows';
 import { sql } from '@/lib/db';
-import { notFound } from 'next/navigation';
+import { notFound, permanentRedirect } from 'next/navigation';
 import Link from 'next/link';
 import type { Metadata } from 'next';
 
@@ -50,7 +50,18 @@ export default async function TicketsPage({
 }) {
   const { slug } = await params;
   const show = await getShowBySlug(slug);
-  if (!show) notFound();
+  if (!show) {
+    // A case-only mismatch (old capitalised link) → 308 to the stored slug,
+    // keeping the query (checkout_error / sold_out / left banners).
+    const canonical = await findShowSlugIgnoringCase(slug);
+    if (canonical && canonical !== slug) {
+      const qs = new URLSearchParams(
+        Object.entries(await searchParams).filter((e): e is [string, string] => typeof e[1] === 'string')
+      ).toString();
+      permanentRedirect(`/shows/${encodeURIComponent(canonical)}/tickets${qs ? `?${qs}` : ''}`);
+    }
+    notFound();
+  }
 
   // Set when /checkout couldn't mint a Square link and bounced the buyer back
   // here (the tier forms open in a new tab, so the banner lands in that tab).

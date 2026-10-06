@@ -1,8 +1,14 @@
-import { getShowBySlug, getAllShows, getTicketAvailability, slugify } from '@/lib/shows';
+import {
+  findShowSlugIgnoringCase,
+  getShowBySlug,
+  getAllShows,
+  getTicketAvailability,
+  slugify,
+} from '@/lib/shows';
 import { getPhotosFromFolder } from '@/lib/cloudinary';
 import { getPhotographerCredits, getPhotographerProfileBySlug } from '@/lib/photographers';
 import { getAllBands } from '@/lib/bands';
-import { notFound } from 'next/navigation';
+import { notFound, permanentRedirect } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import RSVPForm from '@/components/RSVPForm';
@@ -11,6 +17,16 @@ import CloudinaryGallery from '@/components/CloudinaryGallery';
 import AdminEditFAB from '@/components/admin/AdminEditFAB';
 import { isAdminSession } from '@/lib/admin-session';
 import type { Metadata } from 'next';
+
+// Re-serialises the incoming query so a redirect keeps it (utm tags etc).
+function queryString(params: Record<string, string | string[] | undefined>): string {
+  const qs = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    for (const v of Array.isArray(value) ? value : value === undefined ? [] : [value]) qs.append(key, v);
+  }
+  const out = qs.toString();
+  return out ? `?${out}` : '';
+}
 
 export async function generateStaticParams() {
   const shows = await getAllShows();
@@ -60,10 +76,23 @@ export async function generateMetadata(
   };
 }
 
-export default async function ShowPage({ params }: { params: Promise<{ slug: string }> }) {
+export default async function ShowPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ slug: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const { slug } = await params;
   const show = await getShowBySlug(slug);
-  if (!show) notFound();
+  if (!show) {
+    // A case-only mismatch (old capitalised link) → 308 to the stored slug.
+    const canonical = await findShowSlugIgnoringCase(slug);
+    if (canonical && canonical !== slug) {
+      permanentRedirect(`/shows/${encodeURIComponent(canonical)}${queryString(await searchParams)}`);
+    }
+    notFound();
+  }
 
   const isAdmin = await isAdminSession();
 
