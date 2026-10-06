@@ -93,6 +93,14 @@ export interface SongClubEventBody {
   daysOpenDefault?: unknown;
 }
 
+// playlist_id is bigint, which the driver returns as a string ("5"), so an edit
+// form seeded from the row posts it back as one. Accept a numeric string too —
+// otherwise every save of an untouched form silently unlinked the playlist.
+function parsePlaylistId(value: unknown): number | null {
+  const n = typeof value === 'string' && value.trim() !== '' ? Number(value) : value;
+  return typeof n === 'number' && Number.isInteger(n) && n > 0 ? n : null;
+}
+
 function optionalTrim(value: unknown): string | null {
   if (typeof value !== 'string') return null;
   const trimmed = value.trim();
@@ -133,10 +141,7 @@ export function buildEventInput(
     body: optionalTrim(body.body),
     flyerUrl: optionalTrim(body.flyerUrl),
     published: body.published === true,
-    playlistId:
-      typeof body.playlistId === 'number' && Number.isInteger(body.playlistId)
-        ? body.playlistId
-        : null,
+    playlistId: parsePlaylistId(body.playlistId),
     format: body.format === 'online' ? 'online' : 'in_person',
     daysOpenDefault: DAYS_OPEN_VALUES.includes(body.daysOpenDefault as DaysOpenDefault)
       ? (body.daysOpenDefault as DaysOpenDefault)
