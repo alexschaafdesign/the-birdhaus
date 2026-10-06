@@ -20,6 +20,7 @@ import {
   resolvePhotoBandIds,
   resolveVideoBandIds,
   setShowBands,
+  stripSetNotes,
   toShowBandPairs,
 } from '@/lib/bands';
 import { resolveShowVideos, setShowVideos, setVideoBands } from '@/lib/videos';
@@ -233,7 +234,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         resolvedBands = await resolveShowBandEntries(linkedBands, tx);
         // TEMPORARY: dual-write for migration safety. Remove once Part C in TODO.md is executed.
         // This JSONB write is superseded by show_bands — see resolveShowBandEntries/setShowBands.
-        updates.push({ column: 'bands', value: resolvedBands, json: true });
+        updates.push({ column: 'bands', value: stripSetNotes(resolvedBands), json: true });
         await setShowBands(showId, toShowBandPairs(resolvedBands), tx);
       }
 

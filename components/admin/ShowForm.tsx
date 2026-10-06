@@ -102,6 +102,8 @@ interface Band {
   instagram: string;
   bio: string;
   photo: string;
+  // The set's free-text note (show_bands.notes); '' = none.
+  notes: string;
 }
 
 interface Video {
@@ -142,7 +144,7 @@ export interface ShowFormInitialValues {
   doorsTime?: string | null;
   showTime?: string | null;
   flyer?: string | null;
-  bands?: Array<{ name: string; instagram?: string; bio?: string; photo?: string; bandId?: number }> | string[];
+  bands?: Array<{ name: string; instagram?: string; bio?: string; photo?: string; bandId?: number; notes?: string }> | string[];
   description?: string | null;
   photographer?: { name: string; instagram?: string } | null;
   doorPersonName?: string | null;
@@ -210,13 +212,14 @@ interface FormState {
 function initFormState(initial?: ShowFormInitialValues): FormState {
   const bands = (initial?.bands ?? []).map((b) =>
     typeof b === 'string'
-      ? { bandId: null, name: b, instagram: '', bio: '', photo: '' }
+      ? { bandId: null, name: b, instagram: '', bio: '', photo: '', notes: '' }
       : {
           bandId: b.bandId ?? null,
           name: b.name,
           instagram: b.instagram ?? '',
           bio: b.bio ?? '',
           photo: b.photo ?? '',
+          notes: b.notes ?? '',
         }
   );
 
@@ -390,7 +393,7 @@ export default function ShowForm({
     setForm((prev) => ({ ...prev, [field]: value }));
   }
 
-  function updateBand(index: number, field: 'name' | 'instagram' | 'bio' | 'photo', value: string) {
+  function updateBand(index: number, field: 'name' | 'instagram' | 'bio' | 'photo' | 'notes', value: string) {
     setForm((prev) => {
       const bands = [...prev.bands];
       // Retyping the name severs any link to a matched band profile — either
@@ -413,6 +416,8 @@ export default function ShowForm({
         instagram: match.instagram ?? '',
         bio: match.bio ?? '',
         photo: match.photo ?? '',
+        // A set note is about this night's set, not the band — keep it.
+        notes: bands[index].notes,
       };
       return { ...prev, bands };
     });
@@ -420,7 +425,7 @@ export default function ShowForm({
   function addBand() {
     setForm((prev) => ({
       ...prev,
-      bands: [...prev.bands, { bandId: null, name: '', instagram: '', bio: '', photo: '' }],
+      bands: [...prev.bands, { bandId: null, name: '', instagram: '', bio: '', photo: '', notes: '' }],
     }));
   }
   function removeBand(index: number) {
@@ -594,6 +599,9 @@ export default function ShowForm({
       ...(b.bio.trim() ? { bio: b.bio.trim() } : {}),
       ...(b.photo.trim() ? { photo: b.photo.trim() } : {}),
       ...(b.bandId ? { bandId: b.bandId } : {}),
+      // Always sent (blank clears): the form loaded every set's note, so it's
+      // the source of truth here.
+      notes: b.notes,
     }));
 
     const payload = {
@@ -1273,6 +1281,13 @@ export default function ShowForm({
                 rows={6}
                 value={band.bio}
                 onChange={(e) => updateBand(index, 'bio', e.target.value)}
+                className={`${inputClass} w-full resize-y`}
+              />
+              <textarea
+                placeholder="Set notes (optional) — e.g. played with a string section, or a setlist"
+                rows={2}
+                value={band.notes}
+                onChange={(e) => updateBand(index, 'notes', e.target.value)}
                 className={`${inputClass} w-full resize-y`}
               />
             </div>

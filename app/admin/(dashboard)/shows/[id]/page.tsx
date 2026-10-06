@@ -55,6 +55,14 @@ export default async function EditShowPage({ params }: { params: Promise<{ id: s
   `;
   if (!row) notFound();
 
+  // Set notes live only on show_bands (093), not in the bands join fragment
+  // the public pages share; read them here and merge them in by band.
+  const setNotes = await sql<{ band_id: string; notes: string }[]>`
+    select band_id, notes from show_bands
+    where show_id = ${showId} and notes is not null
+  `;
+  const notesByBand = new Map(setNotes.map((r) => [Number(r.band_id), r.notes]));
+
   const squareLinks = await sql<{ tierLabel: string; amountCents: number; url: string | null }[]>`
     select tier_label as "tierLabel", amount_cents as "amountCents", url
     from show_square_links
@@ -102,7 +110,10 @@ export default async function EditShowPage({ params }: { params: Promise<{ id: s
     doorsTime: row.doors_time,
     showTime: row.show_time,
     flyer: row.flyer,
-    bands: (row.bands as ShowFormInitialValues['bands']) ?? [],
+    bands: ((row.bands as Array<{ name: string; bandId?: number }>) ?? []).map((b) => {
+      const notes = b.bandId != null ? notesByBand.get(Number(b.bandId)) : undefined;
+      return notes ? { ...b, notes } : b;
+    }),
     description: row.description,
     photographer: (row.photographer as ShowFormInitialValues['photographer']) ?? null,
     doorPersonName: row.door_person_name,

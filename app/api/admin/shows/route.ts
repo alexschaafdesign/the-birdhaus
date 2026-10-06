@@ -20,6 +20,7 @@ import {
   resolvePhotoBandIds,
   resolveVideoBandIds,
   setShowBands,
+  stripSetNotes,
   toShowBandPairs,
 } from '@/lib/bands';
 import { resolveShowVideos, setShowVideos, setVideoBands } from '@/lib/videos';
@@ -112,7 +113,7 @@ export async function POST(request: Request) {
 
       // TEMPORARY: dual-write for migration safety. Remove once Part C in TODO.md is executed.
       // This JSONB write is superseded by show_bands — see resolveShowBandEntries/setShowBands.
-      const bandsJson = tx.json(resolvedBands);
+      const bandsJson = tx.json(stripSetNotes(resolvedBands));
       // TEMPORARY: dual-write for migration safety. Remove once Part C in TODO.md is executed.
       // This JSONB write is superseded by show_videos/band_videos — see resolveShowVideos/setShowVideos.
       const videosJson = tx.json(resolvedVideos);

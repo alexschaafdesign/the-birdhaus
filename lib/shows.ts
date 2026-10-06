@@ -25,7 +25,9 @@ export interface Show {
   doorsTime?: string;
   showTime?: string;
   flyer?: string;
-  bands: Array<{ name: string; instagram?: string; bio?: string; photo?: string; bandId?: number; setStart?: string; setEnd?: string }> | string[];
+  // notes: the set's free-text note (show_bands.notes), sent by the admin form;
+  // never stored in the bands JSONB.
+  bands: Array<{ name: string; instagram?: string; bio?: string; photo?: string; bandId?: number; setStart?: string; setEnd?: string; notes?: string }> | string[];
   description?: string;
   photographer?: string | { name: string; instagram?: string };
   rsvpUrl?: string;
@@ -326,6 +328,7 @@ export function isValidBandsInput(input: unknown): input is Show['bands'] {
         (b.instagram === undefined || typeof b.instagram === 'string') &&
         (b.bio === undefined || typeof b.bio === 'string') &&
         (b.photo === undefined || typeof b.photo === 'string') &&
+        (b.notes === undefined || typeof b.notes === 'string') &&
         (b.bandId === undefined || (typeof b.bandId === 'number' && Number.isInteger(b.bandId)))
       );
     })

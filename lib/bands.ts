@@ -684,15 +684,33 @@ export async function syncBandFromTwinScene(band: TwinSceneBand): Promise<Band> 
 export interface ShowBandPair {
   bandId: number;
   sortOrder: number;
+  // The set's note. undefined = the caller didn't send one, so the stored note
+  // is left alone; null clears it.
+  notes?: string | null;
 }
 
 // Derives the show_bands rows (bandId + array-position sort order) from a
 // resolveShowBandEntries() result — every entry is guaranteed a bandId by then.
 export function toShowBandPairs(resolved: Show['bands']): ShowBandPair[] {
-  return resolved.map((band, index) => ({
-    bandId: (band as { bandId?: number }).bandId as number,
-    sortOrder: index,
-  }));
+  return resolved.map((band, index) => {
+    const notes = typeof band === 'string' ? undefined : band.notes;
+    return {
+      bandId: (band as { bandId?: number }).bandId as number,
+      sortOrder: index,
+      ...(typeof notes === 'string' ? { notes: notes.trim() || null } : {}),
+    };
+  });
+}
+
+// The bands JSONB copy (the TEMPORARY dual-write) without set notes, which
+// live only on show_bands.
+export function stripSetNotes(bands: Show['bands']): Show['bands'] {
+  return bands.map((band) => {
+    if (typeof band === 'string') return band;
+    const { notes: _notes, ...rest } = band;
+    void _notes;
+    return rest;
+  }) as Show['bands'];
 }
 
 // Applies reordering/additions/removals from a full-array save. Upserts on
@@ -713,6 +731,12 @@ export async function setShowBands(showId: number, bands: ShowBandPair[], tx: Tx
     insert into show_bands ${tx(rows, 'show_id', 'band_id', 'sort_order')}
     on conflict (show_id, band_id) do update set sort_order = excluded.sort_order
   `;
+  // Notes only for entries that carried the key, so a caller that saves the
+  // lineup without notes never wipes them.
+  for (const b of bands) {
+    if (b.notes === undefined) continue;
+    await tx`update show_bands set notes = ${b.notes} where show_id = ${showId} and band_id = ${b.bandId}`;
+  }
 }
 
 // Maps each video's transient `bandIndexes` (positions within the *same
