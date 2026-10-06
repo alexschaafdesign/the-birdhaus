@@ -124,8 +124,9 @@ interface Audio {
 interface PhotoEntry {
   url: string;
   photographerId: number | null;
-  // Set tag (no UI yet) — kept so editing a show doesn't drop it.
-  bandId?: number;
+  // The set this photo is from, as a position in `form.bands` (like a video's
+  // bandIndexes); absent = night-level. The server resolves it to a bandId.
+  bandIndex?: number;
 }
 
 // Sound-engineer statuses from the API, kept in sync with lib/sound-engineers.ts.
@@ -261,11 +262,20 @@ function initFormState(initial?: ShowFormInitialValues): FormState {
     rsvpForm: initial?.rsvpForm ?? true,
     videos,
     audio: initial?.audio ?? [],
-    photos: (initial?.photos ?? []).map((p) =>
-      typeof p === 'string'
-        ? { url: p, photographerId: null }
-        : { url: p.url, photographerId: p.photographerId ?? null, bandId: p.bandId }
-    ),
+    photos: (initial?.photos ?? []).map((p) => {
+      if (typeof p === 'string') return { url: p, photographerId: null };
+      // Same reverse-map as videos: a tag for a band no longer in the lineup
+      // has no position, so it falls back to night-level.
+      const bandIndex =
+        p.bandId == null
+          ? -1
+          : (initial?.bands ?? []).findIndex((b) => typeof b !== 'string' && b.bandId === Number(p.bandId));
+      return {
+        url: p.url,
+        photographerId: p.photographerId ?? null,
+        ...(bandIndex >= 0 ? { bandIndex } : {}),
+      };
+    }),
     // Uploads default to crediting the show's assigned photographer (set on the
     // Crew tab); the photographer booking itself lives there now.
     activePhotographer: {
@@ -322,6 +332,11 @@ export default function ShowForm({
     null
   );
   const photosFileInputRef = useRef<HTMLInputElement>(null);
+  // Bulk set-tagging: in select mode a click picks a photo (shift-click picks
+  // the run since the last click), then "tag selected" applies one band to all.
+  const [photoSelectMode, setPhotoSelectMode] = useState(false);
+  const [pickedPhotos, setPickedPhotos] = useState<Set<number>>(() => new Set());
+  const photoPickAnchor = useRef<number | null>(null);
   const [twinSceneBands, setTwinSceneBands] = useState<TwinSceneBandOption[]>([]);
   // Which band row (index) opened the full band modal, and the name to prefill
   // it with. `editBandId` set → edit that existing band's Twin Scene profile;
@@ -409,7 +424,17 @@ export default function ShowForm({
     }));
   }
   function removeBand(index: number) {
-    setForm((prev) => ({ ...prev, bands: prev.bands.filter((_, i) => i !== index) }));
+    setForm((prev) => ({
+      ...prev,
+      bands: prev.bands.filter((_, i) => i !== index),
+      // Photo set tags are lineup positions: a photo from the removed band goes
+      // back to night-level, and tags past it shift down with the lineup.
+      photos: prev.photos.map((p) => {
+        if (p.bandIndex === undefined || p.bandIndex < index) return p;
+        if (p.bandIndex === index) return { url: p.url, photographerId: p.photographerId };
+        return { ...p, bandIndex: p.bandIndex - 1 };
+      }),
+    }));
   }
 
   function updateVideo(index: number, field: 'youtube' | 'title', value: string) {
@@ -452,6 +477,41 @@ export default function ShowForm({
   }
   function removeAudio(index: number) {
     setForm((prev) => ({ ...prev, audio: prev.audio.filter((_, i) => i !== index) }));
+  }
+
+  // Tags the given photos to one set (a position in form.bands), or back to
+  // night-level when bandIndex is undefined.
+  function tagPhotos(indexes: Iterable<number>, bandIndex: number | undefined) {
+    const targets = new Set(indexes);
+    setForm((prev) => ({
+      ...prev,
+      photos: prev.photos.map((p, i) => {
+        if (!targets.has(i)) return p;
+        return bandIndex === undefined
+          ? { url: p.url, photographerId: p.photographerId }
+          : { ...p, bandIndex };
+      }),
+    }));
+  }
+  function pickPhoto(index: number, extendRange: boolean) {
+    setPickedPhotos((prev) => {
+      const next = new Set(prev);
+      const anchor = photoPickAnchor.current;
+      if (extendRange && anchor !== null) {
+        const [lo, hi] = anchor < index ? [anchor, index] : [index, anchor];
+        for (let i = lo; i <= hi; i++) next.add(i);
+      } else if (next.has(index)) {
+        next.delete(index);
+      } else {
+        next.add(index);
+      }
+      return next;
+    });
+    photoPickAnchor.current = index;
+  }
+  function clearPhotoPicks() {
+    setPickedPhotos(new Set());
+    photoPickAnchor.current = null;
   }
 
   // Uploads one or more files and appends them to the gallery, each credited to
@@ -578,8 +638,15 @@ export default function ShowForm({
         }),
       audio: form.audio.filter((a) => a.bandcamp.trim() && a.title.trim()),
       photos: form.photos
-        // bandId (a set tag) has no UI yet; carry it through so a save keeps it.
-        .map((p) => ({ url: p.url.trim(), photographerId: p.photographerId, bandId: p.bandId }))
+        .map((p) => {
+          // Remap the set tag the same way as videos' bandIndexes above.
+          const bandIndex = p.bandIndex === undefined ? undefined : filteredIndexByOriginal.get(p.bandIndex);
+          return {
+            url: p.url.trim(),
+            photographerId: p.photographerId,
+            ...(bandIndex !== undefined ? { bandIndex } : {}),
+          };
+        })
         .filter((p) => p.url),
       photoFolder: form.photoFolder.trim(),
       photoCredit: form.photoCredit.trim(),
@@ -788,6 +855,89 @@ export default function ShowForm({
               }}
             />
           </div>
+          {form.photos.length > 0 && form.bands.length > 0 && (
+            <div className="space-y-2 rounded border border-[#E8E0D0]/10 px-3 py-2 text-xs">
+              {photoSelectMode ? (
+                <>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-[#E8E0D0]/70 tabular-nums">{pickedPhotos.size} selected</span>
+                    <button
+                      type="button"
+                      onClick={() => setPickedPhotos(new Set(form.photos.map((_, i) => i)))}
+                      className="text-[#E8E0D0]/60 underline underline-offset-2 hover:text-[#E8E0D0]"
+                    >
+                      all
+                    </button>
+                    <button
+                      type="button"
+                      onClick={clearPhotoPicks}
+                      className="text-[#E8E0D0]/60 underline underline-offset-2 hover:text-[#E8E0D0]"
+                    >
+                      none
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPhotoSelectMode(false);
+                        clearPhotoPicks();
+                      }}
+                      className="ml-auto border border-[#E8E0D0]/30 rounded px-2 py-1 hover:bg-[#E8E0D0]/10"
+                    >
+                      Done
+                    </button>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="text-[#E8E0D0]/40">Tag selected →</span>
+                    {form.bands.map((band, bandIdx) => (
+                      <button
+                        key={bandIdx}
+                        type="button"
+                        disabled={pickedPhotos.size === 0}
+                        onClick={() => {
+                          tagPhotos(pickedPhotos, bandIdx);
+                          clearPhotoPicks();
+                        }}
+                        className="rounded-full px-2.5 py-1 border border-[#E8E0D0]/30 text-[#E8E0D0]/70 hover:border-[#E8E0D0]/60 disabled:opacity-40"
+                      >
+                        {band.name || `Band ${bandIdx + 1}`}
+                      </button>
+                    ))}
+                    <button
+                      type="button"
+                      disabled={pickedPhotos.size === 0}
+                      onClick={() => {
+                        tagPhotos(pickedPhotos, undefined);
+                        clearPhotoPicks();
+                      }}
+                      className="rounded-full px-2.5 py-1 border border-dashed border-[#E8E0D0]/30 text-[#E8E0D0]/50 hover:border-[#E8E0D0]/60 disabled:opacity-40"
+                    >
+                      Whole night
+                    </button>
+                  </div>
+                  <p className="text-[#E8E0D0]/40">Click photos to select; shift-click selects everything in between.</p>
+                </>
+              ) : (
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-[#E8E0D0]/40">
+                    {[
+                      `Whole night ${form.photos.filter((p) => p.bandIndex === undefined).length}`,
+                      ...form.bands.map(
+                        (band, bandIdx) =>
+                          `${band.name || `Band ${bandIdx + 1}`} ${form.photos.filter((p) => p.bandIndex === bandIdx).length}`
+                      ),
+                    ].join(' · ')}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setPhotoSelectMode(true)}
+                    className="ml-auto border border-[#E8E0D0]/30 rounded px-2 py-1 hover:bg-[#E8E0D0]/10"
+                  >
+                    Tag photos by set
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
           {form.photos.length === 0 ? (
             <p className="text-xs text-[#E8E0D0]/30">
               No photos yet — choose a photographer above, then use “Upload photos”.
@@ -797,27 +947,52 @@ export default function ShowForm({
               {form.photos.map((photo, i) => {
                 const creditName =
                   photo.photographerId != null ? form.photographerNames[photo.photographerId] : null;
+                const picked = photoSelectMode && pickedPhotos.has(i);
                 return (
                   <div
                     key={`${photo.url}-${i}`}
-                    className="group relative overflow-hidden rounded border border-[#E8E0D0]/10"
+                    className={`group relative overflow-hidden rounded border ${
+                      picked ? 'border-[#E8E0D0] ring-2 ring-[#E8E0D0]' : 'border-[#E8E0D0]/10'
+                    }`}
                   >
                     <div className="relative aspect-square">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={photo.url} alt="" className="h-full w-full object-cover" />
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setForm((prev) => ({
-                            ...prev,
-                            photos: prev.photos.filter((_, j) => j !== i),
-                          }))
-                        }
-                        aria-label="Remove photo"
-                        className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-[#2A2420]/80 text-[#E8E0D0] opacity-0 transition-opacity hover:bg-red-500/80 group-hover:opacity-100"
-                      >
-                        ×
-                      </button>
+                      <img src={photo.url} alt="" loading="lazy" className="h-full w-full object-cover" />
+                      {photoSelectMode ? (
+                        <button
+                          type="button"
+                          onClick={(e) => pickPhoto(i, e.shiftKey)}
+                          aria-label={picked ? 'Deselect photo' : 'Select photo'}
+                          aria-pressed={picked}
+                          className="absolute inset-0 flex items-start justify-start p-1.5 select-none"
+                        >
+                          <span
+                            className={`flex h-5 w-5 items-center justify-center rounded border text-xs ${
+                              picked
+                                ? 'border-[#E8E0D0] bg-[#E8E0D0] text-[#2A2420]'
+                                : 'border-[#E8E0D0]/70 bg-[#2A2420]/60'
+                            }`}
+                          >
+                            {picked ? '✓' : ''}
+                          </span>
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            // Picks are indexes, so a removal would shift them.
+                            clearPhotoPicks();
+                            setForm((prev) => ({
+                              ...prev,
+                              photos: prev.photos.filter((_, j) => j !== i),
+                            }));
+                          }}
+                          aria-label="Remove photo"
+                          className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-[#2A2420]/80 text-[#E8E0D0] opacity-0 transition-opacity hover:bg-red-500/80 group-hover:opacity-100"
+                        >
+                          ×
+                        </button>
+                      )}
                     </div>
                     <button
                       type="button"
@@ -837,6 +1012,27 @@ export default function ShowForm({
                         <span className="text-[#E8E0D0]/35">Uncredited — click to credit</span>
                       )}
                     </button>
+                    {form.bands.length > 0 && (
+                      <select
+                        aria-label="Set this photo is from"
+                        value={photo.bandIndex ?? ''}
+                        onChange={(e) =>
+                          tagPhotos([i], e.target.value === '' ? undefined : Number(e.target.value))
+                        }
+                        className={`block w-full truncate bg-transparent px-1.5 pb-1 text-[11px] focus:outline-none ${
+                          photo.bandIndex === undefined ? 'text-[#E8E0D0]/35' : 'text-[#E8E0D0]/80'
+                        }`}
+                      >
+                        <option value="" className="bg-[#2A2420]">
+                          Whole night
+                        </option>
+                        {form.bands.map((band, bandIdx) => (
+                          <option key={bandIdx} value={bandIdx} className="bg-[#2A2420]">
+                            {band.name || `Band ${bandIdx + 1}`}
+                          </option>
+                        ))}
+                      </select>
+                    )}
                   </div>
                 );
               })}

@@ -7,7 +7,6 @@ import {
   isValidBandsInput,
   isValidVideosInput,
   isValidAudioInput,
-  normalizePhotosInput,
   normalizePhotographerInput,
   normalizeBandIds,
   normalizeTargetBandCount,
@@ -18,6 +17,7 @@ import {
 import {
   attachTwinSceneLinks,
   resolveShowBandEntries,
+  resolvePhotoBandIds,
   resolveVideoBandIds,
   setShowBands,
   toShowBandPairs,
@@ -83,8 +83,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Invalid audio' }, { status: 400 });
   }
 
-  const photos = normalizePhotosInput(body?.photos);
-
   const soundEngineers = body?.soundEngineers ?? [];
   if (!isValidSoundEngineersInput(soundEngineers)) {
     return NextResponse.json({ error: 'Invalid sound engineers' }, { status: 400 });
@@ -110,6 +108,7 @@ export async function POST(request: Request) {
       const resolvedBands = await resolveShowBandEntries(linkedBands, tx);
       const resolvedVideos = resolveVideoBandIds(videos, resolvedBands);
       const resolvedVideoRows = await resolveShowVideos(resolvedVideos, tx);
+      const photos = resolvePhotoBandIds(body?.photos, resolvedBands);
 
       // TEMPORARY: dual-write for migration safety. Remove once Part C in TODO.md is executed.
       // This JSONB write is superseded by show_bands — see resolveShowBandEntries/setShowBands.

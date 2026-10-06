@@ -1,6 +1,6 @@
 import postgres from 'postgres';
 import { sql } from './db';
-import type { Show } from './shows';
+import { normalizePhotosInput, type Show, type ShowPhoto } from './shows';
 import { isPaidMethod, type PaidMethod } from './settlements';
 import {
   getTwinSceneBands,
@@ -742,6 +742,27 @@ export function resolveVideoBandIds(
       ? { ...rest, bandIds: uniqueBandIds }
       : rest) as Show['videos'][number];
   });
+}
+
+// The photo-gallery counterpart of resolveVideoBandIds: each photo's transient
+// `bandIndex` (a position in the same request's bands array) becomes the real
+// `bandId` of the set it's from. One band per photo; no index = night-level.
+// An entry that arrives with a numeric bandId and no bandIndex keeps it, so a
+// caller that tags by id still round-trips through normalizePhotosInput.
+export function resolvePhotoBandIds(
+  photos: unknown,
+  resolvedBands: Show['bands'] | undefined
+): ShowPhoto[] {
+  if (!Array.isArray(photos)) return [];
+  return normalizePhotosInput(
+    photos.map((raw) => {
+      if (!raw || typeof raw !== 'object') return raw;
+      const { bandIndex, ...rest } = raw as Record<string, unknown>;
+      if (typeof bandIndex !== 'number') return rest;
+      const bandId = (resolvedBands?.[bandIndex] as { bandId?: number } | undefined)?.bandId;
+      return { ...rest, bandId: typeof bandId === 'number' && bandId > 0 ? bandId : undefined };
+    })
+  );
 }
 
 export interface TwinSceneSyncResult {
