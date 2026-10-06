@@ -24,6 +24,8 @@ export interface SongClubEvent {
   playlist_id: number | null;
   format: 'in_person' | 'online';
   days_open_default: DaysOpenDefault;
+  // SC-### number (096); stored, never derived. null only for rows predating it.
+  catalogue_number: number | null;
   notified_at: string | null;
   created_at: string;
   updated_at: string;
@@ -63,12 +65,14 @@ export interface SongClubEventInput {
   playlistId: number | null;
   format: 'in_person' | 'online';
   daysOpenDefault: DaysOpenDefault;
+  // null = auto-assign the next number (create only; an edit always sends one).
+  catalogueNumber: number | null;
 }
 
 const COLUMNS = sql`
   id, slug, title, event_date::text as event_date, end_date::text as end_date,
   start_time, end_time, venue_name, address, arrival_notes, description, body,
-  flyer_url, published, playlist_id, format, days_open_default,
+  flyer_url, published, playlist_id, format, days_open_default, catalogue_number,
   notified_at::text as notified_at, created_at, updated_at
 `;
 
@@ -91,6 +95,7 @@ export interface SongClubEventBody {
   playlistId?: unknown;
   format?: unknown;
   daysOpenDefault?: unknown;
+  catalogueNumber?: unknown;
 }
 
 function optionalTrim(value: unknown): string | null {
@@ -103,7 +108,8 @@ function optionalTrim(value: unknown): string | null {
 // { error } the route turns into a 400. Shared by the create + update routes so
 // the two enforce identical rules.
 export function buildEventInput(
-  body: SongClubEventBody
+  body: SongClubEventBody,
+  { requireCatalogueNumber = false }: { requireCatalogueNumber?: boolean } = {}
 ): SongClubEventInput | { error: string } {
   const title = typeof body.title === 'string' ? body.title.trim() : '';
   if (!title) return { error: 'Title is required' };
@@ -118,6 +124,21 @@ export function buildEventInput(
     if (!ISO_DATE_RE.test(endRaw)) return { error: 'The end date is invalid' };
     if (endRaw < eventDate) return { error: 'The end date must be on or after the start date' };
     endDate = endRaw === eventDate ? null : endRaw; // same day => single-day event
+  }
+
+  // SC number: blank = auto on create; an edit must keep one (the archive only
+  // lists numbered events, and a stored number is never cleared).
+  const rawNumber = body.catalogueNumber;
+  let catalogueNumber: number | null = null;
+  if (rawNumber !== undefined && rawNumber !== null && rawNumber !== '') {
+    const n = typeof rawNumber === 'string' ? Number(rawNumber.trim()) : rawNumber;
+    if (typeof n !== 'number' || !Number.isInteger(n) || n < 1 || n > MAX_CATALOGUE_NUMBER) {
+      return { error: 'The SC number must be a whole number from 1 to 9999' };
+    }
+    catalogueNumber = n;
+  }
+  if (requireCatalogueNumber && catalogueNumber === null) {
+    return { error: 'The SC number is required' };
   }
 
   return {
@@ -141,6 +162,7 @@ export function buildEventInput(
     daysOpenDefault: DAYS_OPEN_VALUES.includes(body.daysOpenDefault as DaysOpenDefault)
       ? (body.daysOpenDefault as DaysOpenDefault)
       : 'current',
+    catalogueNumber,
   };
 }
 
@@ -202,11 +224,49 @@ async function uniqueSlug(base: string, excludeId?: number): Promise<string> {
   }
 }
 
-// SC-### numbers (096): a new event takes the next number after the highest
-// stored one, never below 005 — 001–004 are reserved for Song-a-day V1–V4,
-// which predate the table. Assigned once at create and stored, so adding an
-// older event later never renumbers anything. Two creates racing would hit
-// the unique index and fail loudly rather than share a number.
+const MAX_CATALOGUE_NUMBER = 9999;
+
+// "SC-007".
+export function formatCatalogueNumber(n: number): string {
+  return `SC-${String(n).padStart(3, '0')}`;
+}
+
+// The number a new event gets when none is chosen: one past the highest stored,
+// never below 005 (001–004 are reserved for Song-a-day V1–V4).
+export async function nextCatalogueNumber(): Promise<number> {
+  const [row] = await sql<Array<{ next: number }>>`
+    select greatest(coalesce(max(catalogue_number), 0), 4) + 1 as next from song_club_events
+  `;
+  return Number(row.next);
+}
+
+// The title of the event already holding this SC number (other than
+// `excludeId`), or null when it's free. Lets the routes name the clash.
+export async function catalogueNumberHolder(n: number, excludeId?: number): Promise<string | null> {
+  const [row] = await sql<Array<{ title: string }>>`
+    select title from song_club_events
+    where catalogue_number = ${n} ${excludeId ? sql`and id <> ${excludeId}` : sql``}
+    limit 1
+  `;
+  return row?.title ?? null;
+}
+
+// True for the unique-index violation on song_club_events.catalogue_number —
+// what a duplicate (or two creates racing) hits.
+export function isCatalogueNumberConflict(error: unknown): boolean {
+  return (
+    error instanceof Error &&
+    'code' in error &&
+    error.code === '23505' &&
+    'constraint_name' in error &&
+    error.constraint_name === 'song_club_events_catalogue_number_idx'
+  );
+}
+
+// SC-### numbers (096): a chosen number is stored as given; otherwise the next
+// one (see nextCatalogueNumber). Assigned once at create and stored, so adding
+// an older event later never renumbers anything. A duplicate or two creates
+// racing hit the unique index and fail loudly rather than share a number.
 export async function createEvent(input: SongClubEventInput): Promise<SongClubEvent> {
   const slug = await uniqueSlug(slugify(`${input.eventDate}-${input.title}`));
   const [row] = await sql<SongClubEvent[]>`
@@ -220,7 +280,8 @@ export async function createEvent(input: SongClubEventInput): Promise<SongClubEv
        ${input.arrivalNotes}, ${input.description}, ${input.body}, ${input.flyerUrl},
        ${input.published}, ${input.playlistId}, ${input.format},
        ${input.daysOpenDefault},
-       (select greatest(coalesce(max(catalogue_number), 0), 4) + 1 from song_club_events))
+       coalesce(${input.catalogueNumber}::int,
+         (select greatest(coalesce(max(catalogue_number), 0), 4) + 1 from song_club_events)))
     returning ${COLUMNS}
   `;
   return row;
@@ -249,6 +310,7 @@ export async function updateEvent(
       playlist_id = ${input.playlistId},
       format = ${input.format},
       days_open_default = ${input.daysOpenDefault},
+      catalogue_number = coalesce(${input.catalogueNumber}::int, catalogue_number),
       updated_at = now()
     where id = ${id}
     returning ${COLUMNS}

@@ -45,6 +45,8 @@ export default async function EditSongClubEventPage({
           playlistId: event.playlist_id,
           format: event.format,
           daysOpenDefault: event.days_open_default,
+          catalogueNumber:
+            event.catalogue_number != null ? String(event.catalogue_number).padStart(3, '0') : '',
         }}
       />
     </main>

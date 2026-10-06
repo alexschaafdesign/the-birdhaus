@@ -1,5 +1,12 @@
 import { NextResponse } from 'next/server';
-import { createEvent, buildEventInput, type SongClubEventBody } from '@/lib/song-club';
+import {
+  createEvent,
+  buildEventInput,
+  catalogueNumberHolder,
+  formatCatalogueNumber,
+  isCatalogueNumberConflict,
+  type SongClubEventBody,
+} from '@/lib/song-club';
 import { maybeNotifyEventPublished } from '@/lib/club-notify';
 import { requireAdmin } from '@/lib/admin-session';
 
@@ -13,7 +20,28 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: false, error: input.error }, { status: 400 });
   }
 
-  const event = await createEvent(input);
+  if (input.catalogueNumber !== null) {
+    const holder = await catalogueNumberHolder(input.catalogueNumber);
+    if (holder) {
+      return NextResponse.json(
+        { success: false, error: `${formatCatalogueNumber(input.catalogueNumber)} is already used by “${holder}”.` },
+        { status: 409 }
+      );
+    }
+  }
+
+  let event;
+  try {
+    event = await createEvent(input);
+  } catch (e) {
+    if (isCatalogueNumberConflict(e)) {
+      return NextResponse.json(
+        { success: false, error: 'That SC number was just taken by another event — reload the page and try again.' },
+        { status: 409 }
+      );
+    }
+    throw e;
+  }
   // Created straight to published -> announce to members who want event emails.
   let emailedCount: number | null = null;
   try {

@@ -4,6 +4,9 @@ import {
   deleteEvent,
   getEventById,
   buildEventInput,
+  catalogueNumberHolder,
+  formatCatalogueNumber,
+  isCatalogueNumberConflict,
   type SongClubEventBody,
 } from '@/lib/song-club';
 import { maybeNotifyEventPublished } from '@/lib/club-notify';
@@ -19,12 +22,31 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   }
 
   const body = (await request.json()) as SongClubEventBody;
-  const input = buildEventInput(body);
+  const input = buildEventInput(body, { requireCatalogueNumber: true });
   if ('error' in input) {
     return NextResponse.json({ success: false, error: input.error }, { status: 400 });
   }
 
-  const event = await updateEvent(id, input);
+  const holder = input.catalogueNumber !== null ? await catalogueNumberHolder(input.catalogueNumber, id) : null;
+  if (holder && input.catalogueNumber !== null) {
+    return NextResponse.json(
+      { success: false, error: `${formatCatalogueNumber(input.catalogueNumber)} is already used by “${holder}”.` },
+      { status: 409 }
+    );
+  }
+
+  let event;
+  try {
+    event = await updateEvent(id, input);
+  } catch (e) {
+    if (isCatalogueNumberConflict(e)) {
+      return NextResponse.json(
+        { success: false, error: 'That SC number was just taken by another event — reload the page and try again.' },
+        { status: 409 }
+      );
+    }
+    throw e;
+  }
   // Publishing a previously-draft event announces it (once — notified_at guards
   // re-sends on later edits).
   let emailedCount: number | null = null;

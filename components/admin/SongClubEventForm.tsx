@@ -40,6 +40,8 @@ export interface SongClubEventFormValues {
   playlistId: number | null;
   format: 'in_person' | 'online';
   daysOpenDefault: DaysOpenDefault;
+  // SC-### number as typed ('' = auto on create).
+  catalogueNumber: string;
 }
 
 const inputClass =
@@ -60,10 +62,13 @@ export default function SongClubEventForm({
   mode,
   initial,
   rounds = [],
+  suggestedNumber,
 }: {
   mode: 'add' | 'edit';
   initial?: Partial<SongClubEventFormValues>;
   rounds?: Array<{ id: number; title: string }>;
+  // Add mode: the SC number the event gets if left as-is (next free one).
+  suggestedNumber?: number;
 }) {
   const router = useRouter();
   const [v, setV] = useState<SongClubEventFormValues>({
@@ -82,6 +87,9 @@ export default function SongClubEventForm({
     playlistId: initial?.playlistId ?? null,
     format: initial?.format ?? 'in_person',
     daysOpenDefault: initial?.daysOpenDefault ?? 'current',
+    catalogueNumber:
+      initial?.catalogueNumber ??
+      (mode === 'add' && suggestedNumber ? String(suggestedNumber).padStart(3, '0') : ''),
   });
   const [status, setStatus] = useState<'idle' | 'saving' | 'error'>('idle');
   const [error, setError] = useState('');
@@ -167,6 +175,12 @@ export default function SongClubEventForm({
         playlistId: v.playlistId,
         format: v.format,
         daysOpenDefault: v.daysOpenDefault,
+        // Left at the suggested number (or blank) on create → let the server
+        // assign it, so two people adding events at once don't collide.
+        catalogueNumber:
+          mode === 'add' && (v.catalogueNumber.trim() === '' || Number(v.catalogueNumber) === suggestedNumber)
+            ? null
+            : v.catalogueNumber.trim(),
       };
 
       const res =
@@ -201,6 +215,38 @@ export default function SongClubEventForm({
     <form onSubmit={handleSubmit} className="space-y-4">
       <Field label="Title">
         <input className={inputClass} value={v.title} onChange={set('title')} required />
+      </Field>
+
+      <Field
+        label="SC number"
+        hint={
+          mode === 'add'
+            ? 'Auto-assigned (next free number) — change it only to slot in an older event. 001–004 are reserved for Song-a-day V1–V4.'
+            : 'Stored, never renumbered. 001–004 are reserved for Song-a-day V1–V4.'
+        }
+      >
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-medium tabular-nums text-[#E8E0D0]/60">SC-</span>
+          <input
+            type="text"
+            inputMode="numeric"
+            maxLength={4}
+            className={`${inputClass} !w-28 tabular-nums`}
+            value={v.catalogueNumber}
+            onChange={(e) =>
+              setV((prev) => ({ ...prev, catalogueNumber: e.target.value.replace(/[^0-9]/g, '') }))
+            }
+            onBlur={() =>
+              // Show it the way it's displayed: 7 → 007.
+              setV((prev) =>
+                prev.catalogueNumber ? { ...prev, catalogueNumber: prev.catalogueNumber.padStart(3, '0') } : prev
+              )
+            }
+            placeholder={mode === 'add' ? 'auto' : undefined}
+            required={mode === 'edit'}
+            aria-label="SC number"
+          />
+        </div>
       </Field>
 
       <Field
