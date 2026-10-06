@@ -55,7 +55,9 @@ function dateLine(night: Night): string {
 
 function counts(night: Night, photos: number): string {
   const sets = night.sets.length;
-  const cameras = night.credits.cameras?.length ?? 0;
+  // Camera count is its own fact (a locked-off camera has no operator); fall
+  // back to the number of credited operators when it isn't recorded.
+  const cameras = night.credits.cameraCount ?? night.credits.cameras?.length ?? 0;
   return [
     sets > 0 && `${sets} ${sets === 1 ? 'SET' : 'SETS'}`,
     cameras > 0 && `${cameras} ${cameras === 1 ? 'CAMERA' : 'CAMERAS'}`,
@@ -175,12 +177,12 @@ export default async function ArchiveNightPage({
       )}
 
       {/* ---- credits + releases, on paper ------------------------------- */}
-      {(credits.sound || credits.cameras || credits.channels || credits.photos || night.releases) && (
+      {(credits.sound || credits.cameras || credits.channels || credits.photos || night.releases?.length) && (
         <section className="flex flex-col gap-6">
           <SectionHeader label="Credits" />
           <dl className="grid grid-cols-2 gap-x-8 gap-y-4 sm:grid-cols-4">
             <Credit label="Sound" value={credits.sound} />
-            <Credit label="Cameras" value={credits.cameras?.join(', ')} />
+            <Credit label="Camera ops" value={credits.cameras?.join(', ')} />
             <Credit label="Recorded" value={credits.channels ? `${credits.channels} channels` : undefined} />
             <Credit label="Photos" value={credits.photos?.join(', ')} />
           </dl>

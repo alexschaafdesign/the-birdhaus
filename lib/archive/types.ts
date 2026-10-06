@@ -39,7 +39,6 @@ export type SetMedia = {
   video?: Video;
   audio?: Audio;
   photos?: Photo[];
-  setlist?: string[];
 };
 
 export type NightMedia = {
@@ -63,10 +62,19 @@ export type ArchiveSet = {
   start?: string;
   durationSec?: number;
   media: SetMedia;
+  /** Free text (show_bands.notes): "played with a string section", or a
+   *  setlist if a band ever sends one. Rarely known. */
+  notes?: string;
+  /** Releases made from this one set (release_links with a band_id). */
+  releases?: Release[];
 };
 
 export type Credits = {
   sound?: string;
+  /** Cameras on the night (show_rig.camera_count); can exceed operators, since a
+   *  locked-off camera has none. */
+  cameraCount?: number;
+  /** Camera operators (show_credits, role 'camera'). */
   cameras?: string[];
   /** Recorded channel count (e.g. 18). */
   channels?: number;
@@ -77,7 +85,7 @@ export type Release = {
   /** "BHR-012" (tape) or "BHV-004" (video). */
   id: string;
   title: string;
-  url: string;
+  url?: string;
 };
 
 export type Night = {
@@ -95,5 +103,6 @@ export type Night = {
   sets: ArchiveSet[];
   media: NightMedia;
   credits: Credits;
+  /** Releases made from the whole night (release_links, band_id null). */
   releases?: Release[];
 };

@@ -116,6 +116,7 @@ export default async function EditShowPage({ params }: { params: Promise<{ id: s
       url: p.url,
       photographerId: p.photographerId,
       photographerName: p.photographerId != null ? photoCredits.get(p.photographerId)?.name ?? null : null,
+      bandId: p.bandId,
     })),
     assignedPhotographerId: row.photographer_id,
     assignedPhotographerName,

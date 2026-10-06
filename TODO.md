@@ -24,3 +24,19 @@
 - Revoke/delete any `api_keys` rows that existed solely for this integration
 - Remove the CORS/auth plumbing (`authenticate()`, `CORS_HEADERS`) if nothing else in the app uses it
 - Confirm no other consumer exists before deleting — this was a semi-public integration point, so check for anyone besides Twin Scene/Crawlspace who might have a key
+
+## Fix the `select *` + Neon pooler prepared-statement hazard
+
+**Status:** Open — a separate small fix branch off `main`. Blocks any migration that alters a table read with `select *` (see CLAUDE.md).
+**Found:** 2026-10-05, when a draft migration added columns to `shows` and every pooled `select * from shows` on dev failed with `cached plan must not change result type` (pages 500'd; restarting the app didn't help, the direct host was fine).
+
+**What this covers (pick one, or both):**
+- Replace `select *` / `alias.*` / `returning *` on `shows` (8), `bands` (10), `settlements` (7), `submissions` (4) with explicit column lists (`lib/shows.ts` getAllShows/getShowBySlug/getShowById, `lib/bands.ts`, `lib/settlements.ts`, the admin show/band/settlement/submission routes).
+- Or disable statement preparation on the pooled connection (`prepare: false` in `lib/db.ts`), the usual setting behind PgBouncer.
+- Then lift the CLAUDE.md rule.
+
+## Move audio/photos JSONB to join tables
+
+**Status:** Open — after Part C's pattern (bands/videos) has settled.
+**Why:** per-set audio and photos currently ride as an optional `bandId` key on `shows.audio` / `shows.photos` JSONB entries (migration 093). Proper `show_audio` / `show_photos` join tables would match `show_bands` / `show_videos` / `band_videos`.
+**Mind the CLAUDE.md pooler rule:** add new tables; don't alter `shows`.

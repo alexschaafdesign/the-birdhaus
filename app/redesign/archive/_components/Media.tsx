@@ -96,20 +96,15 @@ export function AudioLink({ audio }: { audio: Audio }) {
   );
 }
 
-export function Setlist({ songs }: { songs: string[] }) {
+// A set's free-text notes (show_bands.notes). Line breaks are kept, so a
+// pasted setlist reads as a list without needing structure.
+export function Notes({ text }: { text: string }) {
   return (
     <div className="flex flex-col gap-2">
       <p className="text-data-overline-11 text-text-meta font-bold tracking-[--spacing(0.625)] uppercase">
-        Setlist
+        Notes
       </p>
-      <ol className="text-body-3 text-text-secondary flex flex-col gap-1 leading-normal">
-        {songs.map((song, i) => (
-          <li key={`${song}-${i}`} className="flex gap-3">
-            <span className="text-text-meta tabular-nums">{String(i + 1).padStart(2, '0')}</span>
-            {song}
-          </li>
-        ))}
-      </ol>
+      <p className="text-body-3 text-text-secondary leading-normal whitespace-pre-line">{text}</p>
     </div>
   );
 }
