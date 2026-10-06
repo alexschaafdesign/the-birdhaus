@@ -36,7 +36,7 @@ export async function POST(request: Request) {
   } catch (e) {
     if (isCatalogueNumberConflict(e)) {
       return NextResponse.json(
-        { success: false, error: 'That SC number was just taken by another event — reload the page and try again.' },
+        { success: false, error: 'That edition number was just taken by another event — reload the page and try again.' },
         { status: 409 }
       );
     }

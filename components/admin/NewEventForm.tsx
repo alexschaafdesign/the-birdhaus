@@ -17,7 +17,7 @@ export default function NewEventForm({
   initialDate?: string;
   initialType?: 'show' | 'song_club';
   rounds: Array<{ id: number; title: string }>;
-  // The next free SC number, passed through to the Song Club form.
+  // The next Song-a-day edition number, passed through to the Song Club form.
   suggestedNumber?: number;
 }) {
   const [type, setType] = useState<'show' | 'song_club'>(initialType);

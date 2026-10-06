@@ -22,7 +22,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   }
 
   const body = (await request.json()) as SongClubEventBody;
-  const input = buildEventInput(body, { requireCatalogueNumber: true });
+  const input = buildEventInput(body);
   if ('error' in input) {
     return NextResponse.json({ success: false, error: input.error }, { status: 400 });
   }
@@ -41,7 +41,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   } catch (e) {
     if (isCatalogueNumberConflict(e)) {
       return NextResponse.json(
-        { success: false, error: 'That SC number was just taken by another event — reload the page and try again.' },
+        { success: false, error: 'That edition number was just taken by another event — reload the page and try again.' },
         { status: 409 }
       );
     }

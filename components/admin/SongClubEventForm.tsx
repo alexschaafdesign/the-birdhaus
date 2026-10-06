@@ -40,7 +40,9 @@ export interface SongClubEventFormValues {
   playlistId: number | null;
   format: 'in_person' | 'online';
   daysOpenDefault: DaysOpenDefault;
-  // SC-### number as typed ('' = auto on create).
+  // A Song-a-day edition — the only kind of event that's catalogued (SAD-###).
+  songADay: boolean;
+  // Its edition number as typed ('' = keep the stored one / take the next).
   catalogueNumber: string;
 }
 
@@ -67,7 +69,7 @@ export default function SongClubEventForm({
   mode: 'add' | 'edit';
   initial?: Partial<SongClubEventFormValues>;
   rounds?: Array<{ id: number; title: string }>;
-  // Add mode: the SC number the event gets if left as-is (next free one).
+  // Add mode: the edition number a new Song-a-day gets if left as-is (the next one).
   suggestedNumber?: number;
 }) {
   const router = useRouter();
@@ -87,6 +89,7 @@ export default function SongClubEventForm({
     playlistId: initial?.playlistId ?? null,
     format: initial?.format ?? 'in_person',
     daysOpenDefault: initial?.daysOpenDefault ?? 'current',
+    songADay: initial?.songADay ?? false,
     catalogueNumber:
       initial?.catalogueNumber ??
       (mode === 'add' && suggestedNumber ? String(suggestedNumber).padStart(3, '0') : ''),
@@ -175,10 +178,13 @@ export default function SongClubEventForm({
         playlistId: v.playlistId,
         format: v.format,
         daysOpenDefault: v.daysOpenDefault,
-        // Left at the suggested number (or blank) on create → let the server
-        // assign it, so two people adding events at once don't collide.
+        songADay: v.songADay,
+        // Blank, or left at the suggested number on create → the server assigns
+        // it, so two people adding editions at once don't collide.
         catalogueNumber:
-          mode === 'add' && (v.catalogueNumber.trim() === '' || Number(v.catalogueNumber) === suggestedNumber)
+          !v.songADay ||
+          v.catalogueNumber.trim() === '' ||
+          (mode === 'add' && Number(v.catalogueNumber) === suggestedNumber)
             ? null
             : v.catalogueNumber.trim(),
       };
@@ -218,38 +224,6 @@ export default function SongClubEventForm({
       </Field>
 
       <Field
-        label="SC number"
-        hint={
-          mode === 'add'
-            ? 'Auto-assigned (next free number) — change it only to slot in an older event. 001–004 are reserved for Song-a-day V1–V4.'
-            : 'Stored, never renumbered. 001–004 are reserved for Song-a-day V1–V4.'
-        }
-      >
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-medium tabular-nums text-[#E8E0D0]/60">SC-</span>
-          <input
-            type="text"
-            inputMode="numeric"
-            maxLength={4}
-            className={`${inputClass} !w-28 tabular-nums`}
-            value={v.catalogueNumber}
-            onChange={(e) =>
-              setV((prev) => ({ ...prev, catalogueNumber: e.target.value.replace(/[^0-9]/g, '') }))
-            }
-            onBlur={() =>
-              // Show it the way it's displayed: 7 → 007.
-              setV((prev) =>
-                prev.catalogueNumber ? { ...prev, catalogueNumber: prev.catalogueNumber.padStart(3, '0') } : prev
-              )
-            }
-            placeholder={mode === 'add' ? 'auto' : undefined}
-            required={mode === 'edit'}
-            aria-label="SC number"
-          />
-        </div>
-      </Field>
-
-      <Field
         label="Format"
         hint={
           v.format === 'online'
@@ -277,6 +251,58 @@ export default function SongClubEventForm({
           ))}
         </div>
       </Field>
+
+      <div className="space-y-2">
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={v.songADay}
+            onChange={(e) => setV((prev) => ({ ...prev, songADay: e.target.checked }))}
+          />
+          Song-a-day edition
+        </label>
+        <p className="text-[11px] text-[#E8E0D0]/40">
+          Song-a-day editions are catalogued as SAD-### and listed in the archive. Other events (like the
+          songwriter meetup) get no number.
+        </p>
+        {mode === 'edit' && !v.songADay && initial?.catalogueNumber && (
+          <p className="text-[11px] text-amber-300/80">
+            Saving removes its number, SAD-{initial.catalogueNumber}, and takes it out of the archive.
+          </p>
+        )}
+        {v.songADay && (
+          <Field
+            label="Edition number"
+            hint={
+              mode === 'add'
+                ? 'The next edition number — change it only to slot in an older edition. 001–004 are reserved for Song-a-day V1–V4.'
+                : 'Stored, never renumbered; blank keeps the current number (or assigns the next). 001–004 are reserved for Song-a-day V1–V4.'
+            }
+          >
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium tabular-nums text-[#E8E0D0]/60">SAD-</span>
+              <input
+                type="text"
+                inputMode="numeric"
+                maxLength={4}
+                className={`${inputClass} !w-28 tabular-nums`}
+                value={v.catalogueNumber}
+                onChange={(e) =>
+                  setV((prev) => ({ ...prev, catalogueNumber: e.target.value.replace(/[^0-9]/g, '') }))
+                }
+                onBlur={() =>
+                  // Show it the way it's displayed: 7 → 007.
+                  setV((prev) =>
+                    prev.catalogueNumber ? { ...prev, catalogueNumber: prev.catalogueNumber.padStart(3, '0') } : prev
+                  )
+                }
+                placeholder="next"
+                aria-label="Song-a-day edition number"
+              />
+            </div>
+          </Field>
+        )}
+      </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Start date">
