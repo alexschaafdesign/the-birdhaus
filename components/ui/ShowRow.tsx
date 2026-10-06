@@ -5,7 +5,7 @@ import { SeriesTick, type Series } from './SeriesTick';
 
 // Birdhaus DS primitive — Content / Show Row (Figma 223:9522). One row of the
 // upcoming/archive table: ID · date · lineup · arrow, the whole row one link.
-// ID is the registry string (BH-YYMMDD, SC-###…) in Data/Caption 13 Bold,
+// ID is the registry string (BH-YYMMDD, SAD-###…) in Data/Caption 13 Bold,
 // accent-red; date + lineup are UI/Nav Item 14. Date may be a range
 // ("SEP 16 – SEP 25"). Series tick is optional and sits before the ID.
 // Column widths are the Figma ones on the spacing scale (ID w-28 = 112 with a

@@ -8,12 +8,13 @@
 // show. Night-level media renders once in the night band; set-level media
 // renders inside its set block.
 
-// BH: a live night (BH-YYMMDD). SC: a Song Club event (SC-###).
-export type NightKind = 'bh' | 'sc';
+// BH: a night at the house (BH-YYMMDD). SAD: a Song-a-day edition (SAD-###),
+// which never happens in the house, so its edition number is its id.
+export type NightKind = 'bh' | 'sad';
 
 // The index's series filter. FC is a BH night carrying a Fresh Cuts tag, so it
 // filters separately from plain BH nights.
-export type SeriesFilter = 'bh' | 'fc' | 'sc';
+export type SeriesFilter = 'bh' | 'fc' | 'sad';
 
 export type Video = {
   /** YouTube id. Absent on ?sample fixtures, which render a still panel. */
@@ -36,7 +37,11 @@ export type Photo = {
 };
 
 export type SetMedia = {
+  /** The set's main player: the first video tagged to its band. */
   video?: Video;
+  /** Every further video tagged to the set, listed under the player ("Also
+   *  from this set") so none is hidden or misfiled as a full-night video. */
+  moreVideos?: Video[];
   audio?: Audio;
   photos?: Photo[];
 };
@@ -51,12 +56,15 @@ export type NightMedia = {
 };
 
 export type ArchiveSet = {
+  /** The set's catalogue id, numbered in bill order: "BH-260904-2". Also its
+   *  anchor on the detail page (#BH-260904-2). */
+  id: string;
   /** 1-based running order. */
   order: number;
   band: string;
   /** The band's Birdhaus slug, when it's in the bands table. */
   bandSlug?: string;
-  /** Anchor on the detail page (#slug), unique within the night. */
+  /** Band-name anchor (#slug), unique within the night; an alias of `id`. */
   slug: string;
   /** "21:30" (24h). */
   start?: string;
@@ -89,16 +97,16 @@ export type Release = {
 };
 
 export type Night = {
-  /** "BH-260904", "SC-005". */
+  /** "BH-260904", "BH-260904b" (second event that date), "SAD-005". */
   id: string;
   kind: NightKind;
   /** "YYYY-MM-DD". */
   date: string;
-  /** Multi-day events (Song Club) only. */
+  /** Multi-day events (Song-a-day) only. */
   endDate?: string;
   /** Fresh Cuts installment number, on BH nights in the series. */
   freshCuts?: number;
-  /** Shown in place of a lineup when there are no sets (Song Club). */
+  /** Shown in place of a lineup when there are no sets (Song-a-day). */
   title?: string;
   sets: ArchiveSet[];
   media: NightMedia;

@@ -1,9 +1,10 @@
 // Broadcast-identity formatting helpers for the /redesign homepage.
 //
-// Catalogue IDs are NOT stored on shows — they're derived from the show date
-// (BH-YYMMDD), matching the Rev. B scheme in the Figma catalogue index. A night
+// Catalogue IDs follow the Birdhaus Catalogue Naming Spec (Rev. C). BH ids are
+// NOT stored on shows — they're derived from the show date (BH-YYMMDD). A night
 // in the Fresh Cuts series carries an FC tag alongside its BH id, never merged:
-// "BH-260725 · FC 010".
+// "BH-260725 · FC 010". A Song-a-day edition's id is its stored edition number
+// (SAD-###); the songwriter meetup has no id. SC-### is retired.
 
 import type { Show } from './shows';
 
@@ -12,6 +13,22 @@ import type { Show } from './shows';
 export function catalogueId(date: string): string {
   const [y, m, d] = date.split('-');
   return `BH-${y.slice(2)}${m}${d}`;
+}
+
+// A second (third…) event on the same date: BH-YYMMDDb, BH-YYMMDDc. `n` is the
+// event's 0-based position among that date's events; the first has no suffix.
+export function sameDateId(baseId: string, n: number): string {
+  return n === 0 ? baseId : `${baseId}${String.fromCharCode(97 + n)}`;
+}
+
+// A set within a night, numbered in bill order from 1: "BH-261114-2".
+export function setCatalogueId(nightId: string, order: number): string {
+  return `${nightId}-${order}`;
+}
+
+// A Song-a-day edition: 6 -> "SAD-006".
+export function songADayId(edition: number): string {
+  return `SAD-${String(edition).padStart(3, '0')}`;
 }
 
 // Fresh Cuts installments carry "fresh-cuts" in the slug and a version number

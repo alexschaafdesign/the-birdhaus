@@ -10,7 +10,7 @@ import type { SeriesFilter } from '@/lib/archive';
 const SERIES: Array<{ value: SeriesFilter; label: string; tick: 'bh' | 'fc' | 'song-club' }> = [
   { value: 'bh', label: 'BH', tick: 'bh' },
   { value: 'fc', label: 'FC', tick: 'fc' },
-  { value: 'sc', label: 'SC', tick: 'song-club' },
+  { value: 'sad', label: 'SAD', tick: 'song-club' },
 ];
 
 function Option({

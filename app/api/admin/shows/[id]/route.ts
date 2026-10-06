@@ -7,7 +7,6 @@ import {
   isValidBandsInput,
   isValidVideosInput,
   isValidAudioInput,
-  normalizePhotosInput,
   isValidIgnoredHealthChecksInput,
   normalizePhotographerInput,
   normalizeBandIds,
@@ -18,8 +17,10 @@ import {
 import {
   attachTwinSceneLinks,
   resolveShowBandEntries,
+  resolvePhotoBandIds,
   resolveVideoBandIds,
   setShowBands,
+  stripSetNotes,
   toShowBandPairs,
 } from '@/lib/bands';
 import { resolveShowVideos, setShowVideos, setVideoBands } from '@/lib/videos';
@@ -158,9 +159,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     updates.push({ column: 'audio', value: body.audio, json: true });
   }
 
-  if ('photos' in body) {
-    updates.push({ column: 'photos', value: normalizePhotosInput(body.photos), json: true });
-  }
+  // Photos tag their set by lineup position (bandIndex), like videos, so they
+  // resolve inside the transaction once the bands have real ids.
+  const photosInput: unknown = 'photos' in body ? body.photos : undefined;
 
   if ('assignedPhotographerId' in body) {
     const value =
@@ -215,6 +216,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     updates.length === 0 &&
     bandsInput === undefined &&
     videosInput === undefined &&
+    photosInput === undefined &&
     soundEngineersInput === undefined
   ) {
     return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 });
@@ -232,7 +234,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         resolvedBands = await resolveShowBandEntries(linkedBands, tx);
         // TEMPORARY: dual-write for migration safety. Remove once Part C in TODO.md is executed.
         // This JSONB write is superseded by show_bands — see resolveShowBandEntries/setShowBands.
-        updates.push({ column: 'bands', value: resolvedBands, json: true });
+        updates.push({ column: 'bands', value: stripSetNotes(resolvedBands), json: true });
         await setShowBands(showId, toShowBandPairs(resolvedBands), tx);
       }
 
@@ -246,6 +248,10 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         for (const v of resolvedVideoRows) {
           await setVideoBands(v.videoId, v.bandIds, tx);
         }
+      }
+
+      if (photosInput !== undefined) {
+        updates.push({ column: 'photos', value: resolvePhotoBandIds(photosInput, resolvedBands), json: true });
       }
 
       if (soundEngineersInput !== undefined) {

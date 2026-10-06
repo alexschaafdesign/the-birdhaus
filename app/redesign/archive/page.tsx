@@ -35,7 +35,7 @@ export const dynamic = 'force-dynamic';
 const RECORDING_COUNT = 5;
 
 const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) || null;
-const isSeries = (v: string | null): v is SeriesFilter => v === 'bh' || v === 'fc' || v === 'sc';
+const isSeries = (v: string | null): v is SeriesFilter => v === 'bh' || v === 'fc' || v === 'sad';
 
 export default async function ArchiveIndexPage({
   searchParams,
@@ -81,9 +81,9 @@ export default async function ArchiveIndexPage({
               const youtube = set.media.video?.youtube;
               return (
                 <RecordingCard
-                  key={`${night.id}-${set.slug}`}
+                  key={set.id}
                   ground="ink"
-                  href={archiveHref(`/redesign/archive/${night.id}#${set.slug}`, sample)}
+                  href={archiveHref(`/redesign/archive/${night.id}#${set.id}`, sample)}
                   catalogueId={night.id}
                   title={set.band}
                   duration={sec ? timecode(sec) : undefined}

@@ -4,6 +4,7 @@
 // postgres `sql` client. Raw-SQL data layer.
 
 import { sql } from './db';
+import { songADayId } from './catalogue';
 
 // Mirrors the `song_club_events` columns (snake_case).
 export interface SongClubEvent {
@@ -24,6 +25,11 @@ export interface SongClubEvent {
   playlist_id: number | null;
   format: 'in_person' | 'online';
   days_open_default: DaysOpenDefault;
+  // A Song-a-day edition (096) — the only kind of event that's catalogued.
+  song_a_day: boolean;
+  // Its SAD-### edition number; stored, never derived. Always null when
+  // song_a_day is false (enforced by a check constraint).
+  catalogue_number: number | null;
   notified_at: string | null;
   created_at: string;
   updated_at: string;
@@ -63,12 +69,16 @@ export interface SongClubEventInput {
   playlistId: number | null;
   format: 'in_person' | 'online';
   daysOpenDefault: DaysOpenDefault;
+  songADay: boolean;
+  // The SAD-### edition number. null on a Song-a-day edition = keep the stored
+  // one, or assign the next if it has none; always null otherwise.
+  catalogueNumber: number | null;
 }
 
 const COLUMNS = sql`
   id, slug, title, event_date::text as event_date, end_date::text as end_date,
   start_time, end_time, venue_name, address, arrival_notes, description, body,
-  flyer_url, published, playlist_id, format, days_open_default,
+  flyer_url, published, playlist_id, format, days_open_default, song_a_day, catalogue_number,
   notified_at::text as notified_at, created_at, updated_at
 `;
 
@@ -91,6 +101,16 @@ export interface SongClubEventBody {
   playlistId?: unknown;
   format?: unknown;
   daysOpenDefault?: unknown;
+  songADay?: unknown;
+  catalogueNumber?: unknown;
+}
+
+// playlist_id is bigint, which the driver returns as a string ("5"), so an edit
+// form seeded from the row posts it back as one. Accept a numeric string too —
+// otherwise every save of an untouched form silently unlinked the playlist.
+function parsePlaylistId(value: unknown): number | null {
+  const n = typeof value === 'string' && value.trim() !== '' ? Number(value) : value;
+  return typeof n === 'number' && Number.isInteger(n) && n > 0 ? n : null;
 }
 
 function optionalTrim(value: unknown): string | null {
@@ -120,6 +140,20 @@ export function buildEventInput(
     endDate = endRaw === eventDate ? null : endRaw; // same day => single-day event
   }
 
+  // Only a Song-a-day edition is catalogued (SAD-###). Its number: blank keeps
+  // the stored one or takes the next, so a stored number is never cleared;
+  // any other event gets none, whatever was sent.
+  const songADay = body.songADay === true;
+  const rawNumber = body.catalogueNumber;
+  let catalogueNumber: number | null = null;
+  if (songADay && rawNumber !== undefined && rawNumber !== null && rawNumber !== '') {
+    const n = typeof rawNumber === 'string' ? Number(rawNumber.trim()) : rawNumber;
+    if (typeof n !== 'number' || !Number.isInteger(n) || n < 1 || n > MAX_CATALOGUE_NUMBER) {
+      return { error: 'The Song-a-day edition number must be a whole number from 1 to 9999' };
+    }
+    catalogueNumber = n;
+  }
+
   return {
     title,
     eventDate,
@@ -133,14 +167,13 @@ export function buildEventInput(
     body: optionalTrim(body.body),
     flyerUrl: optionalTrim(body.flyerUrl),
     published: body.published === true,
-    playlistId:
-      typeof body.playlistId === 'number' && Number.isInteger(body.playlistId)
-        ? body.playlistId
-        : null,
+    playlistId: parsePlaylistId(body.playlistId),
     format: body.format === 'online' ? 'online' : 'in_person',
     daysOpenDefault: DAYS_OPEN_VALUES.includes(body.daysOpenDefault as DaysOpenDefault)
       ? (body.daysOpenDefault as DaysOpenDefault)
       : 'current',
+    songADay,
+    catalogueNumber,
   };
 }
 
@@ -202,25 +235,67 @@ async function uniqueSlug(base: string, excludeId?: number): Promise<string> {
   }
 }
 
-// SC-### numbers (096): a new event takes the next number after the highest
-// stored one, never below 005 — 001–004 are reserved for Song-a-day V1–V4,
-// which predate the table. Assigned once at create and stored, so adding an
-// older event later never renumbers anything. Two creates racing would hit
-// the unique index and fail loudly rather than share a number.
+const MAX_CATALOGUE_NUMBER = 9999;
+
+// "SAD-006" (catalogue spec Rev. C).
+export function formatCatalogueNumber(n: number): string {
+  return songADayId(n);
+}
+
+// The edition number a new Song-a-day gets when none is chosen: one past the
+// highest stored, never below 005 (001–004 are reserved for Song-a-day V1–V4).
+// Only Song-a-day editions hold numbers (check constraint), so max() is theirs.
+// A fresh fragment per use, per postgres.js's dynamic composition pattern.
+const nextEdition = () =>
+  sql`(select greatest(coalesce(max(catalogue_number), 0), 4) + 1 from song_club_events where song_a_day)`;
+
+export async function nextCatalogueNumber(): Promise<number> {
+  const [row] = await sql<Array<{ next: number }>>`select ${nextEdition()} as next`;
+  return Number(row.next);
+}
+
+// The title of the event already holding this SAD number (other than
+// `excludeId`), or null when it's free. Lets the routes name the clash.
+export async function catalogueNumberHolder(n: number, excludeId?: number): Promise<string | null> {
+  const [row] = await sql<Array<{ title: string }>>`
+    select title from song_club_events
+    where catalogue_number = ${n} ${excludeId ? sql`and id <> ${excludeId}` : sql``}
+    limit 1
+  `;
+  return row?.title ?? null;
+}
+
+// True for the unique-index violation on song_club_events.catalogue_number —
+// what a duplicate (or two creates racing) hits.
+export function isCatalogueNumberConflict(error: unknown): boolean {
+  return (
+    error instanceof Error &&
+    'code' in error &&
+    error.code === '23505' &&
+    'constraint_name' in error &&
+    error.constraint_name === 'song_club_events_catalogue_number_idx'
+  );
+}
+
+// SAD-### numbers (096): a Song-a-day edition stores a chosen number as given,
+// otherwise the next one (see nextCatalogueNumber); other events get none.
+// Assigned once and stored, so adding an older edition later never renumbers
+// anything. A duplicate or two creates racing hit the unique index and fail
+// loudly rather than share a number.
 export async function createEvent(input: SongClubEventInput): Promise<SongClubEvent> {
   const slug = await uniqueSlug(slugify(`${input.eventDate}-${input.title}`));
   const [row] = await sql<SongClubEvent[]>`
     insert into song_club_events
       (slug, title, event_date, end_date, start_time, end_time, venue_name, address,
        arrival_notes, description, body, flyer_url, published, playlist_id, format,
-       days_open_default, catalogue_number)
+       days_open_default, song_a_day, catalogue_number)
     values
       (${slug}, ${input.title}, ${input.eventDate}, ${input.endDate}, ${input.startTime},
        ${input.endTime}, ${input.venueName}, ${input.address},
        ${input.arrivalNotes}, ${input.description}, ${input.body}, ${input.flyerUrl},
        ${input.published}, ${input.playlistId}, ${input.format},
-       ${input.daysOpenDefault},
-       (select greatest(coalesce(max(catalogue_number), 0), 4) + 1 from song_club_events))
+       ${input.daysOpenDefault}, ${input.songADay},
+       ${input.songADay ? sql`coalesce(${input.catalogueNumber}::int, ${nextEdition()})` : null})
     returning ${COLUMNS}
   `;
   return row;
@@ -249,6 +324,12 @@ export async function updateEvent(
       playlist_id = ${input.playlistId},
       format = ${input.format},
       days_open_default = ${input.daysOpenDefault},
+      song_a_day = ${input.songADay},
+      catalogue_number = ${
+        input.songADay
+          ? sql`coalesce(${input.catalogueNumber}::int, catalogue_number, ${nextEdition()})`
+          : null
+      },
       updated_at = now()
     where id = ${id}
     returning ${COLUMNS}

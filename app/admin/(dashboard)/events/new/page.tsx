@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { listPlaylists } from '@/lib/club-music';
+import { nextCatalogueNumber } from '@/lib/song-club';
 import NewEventForm from '@/components/admin/NewEventForm';
 
 export const metadata: Metadata = {
@@ -16,7 +17,8 @@ export default async function NewEventPage({
   searchParams: Promise<{ date?: string; type?: string }>;
 }) {
   const { date, type } = await searchParams;
-  const rounds = (await listPlaylists()).map((p) => ({ id: p.id, title: p.title }));
+  const [playlists, suggestedNumber] = await Promise.all([listPlaylists(), nextCatalogueNumber()]);
+  const rounds = playlists.map((p) => ({ id: p.id, title: p.title }));
 
   return (
     <main className="mx-auto max-w-6xl px-6 pb-16 pt-6 text-[#E8E0D0]">
@@ -25,6 +27,7 @@ export default async function NewEventPage({
         initialDate={date}
         initialType={type === 'song_club' ? 'song_club' : 'show'}
         rounds={rounds}
+        suggestedNumber={suggestedNumber}
       />
     </main>
   );

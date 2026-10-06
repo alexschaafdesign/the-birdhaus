@@ -40,3 +40,10 @@
 **Status:** Open — after Part C's pattern (bands/videos) has settled.
 **Why:** per-set audio and photos currently ride as an optional `bandId` key on `shows.audio` / `shows.photos` JSONB entries (migration 093). Proper `show_audio` / `show_photos` join tables would match `show_bands` / `show_videos` / `band_videos`.
 **Mind the CLAUDE.md pooler rule:** add new tables; don't alter `shows`.
+
+## Admin: per-set audio picker (+ untitled-audio save fix)
+
+**Status:** Deferred — pick up when sets start going out on Bandcamp. The Audio section is unused today.
+**What this covers:**
+- A band picker on each Audio row in ShowForm (optional; empty = whole night), tagged by lineup position like video rows (`bandIndexes` → server resolves to `bandId`), so a band added in the same save can be tagged. The data side already works: `shows.audio` entries keep an optional `bandId` (093) and `lib/archive/live.ts` reads it.
+- Fix: ShowForm drops any audio row without a title on save (`form.audio.filter((a) => a.bandcamp.trim() && a.title.trim())`) — the same silent-drop bug videos had. Keep any row with a Bandcamp URL; title optional.

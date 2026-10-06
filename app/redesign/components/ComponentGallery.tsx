@@ -30,7 +30,7 @@ const SERIES_SAMPLES: { series: Series; id: string }[] = [
   { series: 'fc', id: 'FC-018' },
   { series: 'video', id: 'BHV-031' },
   { series: 'tape', id: 'BHR-007' },
-  { series: 'song-club', id: 'SC-012' },
+  { series: 'song-club', id: 'SAD-006' },
 ];
 
 // Every Figma Button combination: 3 variants × 2 sizes × 4 states = 24.

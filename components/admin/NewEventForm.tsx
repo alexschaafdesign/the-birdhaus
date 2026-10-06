@@ -12,10 +12,13 @@ export default function NewEventForm({
   initialDate,
   initialType = 'show',
   rounds,
+  suggestedNumber,
 }: {
   initialDate?: string;
   initialType?: 'show' | 'song_club';
   rounds: Array<{ id: number; title: string }>;
+  // The next Song-a-day edition number, passed through to the Song Club form.
+  suggestedNumber?: number;
 }) {
   const [type, setType] = useState<'show' | 'song_club'>(initialType);
 
@@ -49,7 +52,7 @@ export default function NewEventForm({
       {type === 'show' ? (
         <ShowForm mode="create" initialValues={initialDate ? { date: initialDate } : undefined} />
       ) : (
-        <SongClubEventForm mode="add" rounds={rounds} />
+        <SongClubEventForm mode="add" rounds={rounds} suggestedNumber={suggestedNumber} />
       )}
     </div>
   );
