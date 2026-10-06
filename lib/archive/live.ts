@@ -2,12 +2,13 @@ import { sql } from '@/lib/db';
 import { getAllShows, getTodayCentral, type Show } from '@/lib/shows';
 import { getAllBandSlugs } from '@/lib/bands';
 import { getPhotographerCredits } from '@/lib/photographers';
-import { catalogueId, freshCutsTag, to24h } from '@/lib/catalogue';
+import { catalogueId, freshCutsTag, sameDateId, setCatalogueId, songADayId, to24h } from '@/lib/catalogue';
 import type { ArchiveSet, Night, Photo, Release } from './types';
 
 // Adapts the shows table (lib/shows) into archive Nights — the shows table is
-// the one list of nights; this is a view of it, not a copy. Song Club events
-// with a stored SC-### number (096) join them as SC nights.
+// the one list of nights; this is a view of it, not a copy. Song-a-day editions
+// (song_club_events with song_a_day and a SAD-### number, 096) join them as SAD
+// nights; the songwriter meetup isn't catalogued, so it never appears.
 //
 // Set vs night media: audio and photo entries tagged with a bandId (093)
 // belong to that band's set; untagged entries — or ones tagged to a band not
@@ -75,6 +76,7 @@ async function loadExtras(showIds: number[]): Promise<Extras> {
 }
 
 function setsFor(
+  nightId: string,
   show: Show,
   bandSlugs: Map<number, string>,
   extras: Extras,
@@ -92,7 +94,7 @@ function setsFor(
     used.add(slug);
 
     if (bandId == null) {
-      return { order: i + 1, band: band.name, slug, media: {} };
+      return { id: setCatalogueId(nightId, i + 1), order: i + 1, band: band.name, slug, media: {} };
     }
 
     // A set's first tagged video is its player and the rest list under it;
@@ -103,6 +105,7 @@ function setsFor(
     const key = setKey(show.id, bandId);
 
     return {
+      id: setCatalogueId(nightId, i + 1),
       order: i + 1,
       band: band.name,
       bandSlug,
@@ -122,23 +125,24 @@ function setsFor(
   });
 }
 
-// Song Club events become SC nights once they have a stored number (096) and
-// are over. No sets: the title stands in for a lineup.
-async function songClubNights(today: string): Promise<Night[]> {
+// Song-a-day editions become SAD nights once they're over. Only editions are
+// catalogued (song_a_day, with a stored number — 096). No sets: the title
+// stands in for a lineup.
+async function songADayNights(today: string): Promise<Night[]> {
   const rows = await sql<
-    Array<{ title: string; event_date: string; end_date: string | null; format: string; catalogue_number: number }>
+    Array<{ title: string; event_date: string; end_date: string | null; catalogue_number: number }>
   >`
-    select title, event_date::text, end_date::text, format, catalogue_number
+    select title, event_date::text, end_date::text, catalogue_number
     from song_club_events
-    where published and catalogue_number is not null
+    where published and song_a_day and catalogue_number is not null
       and coalesce(end_date, event_date) < ${today}::date
   `;
   return rows.map((r) => ({
-    id: `SC-${String(r.catalogue_number).padStart(3, '0')}`,
-    kind: 'sc',
+    id: songADayId(r.catalogue_number),
+    kind: 'sad',
     date: r.event_date,
     endDate: r.end_date ?? undefined,
-    title: r.format === 'online' ? `${r.title} [online]` : r.title,
+    title: r.title,
     sets: [],
     media: {},
     credits: {},
@@ -153,23 +157,24 @@ export async function getLiveNights(): Promise<Night[]> {
     // Oldest first (then id) so a same-date collision suffixes the later row.
     .sort((a, b) => a.date.localeCompare(b.date) || Number(a.id) - Number(b.id));
 
-  const [credits, extras, scNights] = await Promise.all([
+  const [credits, extras, sadNights] = await Promise.all([
     getPhotographerCredits(
       past.flatMap((s) => (s.photos ?? []).map((p) => p.photographerId)).filter((n): n is number => n != null)
     ),
     loadExtras(past.map((s) => Number(s.id))),
-    songClubNights(today),
+    songADayNights(today),
   ]);
 
   // BH ids derive from the date, so two shows on one date would collide. The
-  // later one gets a letter suffix (BH-250307B) rather than a silent clash.
+  // later one gets a lowercase letter suffix (BH-250307b) rather than a silent
+  // clash.
   const seen = new Map<string, number>();
 
   const showNights = past.map((show): Night => {
     const base = catalogueId(show.date);
     const n = seen.get(base) ?? 0;
     seen.set(base, n + 1);
-    const id = n === 0 ? base : `${base}${String.fromCharCode(65 + n)}`;
+    const id = sameDateId(base, n);
 
     const lineupIds = new Set(
       show.bands.flatMap((b) => (typeof b !== 'string' && b.bandId != null ? [Number(b.bandId)] : []))
@@ -185,7 +190,7 @@ export async function getLiveNights(): Promise<Night[]> {
         credit: p.photographerId != null ? credits.get(Number(p.photographerId))?.name : undefined,
       },
     }));
-    const sets = setsFor(show, bandSlugs, extras, (bandId) =>
+    const sets = setsFor(id, show, bandSlugs, extras, (bandId) =>
       allPhotos.filter((p) => p.set === bandId).map((p) => p.photo)
     );
     const setVideos = new Set(
@@ -235,5 +240,5 @@ export async function getLiveNights(): Promise<Night[]> {
     };
   });
 
-  return [...showNights, ...scNights].sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
+  return [...showNights, ...sadNights].sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
 }

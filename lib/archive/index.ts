@@ -11,14 +11,15 @@ export async function getNights(sample: boolean): Promise<Night[]> {
 }
 
 export function seriesOf(night: Night): SeriesFilter {
-  if (night.kind === 'sc') return 'sc';
+  if (night.kind === 'sad') return 'sad';
   return night.freshCuts != null ? 'fc' : 'bh';
 }
 
 // The SeriesTick colour for a night: one tick per ID.
 export function tickOf(night: Night): 'bh' | 'fc' | 'song-club' {
   const s = seriesOf(night);
-  return s === 'sc' ? 'song-club' : s;
+  // Song-a-day keeps the song-club series tick (the token is unchanged).
+  return s === 'sad' ? 'song-club' : s;
 }
 
 // "FC 010" for Fresh Cuts nights, else null.
@@ -65,7 +66,7 @@ export function nightSummary(night: Night): string {
   if (hasAudio(night)) parts.push('audio');
   if (hasPhotos(night)) parts.push('photos');
   if (night.sets.some((s) => s.notes)) parts.push('notes');
-  if (parts.length === 0 && night.kind === 'sc') parts.push('song club');
+  if (parts.length === 0 && night.kind === 'sad') parts.push('song-a-day');
   return parts.join(' · ');
 }
 

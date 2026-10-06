@@ -1,3 +1,4 @@
+import { setCatalogueId } from '@/lib/catalogue';
 import type { ArchiveSet, Night, Photo, Release, SetMedia } from './types';
 
 // Placeholder nights for /redesign/archive?sample — the same role as
@@ -16,7 +17,7 @@ import type { ArchiveSet, Night, Photo, Release, SetMedia } from './types';
 //   night-level photos only                                BH-260917
 //   set-level photos only / notes only                     BH-260906, BH-251018
 //   no media at all                                        BH-251206
-//   Song Club, a date range with no sets                   SC-006
+//   Song-a-day edition, a date range with no sets          SAD-005
 
 const photos = (n: number, credit?: string): Photo[] =>
   Array.from({ length: n }, () => ({ credit }));
@@ -27,12 +28,24 @@ const photos = (n: number, credit?: string): Photo[] =>
 type SetExtras = SetMedia & { notes?: string; releases?: Release[] };
 
 function sets(
+  nightId: string,
   ...rows: Array<[band: string, start: string, durationSec?: number, extras?: SetExtras]>
 ): ArchiveSet[] {
   return rows.map(([band, start, durationSec, extras = {}], i) => {
     const { notes, releases, ...media } = extras;
     const slug = band.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-    return { order: i + 1, band, bandSlug: slug, slug, start, durationSec, media, notes, releases };
+    return {
+      id: setCatalogueId(nightId, i + 1),
+      order: i + 1,
+      band,
+      bandSlug: slug,
+      slug,
+      start,
+      durationSec,
+      media,
+      notes,
+      releases,
+    };
   });
 }
 
@@ -43,7 +56,7 @@ export const SAMPLE_NIGHTS: Night[] = [
     id: 'BH-260918',
     kind: 'bh',
     date: '2026-09-18',
-    sets: sets(
+    sets: sets('BH-260918',
       ['Michael Gay', '20:00', 1980, { video: {}, photos: photos(14, 'Jess Ortiz') }],
       ['Jodie Jones', '20:45', 2160, { video: {}, photos: photos(11, 'Jess Ortiz') }],
       ['Ross Thorn', '21:30', 2460, { video: {}, photos: photos(19, 'Jess Ortiz') }]
@@ -55,16 +68,16 @@ export const SAMPLE_NIGHTS: Night[] = [
     id: 'BH-260917',
     kind: 'bh',
     date: '2026-09-17',
-    sets: sets(['Losing Dogs', '20:00'], ['Abalone', '20:45'], ['Kacie Jewel Hill', '21:30']),
+    sets: sets('BH-260917', ['Losing Dogs', '20:00'], ['Abalone', '20:45'], ['Kacie Jewel Hill', '21:30']),
     media: { photos: photos(42, 'Maya Feld') },
     credits: { sound: 'Ben Ostrander', photos: ['Maya Feld'] },
   },
   {
-    id: 'SC-006',
-    kind: 'sc',
+    id: 'SAD-005',
+    kind: 'sad',
     date: '2026-09-16',
     endDate: '2026-09-25',
-    title: 'Song-a-Day V5 [online]',
+    title: 'Song-a-Day V5',
     sets: [],
     media: {},
     credits: {},
@@ -73,7 +86,7 @@ export const SAMPLE_NIGHTS: Night[] = [
     id: 'BH-260911',
     kind: 'bh',
     date: '2026-09-11',
-    sets: sets(
+    sets: sets('BH-260911',
       ['Wish Wash', '20:00', undefined, { notes: 'First show with a drummer.' }],
       [
         'Guest Rooms',
@@ -93,7 +106,7 @@ export const SAMPLE_NIGHTS: Night[] = [
     id: 'BH-260906',
     kind: 'bh',
     date: '2026-09-06',
-    sets: sets(
+    sets: sets('BH-260906',
       ['Grant Whiteoak', '19:30'],
       ['JG Shadid', '20:15', undefined, { photos: photos(9, 'Maya Feld') }],
       ['Into It, Over It', '21:00', undefined, { photos: photos(23, 'Maya Feld') }]
@@ -105,7 +118,7 @@ export const SAMPLE_NIGHTS: Night[] = [
     id: 'BH-260905',
     kind: 'bh',
     date: '2026-09-05',
-    sets: sets(
+    sets: sets('BH-260905',
       ['Kate Malanaphy', '20:00', 1890, { video: {} }],
       ['Megasound', '20:45', 2520, { video: {} }]
     ),
@@ -119,7 +132,7 @@ export const SAMPLE_NIGHTS: Night[] = [
     id: 'BH-260904',
     kind: 'bh',
     date: '2026-09-04',
-    sets: sets(
+    sets: sets('BH-260904',
       ['Ducksmithson', '20:00', 1740, { photos: photos(8, 'Jess Ortiz') }],
       [
         'Cassandra Johnson',
@@ -151,7 +164,7 @@ export const SAMPLE_NIGHTS: Night[] = [
     kind: 'bh',
     date: '2026-07-25',
     freshCuts: 10,
-    sets: sets(
+    sets: sets('BH-260725',
       ['Hey Arlo', '19:30', 1260, { video: {} }],
       ['Beech Montana', '20:00', 1320],
       ['Joe Kaplow', '20:30', 1410, { video: {} }],
@@ -168,7 +181,7 @@ export const SAMPLE_NIGHTS: Night[] = [
     id: 'BH-251206',
     kind: 'bh',
     date: '2025-12-06',
-    sets: sets(['Headtriiip', '20:00'], ['Megasound', '21:00']),
+    sets: sets('BH-251206', ['Headtriiip', '20:00'], ['Megasound', '21:00']),
     media: {},
     credits: { sound: 'Ben Ostrander' },
   },
@@ -177,7 +190,7 @@ export const SAMPLE_NIGHTS: Night[] = [
     kind: 'bh',
     date: '2025-10-18',
     freshCuts: 8,
-    sets: sets(
+    sets: sets('BH-251018',
       ['Ducksmithson', '19:30', undefined, { notes: 'All new songs, per Fresh Cuts rules.' }],
       ['Cassandra Johnson', '20:00', undefined, { notes: 'Solo, first time playing these out.' }],
       ['Hey Arlo', '20:30']
