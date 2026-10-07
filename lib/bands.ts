@@ -42,6 +42,17 @@ export interface Band {
   twinsceneSlug?: string;
 }
 
+// Every bands column a query returns. Listed, never `*`: through Neon's pooler a `select *` keeps returning the old
+// shape from a cached prepared statement after a migration adds a column, and
+// fails ("cached plan must not change result type") — see CLAUDE.md.
+// Use as ${sql(BAND_COLUMNS)} (or ${tx(BAND_COLUMNS)} inside a transaction).
+export const BAND_COLUMNS = [
+  'id', 'slug', 'name', 'instagram', 'bio', 'photo', 'created_at', 'updated_at', 'is_touring',
+  'hometown', 'genres', 'city', 'neighborhoods', 'members', 'contact_email', 'contact_method',
+  'website', 'bandcamp', 'bandcamp_embed_url', 'bandcamp_embed_height', 'featured_links',
+  'twinscene_slug', 'unreviewed', 'twin_scene_band_id', 'visible', 'synced_at', 'payment_method',
+];
+
 interface BandRow {
   id: number;
   slug: string;
@@ -104,7 +115,7 @@ export function slugify(text: string): string {
 }
 
 export async function getAllBands(): Promise<Band[]> {
-  const rows = await sql<BandRow[]>`select * from bands order by name asc`;
+  const rows = await sql<BandRow[]>`select ${sql(BAND_COLUMNS)} from bands order by name asc`;
   return rows.map(rowToBand);
 }
 
@@ -114,7 +125,7 @@ export async function getAllBands(): Promise<Band[]> {
 // that never played Birdhaus) be revealed on demand.
 export async function getAllBandsWithPlayCount(): Promise<Array<Band & { playCount: number }>> {
   const rows = await sql<Array<BandRow & { play_count: number }>>`
-    select b.*,
+    select ${sql(BAND_COLUMNS)},
       (select count(*)::int from show_bands sb where sb.band_id = b.id) as play_count
     from bands b
     order by b.name asc
@@ -123,7 +134,7 @@ export async function getAllBandsWithPlayCount(): Promise<Array<Band & { playCou
 }
 
 export async function getBandBySlug(slug: string): Promise<Band | null> {
-  const [row] = await sql<BandRow[]>`select * from bands where slug = ${slug} limit 1`;
+  const [row] = await sql<BandRow[]>`select ${sql(BAND_COLUMNS)} from bands where slug = ${slug} limit 1`;
   return row ? rowToBand(row) : null;
 }
 
@@ -559,7 +570,7 @@ export async function findOrCreateBandByName(
 ): Promise<ResolvedBand> {
   return sql.begin(async (tx) => {
     const [existing] = await tx<Array<Record<string, unknown> & { id: number; slug: string }>>`
-      select * from bands where lower(name) = lower(${name}) limit 1
+      select ${tx(BAND_COLUMNS)} from bands where lower(name) = lower(${name}) limit 1
     `;
 
     if (existing) {
@@ -674,7 +685,7 @@ export async function syncBandFromTwinScene(band: TwinSceneBand): Promise<Band> 
         twinscene_slug = excluded.twinscene_slug,
         synced_at = now(),
         updated_at = now()
-      returning *
+      returning ${tx(BAND_COLUMNS)}
     `;
 
     return rowToBand(row);
@@ -806,7 +817,7 @@ export async function enrichBandsFromTwinScene(): Promise<TwinSceneSyncResult> {
   const [twinSceneBands, linkedBands] = await Promise.all([
     getTwinSceneBands(),
     sql<Array<Record<string, unknown> & { id: number; slug: string }>>`
-      select * from bands where twin_scene_band_id is not null
+      select ${sql(BAND_COLUMNS)} from bands where twin_scene_band_id is not null
     `,
   ]);
 

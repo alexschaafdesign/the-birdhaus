@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation';
 import { sql } from '@/lib/db';
-import { bandsJoinFragment, videosJoinFragment, normalizePhotosInput } from '@/lib/shows';
+import { SHOW_COLUMNS, bandsJoinFragment, videosJoinFragment, normalizePhotosInput } from '@/lib/shows';
 import { getPhotographerCredits } from '@/lib/photographers';
 import { soundEngineersJoinFragment, type ShowSoundEngineer } from '@/lib/sound-engineers';
 import { getOrCreateShareToken } from '@/lib/share-token';
@@ -49,7 +49,8 @@ export default async function EditShowPage({ params }: { params: Promise<{ id: s
   if (!Number.isInteger(showId)) notFound();
 
   const [row] = await sql<ShowRow[]>`
-    select *, date::text as date, ${bandsJoinFragment()}, ${videosJoinFragment()}, ${soundEngineersJoinFragment()}
+    select ${sql(SHOW_COLUMNS)}, date::text as date, ${bandsJoinFragment()}, ${videosJoinFragment()},
+      ${soundEngineersJoinFragment()}
     from shows
     where id = ${showId}
   `;

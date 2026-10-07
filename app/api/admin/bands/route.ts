@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { revalidatePath } from 'next/cache';
 import { sql } from '@/lib/db';
-import { slugify } from '@/lib/bands';
+import { BAND_COLUMNS, slugify } from '@/lib/bands';
 import { requireAdmin } from '@/lib/admin-session';
 
 function nullableTrim(value: unknown): string | null {
@@ -29,7 +29,7 @@ export async function GET(request: Request) {
   }
 
   const rows = await sql`
-    select b.*,
+    select ${sql(BAND_COLUMNS)},
       (select count(*)::int from show_bands sb where sb.band_id = b.id) as show_count
     from bands b
     order by b.name asc
@@ -63,7 +63,7 @@ export async function POST(request: Request) {
         ${slug}, ${name}, ${nullableTrim(body.instagram)}, ${nullableTrim(body.bio)}, ${nullableTrim(body.photo)},
         ${isTouring}, ${hometown}, ${nullableTrim(body.contactEmail)}, ${nullableTrim(body.paymentMethod)}
       )
-      returning *
+      returning ${sql(BAND_COLUMNS)}
     `;
     revalidatePath('/bands/[slug]', 'page');
     revalidatePath('/bands');

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { revalidatePath } from 'next/cache';
 import { sql } from '@/lib/db';
-import { slugify } from '@/lib/bands';
+import { BAND_COLUMNS, slugify } from '@/lib/bands';
 import { requireAdmin } from '@/lib/admin-session';
 
 const TEXT_FIELD_MAP: Record<string, string> = {
@@ -88,7 +88,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       update bands
       set ${setClause}, updated_at = now()
       where id = ${bandId}
-      returning *
+      returning ${sql(BAND_COLUMNS)}
     `;
 
     if (!row) {

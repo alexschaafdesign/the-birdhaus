@@ -14,6 +14,7 @@ import {
   slugify,
   bandsJoinFragment,
   videosJoinFragment,
+  SHOW_COLUMNS,
 } from '@/lib/shows';
 import {
   attachTwinSceneLinks,
@@ -34,7 +35,7 @@ export async function GET() {
   const denied = await requireAdmin();
   if (denied) return denied;
   const rows = await sql`
-    select *, date::text as date, ${bandsJoinFragment()}, ${videosJoinFragment()}
+    select ${sql(SHOW_COLUMNS)}, date::text as date, ${bandsJoinFragment()}, ${videosJoinFragment()}
     from shows
     order by shows.date desc
   `;
@@ -135,7 +136,7 @@ export async function POST(request: Request) {
           ${typeof body.content === 'string' ? body.content : ''}, ${announced},
           ${nullableTrim(body.soundEngineerName)}, ${nullableTrim(body.doorPersonName)}, ${targetBandCount}, ${advanceSent}
         )
-        returning *, date::text as date
+        returning ${tx(SHOW_COLUMNS)}, bands, videos, date::text as date
       `;
       await setShowBands(Number(row.id), toShowBandPairs(resolvedBands), tx);
       await setShowVideos(Number(row.id), resolvedVideoRows, tx);

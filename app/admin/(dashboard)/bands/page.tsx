@@ -1,4 +1,5 @@
 import { sql } from '@/lib/db';
+import { BAND_COLUMNS } from '@/lib/bands';
 import BandsList, { type BandListItem } from '@/components/admin/BandsList';
 
 export const dynamic = 'force-dynamic';
@@ -6,7 +7,7 @@ export const dynamic = 'force-dynamic';
 async function getBands(): Promise<BandListItem[]> {
   const rows = await sql<
     BandListItem[]
-  >`select b.*,
+  >`select ${sql(BAND_COLUMNS)},
       (select count(*)::int from show_bands sb where sb.band_id = b.id) as show_count
     from bands b
     order by b.name asc`;

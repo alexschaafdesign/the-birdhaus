@@ -39,6 +39,15 @@ export type AvailabilityEntry =
   | { type: 'date'; value: string }
   | { type: 'range'; from: string; to: string };
 
+// Every submissions column a query returns. Listed, never `*`: through Neon's
+// pooler a `select *` keeps returning the old shape from a cached prepared
+// statement after a migration adds a column, and fails ("cached plan must not
+// change result type") — see CLAUDE.md. Use as ${sql(SUBMISSION_COLUMNS)}.
+export const SUBMISSION_COLUMNS = [
+  'id', 'band_name', 'contact_name', 'email', 'socials', 'genre', 'availability_text', 'comments',
+  'notes', 'status', 'source', 'created_at', 'updated_at', 'availability',
+];
+
 export interface Submission {
   id: number;
   band_name: string;
