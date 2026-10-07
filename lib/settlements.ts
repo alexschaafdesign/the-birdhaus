@@ -349,7 +349,23 @@ export function settlementEmailSummary(
   return lines.join('\n');
 }
 
-// Shape of a `select * from settlements` row — numeric columns come back as
+// Every settlements column a query returns. Listed, never `*`: through Neon's
+// pooler a `select *` keeps returning the old shape from a cached prepared
+// statement after a migration adds a column, and fails ("cached plan must not
+// change result type") — see CLAUDE.md. Use as ${sql(SETTLEMENT_COLUMNS)}; in a
+// join with shows (which shares created_at, updated_at and the payee-name
+// columns) qualify them: ${sql(SETTLEMENT_COLUMNS.map((c) => `s.${c}`))}.
+export const SETTLEMENT_COLUMNS = [
+  'show_id', 'deal_type', 'deal_threshold', 'artist_split_pct', 'income_square', 'income_venmo',
+  'income_cash', 'exp_square_fees', 'exp_venmo_fees', 'exp_sound_engineer', 'exp_photos',
+  'exp_door_person', 'exp_ad_print', 'exp_ad_online', 'exp_snacks', 'exp_beer',
+  'beverage_income_venmo', 'beverage_income_cash', 'extra_line_items', 'notes', 'created_at',
+  'updated_at', 'photographer_name', 'sound_engineer_name', 'venue_redirect_pct', 'sound_paid',
+  'photographer_paid', 'sound_paid_method', 'photographer_paid_method', 'attendance',
+  'door_person_name', 'door_paid', 'door_paid_method',
+];
+
+// Shape of a settlements row (SETTLEMENT_COLUMNS) — numeric columns come back as
 // strings from postgres.js since they're arbitrary-precision `numeric`.
 export interface SettlementDbRow {
   deal_type: string;

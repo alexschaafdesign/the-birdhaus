@@ -1,13 +1,13 @@
 import { sql } from '@/lib/db';
 import SubmissionsBoard from '@/components/admin/SubmissionsBoard';
-import type { Submission } from '@/lib/submissions';
+import { SUBMISSION_COLUMNS, type Submission } from '@/lib/submissions';
 import { getAvailableDates } from '@/lib/available-dates';
 import type { DateOffer } from '@/lib/date-offers';
 
 export const dynamic = 'force-dynamic';
 
 async function getSubmissions(): Promise<Submission[]> {
-  return sql<Submission[]>`select * from submissions order by created_at desc`;
+  return sql<Submission[]>`select ${sql(SUBMISSION_COLUMNS)} from submissions order by created_at desc`;
 }
 
 async function getDateOffers(): Promise<DateOffer[]> {

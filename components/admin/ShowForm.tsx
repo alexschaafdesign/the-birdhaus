@@ -432,6 +432,12 @@ export default function ShowForm({
     setForm((prev) => ({
       ...prev,
       bands: prev.bands.filter((_, i) => i !== index),
+      // Video band tags are lineup positions: drop the removed band and shift
+      // later ones down with the lineup, so each video stays on its own band.
+      videos: prev.videos.map((v) => ({
+        ...v,
+        bandIndexes: v.bandIndexes.filter((i) => i !== index).map((i) => (i > index ? i - 1 : i)),
+      })),
       // Photo set tags are lineup positions: a photo from the removed band goes
       // back to night-level, and tags past it shift down with the lineup.
       photos: prev.photos.map((p) => {

@@ -7,6 +7,7 @@ import {
   VENUE_EXPENSE_FIELDS,
   type PayeeNameField,
   type SettlementDbRow,
+  SETTLEMENT_COLUMNS,
 } from '@/lib/settlements';
 import { paidTotalsByWorker } from '@/lib/timesheet';
 import { requireAdmin } from '@/lib/admin-session';
@@ -46,7 +47,7 @@ export async function GET(request: Request) {
   }
 
   const rows = await sql<SettlementSummaryRow[]>`
-    select s.*, sh.title as show_title, sh.date::text as show_date
+    select ${sql(SETTLEMENT_COLUMNS.map((c) => `s.${c}`))}, sh.title as show_title, sh.date::text as show_date
     from settlements s
     join shows sh on sh.id = s.show_id
     where sh.date >= ${rangeStart} and sh.date <= ${rangeEnd}

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { sql } from '@/lib/db';
-import { SUBMISSION_STATUSES, parseAvailability } from '@/lib/submissions';
+import { SUBMISSION_COLUMNS, SUBMISSION_STATUSES, parseAvailability } from '@/lib/submissions';
 import { requireAdmin } from '@/lib/admin-session';
 
 const EDITABLE_TEXT_FIELDS = [
@@ -76,7 +76,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     update submissions
     set ${setClause}, updated_at = now()
     where id = ${submissionId}
-    returning *
+    returning ${sql(SUBMISSION_COLUMNS)}
   `;
 
   if (!row) {

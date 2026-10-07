@@ -11,6 +11,7 @@ import {
   DEFAULT_SETTLEMENT_VALUES,
   FEE_INCOME_FIELDS,
   type SettlementDbRow,
+  SETTLEMENT_COLUMNS,
 } from '@/lib/settlements';
 
 export const dynamic = 'force-dynamic';
@@ -44,7 +45,7 @@ export default async function SettlementPage({ params }: { params: Promise<{ id:
   const doorCount = arrived + show.walkin_count;
   const doorAttendance = doorCount > 0 ? doorCount : null;
 
-  const [settlementRow] = await sql<SettlementDbRow[]>`select * from settlements where show_id = ${showId}`;
+  const [settlementRow] = await sql<SettlementDbRow[]>`select ${sql(SETTLEMENT_COLUMNS)} from settlements where show_id = ${showId}`;
   const bands = await getShowBandsPaidStatus(showId);
   // Only non-excluded bands share the payout split.
   const includedBands = bands.filter((b) => !b.excluded);

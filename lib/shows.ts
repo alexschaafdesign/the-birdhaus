@@ -194,6 +194,21 @@ export async function getTicketAvailability(
 // used to hold, so this join is a drop-in replacement wherever shows.bands
 // was read. json_strip_nulls drops absent optional fields (instagram/bio/photo)
 // instead of leaving them as explicit nulls, matching the old JSONB's shape.
+// Every shows column a query returns. Listed, never `*`: through Neon's pooler a `select *` keeps returning the old
+// shape from a cached prepared statement after a migration adds a column, and
+// fails ("cached plan must not change result type") — see CLAUDE.md.
+// Not listed: `date` (always selected as `date::text as date`) and the legacy
+// `bands` / `videos` JSONB copies — reads take those from bandsJoinFragment /
+// videosJoinFragment, and writes that return the row name them explicitly.
+// Use as ${sql(SHOW_COLUMNS)} (or ${tx(SHOW_COLUMNS)} inside a transaction).
+export const SHOW_COLUMNS = [
+  'id', 'slug', 'title', 'doors_time', 'show_time', 'flyer', 'description', 'photographer',
+  'rsvp_url', 'ticket_url', 'external_ticket_url', 'rsvp_form', 'audio', 'photos', 'photo_folder',
+  'photo_credit', 'content_markdown', 'announced', 'created_at', 'updated_at', 'sound_engineer_name',
+  'target_band_count', 'ignored_health_checks', 'advance_sent', 'square_item_id', 'square_image_id',
+  'share_token', 'walkin_count', 'door_token', 'door_person_name', 'ticket_limit', 'photographer_id',
+];
+
 // A fresh fragment per call site, per postgres.js's dynamic composition pattern.
 // Exported so other raw-SQL reads of shows (admin routes/pages) can reuse it.
 export function bandsJoinFragment() {
@@ -236,16 +251,28 @@ export function videosJoinFragment() {
 
 export async function getAllShows(): Promise<Show[]> {
   const rows = await sql<ShowRow[]>`
-    select *, date::text as date, ${bandsJoinFragment()}, ${videosJoinFragment()}
+    select ${sql(SHOW_COLUMNS)}, date::text as date, ${bandsJoinFragment()}, ${videosJoinFragment()}
     from shows
     order by shows.date asc
   `;
   return Promise.all(rows.map((row) => rowToShow(row)));
 }
 
+// Slugs are stored as entered and matched exactly, so a link whose case
+// differs from the stored slug (e.g. an old link from before a slug was
+// lowercased) misses. Returns the stored slug when exactly one show matches
+// case-insensitively — the caller redirects to it — else null. Slug uniqueness
+// is case-sensitive, so two case-only variants would be ambiguous: no match.
+export async function findShowSlugIgnoringCase(slug: string): Promise<string | null> {
+  const rows = await sql<Array<{ slug: string }>>`
+    select slug from shows where lower(slug) = lower(${slug}) limit 2
+  `;
+  return rows.length === 1 ? rows[0].slug : null;
+}
+
 export async function getShowBySlug(slug: string): Promise<Show | null> {
   const [row] = await sql<ShowRow[]>`
-    select *, date::text as date, ${bandsJoinFragment()}, ${videosJoinFragment()}
+    select ${sql(SHOW_COLUMNS)}, date::text as date, ${bandsJoinFragment()}, ${videosJoinFragment()}
     from shows
     where slug = ${slug}
     limit 1
@@ -256,7 +283,7 @@ export async function getShowBySlug(slug: string): Promise<Show | null> {
 
 export async function getShowById(id: number): Promise<Show | null> {
   const [row] = await sql<ShowRow[]>`
-    select *, date::text as date, ${bandsJoinFragment()}, ${videosJoinFragment()}
+    select ${sql(SHOW_COLUMNS)}, date::text as date, ${bandsJoinFragment()}, ${videosJoinFragment()}
     from shows
     where id = ${id}
     limit 1

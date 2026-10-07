@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { renderToBuffer } from '@react-pdf/renderer';
 import { sql } from '@/lib/db';
-import { computeSettlementSummary, settlementValuesFromRow, type SettlementDbRow } from '@/lib/settlements';
+import { SETTLEMENT_COLUMNS, computeSettlementSummary, settlementValuesFromRow, type SettlementDbRow } from '@/lib/settlements';
 import { getShowBandsPaidStatus } from '@/lib/bands';
 import SettlementPdfDocument from '@/components/admin/SettlementPdfDocument';
 import { requireAdmin } from '@/lib/admin-session';
@@ -29,7 +29,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ show
     return NextResponse.json({ error: 'Show not found' }, { status: 404 });
   }
 
-  const [settlementRow] = await sql<SettlementDbRow[]>`select * from settlements where show_id = ${showId}`;
+  const [settlementRow] = await sql<SettlementDbRow[]>`
+    select ${sql(SETTLEMENT_COLUMNS)} from settlements where show_id = ${showId}
+  `;
   if (!settlementRow) {
     return NextResponse.json({ error: 'No settlement recorded' }, { status: 404 });
   }

@@ -12,6 +12,7 @@ import {
   normalizeBandIds,
   normalizeTargetBandCount,
   slugify,
+  SHOW_COLUMNS,
   type Show,
 } from '@/lib/shows';
 import {
@@ -279,13 +280,13 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
             update shows
             set ${setClause}, updated_at = now()
             where id = ${showId}
-            returning *, date::text as date
+            returning ${tx(SHOW_COLUMNS)}, bands, videos, date::text as date
           `
         : await tx`
             update shows
             set updated_at = now()
             where id = ${showId}
-            returning *, date::text as date
+            returning ${tx(SHOW_COLUMNS)}, bands, videos, date::text as date
           `;
       return row;
     });
