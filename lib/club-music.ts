@@ -411,6 +411,7 @@ export async function recentRoundTracks(
   eventId: number,
   limit: number
 ): Promise<{ tracks: ClubTrack[]; groupNames: Record<number, string | null>; total: number }> {
+  // select-star-ok: q is a subquery whose columns TRACK_SELECT_IN_ROUND lists.
   const rows = await sql<Array<TrackRow & { group_name: string | null; total_count: number }>>`
     select q.*, g.name as group_name, count(*) over ()::int as total_count
     from (
