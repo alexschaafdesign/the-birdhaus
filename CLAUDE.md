@@ -8,6 +8,10 @@ the three repos divide ownership and why.
 
 @docs/db-safety.md
 
+## SQL: name your columns
+
+No select *, alias.* or returning * in app code; the build enforces it. A migration that changes a column's type on shows, bands, settlements or submissions needs a plan for the pooler first. Ask before writing one.
+
 ## Square
 
 Never manually resend pre-081 `payment.updated` events for MULTI-ITEM orders

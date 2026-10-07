@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { sql } from '@/lib/db';
-import { isPaidMethod, type PaidMethod } from '@/lib/settlements';
+import { SETTLEMENT_COLUMNS, isPaidMethod, type PaidMethod } from '@/lib/settlements';
 import { requireAdmin } from '@/lib/admin-session';
 
 const DEAL_TYPES = ['straight_split', 'venue_guarantee_then_split'];
@@ -56,7 +56,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ show
     return NextResponse.json({ error: 'Invalid show id' }, { status: 400 });
   }
 
-  const [row] = await sql`select * from settlements where show_id = ${showId}`;
+  const [row] = await sql`select ${sql(SETTLEMENT_COLUMNS)} from settlements where show_id = ${showId}`;
   return NextResponse.json(row ?? null);
 }
 
@@ -216,7 +216,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ show
         photographer_paid_method = excluded.photographer_paid_method,
         door_paid_method = excluded.door_paid_method,
         updated_at = now()
-      returning *
+      returning ${sql(SETTLEMENT_COLUMNS)}
     `;
     return NextResponse.json(row);
   } catch (error) {

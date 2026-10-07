@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server';
 import { sql } from '@/lib/db';
-import { SUBMISSION_STATUSES, parseAvailability } from '@/lib/submissions';
+import { SUBMISSION_COLUMNS, SUBMISSION_STATUSES, parseAvailability } from '@/lib/submissions';
 import { requireAdmin } from '@/lib/admin-session';
 
 export async function GET() {
   const denied = await requireAdmin();
   if (denied) return denied;
-  const rows = await sql`select * from submissions order by created_at desc`;
+  const rows = await sql`select ${sql(SUBMISSION_COLUMNS)} from submissions order by created_at desc`;
   return NextResponse.json(rows);
 }
 
@@ -54,7 +54,7 @@ export async function POST(request: Request) {
       ${status},
       'manual'
     )
-    returning *
+    returning ${sql(SUBMISSION_COLUMNS)}
   `;
 
   return NextResponse.json(row, { status: 201 });
