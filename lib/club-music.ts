@@ -625,6 +625,69 @@ export async function getTrackAudioRef(
   return row ? { r2Key: row.r2_key, url: row.url } : null;
 }
 
+// The saved filename for a track download: title (path-unsafe characters
+// stripped) + the stored file's extension. Private keys always end in the
+// upload's extension (see createPrivatePresignedUploadUrl).
+export function trackDownloadName(title: string, ref: { r2Key: string | null; url: string | null }): string {
+  const source = ref.r2Key ?? ref.url ?? '';
+  const ext = source.split('?')[0].split('.').pop()?.toLowerCase().replace(/[^a-z0-9]/g, '');
+  const base = title.replace(/[\/\\:*?"<>|\x00-\x1f]/g, '').trim() || 'track';
+  return ext && ext.length <= 5 ? `${base}.${ext}` : base;
+}
+
+// For the owner-only download path: who uploaded it, plus storage pointers.
+export async function getTrackDownloadRef(id: number): Promise<{
+  memberId: number | null;
+  title: string;
+  r2Key: string | null;
+  url: string | null;
+} | null> {
+  const [row] = await sql<
+    Array<{ member_id: string | null; title: string; r2_key: string | null; url: string | null }>
+  >`
+    select member_id, title, r2_key, url from song_club_tracks where id = ${id}
+  `;
+  if (!row) return null;
+  return {
+    memberId: row.member_id === null ? null : Number(row.member_id),
+    title: row.title,
+    r2Key: row.r2_key,
+    url: row.url,
+  };
+}
+
+// One member's uploads in a round, for the "download all" zip: storage
+// pointers in the same day order as memberRoundTracks, plus the round's event
+// start date so filenames can say "Day N".
+export async function memberRoundDownloads(
+  playlistId: number,
+  memberId: number
+): Promise<{
+  eventTitle: string | null;
+  eventStartDate: string | null;
+  tracks: Array<{ title: string; day: string | null; r2Key: string | null; url: string | null }>;
+}> {
+  const [event] = await sql<Array<{ title: string; event_date: string }>>`
+    select title, event_date::text as event_date
+    from song_club_events where playlist_id = ${playlistId}
+    order by event_date desc limit 1
+  `;
+  const rows = await sql<
+    Array<{ title: string; day: string | null; r2_key: string | null; url: string | null }>
+  >`
+    select t.title, pt.day::text as day, t.r2_key, t.url
+    from song_club_tracks t
+    join song_club_playlist_tracks pt on pt.track_id = t.id
+    where pt.playlist_id = ${playlistId} and t.member_id = ${memberId}
+    order by pt.day asc nulls last, pt.position asc, t.id asc
+  `;
+  return {
+    eventTitle: event?.title ?? null,
+    eventStartDate: event?.event_date ?? null,
+    tracks: rows.map((r) => ({ title: r.title, day: r.day, r2Key: r.r2_key, url: r.url })),
+  };
+}
+
 export async function getTrack(id: number): Promise<ClubTrack | null> {
   const rows = await sql<TrackRow[]>`${TRACK_SELECT} where t.id = ${id}`;
   return rows[0] ? mapTrack(rows[0]) : null;

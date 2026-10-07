@@ -240,6 +240,15 @@ export default function TrackCard({
             </button>
           )}
           {canDeleteTrack && !dense && (
+            <a
+              href={`/api/club/audio/${track.id}?download=1`}
+              title="Download this track"
+              className="text-[11px] text-[#E8E0D0]/35 transition hover:text-[#E8E0D0]/80"
+            >
+              download
+            </a>
+          )}
+          {canDeleteTrack && !dense && (
             <button
               type="button"
               onClick={removeTrack}
