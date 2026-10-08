@@ -96,7 +96,34 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     if (typeof body.date !== 'string' || !ISO_DATE_RE.test(body.date)) {
       return NextResponse.json({ error: 'Invalid date' }, { status: 400 });
     }
-    updates.push({ column: 'date', value: body.date });
+    // Once a show is announced (or past) its date is frozen with its /shows/
+    // id (097): moving it is a postpone, never an edit. The form resends the
+    // date on every save, so only an actual change is refused. The DB trigger
+    // enforces the same rule as a backstop.
+    const [current] = await sql<Array<{ date: string; announced: boolean; past: boolean }>>`
+      select date::text as date, announced,
+             date < (now() at time zone 'America/Chicago')::date as past
+      from shows where id = ${showId}
+    `;
+    if (current && current.date !== body.date) {
+      if (current.announced || current.past) {
+        return NextResponse.json(
+          { error: `This show is ${current.announced ? 'announced' : 'past'}, so its date can't change. Use Postpone to move it to a new date.` },
+          { status: 409 }
+        );
+      }
+      updates.push({ column: 'date', value: body.date });
+    }
+  }
+
+  // Cancel / un-cancel. 'postponed' is set only by the postpone route (it
+  // creates the new night); setting either status here clears rescheduled_to.
+  if ('status' in body) {
+    if (body.status !== 'scheduled' && body.status !== 'cancelled') {
+      return NextResponse.json({ error: 'Invalid status' }, { status: 400 });
+    }
+    updates.push({ column: 'status', value: body.status });
+    updates.push({ column: 'rescheduled_to', value: null });
   }
 
   if ('slug' in body) {
@@ -298,7 +325,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     // Show pages (and band pages, since a show edit can create/link a band)
     // are statically generated with no revalidate window — without this the
     // public site keeps serving pre-edit HTML until the next deploy.
-    revalidatePath('/shows/[slug]', 'page');
+    revalidatePath('/shows/[id]', 'page');
     revalidatePath('/bands/[slug]', 'page');
     revalidatePath('/shows');
     revalidatePath('/bands');
@@ -310,6 +337,13 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   } catch (error) {
     if (error instanceof Error && 'code' in error && error.code === '23505') {
       return NextResponse.json({ error: 'A show with this slug already exists' }, { status: 409 });
+    }
+    // The 097 trigger's backstop, if the check above raced an announce.
+    if (error instanceof Error && 'constraint_name' in error && error.constraint_name === 'shows_date_frozen') {
+      return NextResponse.json(
+        { error: "This show is announced or past, so its date can't change. Use Postpone." },
+        { status: 409 }
+      );
     }
     throw error;
   }
@@ -325,7 +359,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
   }
 
   await sql`delete from shows where id = ${showId}`;
-  revalidatePath('/shows/[slug]', 'page');
+  revalidatePath('/shows/[id]', 'page');
   revalidatePath('/shows');
   // Deleting today's show changes tonight's TV program — drop the feed cache.
   revalidateTag(TV_FEED_TAG, { expire: 0 });

@@ -113,4 +113,7 @@ export type Night = {
   credits: Credits;
   /** Releases made from the whole night (release_links, band_id null). */
   releases?: Release[];
+  /** Where an admin edits this night (shows or song_club_events). Absent on
+   *  ?sample fixtures. */
+  adminHref?: string;
 };

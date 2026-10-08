@@ -11,6 +11,8 @@ import { portalRedirect } from '@/lib/site';
 export interface CalendarShow {
   id: number;
   slug: string;
+  /** The night's /shows/ URL segment (BH-…); falls back to the slug. */
+  catalogueId?: string;
   title: string;
   date: string;
   flyer?: string | null;
@@ -30,7 +32,7 @@ export default function CalendarView({
   draftShows,
   availableDates,
   isAdmin,
-  showHref = (show) => (show.type === 'song_club' ? portalRedirect(`/song-club/${show.slug}`) : `/shows/${show.slug}`),
+  showHref = (show) => (show.type === 'song_club' ? portalRedirect(`/song-club/${show.slug}`) : `/shows/${show.catalogueId || show.slug}`),
   dark,
 }: {
   shows: CalendarShow[];

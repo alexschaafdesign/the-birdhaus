@@ -98,7 +98,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     // Band pages, and show pages (which embed each band's bio/photo), are
     // statically generated with no revalidate window.
     revalidatePath('/bands/[slug]', 'page');
-    revalidatePath('/shows/[slug]', 'page');
+    revalidatePath('/shows/[id]', 'page');
     revalidatePath('/bands');
     revalidatePath('/shows');
 
@@ -122,7 +122,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
 
   await sql`delete from bands where id = ${bandId}`;
   revalidatePath('/bands/[slug]', 'page');
-  revalidatePath('/shows/[slug]', 'page');
+  revalidatePath('/shows/[id]', 'page');
   revalidatePath('/bands');
   revalidatePath('/shows');
   return NextResponse.json({ ok: true });

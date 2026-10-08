@@ -148,13 +148,15 @@ export async function getAllBandSlugs(): Promise<Map<number, string>> {
 export interface BandShow {
   id: number;
   slug: string;
+  catalogueId: string;
   title: string;
   date: string;
+  announced: boolean;
 }
 
 export async function getShowsForBand(bandId: number): Promise<BandShow[]> {
   return sql<BandShow[]>`
-    select s.id, s.slug, s.title, s.date::text as date
+    select s.id, s.slug, s.catalogue_id as "catalogueId", s.title, s.date::text as date, s.announced
     from show_bands sb
     join shows s on s.id = sb.show_id
     where sb.band_id = ${bandId}
@@ -353,6 +355,7 @@ export async function setBandPaymentMethod(
 
 export interface BandVideo {
   showSlug: string;
+  showCatalogueId: string;
   showTitle: string;
   youtube: string;
   title: string;
@@ -360,7 +363,7 @@ export interface BandVideo {
 
 export async function getVideosForBand(bandId: number): Promise<BandVideo[]> {
   return sql<BandVideo[]>`
-    select s.slug as "showSlug", s.title as "showTitle", v.youtube, v.title
+    select s.slug as "showSlug", s.catalogue_id as "showCatalogueId", s.title as "showTitle", v.youtube, v.title
     from band_videos bv
     join videos v on v.id = bv.video_id
     join show_videos sv on sv.video_id = v.id

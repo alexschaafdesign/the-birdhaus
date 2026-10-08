@@ -72,7 +72,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     }
     // A credit can push a show over (or back under) its cap — regenerate the
     // static show pages so the sold-out notice reflects it.
-    revalidatePath('/shows/[slug]', 'page');
+    revalidatePath('/shows/[id]', 'page');
     return NextResponse.json(rsvp);
   }
 

@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { sql } from '@/lib/db';
 import { claimAlertSlot, sendAdminAlertEmail } from '@/lib/alerts';
 import { createTierPaymentLink, isSquareSyncEnabled } from '@/lib/square';
-import { getTicketAvailability } from '@/lib/shows';
+import { getTicketAvailability, slugForShowParam } from '@/lib/shows';
 
 // On-demand Square checkout. Square API payment links are single-use — a stored
 // link shows a "payment confirmed" receipt to everyone after its first sale — so
@@ -15,8 +15,10 @@ import { getTicketAvailability } from '@/lib/shows';
 // variation server-side — we never trust a variation id supplied in the URL.
 export const dynamic = 'force-dynamic';
 
-export async function GET(request: Request, { params }: { params: Promise<{ slug: string }> }) {
-  const { slug } = await params;
+export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  // The segment is a catalogue id or an old slug; the checkout code below
+  // keys on the slug, unchanged.
+  const slug = await slugForShowParam((await params).id);
   const searchParams = new URL(request.url).searchParams;
   const amount = Number(searchParams.get('tier'));
   if (!Number.isInteger(amount) || amount <= 0) {

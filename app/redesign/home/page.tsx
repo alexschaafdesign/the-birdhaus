@@ -5,7 +5,6 @@ import type { Show } from '@/lib/shows';
 import {
   bandNames,
   broadcastDate,
-  catalogueId,
   isFreshCuts,
   shortDate,
   to24h,
@@ -95,16 +94,16 @@ async function liveModel(): Promise<Model> {
     next: next && {
       date: broadcastDate(next.date),
       dateTime: next.date,
-      catalogueId: catalogueId(next.date),
+      catalogueId: next.catalogueId,
       acts: actsFor(next),
       details: details(to24h(next.doorsTime) ?? '19:00'),
       spec: SPEC,
-      action: { href: `/shows/${next.slug}`, label: 'RSVP' },
+      action: { href: `/shows/${next.catalogueId}`, label: 'RSVP' },
     },
     rows: upcoming.slice(1).map((show) => ({
       key: String(show.id),
-      href: `/shows/${show.slug}`,
-      catalogueId: catalogueId(show.date),
+      href: `/shows/${show.catalogueId}`,
+      catalogueId: show.catalogueId,
       date: shortDate(show.date),
       lineup: bandNames(show).join(' · ') || show.title,
       series: isFreshCuts(show.slug) ? 'fc' : 'bh',
@@ -114,8 +113,8 @@ async function liveModel(): Promise<Model> {
       .slice(0, RECORDING_COUNT)
       .map(({ show, video }) => ({
         key: `${show.id}-${video.youtube}`,
-        href: `/shows/${show.slug}`,
-        catalogueId: catalogueId(show.date),
+        href: `/shows/${show.catalogueId}`,
+        catalogueId: show.catalogueId,
         title: video.title || bandNames(show).join(' · ') || show.title,
         thumbnail: `https://i.ytimg.com/vi/${video.youtube}/mqdefault.jpg`,
       })),

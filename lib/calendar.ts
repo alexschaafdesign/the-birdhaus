@@ -39,6 +39,9 @@ export function songClubEventToShow(e: CalendarEvent): Show {
   return {
     id: e.id,
     slug: e.slug,
+    // Song Club events aren't house nights: no BH id, never a /shows/ page.
+    catalogueId: '',
+    status: 'scheduled',
     title: e.title,
     date: e.event_date,
     doorsTime: timeLine,

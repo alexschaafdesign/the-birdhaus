@@ -312,7 +312,7 @@ export type FreshPaymentLink = { url: string; paymentLinkId: string; orderId: st
 // ONLY: a link is bound to its order and, after the first purchase, permanently
 // shows that order's "payment confirmed" receipt to everyone. The API cannot
 // create reusable links (only the Square Dashboard can). So instead of storing
-// three static links per show, `/shows/[slug]/checkout` calls this per click
+// three static links per show, `/shows/[id]/checkout` calls this per click
 // and 302s the buyer to the fresh link — unlimited buyers, and the order keeps
 // its catalog `catalog_object_id` so getShowPurchases still matches by variation.
 // Returns undefined when Square sync is disabled (dev); throws on API error.
