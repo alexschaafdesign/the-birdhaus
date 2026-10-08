@@ -139,6 +139,11 @@ type SoundEngineerStatus = 'confirmed' | 'asked' | 'declined';
 export interface ShowFormInitialValues {
   id?: number;
   slug?: string;
+  // The night's public id and URL segment (/shows/BH-…), minted by the DB.
+  catalogueId?: string;
+  status?: 'scheduled' | 'cancelled' | 'postponed';
+  // A postponed show's replacement night.
+  rescheduledTo?: { id: number; catalogueId: string; date: string } | null;
   title?: string;
   date?: string;
   doorsTime?: string | null;
@@ -207,6 +212,7 @@ interface FormState {
   announced: boolean;
   targetBandCount: number;
   advanceSent: boolean;
+  status: 'scheduled' | 'cancelled' | 'postponed';
 }
 
 function initFormState(initial?: ShowFormInitialValues): FormState {
@@ -302,6 +308,7 @@ function initFormState(initial?: ShowFormInitialValues): FormState {
     announced: initial?.announced ?? false,
     targetBandCount: initial?.targetBandCount ?? 3,
     advanceSent: initial?.advanceSent ?? false,
+    status: initial?.status ?? 'scheduled',
   };
 }
 
@@ -388,6 +395,46 @@ export default function ShowForm({
   // A show is "past" once its date is before today (local). Post-show edits
   // hide the pre-show "bands available this date" helper.
   const isPastShow = /^\d{4}-\d{2}-\d{2}$/.test(form.date) && form.date < todayISODate();
+
+  // Once saved as announced, or once it's happened, the date is frozen with
+  // the show's /shows/ id: moving it is a Postpone (a new night with its own
+  // id), never an edit. Judged on what's saved, not the unsaved checkbox, so
+  // a draft can still be re-dated and announced in one save.
+  const savedDate = initialValues?.date ?? '';
+  const dateFrozen =
+    mode === 'edit' &&
+    (Boolean(initialValues?.announced) || (/^\d{4}-\d{2}-\d{2}$/.test(savedDate) && savedDate < todayISODate()));
+  const [postponeDate, setPostponeDate] = useState('');
+  const [postponing, setPostponing] = useState(false);
+  const [showPostpone, setShowPostpone] = useState(false);
+
+  async function handlePostpone() {
+    if (!initialValues?.id || !/^\d{4}-\d{2}-\d{2}$/.test(postponeDate)) return;
+    if (
+      !confirm(
+        `Postpone to ${postponeDate}? This creates the new night as its own show and marks this one postponed. ` +
+          'Square tickets are not moved: set them up on the new show, and handle refunds in Square.'
+      )
+    ) {
+      return;
+    }
+    setPostponing(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/admin/shows/${initialValues.id}/postpone`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ date: postponeDate }),
+      });
+      const body = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(body?.error || 'Failed to postpone');
+      router.push(`/admin/shows/${body.id}`);
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to postpone');
+      setPostponing(false);
+    }
+  }
 
   function set<K extends keyof FormState>(field: K, value: FormState[K]) {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -668,6 +715,8 @@ export default function ShowForm({
       announced: form.announced,
       targetBandCount: form.targetBandCount,
       advanceSent: form.advanceSent,
+      // Cancel / un-cancel on edit. 'postponed' only comes from Postpone.
+      ...(mode === 'edit' && form.status !== 'postponed' ? { status: form.status } : {}),
     };
 
     setSubmitting(true);
@@ -1163,9 +1212,78 @@ export default function ShowForm({
             type="date"
             value={form.date}
             onChange={(e) => set('date', e.target.value)}
-            className={`${inputClass} w-full min-w-0 appearance-none`}
+            disabled={dateFrozen || form.status === 'postponed'}
+            className={`${inputClass} w-full min-w-0 appearance-none disabled:opacity-60`}
           />
+          {dateFrozen && (
+            <div className="mt-1.5 space-y-2 text-xs text-[#E8E0D0]/60">
+              <p>
+                {initialValues?.announced ? 'Announced' : 'Past'}: the date is locked to this night&apos;s page.{' '}
+                {!isPastShow && form.status === 'scheduled' && initialValues?.status !== 'cancelled' && (
+                  <button
+                    type="button"
+                    onClick={() => setShowPostpone((v) => !v)}
+                    className="underline hover:text-[#E8E0D0]"
+                  >
+                    Postpone…
+                  </button>
+                )}
+              </p>
+              {showPostpone && !isPastShow && form.status === 'scheduled' && (
+                <div className="flex flex-wrap items-center gap-2">
+                  <input
+                    type="date"
+                    value={postponeDate}
+                    onChange={(e) => setPostponeDate(e.target.value)}
+                    className={`${inputClass} min-w-0 appearance-none`}
+                    aria-label="New date"
+                  />
+                  <button
+                    type="button"
+                    onClick={handlePostpone}
+                    disabled={postponing || !postponeDate || postponeDate === savedDate}
+                    className="rounded bg-[#E8E0D0] px-3 py-1.5 text-xs font-medium text-[#2A2420] disabled:opacity-40"
+                  >
+                    {postponing ? 'Postponing…' : 'Postpone to this date'}
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
         </div>
+        {mode === 'edit' && initialValues?.catalogueId && (
+          <div>
+            <label className="block text-xs uppercase tracking-wide text-[#E8E0D0]/40 mb-1">Status</label>
+            {form.status === 'postponed' ? (
+              <p className="py-1.5 text-sm">
+                Postponed
+                {initialValues.rescheduledTo && (
+                  <>
+                    {' → '}
+                    <Link href={`/admin/shows/${initialValues.rescheduledTo.id}`} className="underline">
+                      {initialValues.rescheduledTo.catalogueId} ({initialValues.rescheduledTo.date})
+                    </Link>
+                  </>
+                )}
+              </p>
+            ) : (
+              <select
+                value={form.status}
+                onChange={(e) => set('status', e.target.value as 'scheduled' | 'cancelled')}
+                className={`${inputClass} w-full`}
+              >
+                <option value="scheduled">Scheduled</option>
+                <option value="cancelled">Cancelled</option>
+              </select>
+            )}
+            <p className="mt-1.5 text-xs text-[#E8E0D0]/60">
+              Page:{' '}
+              <a href={`/shows/${initialValues.catalogueId}`} target="_blank" rel="noopener noreferrer" className="font-mono underline">
+                /shows/{initialValues.catalogueId}
+              </a>
+            </p>
+          </div>
+        )}
         <div className="flex gap-3">
           <div className="flex-1">
             <label className="block text-xs uppercase tracking-wide text-[#E8E0D0]/40 mb-1">Doors time</label>

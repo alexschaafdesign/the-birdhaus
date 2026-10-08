@@ -1,4 +1,4 @@
-import { findShowSlugIgnoringCase, getShowBySlug, getTicketAvailability } from '@/lib/shows';
+import { findShowSlugIgnoringCase, getShowBySlug, getTicketAvailability, slugForShowParam } from '@/lib/shows';
 import { sql } from '@/lib/db';
 import { notFound, permanentRedirect } from 'next/navigation';
 import Link from 'next/link';
@@ -33,9 +33,9 @@ function dollars(cents: number): string {
 export async function generateMetadata({
   params,
 }: {
-  params: Promise<{ slug: string }>;
+  params: Promise<{ id: string }>;
 }): Promise<Metadata> {
-  const { slug } = await params;
+  const slug = await slugForShowParam((await params).id);
   const show = await getShowBySlug(slug);
   if (!show) return {};
   return { title: `Donate — ${show.title}`, robots: { index: false } };
@@ -45,10 +45,12 @@ export default async function TicketsPage({
   params,
   searchParams,
 }: {
-  params: Promise<{ slug: string }>;
+  params: Promise<{ id: string }>;
   searchParams: Promise<{ checkout_error?: string; sold_out?: string; left?: string }>;
 }) {
-  const { slug } = await params;
+  // The segment is a catalogue id or an old slug (Phase 3 turns slugs into
+  // 308s to the id); the ticket code below still keys on the slug.
+  const slug = await slugForShowParam((await params).id);
   const show = await getShowBySlug(slug);
   if (!show) {
     // A case-only mismatch (old capitalised link) → 308 to the stored slug,

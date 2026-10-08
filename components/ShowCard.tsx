@@ -20,7 +20,7 @@ export default function ShowCard({ show, draft }: { show: Show; draft?: boolean 
     ? `/admin/shows/${show.id}`
     : isSongClub
       ? portalRedirect(`/song-club/${show.slug}`)
-      : `/shows/${show.slug}`;
+      : `/shows/${show.catalogueId}`;
 
   return (
     <Link

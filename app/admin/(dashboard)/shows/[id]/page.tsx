@@ -14,6 +14,9 @@ export const dynamic = 'force-dynamic';
 interface ShowRow {
   id: number;
   slug: string;
+  catalogue_id: string;
+  status: 'scheduled' | 'cancelled' | 'postponed';
+  rescheduled_to: string | number | null;
   title: string;
   date: string;
   doors_time: string | null;
@@ -103,9 +106,21 @@ export default async function EditShowPage({ params }: { params: Promise<{ id: s
   const assignedPhotographerName =
     row.photographer_id != null ? photoCredits.get(row.photographer_id)?.name ?? null : null;
 
+  // A postponed show links to the night that replaced it.
+  const [rescheduled] = row.rescheduled_to != null
+    ? await sql<{ id: string; catalogue_id: string; date: string }[]>`
+        select id, catalogue_id, date::text as date from shows where id = ${row.rescheduled_to}
+      `
+    : [];
+
   const initialValues: ShowFormInitialValues = {
     id: row.id,
     slug: row.slug,
+    catalogueId: row.catalogue_id,
+    status: row.status,
+    rescheduledTo: rescheduled
+      ? { id: Number(rescheduled.id), catalogueId: rescheduled.catalogue_id, date: rescheduled.date }
+      : null,
     title: row.title,
     date: row.date,
     doorsTime: row.doors_time,

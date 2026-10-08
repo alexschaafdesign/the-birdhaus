@@ -1,8 +1,8 @@
 import { sql } from '@/lib/db';
-import { getAllShows, getTodayCentral, type Show } from '@/lib/shows';
+import { getAllShows, getNightDateCentral, type Show } from '@/lib/shows';
 import { getAllBandSlugs } from '@/lib/bands';
 import { getPhotographerCredits } from '@/lib/photographers';
-import { catalogueId, freshCutsTag, sameDateId, setCatalogueId, songADayId, to24h } from '@/lib/catalogue';
+import { freshCutsTag, setCatalogueId, songADayId, to24h } from '@/lib/catalogue';
 import type { ArchiveSet, Night, Photo, Release } from './types';
 
 // Adapts the shows table (lib/shows) into archive Nights — the shows table is
@@ -130,9 +130,9 @@ function setsFor(
 // stands in for a lineup.
 async function songADayNights(today: string): Promise<Night[]> {
   const rows = await sql<
-    Array<{ title: string; event_date: string; end_date: string | null; catalogue_number: number }>
+    Array<{ id: string; title: string; event_date: string; end_date: string | null; catalogue_number: number }>
   >`
-    select title, event_date::text, end_date::text, catalogue_number
+    select id, title, event_date::text, end_date::text, catalogue_number
     from song_club_events
     where published and song_a_day and catalogue_number is not null
       and coalesce(end_date, event_date) < ${today}::date
@@ -146,35 +146,30 @@ async function songADayNights(today: string): Promise<Night[]> {
     sets: [],
     media: {},
     credits: {},
+    adminHref: `/admin/song-club/${Number(r.id)}/edit`,
   }));
 }
 
 export async function getLiveNights(): Promise<Night[]> {
   const [shows, bandSlugs] = await Promise.all([getAllShows(), getAllBandSlugs()]);
-  const today = getTodayCentral();
-  const past = shows
-    .filter((s) => s.date < today && (s.type ?? 'show') === 'show')
-    // Oldest first (then id) so a same-date collision suffixes the later row.
-    .sort((a, b) => a.date.localeCompare(b.date) || Number(a.id) - Number(b.id));
+  // Past by the 5am-after cutoff, same as the show page. Cancelled and
+  // postponed nights never happened, so they aren't archive nights.
+  const nightDate = getNightDateCentral();
+  const past = shows.filter(
+    (s) => s.date < nightDate && (s.type ?? 'show') === 'show' && s.status === 'scheduled'
+  );
 
   const [credits, extras, sadNights] = await Promise.all([
     getPhotographerCredits(
       past.flatMap((s) => (s.photos ?? []).map((p) => p.photographerId)).filter((n): n is number => n != null)
     ),
     loadExtras(past.map((s) => Number(s.id))),
-    songADayNights(today),
+    songADayNights(nightDate),
   ]);
 
-  // BH ids derive from the date, so two shows on one date would collide. The
-  // later one gets a lowercase letter suffix (BH-250307b) rather than a silent
-  // clash.
-  const seen = new Map<string, number>();
-
   const showNights = past.map((show): Night => {
-    const base = catalogueId(show.date);
-    const n = seen.get(base) ?? 0;
-    seen.set(base, n + 1);
-    const id = sameDateId(base, n);
+    // Stored and minted by the DB (097), suffix included (BH-250307b).
+    const id = show.catalogueId;
 
     const lineupIds = new Set(
       show.bands.flatMap((b) => (typeof b !== 'string' && b.bandId != null ? [Number(b.bandId)] : []))
@@ -237,6 +232,7 @@ export async function getLiveNights(): Promise<Night[]> {
         photos: photoCredits.length ? photoCredits : undefined,
       },
       releases: extras.releases.get(`${Number(show.id)}:night`),
+      adminHref: `/admin/shows/${Number(show.id)}`,
     };
   });
 

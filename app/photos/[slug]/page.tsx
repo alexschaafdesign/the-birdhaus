@@ -108,7 +108,7 @@ export default async function PhotographerPage({
                 <section key={gallery.showSlug}>
                   <div className="mb-4 flex items-baseline justify-between gap-3">
                     <Link
-                      href={`/shows/${gallery.showSlug}`}
+                      href={`/shows/${gallery.showCatalogueId}`}
                       className="text-2xl font-bold hover:underline"
                     >
                       {gallery.showTitle}

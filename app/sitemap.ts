@@ -27,11 +27,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     getPublicPhotographers(),
   ]);
 
-  // Only public show pages: past shows (already happened) and announced upcoming.
+  // Only public show pages: past shows (already happened) and announced
+  // upcoming, at their one URL per night (/shows/BH-…; old slug URLs 308
+  // there). Cancelled / postponed nights are noindex, so they're left out.
   const showEntries: MetadataRoute.Sitemap = shows
-    .filter((show) => show.date < today || show.announced)
+    .filter((show) => (show.date < today || show.announced) && show.status === 'scheduled')
     .map((show) => ({
-      url: `${SITE_URL}/shows/${show.slug}`,
+      url: `${SITE_URL}/shows/${show.catalogueId}`,
       changeFrequency: 'monthly',
       priority: 0.6,
     }));

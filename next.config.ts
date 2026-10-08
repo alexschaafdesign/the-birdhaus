@@ -73,6 +73,14 @@ const nextConfig: NextConfig = {
     return [
       { source: '/club', destination: '/song-club', permanent: true },
       { source: '/club/:path*', destination: '/song-club/:path*', permanent: true },
+      // One page per night is /shows/BH-… (or SAD-…); /archive is the index.
+      // Any casing here — the show page itself 308s to the canonical spelling.
+      // Old slug URLs (/shows/2025-03-29-caley-conway) redirect in the page,
+      // since that needs the DB.
+      { source: '/archive/:id((?:[bB][hH]|[sS][aA][dD])-[0-9][0-9a-zA-Z]*)', destination: '/shows/:id', permanent: true },
+      // The 2027 archive preview's old home.
+      { source: '/redesign/archive', destination: '/archive', permanent: true },
+      { source: '/redesign/archive/:id', destination: '/shows/:id', permanent: true },
       ...portalSplitRedirects(),
     ];
   },

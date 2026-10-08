@@ -237,6 +237,7 @@ interface ShowForAdvanceRow {
   title: string;
   date: string | null;
   slug: string;
+  catalogue_id: string;
   sound_engineer_name: string | null;
 }
 
@@ -249,6 +250,7 @@ async function loadShowForAdvance(showId: number): Promise<ShowForAdvanceRow | n
       s.title,
       s.date::text as date,
       s.slug,
+      s.catalogue_id,
       coalesce(
         (select se.name
          from show_sound_engineers sse
@@ -297,7 +299,7 @@ function buildTemplateVars(
     // Editable, but defaults to the show's confirmed engineer.
     sound_engineer: saved.sound_engineer || (show.sound_engineer_name ?? ''),
     lineup: formatLineup(recipients.map((r) => r.name)),
-    show_url: showAdvanceUrl(show.slug),
+    show_url: showAdvanceUrl(show.catalogue_id),
     hub_url: hubUrl,
     show_date: show.date ? formatAdvanceDate(show.date) : '',
   };
