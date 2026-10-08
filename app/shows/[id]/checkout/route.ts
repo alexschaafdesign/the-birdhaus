@@ -27,6 +27,16 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   // Optional party size chosen on /tickets. Square's checkout page has no quantity
   // field, so we bake it into the order. Clamp to 1..10 (createTierPaymentLink also
   // clamps); default to 1 when absent or garbage.
+  // Guard, in front of the ticket logic below: a cancelled or postponed show
+  // sells nothing. Back to its page, which carries the notice (and, when
+  // postponed, the link to the new date's tickets).
+  const [gate] = await sql<{ catalogueId: string; status: string }[]>`
+    select catalogue_id as "catalogueId", status from shows where slug = ${slug} limit 1
+  `;
+  if (gate && gate.status !== 'scheduled') {
+    return NextResponse.redirect(new URL(`/shows/${gate.catalogueId}?tickets=closed`, request.url), 302);
+  }
+
   const qtyRaw = Number(searchParams.get('qty'));
   const quantity = Number.isInteger(qtyRaw) && qtyRaw > 0 ? Math.min(qtyRaw, 10) : 1;
 

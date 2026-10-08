@@ -157,7 +157,15 @@ export default async function NightPage({ params, searchParams }: { params: Para
     // fall through to the plain page, without tickets.
   }
 
-  return <ShowNight show={show} state={state} isAdmin={isAdmin} flag={isPrivateBooking(show, nightDate) ? 'UNANNOUNCED' : null} />;
+  return (
+    <ShowNight
+      show={show}
+      state={state}
+      isAdmin={isAdmin}
+      flag={isPrivateBooking(show, nightDate) ? 'UNANNOUNCED' : null}
+      ticketsClosed={query.tickets === 'closed'}
+    />
+  );
 }
 
 // ---- upcoming / tonight / cancelled / postponed ------------------------------
@@ -167,11 +175,13 @@ async function ShowNight({
   state,
   isAdmin,
   flag,
+  ticketsClosed,
 }: {
   show: Show;
   state: NightState;
   isAdmin: boolean;
   flag: string | null;
+  ticketsClosed: boolean;
 }) {
   const ahead = state === 'upcoming' || state === 'tonight';
   const [bands, availability, replacement] = await Promise.all([
@@ -201,7 +211,7 @@ async function ShowNight({
   // The replacement night is linked only when it's public.
   const newDate =
     replacement && (replacement.announced || isAdmin)
-      ? { id: replacement.catalogueId, date: replacement.date }
+      ? { id: replacement.catalogueId, date: replacement.date, tickets: Boolean(replacement.ticketUrl) }
       : null;
 
   const fc = freshCutsTag(show.slug);
@@ -228,7 +238,7 @@ async function ShowNight({
         </section>
       )}
 
-      {notice && <StatusNotice status={state} newDate={newDate} />}
+      {notice && <StatusNotice status={state} newDate={newDate} ticketsClosed={ticketsClosed} />}
 
       <div className="grid items-start gap-8 lg:grid-cols-2">
         {show.flyer && (

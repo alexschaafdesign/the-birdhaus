@@ -141,10 +141,13 @@ export function Panel({ label, children }: { label: string; children: ReactNode 
 export function StatusNotice({
   status,
   newDate,
+  ticketsClosed = false,
 }: {
   status: 'cancelled' | 'postponed';
-  /** The replacement show, when it's public. */
-  newDate?: { id: string; date: string } | null;
+  /** The replacement show, when it's public; `tickets` when it sells them. */
+  newDate?: { id: string; date: string; tickets: boolean } | null;
+  /** Landed here from /checkout, which refuses these shows (?tickets=closed). */
+  ticketsClosed?: boolean;
 }) {
   return (
     <section
@@ -161,6 +164,9 @@ export function StatusNotice({
             ? `This show moved to ${broadcastDate(newDate.date)}.`
             : 'This show is postponed. New date to be announced.'}
       </p>
+      {ticketsClosed && (
+        <p className="text-body-3 font-bold">Tickets for this date are no longer on sale.</p>
+      )}
       <p className="text-body-3 max-w-2xl leading-normal opacity-80">
         Bought a ticket? We&apos;ll be in touch. Questions:{' '}
         <Link href="/contact" className="underline">
@@ -169,13 +175,24 @@ export function StatusNotice({
         .
       </p>
       {status === 'postponed' && newDate && (
-        <Link
-          href={`/shows/${newDate.id}`}
-          className={`${buttonClassName('primary')} bg-surface-paper text-surface-ink w-fit`}
-        >
-          {newDate.id}
-          <ButtonArrow />
-        </Link>
+        <div className="flex flex-wrap gap-3">
+          <Link
+            href={`/shows/${newDate.id}`}
+            className={`${buttonClassName('primary')} bg-surface-paper text-surface-ink w-fit`}
+          >
+            {newDate.id}
+            <ButtonArrow />
+          </Link>
+          {newDate.tickets && (
+            <Link
+              href={`/shows/${newDate.id}/tickets`}
+              className={`${buttonClassName('secondary')} border-surface-paper text-surface-paper w-fit`}
+            >
+              Tickets for the new date
+              <ButtonArrow />
+            </Link>
+          )}
+        </div>
       )}
     </section>
   );
