@@ -36,7 +36,7 @@ type SortKey = 'active' | 'newest' | 'title' | 'status';
 // The whole pile ships to the client (this is a private tool with ~50-100
 // rows) so filtering and sorting are instant, no round trips.
 export default function BandSongList({
-  songs,
+  songs: allSongs,
   allTags,
   groups,
   workspace,
@@ -47,7 +47,17 @@ export default function BandSongList({
   workspace: { id: number; slug: string };
 }) {
   const router = useRouter();
-  const [view, setView] = useState<'all' | 'groups'>('all');
+  // Archived songs drop out of everything below except the Archived view.
+  const songs = useMemo(() => allSongs.filter((s) => !s.archivedAt), [allSongs]);
+  const archivedSongs = useMemo(
+    () =>
+      allSongs
+        .filter((s) => s.archivedAt)
+        .sort((a, b) => (b.archivedAt ?? '').localeCompare(a.archivedAt ?? '')),
+    [allSongs]
+  );
+  const liveIds = useMemo(() => new Set(songs.map((s) => s.id)), [songs]);
+  const [view, setView] = useState<'all' | 'groups' | 'archived'>('all');
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState<BandSongStatus | 'all'>('all');
   const [tags, setTags] = useState<string[]>([]);
@@ -185,6 +195,27 @@ export default function BandSongList({
     setBusy(false);
   }
 
+  async function setArchived(songId: number, archived: boolean) {
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/ostrich/songs/${songId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ archived }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        throw new Error(data?.error ?? `Couldn't update (${res.status})`);
+      }
+      setMenuFor(null);
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Something went wrong');
+    }
+    setBusy(false);
+  }
+
   // "New group…" inside the popover: create it and drop the song straight in.
   async function createGroupWithSong(songId: number) {
     const name = newGroupDraft.trim();
@@ -277,6 +308,15 @@ export default function BandSongList({
         >
           Groups{groups.length > 0 && ` ${groups.length}`}
         </button>
+        {(archivedSongs.length > 0 || view === 'archived') && (
+          <button
+            type="button"
+            onClick={() => setView('archived')}
+            className={view === 'archived' ? chipOn : chipOff}
+          >
+            Archived {archivedSongs.length}
+          </button>
+        )}
         <Link href={`/w/${workspace.slug}/lyrics`} className={chipOff}>
           Lyrics →
         </Link>
@@ -284,6 +324,53 @@ export default function BandSongList({
 
       {view === 'groups' ? (
         <BandGroupsView songs={songs} groups={groups} workspace={workspace} />
+      ) : view === 'archived' ? (
+        <div>
+          <p className="mb-4 text-xs text-[#E8E0D0]/45">
+            Out of the pile, groups and lyrics desk. Everything is kept — restore a song to bring
+            it back.
+          </p>
+          {error && (
+            <div className="mb-4 rounded-lg border border-[#F5A3A3]/40 bg-[#F5A3A3]/10 p-3 text-sm text-[#F5A3A3]">
+              {error}
+            </div>
+          )}
+          {archivedSongs.length === 0 ? (
+            <p className="py-8 text-center text-sm text-[#E8E0D0]/40">Nothing archived.</p>
+          ) : (
+            <div className="space-y-2">
+              {archivedSongs.map((song) => (
+                <div
+                  key={song.id}
+                  className="flex items-center justify-between gap-3 rounded-lg border border-[#E8E0D0]/10 p-4"
+                >
+                  <Link
+                    href={`/w/${workspace.slug}/songs/${song.id}`}
+                    className="flex min-w-0 items-center gap-2 hover:underline"
+                  >
+                    <span className="truncate text-sm text-[#E8E0D0]/75">{song.title}</span>
+                    <span
+                      className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-wide ${STATUS_PILL[song.status]}`}
+                    >
+                      {BAND_SONG_STATUS_LABEL[song.status]}
+                    </span>
+                  </Link>
+                  <span className="flex shrink-0 items-center gap-3 text-xs text-[#E8E0D0]/40">
+                    {song.archivedAt && `archived ${fmtDate(song.archivedAt)}`}
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => setArchived(song.id, false)}
+                      className="text-[#c8a26a] underline-offset-2 hover:underline disabled:opacity-50"
+                    >
+                      restore
+                    </button>
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       ) : (
         <>
       {/* Click-away for the row group popover. */}
@@ -372,7 +459,7 @@ export default function BandSongList({
                   className={mode === 'in' ? chipOn : mode === 'out' ? chipExc : chipOff}
                 >
                   {mode === 'out' && 'not '}
-                  {g.name} {g.songIds.length}
+                  {g.name} {g.songIds.filter((id) => liveIds.has(id)).length}
                 </button>
               );
             })}
@@ -565,6 +652,18 @@ export default function BandSongList({
                       Add
                     </button>
                   </form>
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setArchived(song.id, true);
+                    }}
+                    className="mt-2 w-full border-t border-[#E8E0D0]/10 px-2 pt-2 text-left text-xs text-[#E8E0D0]/50 transition hover:text-[#E8E0D0] disabled:opacity-50"
+                  >
+                    Archive song
+                  </button>
                 </div>
               )}
               {(song.tags.length > 0 || (songGroupNames.get(song.id)?.length ?? 0) > 0) && (

@@ -25,6 +25,8 @@ export interface BandSong {
   lyrics: string | null;
   lyricStage: LyricStage;
   pinned: boolean;
+  // Hidden from the pile/groups/desk, listed under Archived. Null = live.
+  archivedAt: string | null;
   createdBy: number | null;
   creatorName: string | null;
   createdAt: string;
@@ -118,6 +120,7 @@ interface SongRow {
   lyrics: string | null;
   lyric_stage: LyricStage;
   pinned: boolean;
+  archived_at: string | null;
   created_by: number | null;
   creator_name: string | null;
   created_at: string;
@@ -132,7 +135,7 @@ interface SongRow {
 }
 
 const SONG_SELECT = sql`
-  select s.id, s.workspace_id, s.title, s.status, s.tags, s.notes, s.lyric_stage, s.pinned,
+  select s.id, s.workspace_id, s.title, s.status, s.tags, s.notes, s.lyric_stage, s.pinned, s.archived_at::text as archived_at,
          s.created_by, u.name as creator_name,
          s.created_at::text as created_at, s.updated_at::text as updated_at,
          (select count(*)::int from band_song_versions v where v.song_id = s.id)
@@ -166,6 +169,7 @@ function mapSong(r: SongRow): BandSong {
     notes: r.notes,
     lyrics: r.lyrics?.trim() ? r.lyrics : null,
     lyricStage: r.lyric_stage,
+    archivedAt: r.archived_at,
     pinned: r.pinned,
     createdBy: r.created_by === null ? null : Number(r.created_by),
     creatorName: r.creator_name,
@@ -244,6 +248,7 @@ export async function updateSong(
     notes?: string | null;
     pinned?: boolean;
     lyricStage?: unknown;
+    archived?: boolean;
   }
 ): Promise<BandSong | null> {
   const title = typeof input.title === 'string' ? input.title.trim().slice(0, 200) || null : null;
@@ -261,6 +266,13 @@ export async function updateSong(
       notes = ${hasNotes ? notes : sql`notes`},
       pinned = coalesce(${input.pinned ?? null}, pinned),
       lyric_stage = coalesce(${lyricStage}, lyric_stage),
+      archived_at = ${
+        input.archived === undefined
+          ? sql`archived_at`
+          : input.archived
+            ? sql`coalesce(archived_at, now())`
+            : null
+      },
       updated_at = now()
     where id = ${id}
     returning id

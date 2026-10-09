@@ -82,6 +82,16 @@ export default function SongMetaEditor({
     }
   }
 
+  async function toggleArchive() {
+    setError(null);
+    try {
+      await patch({ archived: !song.archivedAt });
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Something went wrong');
+    }
+  }
+
   async function remove() {
     if (!window.confirm(`Delete “${song.title}” and all its versions and comments?`)) return;
     setBusy(true);
@@ -115,6 +125,11 @@ export default function SongMetaEditor({
               <span className="min-w-0 break-words">{song.title}</span>
             </h1>
             <div className="mt-2 flex flex-wrap items-center gap-1.5">
+              {song.archivedAt && (
+                <span className="rounded-full border border-[#E8E0D0]/30 px-2.5 py-0.5 text-xs uppercase tracking-wide text-[#E8E0D0]/55">
+                  Archived
+                </span>
+              )}
               <span className="rounded-full border border-[#c8a26a]/60 px-2.5 py-0.5 text-xs uppercase tracking-wide text-[#c8a26a]">
                 {BAND_SONG_STATUS_LABEL[song.status]}
               </span>
@@ -135,6 +150,13 @@ export default function SongMetaEditor({
               className="text-[#E8E0D0]/45 underline-offset-2 transition hover:text-[#E8E0D0] hover:underline"
             >
               {song.pinned ? 'Unpin' : 'Pin'}
+            </button>
+            <button
+              type="button"
+              onClick={toggleArchive}
+              className="text-[#E8E0D0]/45 underline-offset-2 transition hover:text-[#E8E0D0] hover:underline"
+            >
+              {song.archivedAt ? 'Unarchive' : 'Archive'}
             </button>
             <button
               type="button"
