@@ -78,7 +78,11 @@ export default async function WorkspaceSongPage({
       </div>
 
       <section className="mt-8">
-        <BandLyrics songId={song.id} revisions={lyricsRevisions} />
+        <BandLyrics
+          songId={song.id}
+          revisions={lyricsRevisions}
+          deskHref={`/w/${workspace.slug}/lyrics?song=${song.id}`}
+        />
       </section>
 
       <section className="mt-8">

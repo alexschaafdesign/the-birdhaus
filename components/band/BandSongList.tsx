@@ -277,6 +277,9 @@ export default function BandSongList({
         >
           Groups{groups.length > 0 && ` ${groups.length}`}
         </button>
+        <Link href={`/w/${workspace.slug}/lyrics`} className={chipOff}>
+          Lyrics →
+        </Link>
       </div>
 
       {view === 'groups' ? (

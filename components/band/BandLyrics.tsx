@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { LyricsRevision } from '@/lib/band-lyrics';
 
@@ -60,8 +61,11 @@ function fmtWhen(iso: string): string {
 export default function BandLyrics({
   songId,
   revisions,
+  deskHref,
 }: {
   songId: number;
+  // The same lyrics in the lyrics desk (autosaving, words-only editor).
+  deskHref?: string;
   // Newest first — [0] is the current lyrics.
   revisions: LyricsRevision[];
 }) {
@@ -132,6 +136,14 @@ export default function BandLyrics({
         </span>
         {!editing && (
           <div className="flex shrink-0 items-center gap-3 text-xs">
+            {deskHref && (
+              <Link
+                href={deskHref}
+                className="text-[#E8E0D0]/45 underline-offset-2 transition hover:text-[#E8E0D0] hover:underline"
+              >
+                lyrics desk
+              </Link>
+            )}
             {revisions.length > 0 && (
               <button
                 type="button"

@@ -6,7 +6,12 @@
 
 import { sql } from './db';
 import type { BandActor } from './club-members';
-import { BAND_SONG_STATUSES, type BandSongStatus } from './band-constants';
+import {
+  BAND_SONG_STATUSES,
+  LYRIC_STAGES,
+  type BandSongStatus,
+  type LyricStage,
+} from './band-constants';
 
 export interface BandSong {
   id: number;
@@ -18,6 +23,7 @@ export interface BandSong {
   // Current lyrics (latest revision body) — on the list so master-list
   // search can match a lyric line. Null when the song has none yet.
   lyrics: string | null;
+  lyricStage: LyricStage;
   pinned: boolean;
   createdBy: number | null;
   creatorName: string | null;
@@ -78,6 +84,10 @@ function actorMemberId(by: BandActor): number | null {
   return 'admin' in by ? null : by.memberId;
 }
 
+export function sanitizeLyricStage(input: unknown): LyricStage | null {
+  return LYRIC_STAGES.includes(input as LyricStage) ? (input as LyricStage) : null;
+}
+
 export function sanitizeStatus(input: unknown): BandSongStatus | null {
   return BAND_SONG_STATUSES.includes(input as BandSongStatus)
     ? (input as BandSongStatus)
@@ -106,6 +116,7 @@ interface SongRow {
   tags: string[];
   notes: string | null;
   lyrics: string | null;
+  lyric_stage: LyricStage;
   pinned: boolean;
   created_by: number | null;
   creator_name: string | null;
@@ -121,7 +132,7 @@ interface SongRow {
 }
 
 const SONG_SELECT = sql`
-  select s.id, s.workspace_id, s.title, s.status, s.tags, s.notes, s.pinned,
+  select s.id, s.workspace_id, s.title, s.status, s.tags, s.notes, s.lyric_stage, s.pinned,
          s.created_by, u.name as creator_name,
          s.created_at::text as created_at, s.updated_at::text as updated_at,
          (select count(*)::int from band_song_versions v where v.song_id = s.id)
@@ -154,6 +165,7 @@ function mapSong(r: SongRow): BandSong {
     tags: Array.isArray(r.tags) ? r.tags : [],
     notes: r.notes,
     lyrics: r.lyrics?.trim() ? r.lyrics : null,
+    lyricStage: r.lyric_stage,
     pinned: r.pinned,
     createdBy: r.created_by === null ? null : Number(r.created_by),
     creatorName: r.creator_name,
@@ -231,10 +243,12 @@ export async function updateSong(
     tags?: unknown;
     notes?: string | null;
     pinned?: boolean;
+    lyricStage?: unknown;
   }
 ): Promise<BandSong | null> {
   const title = typeof input.title === 'string' ? input.title.trim().slice(0, 200) || null : null;
   const status = sanitizeStatus(input.status);
+  const lyricStage = sanitizeLyricStage(input.lyricStage);
   const hasTags = input.tags !== undefined;
   const tags = sanitizeTags(input.tags);
   const hasNotes = input.notes !== undefined;
@@ -246,6 +260,7 @@ export async function updateSong(
       tags = ${hasTags ? tags : sql`tags`},
       notes = ${hasNotes ? notes : sql`notes`},
       pinned = coalesce(${input.pinned ?? null}, pinned),
+      lyric_stage = coalesce(${lyricStage}, lyric_stage),
       updated_at = now()
     where id = ${id}
     returning id

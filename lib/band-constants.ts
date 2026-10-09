@@ -14,3 +14,15 @@ export const BAND_SONG_STATUS_LABEL: Record<BandSongStatus, string> = {
   contender: 'Contender',
   cut: 'Cut',
 };
+
+// How finished a song's words are — independent of the song's status.
+export const LYRIC_STAGES = ['none', 'sketch', 'draft', 'done'] as const;
+
+export type LyricStage = (typeof LYRIC_STAGES)[number];
+
+export const LYRIC_STAGE_LABEL: Record<LyricStage, string> = {
+  none: 'No words',
+  sketch: 'Sketch',
+  draft: 'Draft',
+  done: 'Done',
+};
