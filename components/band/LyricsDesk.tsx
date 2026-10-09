@@ -11,7 +11,13 @@ import {
   LYRIC_STAGE_LABEL,
   type LyricStage,
 } from '@/lib/band-constants';
-import { HOLE_SPLIT_RE, lyricStats, parseLyrics } from '@/lib/lyric-text';
+import {
+  cleanLyrics,
+  lyricStats,
+  parseLyrics,
+  toggleFlags,
+  type LyricSegmentKind,
+} from '@/lib/lyric-text';
 
 // The lyrics desk: every song's words in one place. Rail of songs on the
 // left, a words-only editor in the middle, the latest demo + stats on the
@@ -32,7 +38,23 @@ const chipBase = 'rounded-full border px-2.5 py-0.5 text-[11px] transition';
 const chipOff = `${chipBase} border-[#E8E0D0]/20 text-[#E8E0D0]/60 hover:border-[#E8E0D0]/40`;
 const chipOn = `${chipBase} border-[#c8a26a] bg-[#c8a26a]/15 text-[#c8a26a]`;
 
-type SortKey = 'recent' | 'title' | 'holes';
+type SortKey = 'recent' | 'title' | 'work';
+
+// Backdrop colours per segment — color/background only (see the backdrop).
+const SEGMENT_CLASS: Record<LyricSegmentKind, string> = {
+  plain: '',
+  flag: 'text-[#F2A65A]',
+  hole: 'bg-[#F5A3A3]/20 text-[#F5A3A3]',
+  mark: 'text-[#E9D46A]/40',
+  highlight: 'bg-[#E9D46A]/25 text-[#F5EBB0]',
+  note: 'text-[#E8E0D0]/35',
+};
+
+// ⌘ on Macs, Ctrl elsewhere — Ctrl+E/B are caret moves in Mac text fields.
+function isModKey(e: React.KeyboardEvent): boolean {
+  const mac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform);
+  return mac ? e.metaKey && !e.ctrlKey : e.ctrlKey && !e.metaKey;
+}
 type SaveState = 'saved' | 'saving' | 'unsaved' | 'error';
 
 export default function LyricsDesk({
@@ -66,6 +88,7 @@ export default function LyricsDesk({
   const [sort, setSort] = useState<SortKey>('recent');
   const [saveState, setSaveState] = useState<SaveState>('saved');
   const [error, setError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
 
   // Autosave bookkeeping lives in refs so the timers and unload handler
   // always see the latest text without re-subscribing.
@@ -157,6 +180,79 @@ export default function LyricsDesk({
     timerRef.current = setTimeout(() => void flush(), AUTOSAVE_DELAY_MS);
   }
 
+  // Programmatic edits go through execCommand so ⌘Z still undoes them; the
+  // resulting input event reaches onChange like a keystroke would.
+  function replaceRange(start: number, end: number, text: string, sel: [number, number]) {
+    const ta = editorRef.current;
+    if (!ta) return;
+    ta.focus();
+    ta.setSelectionRange(start, end);
+    if (!document.execCommand('insertText', false, text)) {
+      edit(ta.value.slice(0, start) + text + ta.value.slice(end));
+    }
+    requestAnimationFrame(() => ta.setSelectionRange(sel[0], sel[1]));
+  }
+
+  function toggleFlagLines(from: number, to: number) {
+    const ta = editorRef.current;
+    if (!ta) return;
+    const all = ta.value.split('\n');
+    const start = all.slice(0, from).reduce((n, l) => n + l.length + 1, 0);
+    const block = all.slice(from, to + 1).join('\n');
+    const next = toggleFlags(block, 0, to - from);
+    if (next === block) return;
+    const end = start + block.length;
+    // One line: keep the caret where it was, shifted by the marker.
+    // Several: select the whole block so another ⌘E toggles it back.
+    const caret = ta.selectionStart;
+    const delta = next.length - block.length;
+    const sel: [number, number] =
+      from === to && caret >= start && caret <= end
+        ? [Math.max(start, caret + delta), Math.max(start, caret + delta)]
+        : [start, start + next.length];
+    replaceRange(start, end, next, sel);
+  }
+
+  function flagSelection() {
+    const ta = editorRef.current;
+    if (!ta) return;
+    const { selectionStart: a, selectionEnd: b, value } = ta;
+    const from = value.slice(0, a).split('\n').length - 1;
+    let to = value.slice(0, b).split('\n').length - 1;
+    // A selection ending at the very start of a line doesn't include it.
+    if (b > a && value[b - 1] === '\n') to--;
+    toggleFlagLines(from, Math.max(from, to));
+  }
+
+  // ⌘B: wrap the selection in ==…==, or unwrap the highlight the caret or
+  // selection sits in. Single-line only.
+  function toggleHighlight() {
+    const ta = editorRef.current;
+    if (!ta) return;
+    const { selectionStart: a, selectionEnd: b, value } = ta;
+    const lineStart = value.lastIndexOf('\n', a - 1) + 1;
+    const nl = value.indexOf('\n', a);
+    const lineEnd = nl === -1 ? value.length : nl;
+    if (b > lineEnd) return;
+    const line = value.slice(lineStart, lineEnd);
+    for (const m of line.matchAll(/==[^=\n]+?==/g)) {
+      const s = lineStart + (m.index ?? 0);
+      const e = s + m[0].length;
+      if (a >= s && b <= e) {
+        replaceRange(s, e, m[0].slice(2, -2), [s, e - 4]);
+        return;
+      }
+    }
+    if (a === b) return;
+    const picked = value.slice(a, b);
+    const lead = picked.length - picked.trimStart().length;
+    const trail = picked.length - picked.trimEnd().length;
+    const s = a + lead;
+    const e = b - trail;
+    if (e <= s) return;
+    replaceRange(s, e, `==${value.slice(s, e)}==`, [s + 2, e + 2]);
+  }
+
   // Leaving the page (or the tab going to the background) saves immediately.
   useEffect(() => {
     const onHide = () => {
@@ -192,10 +288,13 @@ export default function LyricsDesk({
       return s.title.toLowerCase().includes(q) || (bodies[s.id] ?? '').toLowerCase().includes(q);
     });
     if (sort === 'title') return [...list].sort((a, b) => a.title.localeCompare(b.title));
-    if (sort === 'holes')
-      return [...list].sort(
-        (a, b) => lyricStats(bodies[b.id]).holes - lyricStats(bodies[a.id]).holes
-      );
+    if (sort === 'work') {
+      const toFix = (id: number) => {
+        const st = lyricStats(bodies[id]);
+        return st.holes + st.flags;
+      };
+      return [...list].sort((a, b) => toFix(b.id) - toFix(a.id));
+    }
     return list;
   }, [songs, query, stageFilter, showCut, showArchived, sort, stages, bodies, selectedId]);
 
@@ -288,7 +387,7 @@ export default function LyricsDesk({
           >
             <option value="recent">recent</option>
             <option value="title">A–Z</option>
-            <option value="holes">most holes</option>
+            <option value="work">most to fix</option>
           </select>
         </div>
 
@@ -355,6 +454,9 @@ export default function LyricsDesk({
                         {` · ${st.holes} hole${st.holes === 1 ? '' : 's'}`}
                       </span>
                     )}
+                    {st.flags > 0 && (
+                      <span className="text-[#F2A65A]/80">{` · ${st.flags} flagged`}</span>
+                    )}
                   </span>
                 </button>
               </li>
@@ -415,6 +517,17 @@ export default function LyricsDesk({
 
           <div className="flex rounded-lg border border-[#E8E0D0]/15 bg-[#E8E0D0]/[0.03]">
             <div className="relative min-w-0 flex-1">
+              {/* Flagged-line bands, behind everything. */}
+              {lines.map((l, i) =>
+                l.flagged ? (
+                  <div
+                    key={i}
+                    aria-hidden
+                    className="pointer-events-none absolute inset-x-0 border-l-2 border-[#F2A65A] bg-[#F2A65A]/10"
+                    style={{ top: PAD_PX + i * LINE_PX, height: LINE_PX }}
+                  />
+                ) : null
+              )}
               {/* Highlight backdrop: same text, same metrics, drawn under a
                   transparent-text textarea. Color/background only — never
                   weight or size, which would shift glyph widths. */}
@@ -428,18 +541,16 @@ export default function LyricsDesk({
                   <span key={i}>
                     {l.kind === 'section' ? (
                       <span className="text-[#c8a26a]">{l.text}</span>
-                    ) : l.hasHole ? (
-                      l.text.split(HOLE_SPLIT_RE).map((part, j) =>
-                        j % 2 === 1 ? (
-                          <span key={j} className="bg-[#F5A3A3]/20 text-[#F5A3A3]">
-                            {part}
-                          </span>
+                    ) : (
+                      l.segments.map((seg, j) =>
+                        seg.kind === 'plain' ? (
+                          seg.text
                         ) : (
-                          part
+                          <span key={j} className={SEGMENT_CLASS[seg.kind]}>
+                            {seg.text}
+                          </span>
                         )
                       )
-                    ) : (
-                      l.text
                     )}
                     {'\n'}
                   </span>
@@ -450,6 +561,17 @@ export default function LyricsDesk({
                 key={selectedId ?? SCRATCH_ID}
                 value={body}
                 onChange={(e) => edit(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.altKey || e.shiftKey || !isModKey(e)) return;
+                  const k = e.key.toLowerCase();
+                  if (k === 'e') {
+                    e.preventDefault();
+                    flagSelection();
+                  } else if (k === 'b') {
+                    e.preventDefault();
+                    toggleHighlight();
+                  }
+                }}
                 onScroll={(e) => {
                   if (backdropRef.current)
                     backdropRef.current.scrollLeft = e.currentTarget.scrollLeft;
@@ -472,17 +594,31 @@ export default function LyricsDesk({
                 }}
               />
             </div>
-            {/* Syllables per line; "+" when a hole means the count is short. */}
+            {/* Syllables per line ("+" when a hole means the count is short).
+                Click a count to flag/unflag its line. */}
             <div
-              aria-hidden
-              className="w-10 shrink-0 select-none border-l border-[#E8E0D0]/10 pr-2 text-right text-[11px] tabular-nums text-[#E8E0D0]/35"
+              className="w-10 shrink-0 select-none border-l border-[#E8E0D0]/10 text-right text-[11px] tabular-nums"
               style={{ paddingTop: PAD_PX, lineHeight: `${LINE_PX}px` }}
             >
-              {lines.map((l, i) => (
-                <div key={i} style={{ height: LINE_PX }}>
-                  {l.kind === 'line' ? `${l.syllables}${l.hasHole ? '+' : ''}` : ''}
-                </div>
-              ))}
+              {lines.map((l, i) =>
+                l.kind === 'line' ? (
+                  <button
+                    key={i}
+                    type="button"
+                    onClick={() => toggleFlagLines(i, i)}
+                    title={l.flagged ? 'Unflag line (⌘E)' : 'Flag line (⌘E)'}
+                    aria-label={`${l.flagged ? 'Unflag' : 'Flag'} line ${i + 1}`}
+                    className={`block w-full pr-2 text-right transition hover:bg-[#F2A65A]/10 hover:text-[#F2A65A] ${
+                      l.flagged ? 'text-[#F2A65A]' : 'text-[#E8E0D0]/35'
+                    }`}
+                    style={{ height: LINE_PX }}
+                  >
+                    {l.syllables || l.hasHole ? `${l.syllables}${l.hasHole ? '+' : ''}` : ''}
+                  </button>
+                ) : (
+                  <div key={i} style={{ height: LINE_PX }} />
+                )
+              )}
             </div>
           </div>
 
@@ -520,18 +656,23 @@ export default function LyricsDesk({
             </div>
           )}
 
-          <dl className="grid grid-cols-3 gap-2 text-center">
+          <dl className="grid grid-cols-2 gap-2 text-center">
             {(
               [
                 ['lines', stats.lines],
                 ['words', stats.words],
                 ['holes', stats.holes],
+                ['flagged', stats.flags],
               ] as const
             ).map(([label, n]) => (
               <div key={label} className="rounded-md border border-[#E8E0D0]/10 py-2">
                 <dd
                   className={`text-lg tabular-nums ${
-                    label === 'holes' && n > 0 ? 'text-[#F5A3A3]' : 'text-[#E8E0D0]'
+                    n > 0 && label === 'holes'
+                      ? 'text-[#F5A3A3]'
+                      : n > 0 && label === 'flagged'
+                        ? 'text-[#F2A65A]'
+                        : 'text-[#E8E0D0]'
                   }`}
                 >
                   {n}
@@ -540,6 +681,20 @@ export default function LyricsDesk({
               </div>
             ))}
           </dl>
+
+          <button
+            type="button"
+            onClick={() => {
+              void navigator.clipboard.writeText(cleanLyrics(body)).then(() => {
+                setCopied(true);
+                setTimeout(() => setCopied(false), 1500);
+              });
+            }}
+            title="Copy without flags, highlights and notes"
+            className="text-xs text-[#E8E0D0]/45 underline-offset-2 transition hover:text-[#E8E0D0] hover:underline"
+          >
+            {copied ? 'copied ✓' : 'copy clean lyrics'}
+          </button>
 
           {song && (
             <p className="text-xs text-[#E8E0D0]/50">
@@ -576,6 +731,15 @@ export default function LyricsDesk({
             <p className="mt-1">
               <span className="bg-[#F5A3A3]/20 text-[#F5A3A3]">???</span> or{' '}
               <span className="bg-[#F5A3A3]/20 text-[#F5A3A3]">~</span> marks words still to write.
+            </p>
+            <p className="mt-1">
+              <span className="text-[#F2A65A]">⌘E</span> (or click a syllable count) flags the line;{' '}
+              <span className="bg-[#E9D46A]/25 text-[#F5EBB0]">⌘B</span> highlights the selected
+              words.
+            </p>
+            <p className="mt-1">
+              <span className="text-[#E8E0D0]/70">{'// note'}</span> at the end of a line is a note to
+              self.
             </p>
             <p className="mt-1">Saves as you type; each sitting is one entry in history.</p>
           </div>
