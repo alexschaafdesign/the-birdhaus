@@ -864,7 +864,6 @@ export default function LyricsDesk({
               key={song.id}
               songId={song.id}
               comments={songDetail.comments}
-              versions={songDetail.versions.map((v) => ({ id: v.id, label: v.label }))}
               viewerMemberId={viewerMemberId}
               canModerate={canModerate}
             />

@@ -119,7 +119,6 @@ export default async function WorkspaceSongPage({
         <BandSongComments
           songId={song.id}
           comments={comments}
-          versions={versions.map((v) => ({ id: v.id, label: v.label }))}
           viewerMemberId={viewerMemberId}
           canModerate={canModerate}
         />

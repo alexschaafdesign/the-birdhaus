@@ -7,25 +7,21 @@ import type { BandSongComment } from '@/lib/band-songs';
 const inputBase =
   'w-full rounded-md border border-[#E8E0D0]/20 bg-[#E8E0D0]/[0.03] px-3 py-2 text-sm text-[#E8E0D0] placeholder:text-[#E8E0D0]/30 focus:border-[#E8E0D0]/50 focus:outline-none transition';
 
-// The song's running thread. A comment can be about the song in general or
-// pinned to one version ("on: demo v2"); adding a timestamp UI can come later
-// (the column already exists).
+// The song's running thread. New comments are about the song as a whole;
+// older ones pinned to a version (or a moment in it) still show "on: …".
 export default function BandSongComments({
   songId,
   comments,
-  versions,
   viewerMemberId,
   canModerate,
 }: {
   songId: number;
   comments: BandSongComment[];
-  versions: Array<{ id: number; label: string }>;
   viewerMemberId: number | null;
   canModerate: boolean;
 }) {
   const router = useRouter();
   const [body, setBody] = useState('');
-  const [versionId, setVersionId] = useState<string>('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -38,15 +34,11 @@ export default function BandSongComments({
       const res = await fetch(`/api/ostrich/songs/${songId}/comments`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          body,
-          versionId: versionId ? Number(versionId) : null,
-        }),
+        body: JSON.stringify({ body }),
       });
       const data = await res.json().catch(() => null);
       if (!res.ok) throw new Error(data?.error ?? `Couldn't post (${res.status})`);
       setBody('');
-      setVersionId('');
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong');
@@ -123,21 +115,6 @@ export default function BandSongComments({
           className={`${inputBase} resize-y`}
         />
         <div className="flex items-center gap-2">
-          {versions.length > 0 && (
-            <select
-              value={versionId}
-              onChange={(e) => setVersionId(e.target.value)}
-              aria-label="About which version"
-              className="rounded-md border border-[#E8E0D0]/20 bg-[#E8E0D0]/[0.03] px-3 py-2 text-sm text-[#E8E0D0] transition focus:border-[#E8E0D0]/50 focus:outline-none"
-            >
-              <option value="">About the song</option>
-              {versions.map((v) => (
-                <option key={v.id} value={v.id}>
-                  on: {v.label}
-                </option>
-              ))}
-            </select>
-          )}
           <button
             type="submit"
             disabled={busy || !body.trim()}
