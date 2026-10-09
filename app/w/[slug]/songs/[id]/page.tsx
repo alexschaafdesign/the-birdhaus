@@ -62,10 +62,10 @@ export default async function WorkspaceSongPage({
   return (
     <main className="mx-auto w-full max-w-3xl px-5 py-6 text-[#E8E0D0] sm:px-8 sm:py-8">
       <Link
-        href={`/w/${workspace.slug}`}
+        href={`/w/${workspace.slug}?song=${song.id}`}
         className="text-xs text-[#E8E0D0]/45 underline-offset-2 transition hover:text-[#E8E0D0] hover:underline"
       >
-        ← All songs
+        ← Back to the desk
       </Link>
 
       <div className="mt-4">
@@ -81,7 +81,7 @@ export default async function WorkspaceSongPage({
         <BandLyrics
           songId={song.id}
           revisions={lyricsRevisions}
-          deskHref={`/w/${workspace.slug}/lyrics?song=${song.id}`}
+          deskHref={`/w/${workspace.slug}?song=${song.id}`}
         />
       </section>
 

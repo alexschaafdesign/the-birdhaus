@@ -497,7 +497,7 @@ export default function BandBulkImport({
         <div className="rounded-lg border border-[#c8a26a]/40 bg-[#c8a26a]/10 p-4 text-sm text-[#E8E0D0]">
           All {items.length} {items.length === 1 ? 'song' : 'songs'} added.{' '}
           <Link
-            href={`/w/${workspace.slug}`}
+            href={`/w/${workspace.slug}/songs`}
             className="text-[#c8a26a] underline-offset-2 hover:underline"
           >
             Back to the song pile

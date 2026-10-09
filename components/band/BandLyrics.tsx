@@ -62,10 +62,19 @@ export default function BandLyrics({
   songId,
   revisions,
   deskHref,
+  historyOnly = false,
+  onRestore,
+  onCurrentDeleted,
 }: {
   songId: number;
   // The same lyrics in the lyrics desk (autosaving, words-only editor).
   deskHref?: string;
+  // Lyrics desk mode: just the history browser — the desk owns editing, so
+  // a restore hands the text to it (onRestore) instead of saving here, and
+  // deleting the current revision tells it what the lyrics are now.
+  historyOnly?: boolean;
+  onRestore?: (body: string) => void;
+  onCurrentDeleted?: (nowCurrent: string) => void;
   // Newest first — [0] is the current lyrics.
   revisions: LyricsRevision[];
 }) {
@@ -75,7 +84,8 @@ export default function BandLyrics({
 
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState('');
-  const [historyOpen, setHistoryOpen] = useState(false);
+  const [historyToggled, setHistoryOpen] = useState(false);
+  const historyOpen = historyOnly || historyToggled;
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
@@ -117,6 +127,7 @@ export default function BandLyrics({
       }
       if (selectedId === id) setSelectedId(null);
       setConfirmDeleteId(null);
+      if (revisions[0]?.id === id) onCurrentDeleted?.(revisions[1]?.body ?? '');
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong');
@@ -126,15 +137,15 @@ export default function BandLyrics({
 
   const selectedIdx = selectedId === null ? -1 : revisions.findIndex((r) => r.id === selectedId);
   const selected = selectedIdx === -1 ? null : revisions[selectedIdx];
-  const selectedPrev = selectedIdx === -1 ? null : revisions[selectedIdx + 1] ?? null;
+  const selectedPrev = selectedIdx === -1 ? null : (revisions[selectedIdx + 1] ?? null);
 
   return (
     <div className="rounded-lg border border-[#E8E0D0]/15 bg-[#E8E0D0]/[0.03] p-4">
       <div className="mb-2 flex items-center justify-between gap-3">
         <span className="text-xs font-semibold uppercase tracking-wide text-[#E8E0D0]/45">
-          Lyrics
+          {historyOnly ? 'Lyrics history' : 'Lyrics'}
         </span>
-        {!editing && (
+        {!editing && !historyOnly && (
           <div className="flex shrink-0 items-center gap-3 text-xs">
             {deskHref && (
               <Link
@@ -207,6 +218,9 @@ export default function BandLyrics({
         </div>
       ) : historyOpen ? (
         <div className="space-y-3">
+          {revisions.length === 0 && (
+            <p className="text-sm text-[#E8E0D0]/40">Nothing saved yet.</p>
+          )}
           <div className="space-y-1">
             {revisions.map((r, i) => (
               <div
@@ -272,16 +286,17 @@ export default function BandLyrics({
           {selected && (
             <div className="rounded-md border border-[#E8E0D0]/10 p-3">
               <div className="mb-2 flex items-center justify-between gap-3 text-[11px] text-[#E8E0D0]/45">
-                <span>
-                  {selectedPrev
-                    ? 'changes vs the previous revision'
-                    : 'first revision'}
-                </span>
+                <span>{selectedPrev ? 'changes vs the previous revision' : 'first revision'}</span>
                 {selectedIdx !== 0 && (
                   <button
                     type="button"
                     disabled={busy}
-                    onClick={() => save(selected.body)}
+                    onClick={() => {
+                      if (onRestore) {
+                        onRestore(selected.body);
+                        setSelectedId(null);
+                      } else void save(selected.body);
+                    }}
                     className="text-[#c8a26a] underline-offset-2 transition hover:underline disabled:opacity-50"
                   >
                     restore this revision
@@ -313,8 +328,7 @@ export default function BandLyrics({
         </p>
       ) : (
         <p className="text-sm text-[#E8E0D0]/40">
-          No lyrics yet — every recording from here on will remember the words
-          it was made with.
+          No lyrics yet — every recording from here on will remember the words it was made with.
         </p>
       )}
 

@@ -179,3 +179,7 @@ export function toggleFlags(body: string, from: number, to: number): string {
   }
   return lines.join('\n');
 }
+
+// The lyrics desk keys the workspace scratch pad as song 0 (song ids start at
+// 1). Lives here, not in the client component, so the server page can use it.
+export const SCRATCH_ID = 0;

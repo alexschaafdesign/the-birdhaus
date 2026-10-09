@@ -1,34 +1,40 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import Link from 'next/link';
-import type { BandSong } from '@/lib/band-songs';
-import { BandPlayButton } from '@/components/band/BandAudio';
-import { bandSongToPlayerTrack } from '@/lib/player-tracks';
+import { useRouter } from 'next/navigation';
+import type { BandSong, BandSongComment, BandSongVersion } from '@/lib/band-songs';
+import type { LyricsRevision } from '@/lib/band-lyrics';
+import { bandVersionToPlayerTrack } from '@/lib/player-tracks';
+import { LYRIC_STAGES, LYRIC_STAGE_LABEL, type LyricStage } from '@/lib/band-constants';
 import {
-  BAND_SONG_STATUS_LABEL,
-  LYRIC_STAGES,
-  LYRIC_STAGE_LABEL,
-  type LyricStage,
-} from '@/lib/band-constants';
-import {
+  SCRATCH_ID,
   cleanLyrics,
   lyricStats,
   parseLyrics,
   toggleFlags,
   type LyricSegmentKind,
 } from '@/lib/lyric-text';
+import SongMetaEditor from '@/components/band/SongMetaEditor';
+import BandLyrics from '@/components/band/BandLyrics';
+import BandVersionCard from '@/components/band/BandVersionCard';
+import BandVersionUpload from '@/components/band/BandVersionUpload';
+import BandSongComments from '@/components/band/BandSongComments';
 
-// The lyrics desk: every song's words in one place. Rail of songs on the
-// left, a words-only editor in the middle, the latest demo + stats on the
-// right. Same document as the song page's Lyrics panel (lib/band-lyrics) —
-// the desk just autosaves, folding keystrokes into one revision per writing
-// session server-side. The workspace scratch pad (lines not tied to a song
-// yet) rides along in the same maps under SCRATCH_ID.
+// The lyrics desk — the workspace's main room. Rail of songs on the left, a
+// words-only editor in the middle (with the song's details above it), and
+// the open song's recordings, comments and lyrics history on the right.
+// Same lyrics document as the song page (lib/band-lyrics) — the desk just
+// autosaves, folding keystrokes into one revision per writing session
+// server-side. The workspace scratch pad (lines not tied to a song yet)
+// rides along in the same maps under SCRATCH_ID.
+//
+// Switching songs is router.replace(?song=…): the server page re-renders
+// with that song's `detail` while this component keeps its state (bodies,
+// filters, autosave queue). The reused song-page components refresh the
+// route after their own edits, which lands back here the same way.
 
 const AUTOSAVE_DELAY_MS = 1200;
-// Song ids start at 1, so 0 is free to key the scratch pad.
-export const SCRATCH_ID = 0;
 // Editor metrics — the textarea, the highlight backdrop and the syllable
 // gutter must share these exactly or the overlay drifts off the caret.
 const LINE_PX = 28;
@@ -56,19 +62,38 @@ function isModKey(e: React.KeyboardEvent): boolean {
   return mac ? e.metaKey && !e.ctrlKey : e.ctrlKey && !e.metaKey;
 }
 type SaveState = 'saved' | 'saving' | 'unsaved' | 'error';
+type PanelTab = 'recordings' | 'comments' | 'history';
+
+export interface DeskSongDetail {
+  songId: number;
+  versions: BandSongVersion[];
+  comments: BandSongComment[];
+  // Newest first.
+  revisions: LyricsRevision[];
+}
 
 export default function LyricsDesk({
   songs,
   workspace,
-  initialSongId,
+  selectedFromServer,
   scratch,
+  allTags,
+  detail,
+  viewerMemberId,
+  canModerate,
 }: {
   songs: BandSong[];
   workspace: { id: number; slug: string };
-  // A song id, SCRATCH_ID, or null for "first live song".
-  initialSongId: number | null;
+  // The song (or SCRATCH_ID) the server rendered detail for.
+  selectedFromServer: number;
   scratch: string;
+  allTags: string[];
+  detail: DeskSongDetail | null;
+  viewerMemberId: number | null;
+  canModerate: boolean;
 }) {
+  const router = useRouter();
+  const [, startTransition] = useTransition();
   const [bodies, setBodies] = useState<Record<number, string>>(() => ({
     [SCRATCH_ID]: scratch,
     ...Object.fromEntries(songs.map((s) => [s.id, s.lyrics ?? ''])),
@@ -76,11 +101,13 @@ export default function LyricsDesk({
   const [stages, setStages] = useState<Record<number, LyricStage>>(() =>
     Object.fromEntries(songs.map((s) => [s.id, s.lyricStage]))
   );
-  const [selectedId, setSelectedId] = useState<number | null>(() => {
-    if (initialSongId === SCRATCH_ID) return SCRATCH_ID;
-    if (initialSongId !== null && songs.some((s) => s.id === initialSongId)) return initialSongId;
-    return (songs.find((s) => s.status !== 'cut' && !s.archivedAt) ?? songs[0])?.id ?? SCRATCH_ID;
-  });
+  const [pickedId, setPickedId] = useState<number>(selectedFromServer);
+  // A pick that no longer exists (the song was just deleted) falls back to
+  // whatever the server chose.
+  const selectedId =
+    pickedId === SCRATCH_ID || songs.some((s) => s.id === pickedId) ? pickedId : selectedFromServer;
+  const [tab, setTab] = useState<PanelTab>('recordings');
+  const [newTitle, setNewTitle] = useState('');
   const [query, setQuery] = useState('');
   const [stageFilter, setStageFilter] = useState<LyricStage | null>(null);
   const [showCut, setShowCut] = useState(false);
@@ -156,7 +183,7 @@ export default function LyricsDesk({
             }
             savedRef.current[id] = body;
             // First words on a blank song: it's a sketch now.
-            if (id !== SCRATCH_ID && body.trim() && stagesRef.current[id] === 'none')
+            if (id !== SCRATCH_ID && body.trim() && (stagesRef.current[id] ?? 'none') === 'none')
               void setStage(id, 'sketch');
           } catch (err) {
             setError(err instanceof Error ? err.message : 'Something went wrong');
@@ -173,7 +200,6 @@ export default function LyricsDesk({
   );
 
   function edit(text: string) {
-    if (selectedId === null) return;
     setBodies((prev) => ({ ...prev, [selectedId]: text }));
     setSaveState('unsaved');
     if (timerRef.current) clearTimeout(timerRef.current);
@@ -271,19 +297,62 @@ export default function LyricsDesk({
   const select = useCallback(
     (id: number, focusEditor = false) => {
       void flush();
-      setSelectedId(id);
-      window.history.replaceState(null, '', `?song=${id === SCRATCH_ID ? 'scratch' : id}`);
+      setPickedId(id);
+      startTransition(() =>
+        router.replace(`?song=${id === SCRATCH_ID ? 'scratch' : id}`, { scroll: false })
+      );
       if (focusEditor) requestAnimationFrame(() => editorRef.current?.focus());
     },
-    [flush]
+    [flush, router]
   );
+
+  async function addSong(e: React.FormEvent) {
+    e.preventDefault();
+    const title = newTitle.trim();
+    if (!title) return;
+    setError(null);
+    const res = await fetch('/api/ostrich/songs', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title, workspaceId: workspace.id }),
+    }).catch(() => null);
+    const data = await res?.json().catch(() => null);
+    if (!res?.ok || !data?.song) {
+      setError(data?.error ?? "Couldn't add the song");
+      return;
+    }
+    setNewTitle('');
+    select(Number(data.song.id), true);
+  }
+
+  // The history tab reads server revisions; autosaves since the last render
+  // aren't in them yet, so opening it re-fetches.
+  function openTab(next: PanelTab) {
+    setTab(next);
+    if (next === 'history') {
+      void flush().then(() => startTransition(() => router.refresh()));
+    }
+  }
+
+  // History restore: becomes the editor's text and autosaves like typing.
+  function restoreLyrics(text: string) {
+    edit(text);
+    void flush();
+  }
+
+  // The current revision was deleted: the server's lyrics are now the one
+  // before it, so the editor (which isn't dirty) follows.
+  function currentDeleted(nowCurrent: string) {
+    setBodies((prev) => ({ ...prev, [selectedId]: nowCurrent }));
+    savedRef.current[selectedId] = nowCurrent;
+  }
 
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
     const list = songs.filter((s) => {
       if (!showCut && s.status === 'cut' && s.id !== selectedId) return false;
       if (!showArchived && s.archivedAt && s.id !== selectedId) return false;
-      if (stageFilter && stages[s.id] !== stageFilter) return false;
+      if (stageFilter && (stages[s.id] ?? s.lyricStage) !== stageFilter) return false;
       if (!q) return true;
       return s.title.toLowerCase().includes(q) || (bodies[s.id] ?? '').toLowerCase().includes(q);
     });
@@ -311,8 +380,7 @@ export default function LyricsDesk({
         e.preventDefault();
         // The scratch pad sits above the first song.
         const order = [SCRATCH_ID, ...visible.map((s) => s.id)];
-        const next =
-          order[order.indexOf(selectedId ?? SCRATCH_ID) + (e.key === 'ArrowDown' ? 1 : -1)];
+        const next = order[order.indexOf(selectedId) + (e.key === 'ArrowDown' ? 1 : -1)];
         if (next !== undefined) select(next, document.activeElement === editorRef.current);
       }
     }
@@ -322,15 +390,24 @@ export default function LyricsDesk({
 
   const isScratch = selectedId === SCRATCH_ID;
   const song = songs.find((s) => s.id === selectedId) ?? null;
-  const body = selectedId === null ? '' : (bodies[selectedId] ?? '');
+  const body = bodies[selectedId] ?? '';
   const scratchStats = lyricStats(bodies[SCRATCH_ID]);
   const lines = useMemo(() => parseLyrics(body), [body]);
   const stats = useMemo(() => lyricStats(body), [body]);
-  const track = song ? bandSongToPlayerTrack(song, workspace.slug) : null;
   const songHref = song ? `/w/${workspace.slug}/songs/${song.id}` : '';
+  // Detail arrives a beat after a switch; until then the panel says so.
+  const songDetail = song && detail?.songId === song.id ? detail : null;
+  const playQueue = songDetail
+    ? songDetail.versions
+        .filter((v) => v.url)
+        .map((v) => bandVersionToPlayerTrack(v, song!.title, songHref))
+    : [];
+  const revisionRefs = songDetail
+    ? songDetail.revisions.map((r) => ({ id: r.id, createdAt: r.createdAt, body: r.body }))
+    : [];
 
   return (
-    <div className="grid gap-6 md:grid-cols-[240px_minmax(0,1fr)] lg:grid-cols-[260px_minmax(0,1fr)_220px]">
+    <div className="grid gap-6 md:grid-cols-[240px_minmax(0,1fr)] xl:grid-cols-[250px_minmax(0,1fr)_380px]">
       {/* Rail */}
       <aside className="md:sticky md:top-6 md:max-h-[calc(100vh-8rem)] md:overflow-y-auto">
         <input
@@ -349,6 +426,24 @@ export default function LyricsDesk({
           placeholder="Find a song or a line…  ⌘K"
           className="w-full rounded-md border border-[#E8E0D0]/20 bg-[#E8E0D0]/[0.03] px-3 py-2 text-sm text-[#E8E0D0] placeholder:text-[#E8E0D0]/30 transition focus:border-[#E8E0D0]/50 focus:outline-none"
         />
+        <form onSubmit={addSong} className="mt-2 flex gap-1.5">
+          <input
+            type="text"
+            value={newTitle}
+            onChange={(e) => setNewTitle(e.target.value)}
+            placeholder="+ New song"
+            aria-label="New song title"
+            className="min-w-0 flex-1 rounded-md border border-[#E8E0D0]/15 bg-transparent px-3 py-1.5 text-sm text-[#E8E0D0] placeholder:text-[#E8E0D0]/35 transition focus:border-[#E8E0D0]/50 focus:outline-none"
+          />
+          {newTitle.trim() && (
+            <button
+              type="submit"
+              className="shrink-0 rounded-md bg-[#E8E0D0] px-3 text-xs font-semibold text-[#2A2420] transition hover:bg-white"
+            >
+              Add
+            </button>
+          )}
+        </form>
         <div className="mt-2 flex flex-wrap gap-1">
           {LYRIC_STAGES.map((st) => (
             <button
@@ -393,7 +488,7 @@ export default function LyricsDesk({
 
         {/* Phones get a picker instead of the full rail. */}
         <select
-          value={selectedId ?? ''}
+          value={selectedId}
           onChange={(e) => select(Number(e.target.value))}
           aria-label="Song"
           className="mt-3 w-full rounded-md border border-[#E8E0D0]/20 bg-[#2A2420] px-3 py-2 text-sm text-[#E8E0D0] md:hidden"
@@ -447,7 +542,7 @@ export default function LyricsDesk({
                     {s.title}
                   </span>
                   <span className="mt-0.5 block text-[11px] text-[#E8E0D0]/40">
-                    {LYRIC_STAGE_LABEL[stages[s.id]]}
+                    {LYRIC_STAGE_LABEL[stages[s.id] ?? s.lyricStage]}
                     {st.words > 0 && ` · ${st.words} words`}
                     {st.holes > 0 && (
                       <span className="text-[#F5A3A3]/80">
@@ -476,8 +571,44 @@ export default function LyricsDesk({
       {/* Editor */}
       {(song || isScratch) && (
         <section className="min-w-0">
-          <div className="mb-3 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2">
-            <h2 className="text-xl font-semibold">{song ? song.title : 'Scratch pad'}</h2>
+          {song ? (
+            <SongMetaEditor
+              key={song.id}
+              song={song}
+              allTags={allTags}
+              canDelete={
+                canModerate || (viewerMemberId !== null && song.createdBy === viewerMemberId)
+              }
+              basePath={`/w/${workspace.slug}`}
+            />
+          ) : (
+            <>
+              <h2 className="text-2xl font-semibold">Scratch pad</h2>
+              <p className="mt-1 text-sm text-[#E8E0D0]/50">
+                Loose lines, images and half-ideas. Copy them into a song when they find a home.
+              </p>
+            </>
+          )}
+          <div className="mb-3 mt-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+            {song ? (
+              <div className="flex flex-wrap items-center gap-1">
+                <span className="mr-1 text-[11px] uppercase tracking-wide text-[#E8E0D0]/40">
+                  Words
+                </span>
+                {LYRIC_STAGES.map((st) => (
+                  <button
+                    key={st}
+                    type="button"
+                    onClick={() => void setStage(song.id, st)}
+                    className={(stages[song.id] ?? song.lyricStage) === st ? chipOn : chipOff}
+                  >
+                    {LYRIC_STAGE_LABEL[st]}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <span />
+            )}
             <span
               className={`text-[11px] ${
                 saveState === 'error'
@@ -496,24 +627,6 @@ export default function LyricsDesk({
                     : 'not saved'}
             </span>
           </div>
-          {song ? (
-            <div className="mb-3 flex flex-wrap gap-1">
-              {LYRIC_STAGES.map((st) => (
-                <button
-                  key={st}
-                  type="button"
-                  onClick={() => void setStage(song.id, st)}
-                  className={stages[song.id] === st ? chipOn : chipOff}
-                >
-                  {LYRIC_STAGE_LABEL[st]}
-                </button>
-              ))}
-            </div>
-          ) : (
-            <p className="mb-3 text-xs text-[#E8E0D0]/45">
-              Loose lines, images and half-ideas. Copy them into a song when they find a home.
-            </p>
-          )}
 
           <div className="flex rounded-lg border border-[#E8E0D0]/15 bg-[#E8E0D0]/[0.03]">
             <div className="relative min-w-0 flex-1">
@@ -634,115 +747,145 @@ export default function LyricsDesk({
               </button>
             </div>
           )}
+
+          <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-[#E8E0D0]/45">
+            <span className="tabular-nums">
+              {stats.lines} lines · {stats.words} words
+              {stats.holes > 0 && (
+                <span className="text-[#F5A3A3]/85">{` · ${stats.holes} holes`}</span>
+              )}
+              {stats.flags > 0 && (
+                <span className="text-[#F2A65A]/85">{` · ${stats.flags} flagged`}</span>
+              )}
+            </span>
+            <button
+              type="button"
+              onClick={() => {
+                void navigator.clipboard.writeText(cleanLyrics(body)).then(() => {
+                  setCopied(true);
+                  setTimeout(() => setCopied(false), 1500);
+                });
+              }}
+              title="Copy without flags, highlights and notes"
+              className="underline-offset-2 transition hover:text-[#E8E0D0] hover:underline"
+            >
+              {copied ? 'copied ✓' : 'copy clean lyrics'}
+            </button>
+          </div>
+
+          <details className="mt-3 text-[11px] leading-relaxed text-[#E8E0D0]/45">
+            <summary className="cursor-pointer select-none hover:text-[#E8E0D0]/70">
+              Markup &amp; shortcuts
+            </summary>
+            <div className="mt-2 space-y-1 rounded-md border border-[#E8E0D0]/10 p-3">
+              <p>
+                <span className="text-[#c8a26a]">[chorus]</span> on its own line starts a section.
+              </p>
+              <p>
+                <span className="bg-[#F5A3A3]/20 text-[#F5A3A3]">???</span> or{' '}
+                <span className="bg-[#F5A3A3]/20 text-[#F5A3A3]">~</span> marks words still to
+                write.
+              </p>
+              <p>
+                <span className="text-[#F2A65A]">⌘E</span> (or click a syllable count) flags the
+                line; <span className="bg-[#E9D46A]/25 text-[#F5EBB0]">⌘B</span> highlights the
+                selected words.
+              </p>
+              <p>
+                <span className="text-[#E8E0D0]/70">{'// note'}</span> at the end of a line is a
+                note to self.
+              </p>
+              <p>⌘K finds a song; ⌥↑ / ⌥↓ steps through them.</p>
+              <p>Saves as you type; each sitting is one entry in history.</p>
+            </div>
+          </details>
         </section>
       )}
 
-      {/* Side panel — below the editor until there's room for a third column. */}
-      {(song || isScratch) && (
-        <aside className="space-y-5 text-sm md:col-start-2 lg:col-start-auto lg:sticky lg:top-6 lg:self-start">
-          {song && (
-            <div>
-              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[#E8E0D0]/45">
-                Latest recording
-              </p>
-              {track ? (
-                <div className="flex items-center gap-2">
-                  <BandPlayButton track={track} queue={[track]} />
-                  <span className="truncate text-[#E8E0D0]/75">{song.latestVersionLabel}</span>
-                </div>
-              ) : (
-                <p className="text-[#E8E0D0]/40">No recordings yet.</p>
-              )}
-            </div>
-          )}
-
-          <dl className="grid grid-cols-2 gap-2 text-center">
+      {/* The open song's recordings, comments and lyrics history — a third
+          column on wide screens, under the editor otherwise. */}
+      {song && (
+        <aside className="min-w-0 md:col-start-2 xl:col-start-auto xl:sticky xl:top-6 xl:max-h-[calc(100vh-3rem)] xl:self-start xl:overflow-y-auto">
+          <div className="mb-4 flex gap-1.5">
             {(
               [
-                ['lines', stats.lines],
-                ['words', stats.words],
-                ['holes', stats.holes],
-                ['flagged', stats.flags],
+                ['recordings', 'Recordings', songDetail?.versions.length ?? song.versionCount],
+                ['comments', 'Comments', songDetail?.comments.length ?? song.commentCount],
+                ['history', 'History', songDetail?.revisions.length],
               ] as const
-            ).map(([label, n]) => (
-              <div key={label} className="rounded-md border border-[#E8E0D0]/10 py-2">
-                <dd
-                  className={`text-lg tabular-nums ${
-                    n > 0 && label === 'holes'
-                      ? 'text-[#F5A3A3]'
-                      : n > 0 && label === 'flagged'
-                        ? 'text-[#F2A65A]'
-                        : 'text-[#E8E0D0]'
-                  }`}
-                >
-                  {n}
-                </dd>
-                <dt className="text-[10px] uppercase tracking-wide text-[#E8E0D0]/40">{label}</dt>
-              </div>
+            ).map(([key, label, n]) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => openTab(key)}
+                className={tab === key ? chipOn : chipOff}
+              >
+                {label}
+                {n ? ` ${n}` : ''}
+              </button>
             ))}
-          </dl>
-
-          <button
-            type="button"
-            onClick={() => {
-              void navigator.clipboard.writeText(cleanLyrics(body)).then(() => {
-                setCopied(true);
-                setTimeout(() => setCopied(false), 1500);
-              });
-            }}
-            title="Copy without flags, highlights and notes"
-            className="text-xs text-[#E8E0D0]/45 underline-offset-2 transition hover:text-[#E8E0D0] hover:underline"
-          >
-            {copied ? 'copied ✓' : 'copy clean lyrics'}
-          </button>
-
-          {song && (
-            <p className="text-xs text-[#E8E0D0]/50">
-              {BAND_SONG_STATUS_LABEL[song.status]}
-              {song.tags.length > 0 && ` · ${song.tags.join(', ')}`}
-            </p>
-          )}
-
-          {song?.notes && (
-            <div>
-              <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-[#E8E0D0]/45">
-                Notes
-              </p>
-              <p className="whitespace-pre-wrap text-xs leading-relaxed text-[#E8E0D0]/65">
-                {song.notes}
-              </p>
-            </div>
-          )}
-
-          {song && (
-            <Link
-              href={songHref}
-              onClick={() => void flush()}
-              className="block text-xs text-[#E8E0D0]/45 underline-offset-2 transition hover:text-[#E8E0D0] hover:underline"
-            >
-              Song page, versions &amp; history →
-            </Link>
-          )}
-
-          <div className="rounded-md border border-[#E8E0D0]/10 p-3 text-[11px] leading-relaxed text-[#E8E0D0]/45">
-            <p>
-              <span className="text-[#c8a26a]">[chorus]</span> on its own line starts a section.
-            </p>
-            <p className="mt-1">
-              <span className="bg-[#F5A3A3]/20 text-[#F5A3A3]">???</span> or{' '}
-              <span className="bg-[#F5A3A3]/20 text-[#F5A3A3]">~</span> marks words still to write.
-            </p>
-            <p className="mt-1">
-              <span className="text-[#F2A65A]">⌘E</span> (or click a syllable count) flags the line;{' '}
-              <span className="bg-[#E9D46A]/25 text-[#F5EBB0]">⌘B</span> highlights the selected
-              words.
-            </p>
-            <p className="mt-1">
-              <span className="text-[#E8E0D0]/70">{'// note'}</span> at the end of a line is a note to
-              self.
-            </p>
-            <p className="mt-1">Saves as you type; each sitting is one entry in history.</p>
           </div>
+
+          {!songDetail ? (
+            <p className="text-sm text-[#E8E0D0]/40">Loading…</p>
+          ) : tab === 'recordings' ? (
+            <div>
+              {songDetail.versions.length === 0 ? (
+                <p className="mb-4 text-sm text-[#E8E0D0]/40">No recordings yet.</p>
+              ) : (
+                <div className="mb-4 space-y-3">
+                  {songDetail.versions.map((v) => (
+                    <BandVersionCard
+                      key={v.id}
+                      version={v}
+                      markers={songDetail.comments.filter(
+                        (c) => c.versionId === v.id && c.timestampSeconds !== null
+                      )}
+                      canEdit={
+                        canModerate || (viewerMemberId !== null && v.uploadedBy === viewerMemberId)
+                      }
+                      lyricsRevisions={revisionRefs}
+                      songTitle={song.title}
+                      songHref={songHref}
+                      queue={playQueue}
+                    />
+                  ))}
+                </div>
+              )}
+              <BandVersionUpload
+                key={song.id}
+                songId={song.id}
+                versionCount={songDetail.versions.length}
+                beforeRegister={() => flush()}
+              />
+            </div>
+          ) : tab === 'comments' ? (
+            <BandSongComments
+              key={song.id}
+              songId={song.id}
+              comments={songDetail.comments}
+              versions={songDetail.versions.map((v) => ({ id: v.id, label: v.label }))}
+              viewerMemberId={viewerMemberId}
+              canModerate={canModerate}
+            />
+          ) : (
+            <BandLyrics
+              key={song.id}
+              songId={song.id}
+              revisions={songDetail.revisions}
+              historyOnly
+              onRestore={restoreLyrics}
+              onCurrentDeleted={currentDeleted}
+            />
+          )}
+
+          <Link
+            href={songHref}
+            onClick={() => void flush()}
+            className="mt-6 block text-xs text-[#E8E0D0]/35 underline-offset-2 transition hover:text-[#E8E0D0] hover:underline"
+          >
+            Open the old song page →
+          </Link>
         </aside>
       )}
     </div>

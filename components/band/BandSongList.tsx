@@ -317,8 +317,8 @@ export default function BandSongList({
             Archived {archivedSongs.length}
           </button>
         )}
-        <Link href={`/w/${workspace.slug}/lyrics`} className={chipOff}>
-          Lyrics →
+        <Link href={`/w/${workspace.slug}`} className={chipOff}>
+          ← Desk
         </Link>
       </div>
 
