@@ -26,3 +26,25 @@ export const LYRIC_STAGE_LABEL: Record<LyricStage, string> = {
   draft: 'Draft',
   done: 'Done',
 };
+
+// Song colors — the one status system (migration 102). A fixed palette;
+// each workspace names the colors it uses (workspaces.color_labels).
+export const SONG_COLORS = ['red', 'orange', 'yellow', 'green', 'blue', 'purple'] as const;
+
+export type SongColor = (typeof SONG_COLORS)[number];
+
+export type ColorLabels = Partial<Record<SongColor, string>>;
+
+// Tuned for the dark workspace background.
+export const SONG_COLOR_HEX: Record<SongColor, string> = {
+  red: '#E5736B',
+  orange: '#EE9B4F',
+  yellow: '#E5CC5A',
+  green: '#7FC27A',
+  blue: '#6FA8E0',
+  purple: '#B48AD9',
+};
+
+export function colorName(color: SongColor, labels: ColorLabels): string {
+  return labels[color]?.trim() || color[0].toUpperCase() + color.slice(1);
+}

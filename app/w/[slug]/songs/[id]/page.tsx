@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation';
 import { getWorkspaceBySlug, requireWorkspacePage } from '@/lib/workspaces';
 import { getSong, songComments, songVersions, distinctTags } from '@/lib/band-songs';
 import { listLyricsRevisions } from '@/lib/band-lyrics';
+import { getColorLabels } from '@/lib/song-colors';
 import BandLyrics from '@/components/band/BandLyrics';
 import SongMetaEditor from '@/components/band/SongMetaEditor';
 import BandVersionCard from '@/components/band/BandVersionCard';
@@ -38,12 +39,13 @@ export default async function WorkspaceSongPage({
   const viewerMemberId = member?.id ?? null;
   const canModerate = 'admin' in actor || actor.staff || actor.owner === true;
 
-  const [song, versions, comments, allTags, lyricsRevisions] = await Promise.all([
+  const [song, versions, comments, allTags, lyricsRevisions, colorLabels] = await Promise.all([
     getSong(id),
     songVersions(id),
     songComments(id),
     distinctTags(workspace.id),
     listLyricsRevisions(id),
+    getColorLabels(workspace.id),
   ]);
   // A song from another workspace 404s — same as not existing at all.
   if (!song || song.workspaceId !== workspace.id) notFound();
@@ -74,6 +76,7 @@ export default async function WorkspaceSongPage({
           allTags={allTags}
           canDelete={canModerate || (viewerMemberId !== null && song.createdBy === viewerMemberId)}
           basePath={`/w/${workspace.slug}`}
+          colorLabels={colorLabels}
         />
       </div>
 

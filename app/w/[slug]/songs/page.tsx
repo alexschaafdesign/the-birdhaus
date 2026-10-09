@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { getWorkspaceBySlug, requireWorkspacePage } from '@/lib/workspaces';
 import { distinctTags, listSongs } from '@/lib/band-songs';
 import { listGroups } from '@/lib/band-groups';
+import { getColorLabels } from '@/lib/song-colors';
 import BandSongList from '@/components/band/BandSongList';
 import ClubUserMenu from '@/components/club/ClubUserMenu';
 
@@ -27,12 +28,13 @@ export default async function WorkspacePage({
   const { slug } = await params;
   const { workspace, member } = await requireWorkspacePage(slug, `/w/${slug}/songs`);
 
-  const [songs, allTags, groups] = await Promise.all([
+  const [songs, allTags, groups, colorLabels] = await Promise.all([
     listSongs(workspace.id),
     distinctTags(workspace.id),
     listGroups(workspace.id),
+    getColorLabels(workspace.id),
   ]);
-  const contenders = songs.filter((s) => s.status === 'contender').length;
+  const live = songs.filter((s) => !s.archivedAt).length;
 
   return (
     <main className="mx-auto w-full max-w-3xl px-5 py-6 text-[#E8E0D0] sm:px-8 sm:py-8">
@@ -40,8 +42,7 @@ export default async function WorkspacePage({
         <div>
           <h1 className="text-2xl font-semibold sm:text-3xl">{workspace.name}</h1>
           <p className="mt-1 text-sm text-[#E8E0D0]/60">
-            The song pile — {songs.length} {songs.length === 1 ? 'song' : 'songs'}
-            {contenders > 0 && `, ${contenders} contender${contenders === 1 ? '' : 's'}`}.
+            The song pile — {live} {live === 1 ? 'song' : 'songs'}.
           </p>
         </div>
         <div className="shrink-0">
@@ -53,6 +54,7 @@ export default async function WorkspacePage({
         songs={songs}
         allTags={allTags}
         groups={groups}
+        colorLabels={colorLabels}
         workspace={{ id: workspace.id, slug: workspace.slug }}
       />
     </main>

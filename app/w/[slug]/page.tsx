@@ -4,6 +4,7 @@ import { getWorkspaceBySlug, requireWorkspacePage } from '@/lib/workspaces';
 import { distinctTags, listSongs, songComments, songVersions } from '@/lib/band-songs';
 import { getScratch, listLyricsRevisions } from '@/lib/band-lyrics';
 import { SCRATCH_ID } from '@/lib/lyric-text';
+import { getColorLabels } from '@/lib/song-colors';
 import LyricsDesk from '@/components/band/LyricsDesk';
 import ClubUserMenu from '@/components/club/ClubUserMenu';
 
@@ -36,10 +37,11 @@ export default async function WorkspaceDeskPage({
   const { slug } = await params;
   const { song } = await searchParams;
   const { workspace, actor, member } = await requireWorkspacePage(slug, `/w/${slug}`);
-  const [songs, scratch, allTags] = await Promise.all([
+  const [songs, scratch, allTags, colorLabels] = await Promise.all([
     listSongs(workspace.id),
     getScratch(workspace.id),
     distinctTags(workspace.id),
+    getColorLabels(workspace.id),
   ]);
 
   // No (valid) pick → the first live song, so there's always detail to show.
@@ -49,7 +51,7 @@ export default async function WorkspaceDeskPage({
       ? SCRATCH_ID
       : asked !== null && songs.some((s) => s.id === asked)
         ? asked
-        : ((songs.find((s) => s.status !== 'cut' && !s.archivedAt) ?? songs[0])?.id ?? SCRATCH_ID);
+        : ((songs.find((s) => !s.archivedAt) ?? songs[0])?.id ?? SCRATCH_ID);
 
   const detail =
     selectedId === SCRATCH_ID
@@ -65,10 +67,19 @@ export default async function WorkspaceDeskPage({
           revisions,
         }));
 
+  // Archived songs are out of the pool; cut ones are still in it.
+  const poolSize = songs.filter((s) => !s.archivedAt).length;
+
   return (
     <main className="mx-auto w-full max-w-[90rem] px-5 pt-6 pb-28 text-[#E8E0D0] sm:px-8 sm:pt-8">
       <header className="mb-6 flex items-center justify-between gap-4">
-        <h1 className="text-2xl font-semibold">{workspace.name}</h1>
+        <div className="flex items-baseline gap-4">
+          <h1 className="text-2xl font-semibold">{workspace.name}</h1>
+          <p className="text-[#E8E0D0]/50">
+            <span className="text-2xl font-semibold tabular-nums text-[#c8a26a]">{poolSize}</span>{' '}
+            <span className="text-sm">{poolSize === 1 ? 'song' : 'songs'} in the pool</span>
+          </p>
+        </div>
         <div className="flex shrink-0 items-center gap-4">
           <Link
             href={`/w/${workspace.slug}/songs`}
@@ -85,6 +96,7 @@ export default async function WorkspaceDeskPage({
         selectedFromServer={selectedId}
         scratch={scratch}
         allTags={allTags}
+        colorLabels={colorLabels}
         detail={detail}
         viewerMemberId={member?.id ?? null}
         canModerate={'admin' in actor || actor.staff || actor.owner === true}

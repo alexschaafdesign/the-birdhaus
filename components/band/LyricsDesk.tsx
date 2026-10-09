@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import type { BandSong, BandSongComment, BandSongVersion } from '@/lib/band-songs';
 import type { LyricsRevision } from '@/lib/band-lyrics';
 import { bandVersionToPlayerTrack } from '@/lib/player-tracks';
-import { LYRIC_STAGES, LYRIC_STAGE_LABEL, type LyricStage } from '@/lib/band-constants';
+import type { ColorLabels, SongColor } from '@/lib/band-constants';
 import {
   SCRATCH_ID,
   cleanLyrics,
@@ -16,6 +16,7 @@ import {
   type LyricSegmentKind,
 } from '@/lib/lyric-text';
 import SongMetaEditor from '@/components/band/SongMetaEditor';
+import { ColorDot, ColorLegend, colorCounts } from '@/components/band/SongColors';
 import BandLyrics from '@/components/band/BandLyrics';
 import BandVersionCard from '@/components/band/BandVersionCard';
 import BandVersionUpload from '@/components/band/BandVersionUpload';
@@ -78,6 +79,7 @@ export default function LyricsDesk({
   selectedFromServer,
   scratch,
   allTags,
+  colorLabels,
   detail,
   viewerMemberId,
   canModerate,
@@ -88,6 +90,7 @@ export default function LyricsDesk({
   selectedFromServer: number;
   scratch: string;
   allTags: string[];
+  colorLabels: ColorLabels;
   detail: DeskSongDetail | null;
   viewerMemberId: number | null;
   canModerate: boolean;
@@ -98,9 +101,6 @@ export default function LyricsDesk({
     [SCRATCH_ID]: scratch,
     ...Object.fromEntries(songs.map((s) => [s.id, s.lyrics ?? ''])),
   }));
-  const [stages, setStages] = useState<Record<number, LyricStage>>(() =>
-    Object.fromEntries(songs.map((s) => [s.id, s.lyricStage]))
-  );
   const [pickedId, setPickedId] = useState<number>(selectedFromServer);
   // A pick that no longer exists (the song was just deleted) falls back to
   // whatever the server chose.
@@ -109,8 +109,7 @@ export default function LyricsDesk({
   const [tab, setTab] = useState<PanelTab>('recordings');
   const [newTitle, setNewTitle] = useState('');
   const [query, setQuery] = useState('');
-  const [stageFilter, setStageFilter] = useState<LyricStage | null>(null);
-  const [showCut, setShowCut] = useState(false);
+  const [colorFilter, setColorFilter] = useState<SongColor | 'none' | null>(null);
   const [showArchived, setShowArchived] = useState(false);
   const [sort, setSort] = useState<SortKey>('recent');
   const [saveState, setSaveState] = useState<SaveState>('saved');
@@ -121,8 +120,6 @@ export default function LyricsDesk({
   // always see the latest text without re-subscribing.
   const bodiesRef = useRef(bodies);
   bodiesRef.current = bodies;
-  const stagesRef = useRef(stages);
-  stagesRef.current = stages;
   const savedRef = useRef<Record<number, string>>({
     [SCRATCH_ID]: scratch,
     ...Object.fromEntries(songs.map((s) => [s.id, s.lyrics ?? ''])),
@@ -141,16 +138,6 @@ export default function LyricsDesk({
         .filter((id) => bodiesRef.current[id] !== savedRef.current[id]),
     []
   );
-
-  const setStage = useCallback(async (songId: number, stage: LyricStage) => {
-    setStages((prev) => ({ ...prev, [songId]: stage }));
-    const res = await fetch(`/api/ostrich/songs/${songId}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ lyricStage: stage }),
-    }).catch(() => null);
-    if (!res?.ok) setError("Couldn't save the lyric stage");
-  }, []);
 
   // Saves are chained so two quick saves of one song can't land out of order.
   const flush = useCallback(
@@ -183,8 +170,6 @@ export default function LyricsDesk({
             }
             savedRef.current[id] = body;
             // First words on a blank song: it's a sketch now.
-            if (id !== SCRATCH_ID && body.trim() && (stagesRef.current[id] ?? 'none') === 'none')
-              void setStage(id, 'sketch');
           } catch (err) {
             setError(err instanceof Error ? err.message : 'Something went wrong');
             setSaveState('error');
@@ -196,7 +181,7 @@ export default function LyricsDesk({
       });
       return chainRef.current;
     },
-    [dirtyIds, setStage, workspace.id]
+    [dirtyIds, workspace.id]
   );
 
   function edit(text: string) {
@@ -350,9 +335,8 @@ export default function LyricsDesk({
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
     const list = songs.filter((s) => {
-      if (!showCut && s.status === 'cut' && s.id !== selectedId) return false;
       if (!showArchived && s.archivedAt && s.id !== selectedId) return false;
-      if (stageFilter && (stages[s.id] ?? s.lyricStage) !== stageFilter) return false;
+      if (colorFilter && (s.color ?? 'none') !== colorFilter) return false;
       if (!q) return true;
       return s.title.toLowerCase().includes(q) || (bodies[s.id] ?? '').toLowerCase().includes(q);
     });
@@ -365,7 +349,7 @@ export default function LyricsDesk({
       return [...list].sort((a, b) => toFix(b.id) - toFix(a.id));
     }
     return list;
-  }, [songs, query, stageFilter, showCut, showArchived, sort, stages, bodies, selectedId]);
+  }, [songs, query, colorFilter, showArchived, sort, bodies, selectedId]);
 
   // Alt+↑/↓ steps through the rail; ⌘K / Ctrl+K jumps to search.
   useEffect(() => {
@@ -389,6 +373,7 @@ export default function LyricsDesk({
   }, [visible, selectedId, select]);
 
   const isScratch = selectedId === SCRATCH_ID;
+  const liveColorCounts = colorCounts(songs.filter((s) => !s.archivedAt));
   const song = songs.find((s) => s.id === selectedId) ?? null;
   const body = bodies[selectedId] ?? '';
   const scratchStats = lyricStats(bodies[SCRATCH_ID]);
@@ -444,28 +429,16 @@ export default function LyricsDesk({
             </button>
           )}
         </form>
-        <div className="mt-2 flex flex-wrap gap-1">
-          {LYRIC_STAGES.map((st) => (
-            <button
-              key={st}
-              type="button"
-              onClick={() => setStageFilter(stageFilter === st ? null : st)}
-              className={stageFilter === st ? chipOn : chipOff}
-            >
-              {LYRIC_STAGE_LABEL[st]}
-            </button>
-          ))}
+        <div className="mt-2">
+          <ColorLegend
+            workspaceId={workspace.id}
+            labels={colorLabels}
+            counts={liveColorCounts}
+            active={colorFilter}
+            onPick={setColorFilter}
+          />
         </div>
         <div className="mt-2 flex items-center justify-between gap-2 text-[11px] text-[#E8E0D0]/45">
-          <label className="flex items-center gap-1.5">
-            <input
-              type="checkbox"
-              checked={showCut}
-              onChange={(e) => setShowCut(e.target.checked)}
-              className="accent-[#c8a26a]"
-            />
-            show cut
-          </label>
           <label className="flex items-center gap-1.5">
             <input
               type="checkbox"
@@ -534,16 +507,18 @@ export default function LyricsDesk({
                       : 'border-transparent hover:border-[#E8E0D0]/15 hover:bg-[#E8E0D0]/[0.03]'
                   }`}
                 >
-                  <span
-                    className={`block truncate text-sm ${
-                      on ? 'text-[#E8E0D0]' : 'text-[#E8E0D0]/80'
-                    } ${s.status === 'cut' ? 'line-through opacity-60' : ''}`}
-                  >
-                    {s.title}
+                  <span className="flex items-center gap-2">
+                    <ColorDot color={s.color} labels={colorLabels} />
+                    <span
+                      className={`truncate text-sm ${on ? 'text-[#E8E0D0]' : 'text-[#E8E0D0]/80'} ${
+                        s.archivedAt ? 'opacity-50' : ''
+                      }`}
+                    >
+                      {s.title}
+                    </span>
                   </span>
-                  <span className="mt-0.5 block text-[11px] text-[#E8E0D0]/40">
-                    {LYRIC_STAGE_LABEL[stages[s.id] ?? s.lyricStage]}
-                    {st.words > 0 && ` · ${st.words} words`}
+                  <span className="mt-0.5 block pl-[18px] text-[11px] text-[#E8E0D0]/40">
+                    {st.words > 0 ? `${st.words} words` : 'no words yet'}
                     {st.holes > 0 && (
                       <span className="text-[#F5A3A3]/80">
                         {` · ${st.holes} hole${st.holes === 1 ? '' : 's'}`}
@@ -580,6 +555,7 @@ export default function LyricsDesk({
                 canModerate || (viewerMemberId !== null && song.createdBy === viewerMemberId)
               }
               basePath={`/w/${workspace.slug}`}
+              colorLabels={colorLabels}
             />
           ) : (
             <>
@@ -590,25 +566,7 @@ export default function LyricsDesk({
             </>
           )}
           <div className="mb-3 mt-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-            {song ? (
-              <div className="flex flex-wrap items-center gap-1">
-                <span className="mr-1 text-[11px] uppercase tracking-wide text-[#E8E0D0]/40">
-                  Words
-                </span>
-                {LYRIC_STAGES.map((st) => (
-                  <button
-                    key={st}
-                    type="button"
-                    onClick={() => void setStage(song.id, st)}
-                    className={(stages[song.id] ?? song.lyricStage) === st ? chipOn : chipOff}
-                  >
-                    {LYRIC_STAGE_LABEL[st]}
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <span />
-            )}
+            <span />
             <span
               className={`text-[11px] ${
                 saveState === 'error'

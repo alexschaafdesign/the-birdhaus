@@ -9,8 +9,10 @@ import type { BandActor } from './club-members';
 import {
   BAND_SONG_STATUSES,
   LYRIC_STAGES,
+  SONG_COLORS,
   type BandSongStatus,
   type LyricStage,
+  type SongColor,
 } from './band-constants';
 
 export interface BandSong {
@@ -24,6 +26,9 @@ export interface BandSong {
   // search can match a lyric line. Null when the song has none yet.
   lyrics: string | null;
   lyricStage: LyricStage;
+  // The song's status color (migration 102) — replaces status/lyricStage in
+  // the UI. Null = uncolored.
+  color: SongColor | null;
   pinned: boolean;
   // Hidden from the pile/groups/desk, listed under Archived. Null = live.
   archivedAt: string | null;
@@ -86,6 +91,10 @@ function actorMemberId(by: BandActor): number | null {
   return 'admin' in by ? null : by.memberId;
 }
 
+function sanitizeColor(input: unknown): SongColor | null {
+  return SONG_COLORS.includes(input as SongColor) ? (input as SongColor) : null;
+}
+
 export function sanitizeLyricStage(input: unknown): LyricStage | null {
   return LYRIC_STAGES.includes(input as LyricStage) ? (input as LyricStage) : null;
 }
@@ -119,6 +128,7 @@ interface SongRow {
   notes: string | null;
   lyrics: string | null;
   lyric_stage: LyricStage;
+  color: SongColor | null;
   pinned: boolean;
   archived_at: string | null;
   created_by: number | null;
@@ -135,7 +145,7 @@ interface SongRow {
 }
 
 const SONG_SELECT = sql`
-  select s.id, s.workspace_id, s.title, s.status, s.tags, s.notes, s.lyric_stage, s.pinned, s.archived_at::text as archived_at,
+  select s.id, s.workspace_id, s.title, s.status, s.tags, s.notes, s.lyric_stage, s.color, s.pinned, s.archived_at::text as archived_at,
          s.created_by, u.name as creator_name,
          s.created_at::text as created_at, s.updated_at::text as updated_at,
          (select count(*)::int from band_song_versions v where v.song_id = s.id)
@@ -169,6 +179,7 @@ function mapSong(r: SongRow): BandSong {
     notes: r.notes,
     lyrics: r.lyrics?.trim() ? r.lyrics : null,
     lyricStage: r.lyric_stage,
+    color: r.color,
     archivedAt: r.archived_at,
     pinned: r.pinned,
     createdBy: r.created_by === null ? null : Number(r.created_by),
@@ -249,6 +260,8 @@ export async function updateSong(
     pinned?: boolean;
     lyricStage?: unknown;
     archived?: boolean;
+    // A palette color, or null to clear. Undefined leaves it alone.
+    color?: unknown;
   }
 ): Promise<BandSong | null> {
   const title = typeof input.title === 'string' ? input.title.trim().slice(0, 200) || null : null;
@@ -266,6 +279,7 @@ export async function updateSong(
       notes = ${hasNotes ? notes : sql`notes`},
       pinned = coalesce(${input.pinned ?? null}, pinned),
       lyric_stage = coalesce(${lyricStage}, lyric_stage),
+      color = ${input.color === undefined ? sql`color` : sanitizeColor(input.color)},
       archived_at = ${
         input.archived === undefined
           ? sql`archived_at`

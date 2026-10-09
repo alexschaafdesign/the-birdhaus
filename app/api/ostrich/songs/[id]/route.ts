@@ -25,6 +25,7 @@ export async function PATCH(
     pinned: typeof body?.pinned === 'boolean' ? body.pinned : undefined,
     lyricStage: body?.lyricStage,
     archived: typeof body?.archived === 'boolean' ? body.archived : undefined,
+    color: body?.color,
   });
   if (!song) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
