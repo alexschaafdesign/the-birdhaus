@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { inviteMember, listMembers } from '@/lib/club-members';
 import { sendClubInviteEmail } from '@/lib/club-email';
+import { sendCrewInviteEmail } from '@/lib/account-email';
+import { isBirdhausAccount } from '@/lib/club-roles';
 import { requireAdmin } from '@/lib/admin-session';
 
 // Admin auth: enforced by proxy.ts for all /api/admin routes.
@@ -12,7 +14,8 @@ export async function GET() {
 }
 
 // Invite a member to the Song Club portal: create (or re-key) their row and
-// email them the set-password link.
+// email them the set-password link. An account given crew/staff here gets the
+// crew invite instead, whose link stays on the Birdhaus site.
 export async function POST(request: Request) {
   const denied = await requireAdmin();
   if (denied) return denied;
@@ -27,11 +30,20 @@ export async function POST(request: Request) {
   }
 
   try {
-    await sendClubInviteEmail({
-      name: result.member.name,
-      email: result.member.email,
-      token: result.token,
-    });
+    if (isBirdhausAccount(result.member.roles)) {
+      await sendCrewInviteEmail({
+        name: result.member.name,
+        email: result.member.email,
+        token: result.token,
+        title: result.member.title,
+      });
+    } else {
+      await sendClubInviteEmail({
+        name: result.member.name,
+        email: result.member.email,
+        token: result.token,
+      });
+    }
   } catch (e) {
     console.error('[club] invite email failed', e);
     return NextResponse.json(

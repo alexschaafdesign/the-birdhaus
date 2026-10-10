@@ -8,8 +8,15 @@ const inputBase =
 const labelClass = 'mb-1 block text-xs font-medium uppercase tracking-wide text-[#E8E0D0]/55';
 
 // Member login for the Song Club portal, with an inline "forgot password"
-// mode that swaps the password field for a send-reset-email action.
-export default function ClubLoginForm({ next }: { next?: string }) {
+// mode that swaps the password field for a send-reset-email action. Birdhaus's
+// /login points `forgotEndpoint` at its own /api/account/forgot.
+export default function ClubLoginForm({
+  next,
+  forgotEndpoint = '/api/club/forgot',
+}: {
+  next?: string;
+  forgotEndpoint?: string;
+}) {
   const router = useRouter();
   const dest =
     next &&
@@ -30,7 +37,7 @@ export default function ClubLoginForm({ next }: { next?: string }) {
     setNotice(null);
     try {
       if (mode === 'forgot') {
-        const res = await fetch('/api/club/forgot', {
+        const res = await fetch(forgotEndpoint, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email }),

@@ -1,6 +1,7 @@
 // Invite + password-reset emails for Song Club portal members, sent through
 // Resend (same lazy-client pattern as lib/song-club-email.ts). Both carry a
-// single-use set-password link to /song-club/invite/<token>.
+// single-use set-password link to /song-club/invite/<token>. Crew/staff mail
+// (crew invite, Birdhaus password reset) lives in lib/account-email.ts.
 
 import { Resend } from 'resend';
 import {
@@ -99,63 +100,6 @@ export async function sendClubInviteEmail({
   });
   if (error) throw new Error(`Resend send failed: ${JSON.stringify(error)}`);
   await notifyAdminCopy('Song Club invite sent', `Portal invite emailed to ${name} <${email}>.`);
-}
-
-// Invites someone to the Birdhaus crew: a login with full admin access, worded
-// for a collaborator (not a Song Club member). Same single-use set-password
-// link — after they pick a password the accept route drops them into /admin.
-export async function sendCrewInviteEmail({
-  name,
-  email,
-  token,
-  title,
-}: {
-  name: string;
-  email: string;
-  token: string;
-  title?: string | null;
-}): Promise<void> {
-  const from = process.env.RESEND_FROM_EMAIL;
-  if (!from) throw new Error('RESEND_FROM_EMAIL is not set');
-
-  const firstName = splitName(name).firstName;
-  const greeting = firstName ? `hi ${firstName}!` : 'hi there!';
-  const link = setupLinkFor(token);
-  const roleLine = title
-    ? `You're being set up as ${title} on the Birdhaus admin.`
-    : `You're being set up with a login for the Birdhaus admin.`;
-
-  const text = [
-    greeting,
-    '',
-    roleLine,
-    'Pick a password to get in — your dashboard is waiting:',
-    link,
-    '',
-    'This link is just for you — please don’t forward it.',
-    '',
-    '— the BIRDHAUS',
-  ].join('\n');
-
-  const html = `<p>${esc(greeting)}</p>
-<p>${esc(roleLine)}</p>
-<p><a href="${esc(link)}" style="display: inline-block; background: #2A2420; color: #E8E0D0; padding: 10px 18px; border-radius: 6px; text-decoration: none; font-weight: 600;">Pick a password &amp; get in</a></p>
-<p style="font-size: 13px; color: #777;">Or paste this link into your browser:<br>${esc(link)}</p>
-<p style="font-size: 13px; color: #777;">This link is just for you — please don't forward it.</p>
-<p>— the BIRDHAUS</p>`;
-
-  const { error } = await getResendClient().emails.send({
-    from,
-    to: email,
-    subject: "You're on the Birdhaus crew",
-    html,
-    text,
-  });
-  if (error) throw new Error(`Resend send failed: ${JSON.stringify(error)}`);
-  await notifyAdminCopy(
-    'Crew invite sent',
-    `Crew invite emailed to ${name} <${email}>${title ? ` (${title})` : ''}.`
-  );
 }
 
 // Notifies a track's uploader that someone commented. Best-effort: the caller

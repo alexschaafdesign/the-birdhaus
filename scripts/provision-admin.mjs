@@ -109,7 +109,7 @@ try {
   });
 
   const base = process.env.SITE_URL || process.env.NEXT_PUBLIC_SITE_URL || '';
-  const invitePath = `/song-club/invite/${token}`;
+  const invitePath = `/invite/${token}`;
 
   console.log(`✅ Provisioned user #${id} (status: ${status}).`);
   console.log('');

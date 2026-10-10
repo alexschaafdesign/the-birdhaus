@@ -87,7 +87,10 @@ export default async function LoginPage({
       <h1 className="text-2xl font-semibold">Log in</h1>
       <p className="mt-1 text-sm text-[#E8E0D0]/60">For crew, photographers, and members.</p>
       <div className="mt-6">
-        <ClubLoginForm next={next} />
+        <ClubLoginForm
+          next={next}
+          forgotEndpoint={portal ? '/api/club/forgot' : '/api/account/forgot'}
+        />
       </div>
     </main>
   );
