@@ -15,9 +15,13 @@ const labelClass = 'mb-1 block text-xs font-medium uppercase tracking-wide text-
 export default function BandVersionUpload({
   songId,
   versionCount,
+  beforeRegister,
 }: {
   songId: number;
   versionCount: number;
+  // Runs before the version is registered — the lyrics desk flushes its
+  // autosave here so the "lyrics as recorded" snapshot has the latest words.
+  beforeRegister?: () => Promise<unknown>;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(versionCount === 0);
@@ -70,6 +74,7 @@ export default function BandVersionUpload({
 
       await putWithProgress(urlData.uploadUrl, uploadFile, urlData.contentType);
 
+      await beforeRegister?.();
       const versionRes = await fetch(`/api/ostrich/songs/${songId}/versions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

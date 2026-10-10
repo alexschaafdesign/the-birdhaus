@@ -1,6 +1,8 @@
-// Yellow Ostrich lyrics — append-only revisions of one living document per
-// song (see migration 090). Current lyrics = latest revision; history is the
-// table itself. Collaborative like song metadata: any band actor edits.
+// Yellow Ostrich lyrics — revisions of one living document per song (see
+// migration 090). Current lyrics = latest revision; history is the table
+// itself. Collaborative like song metadata: any band actor edits. Explicit
+// saves always append; the lyrics desk's autosave folds into the latest
+// revision while it's the same writing session (see AUTOSAVE_SESSION_MS).
 // Callers authenticate first; this module is data only.
 
 import { sql } from './db';
@@ -17,6 +19,12 @@ export interface LyricsRevision {
 }
 
 const MAX_LYRICS_LENGTH = 20000;
+
+// An autosave rewrites the latest revision instead of appending when it's
+// the same editor, that revision is younger than this, and no recording pins
+// it — so history reads as writing sessions, not keystrokes, and "lyrics as
+// recorded" snapshots never change under a version.
+const AUTOSAVE_SESSION_MS = 20 * 60 * 1000;
 
 interface RevisionRow {
   id: number;
@@ -61,6 +69,7 @@ export async function saveLyrics(input: {
   actor: BandActor;
   songId: number;
   body: string;
+  autosave?: boolean;
 }): Promise<LyricsRevision | null> {
   const body = input.body.replace(/\r\n/g, '\n').slice(0, MAX_LYRICS_LENGTH);
   const [song] = await sql<Array<{ id: number }>>`
@@ -68,9 +77,22 @@ export async function saveLyrics(input: {
   `;
   if (!song) return null;
 
-  const [current] = await sql<Array<{ id: number; body: string }>>`
-    select id, body from band_song_lyrics_revisions
-    where song_id = ${input.songId} order by id desc limit 1
+  const [current] = await sql<
+    Array<{
+      id: number;
+      body: string;
+      edited_by: number | null;
+      from_admin: boolean;
+      age_ms: number;
+      pinned: boolean;
+    }>
+  >`
+    select r.id, r.body, r.edited_by, r.from_admin,
+           (extract(epoch from now() - r.created_at) * 1000)::float8 as age_ms,
+           exists (select 1 from band_song_versions v where v.lyrics_revision_id = r.id)
+             as pinned
+    from band_song_lyrics_revisions r
+    where r.song_id = ${input.songId} order by r.id desc limit 1
   `;
   if (current && current.body === body) {
     const all = await listLyricsRevisions(input.songId);
@@ -80,6 +102,26 @@ export async function saveLyrics(input: {
   if (!current && body.trim() === '') return null;
 
   const editedBy = 'admin' in input.actor ? null : input.actor.memberId;
+  const sameEditor =
+    current &&
+    (editedBy === null
+      ? current.from_admin
+      : current.edited_by !== null && Number(current.edited_by) === editedBy);
+  if (
+    input.autosave &&
+    current &&
+    sameEditor &&
+    !current.pinned &&
+    Number(current.age_ms) < AUTOSAVE_SESSION_MS
+  ) {
+    await sql`
+      update band_song_lyrics_revisions set body = ${body} where id = ${current.id}
+    `;
+    await sql`update band_songs set updated_at = now() where id = ${input.songId}`;
+    const all = await listLyricsRevisions(input.songId);
+    return all.find((r) => r.id === Number(current.id)) ?? null;
+  }
+
   const [row] = await sql<Array<{ id: number }>>`
     insert into band_song_lyrics_revisions (song_id, body, edited_by, from_admin)
     values (${input.songId}, ${body}, ${editedBy}, ${editedBy === null})
@@ -127,5 +169,51 @@ export async function pinVersionLyrics(
     update band_song_versions set lyrics_revision_id = ${revisionId}
     where id = ${versionId}
   `;
+  return true;
+}
+
+// --- workspace scratch pad (migration 100) ---
+// One free-text page per workspace for lines not tied to a song yet. Same
+// session-folding rule as song lyrics; there are no recordings to pin it.
+
+export async function getScratch(workspaceId: number): Promise<string> {
+  const [row] = await sql<Array<{ body: string }>>`
+    select body from workspace_scratch_revisions
+    where workspace_id = ${workspaceId} order by id desc limit 1
+  `;
+  return row?.body ?? '';
+}
+
+export async function saveScratch(input: {
+  actor: BandActor;
+  workspaceId: number;
+  body: string;
+  autosave?: boolean;
+}): Promise<boolean> {
+  const body = input.body.replace(/\r\n/g, '\n').slice(0, MAX_LYRICS_LENGTH);
+  const [current] = await sql<
+    Array<{ id: number; body: string; edited_by: number | null; from_admin: boolean; age_ms: number }>
+  >`
+    select id, body, edited_by, from_admin,
+           (extract(epoch from now() - created_at) * 1000)::float8 as age_ms
+    from workspace_scratch_revisions
+    where workspace_id = ${input.workspaceId} order by id desc limit 1
+  `;
+  if (current ? current.body === body : body.trim() === '') return true;
+
+  const editedBy = 'admin' in input.actor ? null : input.actor.memberId;
+  const sameEditor =
+    current &&
+    (editedBy === null
+      ? current.from_admin
+      : current.edited_by !== null && Number(current.edited_by) === editedBy);
+  if (input.autosave && current && sameEditor && Number(current.age_ms) < AUTOSAVE_SESSION_MS) {
+    await sql`update workspace_scratch_revisions set body = ${body} where id = ${current.id}`;
+  } else {
+    await sql`
+      insert into workspace_scratch_revisions (workspace_id, body, edited_by, from_admin)
+      values (${input.workspaceId}, ${body}, ${editedBy}, ${editedBy === null})
+    `;
+  }
   return true;
 }

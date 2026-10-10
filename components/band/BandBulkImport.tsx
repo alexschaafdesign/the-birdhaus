@@ -3,11 +3,6 @@
 import { useRef, useState } from 'react';
 import Link from 'next/link';
 import { prepareAudioForUpload } from '@/lib/audio-transcode';
-import {
-  BAND_SONG_STATUSES,
-  BAND_SONG_STATUS_LABEL,
-  type BandSongStatus,
-} from '@/lib/band-constants';
 
 const inputBase =
   'w-full rounded-md border border-[#E8E0D0]/20 bg-[#E8E0D0]/[0.03] px-3 py-2 text-sm text-[#E8E0D0] placeholder:text-[#E8E0D0]/30 focus:border-[#E8E0D0]/50 focus:outline-none transition';
@@ -94,7 +89,7 @@ function fmtSize(bytes: number): string {
 }
 
 // Bulk import: drop a folder (or pick files), review the filename-derived
-// titles, set a status + tags for the whole batch, then run each file through
+// titles, set tags for the whole batch, then run each file through
 // the standard three-step upload (presign → PUT to R2 → register) plus a
 // song-create in between. The song row is only created AFTER its audio lands
 // in R2, so a failed upload never leaves an empty song in the pile.
@@ -108,7 +103,6 @@ export default function BandBulkImport({
   workspace: { id: number; slug: string };
 }) {
   const [items, setItems] = useState<ImportItem[]>([]);
-  const [status, setStatus] = useState<BandSongStatus>('demo');
   const [tags, setTags] = useState<string[]>([]);
   const [tagDraft, setTagDraft] = useState('');
   const [dragging, setDragging] = useState(false);
@@ -214,7 +208,7 @@ export default function BandBulkImport({
         const songRes = await fetch('/api/ostrich/songs', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ title: item.title, status, tags, workspaceId: workspace.id }),
+          body: JSON.stringify({ title: item.title, tags, workspaceId: workspace.id }),
         });
         const songData = await songRes.json().catch(() => null);
         if (!songRes.ok) throw new Error(songData?.error ?? `Couldn't create song (${songRes.status})`);
@@ -340,23 +334,6 @@ export default function BandBulkImport({
 
       {items.length > 0 && !started && (
         <div className="space-y-4 rounded-lg border border-[#E8E0D0]/15 bg-[#E8E0D0]/[0.03] p-4">
-          <div>
-            <label htmlFor="import-status" className={labelClass}>
-              Status for all {items.length}
-            </label>
-            <select
-              id="import-status"
-              value={status}
-              onChange={(e) => setStatus(e.target.value as BandSongStatus)}
-              className="rounded-md border border-[#E8E0D0]/20 bg-[#E8E0D0]/[0.03] px-3 py-2 text-sm text-[#E8E0D0] transition focus:border-[#E8E0D0]/50 focus:outline-none"
-            >
-              {BAND_SONG_STATUSES.map((s) => (
-                <option key={s} value={s}>
-                  {BAND_SONG_STATUS_LABEL[s]}
-                </option>
-              ))}
-            </select>
-          </div>
           <div>
             <span className={labelClass}>Tags for all (optional)</span>
             <div className="flex flex-wrap items-center gap-1.5">
@@ -497,7 +474,7 @@ export default function BandBulkImport({
         <div className="rounded-lg border border-[#c8a26a]/40 bg-[#c8a26a]/10 p-4 text-sm text-[#E8E0D0]">
           All {items.length} {items.length === 1 ? 'song' : 'songs'} added.{' '}
           <Link
-            href={`/w/${workspace.slug}`}
+            href={`/w/${workspace.slug}/songs`}
             className="text-[#c8a26a] underline-offset-2 hover:underline"
           >
             Back to the song pile

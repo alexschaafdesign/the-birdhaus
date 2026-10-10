@@ -10,9 +10,9 @@ export const NAV: RailNavEntry[] = [
   { label: 'ARCHIVE', href: '/redesign/archive', match: ['/redesign/archive', '/archive', '/videos', '/photos', '/bands'] },
   // No 2027 Label page yet.
   { label: 'LABEL', href: '#', match: [] },
-  // Links out to the Fresh Cuts site (Song Club, Yellow Ostrich): the portal
+  // Links out to the Song Club portal (Song Club, Yellow Ostrich): the portal
   // host when the domain split is on, /song-club on this origin until then.
   // Never active here.
-  { label: 'FRESH CUTS', href: portalRedirect('/song-club'), match: [], external: true },
+  { label: 'SONG CLUB', href: portalRedirect('/song-club'), match: [], external: true },
   { label: 'ABOUT/CONTACT', href: '/contact', match: ['/contact'] },
 ];

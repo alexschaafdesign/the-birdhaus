@@ -3,6 +3,7 @@ import { actorForSong } from '@/lib/workspaces';
 import { saveLyrics } from '@/lib/band-lyrics';
 
 // Save the song's lyrics — appends a revision (no-op if nothing changed).
+// `autosave: true` (the lyrics desk) may fold into the latest revision instead.
 // Collaborative like song metadata: any member of the song's workspace.
 export async function POST(
   request: Request,
@@ -19,7 +20,7 @@ export async function POST(
   const body = await request.json().catch(() => null);
   const text = typeof body?.body === 'string' ? body.body : '';
 
-  const revision = await saveLyrics({ actor, songId, body: text });
+  const revision = await saveLyrics({ actor, songId, body: text, autosave: body?.autosave === true });
   if (!revision) return NextResponse.json({ error: 'Nothing to save' }, { status: 400 });
 
   return NextResponse.json({ revision });

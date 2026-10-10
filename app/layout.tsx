@@ -68,7 +68,7 @@ const birdhausMetadata: Metadata = {
 
 // The portal host's identity. Its icon files and web manifest come from host
 // rewrites in next.config.ts (beforeFiles, so they win over public/), which
-// serve the Fresh Cuts icons from public/portal/ at these same paths.
+// serve the Song Club icons from public/portal/ at these same paths.
 const portalMetadata: Metadata = {
   metadataBase: new URL(PORTAL_URL),
   title: {
@@ -108,7 +108,7 @@ export async function generateMetadata(): Promise<Metadata> {
   return (await onPortalHost()) ? portalMetadata : birdhausMetadata;
 }
 
-// The portal (Fresh Cuts) hasn't been through the 2027 redesign: its pages
+// The portal (Song Club) hasn't been through the 2027 redesign: its pages
 // still use main's light-on-dark text, so the portal host keeps main's dark
 // page colors instead of this branch's paper/ink.
 const PORTAL_PAGE_COLORS = { backgroundColor: "#2A2420", color: "#E8E0D0" };
@@ -124,7 +124,7 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   // Every page already renders per request (isAdminSession reads cookies), so
-  // the host check adds no dynamism. Portal host → Fresh Cuts shell.
+  // the host check adds no dynamism. Portal host → Song Club shell.
   const [isAdmin, portal] = await Promise.all([isAdminSession(), onPortalHost()]);
 
   return (

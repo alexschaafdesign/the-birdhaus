@@ -8,11 +8,8 @@ import type { BandSongGroup } from '@/lib/band-groups';
 import BandGroupsView from '@/components/band/BandGroupsView';
 import { BandPlayButton } from '@/components/band/BandAudio';
 import { bandSongToPlayerTrack, type PlayerTrack } from '@/lib/player-tracks';
-import {
-  BAND_SONG_STATUSES,
-  BAND_SONG_STATUS_LABEL,
-  type BandSongStatus,
-} from '@/lib/band-constants';
+import { SONG_COLORS, type ColorLabels, type SongColor } from '@/lib/band-constants';
+import { ColorDot, ColorLegend, colorCounts } from '@/components/band/SongColors';
 
 const inputBase =
   'w-full rounded-md border border-[#E8E0D0]/20 bg-[#E8E0D0]/[0.03] px-3 py-2 text-sm text-[#E8E0D0] placeholder:text-[#E8E0D0]/30 focus:border-[#E8E0D0]/50 focus:outline-none transition';
@@ -23,33 +20,37 @@ const chipOn = `${chipBase} border-[#c8a26a] bg-[#c8a26a]/15 text-[#c8a26a]`;
 // Excluded group ("not in X").
 const chipExc = `${chipBase} border-[#F5A3A3]/55 bg-[#F5A3A3]/10 text-[#F5A3A3]`;
 
-const STATUS_PILL: Record<BandSongStatus, string> = {
-  idea: 'border-[#E8E0D0]/25 text-[#E8E0D0]/55',
-  demo: 'border-[#E8E0D0]/25 text-[#E8E0D0]/75',
-  in_progress: 'border-[#E8E0D0]/40 text-[#E8E0D0]',
-  contender: 'border-[#c8a26a] text-[#c8a26a]',
-  cut: 'border-[#F5A3A3]/50 text-[#F5A3A3]/80',
-};
-
-type SortKey = 'active' | 'newest' | 'title' | 'status';
+type SortKey = 'active' | 'newest' | 'title' | 'color';
 
 // The whole pile ships to the client (this is a private tool with ~50-100
 // rows) so filtering and sorting are instant, no round trips.
 export default function BandSongList({
-  songs,
+  songs: allSongs,
   allTags,
   groups,
+  colorLabels,
   workspace,
 }: {
   songs: BandSong[];
   allTags: string[];
   groups: BandSongGroup[];
+  colorLabels: ColorLabels;
   workspace: { id: number; slug: string };
 }) {
   const router = useRouter();
-  const [view, setView] = useState<'all' | 'groups'>('all');
+  // Archived songs drop out of everything below except the Archived view.
+  const songs = useMemo(() => allSongs.filter((s) => !s.archivedAt), [allSongs]);
+  const archivedSongs = useMemo(
+    () =>
+      allSongs
+        .filter((s) => s.archivedAt)
+        .sort((a, b) => (b.archivedAt ?? '').localeCompare(a.archivedAt ?? '')),
+    [allSongs]
+  );
+  const liveIds = useMemo(() => new Set(songs.map((s) => s.id)), [songs]);
+  const [view, setView] = useState<'all' | 'groups' | 'archived'>('all');
   const [search, setSearch] = useState('');
-  const [status, setStatus] = useState<BandSongStatus | 'all'>('all');
+  const [colorFilter, setColorFilter] = useState<SongColor | 'none' | null>(null);
   const [tags, setTags] = useState<string[]>([]);
   // Per-group tri-state filter: 'in' keeps songs in the group, 'out' keeps
   // songs NOT in it. Absent = the group doesn't constrain the list. Includes
@@ -107,14 +108,7 @@ export default function BandSongList({
     });
   }
 
-  const statusCounts = useMemo(() => {
-    const counts = Object.fromEntries(BAND_SONG_STATUSES.map((s) => [s, 0])) as Record<
-      BandSongStatus,
-      number
-    >;
-    for (const s of songs) counts[s.status]++;
-    return counts;
-  }, [songs]);
+  const counts = useMemo(() => colorCounts(songs), [songs]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -131,7 +125,7 @@ export default function BandSongList({
         if (inc.some((id) => !gs?.has(id))) return false;
         if (exc.some((id) => gs?.has(id))) return false;
       }
-      if (status !== 'all' && s.status !== status) return false;
+      if (colorFilter && (s.color ?? 'none') !== colorFilter) return false;
       if (tags.length > 0 && !tags.every((t) => s.tags.includes(t))) return false;
       if (
         q &&
@@ -146,16 +140,16 @@ export default function BandSongList({
       out = [...out].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
     } else if (sort === 'title') {
       out = [...out].sort((a, b) => a.title.localeCompare(b.title));
-    } else if (sort === 'status') {
+    } else if (sort === 'color') {
+      // Palette order, uncolored last.
+      const rank = (c: SongColor | null) => (c ? SONG_COLORS.indexOf(c) : SONG_COLORS.length);
       out = [...out].sort(
-        (a, b) =>
-          BAND_SONG_STATUSES.indexOf(a.status) - BAND_SONG_STATUSES.indexOf(b.status) ||
-          a.title.localeCompare(b.title)
+        (a, b) => rank(a.color) - rank(b.color) || a.title.localeCompare(b.title)
       );
     }
     // 'active' keeps the server order: pinned first, then recently touched.
     return out;
-  }, [songs, search, status, tags, sort, groupState, ungroupedOnly, groupIdsBySong]);
+  }, [songs, search, colorFilter, tags, sort, groupState, ungroupedOnly, groupIdsBySong]);
 
   function toggleTag(tag: string) {
     setTags((prev) => (prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]));
@@ -178,6 +172,27 @@ export default function BandSongList({
         const data = await res.json().catch(() => null);
         throw new Error(data?.error ?? `Couldn't update group (${res.status})`);
       }
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Something went wrong');
+    }
+    setBusy(false);
+  }
+
+  async function setArchived(songId: number, archived: boolean) {
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/ostrich/songs/${songId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ archived }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        throw new Error(data?.error ?? `Couldn't update (${res.status})`);
+      }
+      setMenuFor(null);
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong');
@@ -236,14 +251,14 @@ export default function BandSongList({
 
   const hasFilter =
     search.trim() !== '' ||
-    status !== 'all' ||
+    colorFilter !== null ||
     tags.length > 0 ||
     Object.keys(groupState).length > 0 ||
     ungroupedOnly;
 
   function clearFilters() {
     setSearch('');
-    setStatus('all');
+    setColorFilter(null);
     setTags([]);
     setGroupState({});
     setUngroupedOnly(false);
@@ -277,10 +292,70 @@ export default function BandSongList({
         >
           Groups{groups.length > 0 && ` ${groups.length}`}
         </button>
+        {(archivedSongs.length > 0 || view === 'archived') && (
+          <button
+            type="button"
+            onClick={() => setView('archived')}
+            className={view === 'archived' ? chipOn : chipOff}
+          >
+            Archived {archivedSongs.length}
+          </button>
+        )}
+        <Link href={`/w/${workspace.slug}`} className={chipOff}>
+          ← Desk
+        </Link>
       </div>
 
       {view === 'groups' ? (
-        <BandGroupsView songs={songs} groups={groups} workspace={workspace} />
+        <BandGroupsView
+          songs={songs}
+          groups={groups}
+          workspace={workspace}
+          colorLabels={colorLabels}
+        />
+      ) : view === 'archived' ? (
+        <div>
+          <p className="mb-4 text-xs text-[#E8E0D0]/45">
+            Out of the pile, groups and lyrics desk. Everything is kept — restore a song to bring
+            it back.
+          </p>
+          {error && (
+            <div className="mb-4 rounded-lg border border-[#F5A3A3]/40 bg-[#F5A3A3]/10 p-3 text-sm text-[#F5A3A3]">
+              {error}
+            </div>
+          )}
+          {archivedSongs.length === 0 ? (
+            <p className="py-8 text-center text-sm text-[#E8E0D0]/40">Nothing archived.</p>
+          ) : (
+            <div className="space-y-2">
+              {archivedSongs.map((song) => (
+                <div
+                  key={song.id}
+                  className="flex items-center justify-between gap-3 rounded-lg border border-[#E8E0D0]/10 p-4"
+                >
+                  <Link
+                    href={`/w/${workspace.slug}/songs/${song.id}`}
+                    className="flex min-w-0 items-center gap-2 hover:underline"
+                  >
+                    <ColorDot color={song.color} labels={colorLabels} />
+                    <span className="truncate text-sm text-[#E8E0D0]/75">{song.title}</span>
+                  </Link>
+                  <span className="flex shrink-0 items-center gap-3 text-xs text-[#E8E0D0]/40">
+                    {song.archivedAt && `archived ${fmtDate(song.archivedAt)}`}
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => setArchived(song.id, false)}
+                      className="text-[#c8a26a] underline-offset-2 hover:underline disabled:opacity-50"
+                    >
+                      restore
+                    </button>
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       ) : (
         <>
       {/* Click-away for the row group popover. */}
@@ -342,7 +417,7 @@ export default function BandSongList({
             <option value="active">Recently active</option>
             <option value="newest">Newest</option>
             <option value="title">Title A–Z</option>
-            <option value="status">Pipeline order</option>
+            <option value="color">By color</option>
           </select>
         </div>
 
@@ -369,7 +444,7 @@ export default function BandSongList({
                   className={mode === 'in' ? chipOn : mode === 'out' ? chipExc : chipOff}
                 >
                   {mode === 'out' && 'not '}
-                  {g.name} {g.songIds.length}
+                  {g.name} {g.songIds.filter((id) => liveIds.has(id)).length}
                 </button>
               );
             })}
@@ -388,25 +463,13 @@ export default function BandSongList({
           </div>
         )}
 
-        <div className="flex flex-wrap gap-1.5">
-          <button
-            type="button"
-            onClick={() => setStatus('all')}
-            className={status === 'all' ? chipOn : chipOff}
-          >
-            All {songs.length}
-          </button>
-          {BAND_SONG_STATUSES.map((s) => (
-            <button
-              key={s}
-              type="button"
-              onClick={() => setStatus(status === s ? 'all' : s)}
-              className={status === s ? chipOn : chipOff}
-            >
-              {BAND_SONG_STATUS_LABEL[s]} {statusCounts[s]}
-            </button>
-          ))}
-        </div>
+        <ColorLegend
+          workspaceId={workspace.id}
+          labels={colorLabels}
+          counts={counts}
+          active={colorFilter}
+          onPick={setColorFilter}
+        />
 
         {allTags.length > 0 && (
           <div className="flex flex-wrap items-center gap-1.5">
@@ -472,12 +535,8 @@ export default function BandSongList({
                       ★
                     </span>
                   )}
+                  <ColorDot color={song.color} labels={colorLabels} />
                   <span className="truncate text-sm font-semibold">{song.title}</span>
-                  <span
-                    className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-wide ${STATUS_PILL[song.status]}`}
-                  >
-                    {BAND_SONG_STATUS_LABEL[song.status]}
-                  </span>
                 </div>
                 <span className="flex shrink-0 items-center gap-2 text-xs text-[#E8E0D0]/40">
                   <span>
@@ -562,6 +621,18 @@ export default function BandSongList({
                       Add
                     </button>
                   </form>
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setArchived(song.id, true);
+                    }}
+                    className="mt-2 w-full border-t border-[#E8E0D0]/10 px-2 pt-2 text-left text-xs text-[#E8E0D0]/50 transition hover:text-[#E8E0D0] disabled:opacity-50"
+                  >
+                    Archive song
+                  </button>
                 </div>
               )}
               {(song.tags.length > 0 || (songGroupNames.get(song.id)?.length ?? 0) > 0) && (

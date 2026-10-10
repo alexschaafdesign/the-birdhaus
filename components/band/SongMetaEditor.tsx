@@ -3,25 +3,25 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { BandSong } from '@/lib/band-songs';
-import {
-  BAND_SONG_STATUSES,
-  BAND_SONG_STATUS_LABEL,
-} from '@/lib/band-constants';
+import type { ColorLabels } from '@/lib/band-constants';
+import { SongColorPicker } from '@/components/band/SongColors';
 
 const inputBase =
   'w-full rounded-md border border-[#E8E0D0]/20 bg-[#E8E0D0]/[0.03] px-3 py-2 text-sm text-[#E8E0D0] placeholder:text-[#E8E0D0]/30 focus:border-[#E8E0D0]/50 focus:outline-none transition';
 const labelClass = 'mb-1 block text-xs font-medium uppercase tracking-wide text-[#E8E0D0]/55';
 
 // The song's header + metadata, editable in place. Collaborative: anyone in
-// the band can retitle, retag, or move it through the pipeline. Saves are
+// the band can retitle, retag, or recolor it. Saves are
 // explicit (one PATCH) so half-typed tags never hit the server.
 export default function SongMetaEditor({
   song,
   allTags,
   canDelete,
   basePath,
+  colorLabels,
 }: {
   song: BandSong;
+  colorLabels: ColorLabels;
   allTags: string[];
   canDelete: boolean;
   // The workspace's root path (e.g. /w/yellow-ostrich) — where a delete lands.
@@ -30,7 +30,6 @@ export default function SongMetaEditor({
   const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(song.title);
-  const [status, setStatus] = useState(song.status);
   const [tags, setTags] = useState<string[]>(song.tags);
   const [tagInput, setTagInput] = useState('');
   const [notes, setNotes] = useState(song.notes ?? '');
@@ -61,7 +60,7 @@ export default function SongMetaEditor({
       const finalTags = tagInput.trim()
         ? [...tags, tagInput.trim().toLowerCase()].filter((t, i, a) => a.indexOf(t) === i)
         : tags;
-      await patch({ title, status, tags: finalTags, notes: notes.trim() || null });
+      await patch({ title, tags: finalTags, notes: notes.trim() || null });
       setTags(finalTags);
       setTagInput('');
       setEditing(false);
@@ -76,6 +75,16 @@ export default function SongMetaEditor({
     setError(null);
     try {
       await patch({ pinned: !song.pinned });
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Something went wrong');
+    }
+  }
+
+  async function toggleArchive() {
+    setError(null);
+    try {
+      await patch({ archived: !song.archivedAt });
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong');
@@ -115,9 +124,11 @@ export default function SongMetaEditor({
               <span className="min-w-0 break-words">{song.title}</span>
             </h1>
             <div className="mt-2 flex flex-wrap items-center gap-1.5">
-              <span className="rounded-full border border-[#c8a26a]/60 px-2.5 py-0.5 text-xs uppercase tracking-wide text-[#c8a26a]">
-                {BAND_SONG_STATUS_LABEL[song.status]}
-              </span>
+              {song.archivedAt && (
+                <span className="rounded-full border border-[#E8E0D0]/30 px-2.5 py-0.5 text-xs uppercase tracking-wide text-[#E8E0D0]/55">
+                  Archived
+                </span>
+              )}
               {song.tags.map((tag) => (
                 <span
                   key={tag}
@@ -138,12 +149,27 @@ export default function SongMetaEditor({
             </button>
             <button
               type="button"
+              onClick={toggleArchive}
+              className="text-[#E8E0D0]/45 underline-offset-2 transition hover:text-[#E8E0D0] hover:underline"
+            >
+              {song.archivedAt ? 'Unarchive' : 'Archive'}
+            </button>
+            <button
+              type="button"
               onClick={() => setEditing(true)}
               className="text-[#E8E0D0]/45 underline-offset-2 transition hover:text-[#E8E0D0] hover:underline"
             >
               Edit
             </button>
           </div>
+        </div>
+        <div className="mt-3">
+          <SongColorPicker
+            key={song.id}
+            songId={song.id}
+            value={song.color}
+            labels={colorLabels}
+          />
         </div>
         {song.notes && (
           <p className="mt-3 whitespace-pre-wrap text-sm text-[#E8E0D0]/70">{song.notes}</p>
@@ -171,24 +197,6 @@ export default function SongMetaEditor({
             onChange={(e) => setTitle(e.target.value)}
             className={inputBase}
           />
-        </div>
-
-        <div>
-          <label htmlFor="song-status" className={labelClass}>
-            Status
-          </label>
-          <select
-            id="song-status"
-            value={status}
-            onChange={(e) => setStatus(e.target.value as BandSong['status'])}
-            className={inputBase}
-          >
-            {BAND_SONG_STATUSES.map((s) => (
-              <option key={s} value={s}>
-                {BAND_SONG_STATUS_LABEL[s]}
-              </option>
-            ))}
-          </select>
         </div>
 
         <div>
@@ -273,7 +281,6 @@ export default function SongMetaEditor({
             onClick={() => {
               setEditing(false);
               setTitle(song.title);
-              setStatus(song.status);
               setTags(song.tags);
               setTagInput('');
               setNotes(song.notes ?? '');

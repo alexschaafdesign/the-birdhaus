@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation';
 import { getWorkspaceBySlug, requireWorkspacePage } from '@/lib/workspaces';
 import { getSong, songComments, songVersions, distinctTags } from '@/lib/band-songs';
 import { listLyricsRevisions } from '@/lib/band-lyrics';
+import { getColorLabels } from '@/lib/song-colors';
 import BandLyrics from '@/components/band/BandLyrics';
 import SongMetaEditor from '@/components/band/SongMetaEditor';
 import BandVersionCard from '@/components/band/BandVersionCard';
@@ -38,12 +39,13 @@ export default async function WorkspaceSongPage({
   const viewerMemberId = member?.id ?? null;
   const canModerate = 'admin' in actor || actor.staff || actor.owner === true;
 
-  const [song, versions, comments, allTags, lyricsRevisions] = await Promise.all([
+  const [song, versions, comments, allTags, lyricsRevisions, colorLabels] = await Promise.all([
     getSong(id),
     songVersions(id),
     songComments(id),
     distinctTags(workspace.id),
     listLyricsRevisions(id),
+    getColorLabels(workspace.id),
   ]);
   // A song from another workspace 404s — same as not existing at all.
   if (!song || song.workspaceId !== workspace.id) notFound();
@@ -62,10 +64,10 @@ export default async function WorkspaceSongPage({
   return (
     <main className="mx-auto w-full max-w-3xl px-5 py-6 text-[#E8E0D0] sm:px-8 sm:py-8">
       <Link
-        href={`/w/${workspace.slug}`}
+        href={`/w/${workspace.slug}?song=${song.id}`}
         className="text-xs text-[#E8E0D0]/45 underline-offset-2 transition hover:text-[#E8E0D0] hover:underline"
       >
-        ← All songs
+        ← Back to the desk
       </Link>
 
       <div className="mt-4">
@@ -74,11 +76,16 @@ export default async function WorkspaceSongPage({
           allTags={allTags}
           canDelete={canModerate || (viewerMemberId !== null && song.createdBy === viewerMemberId)}
           basePath={`/w/${workspace.slug}`}
+          colorLabels={colorLabels}
         />
       </div>
 
       <section className="mt-8">
-        <BandLyrics songId={song.id} revisions={lyricsRevisions} />
+        <BandLyrics
+          songId={song.id}
+          revisions={lyricsRevisions}
+          deskHref={`/w/${workspace.slug}?song=${song.id}`}
+        />
       </section>
 
       <section className="mt-8">
@@ -115,7 +122,6 @@ export default async function WorkspaceSongPage({
         <BandSongComments
           songId={song.id}
           comments={comments}
-          versions={versions.map((v) => ({ id: v.id, label: v.label }))}
           viewerMemberId={viewerMemberId}
           canModerate={canModerate}
         />

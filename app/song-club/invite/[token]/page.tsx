@@ -5,7 +5,7 @@ import ClubSetPasswordForm from '@/components/club/ClubSetPasswordForm';
 import { PORTAL_HEADING, PORTAL_NAME, PORTAL_PLACE, PORTAL_SPLIT } from '@/lib/site';
 
 export const metadata: Metadata = {
-  // Absolute on the portal so it isn't "Join Fresh Cuts · Fresh Cuts".
+  // Absolute on the portal so it isn't "Join Song Club · Song Club".
   title: PORTAL_SPLIT ? { absolute: `Join ${PORTAL_NAME}` } : `Join ${PORTAL_NAME}`,
   robots: { index: false, follow: false },
 };

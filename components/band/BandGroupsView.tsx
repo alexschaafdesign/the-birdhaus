@@ -7,11 +7,8 @@ import type { BandSong } from '@/lib/band-songs';
 import type { BandSongGroup } from '@/lib/band-groups';
 import { BandPlayButton } from '@/components/band/BandAudio';
 import { bandSongToPlayerTrack, type PlayerTrack } from '@/lib/player-tracks';
-import {
-  BAND_SONG_STATUSES,
-  BAND_SONG_STATUS_LABEL,
-  type BandSongStatus,
-} from '@/lib/band-constants';
+import type { ColorLabels } from '@/lib/band-constants';
+import { ColorDot } from '@/components/band/SongColors';
 
 const inputBase =
   'rounded-md border border-[#E8E0D0]/20 bg-[#E8E0D0]/[0.03] px-3 py-2 text-sm text-[#E8E0D0] placeholder:text-[#E8E0D0]/30 focus:border-[#E8E0D0]/50 focus:outline-none transition';
@@ -19,14 +16,6 @@ const inputBase =
 const chipBase = 'rounded-full border px-2.5 py-0.5 text-[11px] transition';
 const chipOff = `${chipBase} border-[#E8E0D0]/20 text-[#E8E0D0]/60 hover:border-[#E8E0D0]/40`;
 const chipOn = `${chipBase} border-[#c8a26a] bg-[#c8a26a]/15 text-[#c8a26a]`;
-
-const STATUS_PILL: Record<BandSongStatus, string> = {
-  idea: 'border-[#E8E0D0]/25 text-[#E8E0D0]/55',
-  demo: 'border-[#E8E0D0]/25 text-[#E8E0D0]/75',
-  in_progress: 'border-[#E8E0D0]/40 text-[#E8E0D0]',
-  contender: 'border-[#c8a26a] text-[#c8a26a]',
-  cut: 'border-[#F5A3A3]/50 text-[#F5A3A3]/80',
-};
 
 // A drag is either a master-list song being copied into a group, or a group
 // member being reordered within its own group.
@@ -45,10 +34,12 @@ export default function BandGroupsView({
   songs,
   groups,
   workspace,
+  colorLabels,
 }: {
   songs: BandSong[];
   groups: BandSongGroup[];
   workspace: { id: number; slug: string };
+  colorLabels: ColorLabels;
 }) {
   const router = useRouter();
   const songById = useMemo(() => new Map(songs.map((s) => [s.id, s])), [songs]);
@@ -68,7 +59,6 @@ export default function BandGroupsView({
 
   // Master-list column filters.
   const [search, setSearch] = useState('');
-  const [status, setStatus] = useState<BandSongStatus | 'all'>('all');
   const [ungroupedOnly, setUngroupedOnly] = useState(false);
 
   // Local order overrides while a drag is in flight (live preview under the
@@ -188,14 +178,6 @@ export default function BandGroupsView({
     else commitMasterDrop(g, drag!.songId);
   }
 
-  const statusCounts = useMemo(() => {
-    const counts = Object.fromEntries(BAND_SONG_STATUSES.map((s) => [s, 0])) as Record<
-      BandSongStatus,
-      number
-    >;
-    for (const s of songs) counts[s.status]++;
-    return counts;
-  }, [songs]);
   const ungroupedCount = songs.filter((s) => !groupCountBySong.has(s.id)).length;
 
   // Play-queue view of a song list for the global player (auto-advance
@@ -210,7 +192,6 @@ export default function BandGroupsView({
     const q = search.trim().toLowerCase();
     return songs.filter((s) => {
       if (ungroupedOnly && groupCountBySong.has(s.id)) return false;
-      if (status !== 'all' && s.status !== status) return false;
       if (
         q &&
         !s.title.toLowerCase().includes(q) &&
@@ -220,7 +201,7 @@ export default function BandGroupsView({
         return false;
       return true;
     });
-  }, [songs, search, status, ungroupedOnly, groupCountBySong]);
+  }, [songs, search, ungroupedOnly, groupCountBySong]);
 
   return (
     // Break out of the page's narrow column on desktop so both columns fit.
@@ -256,11 +237,8 @@ export default function BandGroupsView({
           <div className="mb-3 flex flex-wrap gap-1.5">
             <button
               type="button"
-              onClick={() => {
-                setStatus('all');
-                setUngroupedOnly(false);
-              }}
-              className={status === 'all' && !ungroupedOnly ? chipOn : chipOff}
+              onClick={() => setUngroupedOnly(false)}
+              className={!ungroupedOnly ? chipOn : chipOff}
             >
               All {songs.length}
             </button>
@@ -271,19 +249,6 @@ export default function BandGroupsView({
             >
               Ungrouped {ungroupedCount}
             </button>
-            {BAND_SONG_STATUSES.map(
-              (s) =>
-                statusCounts[s] > 0 && (
-                  <button
-                    key={s}
-                    type="button"
-                    onClick={() => setStatus(status === s ? 'all' : s)}
-                    className={status === s ? chipOn : chipOff}
-                  >
-                    {BAND_SONG_STATUS_LABEL[s]} {statusCounts[s]}
-                  </button>
-                )
-            )}
           </div>
           <div className="max-h-[70vh] space-y-1 overflow-y-auto pr-1">
             {masterList.length === 0 && (
@@ -332,11 +297,7 @@ export default function BandGroupsView({
                       {inGroups}
                     </span>
                   )}
-                  <span
-                    className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-wide ${STATUS_PILL[song.status]}`}
-                  >
-                    {BAND_SONG_STATUS_LABEL[song.status]}
-                  </span>
+                  <ColorDot color={song.color} labels={colorLabels} />
                 </div>
               );
             })}
@@ -534,11 +495,7 @@ export default function BandGroupsView({
                       >
                         {song.title}
                       </Link>
-                      <span
-                        className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-wide ${STATUS_PILL[song.status]}`}
-                      >
-                        {BAND_SONG_STATUS_LABEL[song.status]}
-                      </span>
+                      <ColorDot color={song.color} labels={colorLabels} />
                       <button
                         type="button"
                         disabled={busy}

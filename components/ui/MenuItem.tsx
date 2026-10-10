@@ -6,7 +6,7 @@ import Link from 'next/link';
 // turns index + label accent-red and shows a 4px accent-red segment exactly the
 // label's width, sitting on the rule (space-3 under the label) — the same idea
 // as the desktop Rail Nav Item. External shows ↗ (Header/3) at the right end,
-// for links that leave the site (Fresh Cuts). The index and ↗ are decorative,
+// for links that leave the site (Song Club). The index and ↗ are decorative,
 // so the link's name is just its label. Tokens / spacing scale only.
 
 export type MenuItemProps = {

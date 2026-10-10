@@ -31,11 +31,31 @@ function getPrivateBucket(): { client: S3Client; bucket: string } {
   return { client, bucket };
 }
 
-export async function createPrivateSignedGetUrl(key: string): Promise<string> {
+// downloadName signs a Content-Disposition: attachment override into the URL,
+// so the browser saves the file under that name instead of playing it.
+export async function createPrivateSignedGetUrl(
+  key: string,
+  opts?: { downloadName?: string }
+): Promise<string> {
   const { client, bucket } = getPrivateBucket();
-  return getSignedUrl(client, new GetObjectCommand({ Bucket: bucket, Key: key }), {
-    expiresIn: PRIVATE_SIGNED_GET_TTL_SECONDS,
-  });
+  return getSignedUrl(
+    client,
+    new GetObjectCommand({
+      Bucket: bucket,
+      Key: key,
+      ResponseContentDisposition: opts?.downloadName
+        ? attachmentDisposition(opts.downloadName)
+        : undefined,
+    }),
+    { expiresIn: PRIVATE_SIGNED_GET_TTL_SECONDS }
+  );
+}
+
+// `attachment` with an ASCII fallback name plus the RFC 5987 UTF-8 one, so
+// song titles with accents or emoji survive in modern browsers.
+export function attachmentDisposition(filename: string): string {
+  const ascii = filename.replace(/[^\x20-\x7e]/g, '_').replace(/["\\]/g, '_');
+  return `attachment; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(filename)}`;
 }
 
 // Server-side streamed GET, for the audio route's ?proxy=1 fallback. Some

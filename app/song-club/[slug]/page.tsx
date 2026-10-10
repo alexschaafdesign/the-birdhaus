@@ -413,6 +413,14 @@ export default async function SongClubEventPage({
                 </span>
               </summary>
               <div className="px-4 pb-4 sm:px-5 sm:pb-5">
+                <div className="mb-3 flex justify-end">
+                  <a
+                    href={`/api/club/playlists/${round.id}/my-tracks`}
+                    className="rounded-md border border-[#E8E0D0]/25 px-3 py-1.5 text-xs font-semibold text-[#E8E0D0]/80 transition hover:border-[#E8E0D0]/50 hover:text-[#E8E0D0]"
+                  >
+                    ↓ Download all ({myTracks.length})
+                  </a>
+                </div>
                 <PlaylistTracks
                   playlistId={round.id}
                   initialTracks={myTracks}

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getClubPortalMember } from '@/lib/club-members';
 import { isAdminSession } from '@/lib/admin-session';
-import { getTrackAudioRef } from '@/lib/club-music';
+import { getTrackAudioRef, getTrackDownloadRef, trackDownloadName } from '@/lib/club-music';
 import { createPrivateSignedGetUrl, getPrivateObjectStream } from '@/lib/r2-private';
 
 // Session-gated track audio: members (song_club role) and the admin get a 302
@@ -15,6 +15,10 @@ import { createPrivateSignedGetUrl, getPrivateObjectStream } from '@/lib/r2-priv
 // media-filtering extension) can hang <audio> loads while fetch() still
 // works, and fetch can't follow the cross-origin redirect (CORS). Only used
 // after the normal path fails, so the bandwidth cost stays incidental.
+//
+// ?download=1 is the uploader's own "download" link: owner (or admin) only,
+// and the presigned URL carries Content-Disposition: attachment so the file
+// saves under the track's title instead of playing.
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -28,6 +32,22 @@ export async function GET(
   if (!Number.isInteger(id) || id <= 0) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 });
   }
+  if (new URL(request.url).searchParams.get('download') === '1') {
+    const dl = await getTrackDownloadRef(id);
+    if (!dl) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    const isOwner = member !== null && dl.memberId === Number(member.id);
+    if (!isOwner && !(await isAdminSession())) {
+      return NextResponse.json({ error: 'Only the uploader can download this track' }, { status: 403 });
+    }
+    const target = dl.r2Key
+      ? await createPrivateSignedGetUrl(dl.r2Key, { downloadName: trackDownloadName(dl.title, dl) })
+      : dl.url;
+    if (!target) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    const response = NextResponse.redirect(target, 302);
+    response.headers.set('Cache-Control', 'no-store');
+    return response;
+  }
+
   const ref = await getTrackAudioRef(id);
   if (!ref) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 

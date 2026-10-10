@@ -52,12 +52,12 @@ function portalSplitRewrites() {
   const onPortal = [{ type: 'host' as const, value: portalHost }];
   return [
     { source: '/', has: onPortal, destination: '/song-club' },
-    // Fresh Cuts icons + manifest (public/portal/) in place of the Birdhaus
+    // Song Club icons + manifest (public/portal/) in place of the Birdhaus
     // ones, which stay static app routes on the main host.
     { source: '/favicon.ico', has: onPortal, destination: '/portal/favicon-48.png' },
     { source: '/icon.png', has: onPortal, destination: '/portal/icon-32.png' },
     { source: '/apple-icon.png', has: onPortal, destination: '/portal/apple-icon.png' },
-    // The main site's disco-ball set adds these paths; keep them Fresh Cuts on
+    // The main site's disco-ball set adds these paths; keep them Song Club on
     // the portal too (iOS requests /apple-touch-icon.png even without a tag).
     { source: '/favicon-16x16.png', has: onPortal, destination: '/portal/icon-32.png' },
     { source: '/favicon-32x32.png', has: onPortal, destination: '/portal/icon-32.png' },
