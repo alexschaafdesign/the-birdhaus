@@ -1,7 +1,7 @@
 {
-  "name": "Fresh Cuts",
-  "short_name": "Fresh Cuts",
-  "description": "Fresh Cuts — songs, events, and the group thread.",
+  "name": "Song Club",
+  "short_name": "Song Club",
+  "description": "Song Club — songs, events, and the group thread.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#2A2420",

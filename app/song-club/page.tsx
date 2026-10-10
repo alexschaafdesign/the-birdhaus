@@ -11,7 +11,7 @@ import ClubUserMenu from '@/components/club/ClubUserMenu';
 import { PORTAL_NAME, PORTAL_SPLIT } from '@/lib/site';
 
 export const metadata: Metadata = {
-  // Absolute on the portal so it isn't "Fresh Cuts · Fresh Cuts".
+  // Absolute on the portal so it isn't "Song Club · Song Club".
   title: PORTAL_SPLIT ? { absolute: PORTAL_NAME } : PORTAL_NAME,
   description: 'A Birdhaus songwriting community — events, songs, and the group thread.',
 };

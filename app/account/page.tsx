@@ -9,7 +9,7 @@ import AccountSettings from '@/components/club/AccountSettings';
 // header already provides nav). Linked from the header user menu so crew /
 // photographers manage their account without going through a Song-Club-branded
 // page. Any logged-in user can reach it.
-// Shared by both hosts; the portal's root title template adds "· Fresh Cuts".
+// Shared by both hosts; the portal's root title template adds "· Song Club".
 export async function generateMetadata(): Promise<Metadata> {
   return {
     title: (await onPortalHost()) ? 'Account' : 'The Birdhaus — account',

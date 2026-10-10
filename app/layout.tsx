@@ -91,7 +91,7 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   // Every page already renders per request (isAdminSession reads cookies), so
-  // the host check adds no dynamism. Portal host → Fresh Cuts shell.
+  // the host check adds no dynamism. Portal host → Song Club shell.
   const [isAdmin, portal] = await Promise.all([isAdminSession(), onPortalHost()]);
 
   return (

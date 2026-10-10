@@ -9,7 +9,7 @@ const footerLink = 'underline-offset-2 transition hover:text-[#E8E0D0]/70 hover:
 const navLink =
   'text-[#E8E0D0]/70 underline-offset-2 transition hover:text-[#E8E0D0] hover:underline';
 
-// Site chrome for the portal host (Fresh Cuts): wordmark, portal-only nav,
+// Site chrome for the portal host (Song Club): wordmark, portal-only nav,
 // and a small footer back to the Birdhaus. Replaces the Birdhaus Header there;
 // the root layout picks one or the other by host.
 export default async function PortalShell({ children }: { children: React.ReactNode }) {
@@ -20,7 +20,7 @@ export default async function PortalShell({ children }: { children: React.ReactN
     <>
       <header className="mx-auto flex w-full max-w-3xl flex-wrap items-center justify-between gap-x-6 gap-y-3 px-5 pt-6 pb-2 sm:px-8">
         <Link href="/" className="text-lg font-semibold tracking-wide text-[#E8E0D0]">
-          Fresh Cuts
+          Song Club
         </Link>
         <nav className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
           <Link href="/" className={navLink}>

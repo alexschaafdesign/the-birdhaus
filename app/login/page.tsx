@@ -22,7 +22,7 @@ const LOGO_URL = cloudinaryTransform(
   768
 );
 
-// Shared by both hosts; the portal's root title template adds "· Fresh Cuts".
+// Shared by both hosts; the portal's root title template adds "· Song Club".
 export async function generateMetadata(): Promise<Metadata> {
   return {
     title: (await onPortalHost()) ? 'Log in' : 'The Birdhaus — log in',
