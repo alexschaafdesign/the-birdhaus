@@ -40,6 +40,7 @@ const AUTOSAVE_DELAY_MS = 1200;
 // gutter must share these exactly or the overlay drifts off the caret.
 const LINE_PX = 28;
 const PAD_PX = 16;
+const GUTTER_PX = 40;
 
 const chipBase = 'rounded-full border px-2.5 py-0.5 text-[11px] transition';
 const chipOff = `${chipBase} border-[#E8E0D0]/20 text-[#E8E0D0]/60 hover:border-[#E8E0D0]/40`;
@@ -107,6 +108,8 @@ export default function LyricsDesk({
   const selectedId =
     pickedId === SCRATCH_ID || songs.some((s) => s.id === pickedId) ? pickedId : selectedFromServer;
   const [tab, setTab] = useState<PanelTab>('recordings');
+  // Phones: the song list is a full-screen sheet instead of a rail.
+  const [sheetOpen, setSheetOpen] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [query, setQuery] = useState('');
   const [colorFilter, setColorFilter] = useState<SongColor | 'none' | null>(null);
@@ -129,7 +132,6 @@ export default function LyricsDesk({
 
   const searchRef = useRef<HTMLInputElement>(null);
   const editorRef = useRef<HTMLTextAreaElement>(null);
-  const backdropRef = useRef<HTMLPreElement>(null);
 
   const dirtyIds = useCallback(
     () =>
@@ -264,6 +266,13 @@ export default function LyricsDesk({
     replaceRange(s, e, `==${value.slice(s, e)}==`, [s + 2, e + 2]);
   }
 
+  function insertHole() {
+    const ta = editorRef.current;
+    if (!ta) return;
+    const { selectionStart: a, selectionEnd: b } = ta;
+    replaceRange(a, b, '???', [a + 3, a + 3]);
+  }
+
   // Leaving the page (or the tab going to the background) saves immediately.
   useEffect(() => {
     const onHide = () => {
@@ -283,6 +292,9 @@ export default function LyricsDesk({
     (id: number, focusEditor = false) => {
       void flush();
       setPickedId(id);
+      setSheetOpen(false);
+      // Don't pop the keyboard on a phone just for switching songs.
+      if (!window.matchMedia('(min-width: 768px)').matches) focusEditor = false;
       startTransition(() =>
         router.replace(`?song=${id === SCRATCH_ID ? 'scratch' : id}`, { scroll: false })
       );
@@ -373,6 +385,15 @@ export default function LyricsDesk({
   }, [visible, selectedId, select]);
 
   const isScratch = selectedId === SCRATCH_ID;
+  const saveLabel = { saved: 'saved', saving: 'saving…', unsaved: 'editing…', error: 'not saved' }[
+    saveState
+  ];
+  const saveClass =
+    saveState === 'error'
+      ? 'text-[#F5A3A3]'
+      : saveState === 'saved'
+        ? 'text-[#E8E0D0]/35'
+        : 'text-[#c8a26a]';
   const liveColorCounts = colorCounts(songs.filter((s) => !s.archivedAt));
   const song = songs.find((s) => s.id === selectedId) ?? null;
   const body = bodies[selectedId] ?? '';
@@ -394,7 +415,24 @@ export default function LyricsDesk({
   return (
     <div className="grid gap-6 md:grid-cols-[240px_minmax(0,1fr)] xl:grid-cols-[250px_minmax(0,1fr)_380px]">
       {/* Rail */}
-      <aside className="md:sticky md:top-6 md:max-h-[calc(100vh-8rem)] md:overflow-y-auto">
+      <aside
+        className={
+          sheetOpen
+            ? 'fixed inset-0 z-50 overflow-y-auto bg-[#221d19] px-4 pb-24 pt-3'
+            : 'hidden md:sticky md:top-6 md:block md:max-h-[calc(100vh-8rem)] md:overflow-y-auto'
+        }
+      >
+        <div className="mb-3 flex items-center justify-between md:hidden">
+          <span className="text-lg font-semibold">Songs</span>
+          <button
+            type="button"
+            onClick={() => setSheetOpen(false)}
+            aria-label="Close song list"
+            className="flex h-10 w-10 items-center justify-center rounded-full text-xl text-[#E8E0D0]/60 hover:bg-[#E8E0D0]/10"
+          >
+            ×
+          </button>
+        </div>
         <input
           ref={searchRef}
           type="search"
@@ -408,8 +446,8 @@ export default function LyricsDesk({
               editorRef.current?.focus();
             }
           }}
-          placeholder="Find a song or a line…  ⌘K"
-          className="w-full rounded-md border border-[#E8E0D0]/20 bg-[#E8E0D0]/[0.03] px-3 py-2 text-sm text-[#E8E0D0] placeholder:text-[#E8E0D0]/30 transition focus:border-[#E8E0D0]/50 focus:outline-none"
+          placeholder="Find a song or a line…"
+          className="w-full rounded-md border border-[#E8E0D0]/20 bg-[#E8E0D0]/[0.03] px-3 py-2 text-base md:text-sm text-[#E8E0D0] placeholder:text-[#E8E0D0]/30 transition focus:border-[#E8E0D0]/50 focus:outline-none"
         />
         <form onSubmit={addSong} className="mt-2 flex gap-1.5">
           <input
@@ -418,7 +456,7 @@ export default function LyricsDesk({
             onChange={(e) => setNewTitle(e.target.value)}
             placeholder="+ New song"
             aria-label="New song title"
-            className="min-w-0 flex-1 rounded-md border border-[#E8E0D0]/15 bg-transparent px-3 py-1.5 text-sm text-[#E8E0D0] placeholder:text-[#E8E0D0]/35 transition focus:border-[#E8E0D0]/50 focus:outline-none"
+            className="min-w-0 flex-1 rounded-md border border-[#E8E0D0]/15 bg-transparent px-3 py-1.5 text-base md:text-sm text-[#E8E0D0] placeholder:text-[#E8E0D0]/35 transition focus:border-[#E8E0D0]/50 focus:outline-none"
           />
           {newTitle.trim() && (
             <button
@@ -459,26 +497,11 @@ export default function LyricsDesk({
           </select>
         </div>
 
-        {/* Phones get a picker instead of the full rail. */}
-        <select
-          value={selectedId}
-          onChange={(e) => select(Number(e.target.value))}
-          aria-label="Song"
-          className="mt-3 w-full rounded-md border border-[#E8E0D0]/20 bg-[#2A2420] px-3 py-2 text-sm text-[#E8E0D0] md:hidden"
-        >
-          <option value={SCRATCH_ID}>✎ Scratch pad</option>
-          {visible.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.title}
-            </option>
-          ))}
-        </select>
-
         {/* Always on top, outside the filters — it isn't a song. */}
         <button
           type="button"
           onClick={() => select(SCRATCH_ID, true)}
-          className={`mt-3 hidden w-full rounded-md border border-dashed px-3 py-2 text-left transition md:block ${
+          className={`mt-3 block w-full rounded-md border border-dashed px-3 py-2.5 text-left transition md:py-2 ${
             isScratch
               ? 'border-[#c8a26a]/60 bg-[#c8a26a]/10'
               : 'border-[#E8E0D0]/20 hover:border-[#E8E0D0]/40 hover:bg-[#E8E0D0]/[0.03]'
@@ -492,7 +515,7 @@ export default function LyricsDesk({
           </span>
         </button>
 
-        <ul className="mt-2 hidden space-y-0.5 md:block">
+        <ul className="mt-2 space-y-0.5">
           {visible.map((s) => {
             const st = lyricStats(bodies[s.id]);
             const on = s.id === selectedId;
@@ -501,7 +524,7 @@ export default function LyricsDesk({
                 <button
                   type="button"
                   onClick={() => select(s.id, true)}
-                  className={`w-full rounded-md border px-3 py-2 text-left transition ${
+                  className={`w-full rounded-md border px-3 py-2.5 text-left transition md:py-2 ${
                     on
                       ? 'border-[#c8a26a]/60 bg-[#c8a26a]/10'
                       : 'border-transparent hover:border-[#E8E0D0]/15 hover:bg-[#E8E0D0]/[0.03]'
@@ -546,6 +569,19 @@ export default function LyricsDesk({
       {/* Editor */}
       {(song || isScratch) && (
         <section className="min-w-0">
+          {/* Phones: always-reachable bar to open the song list. */}
+          <div className="sticky top-0 z-30 -mx-3 mb-3 flex h-11 items-center gap-3 border-b border-[#E8E0D0]/10 bg-[#2A2420] px-3 md:hidden">
+            <button
+              type="button"
+              onClick={() => setSheetOpen(true)}
+              className="flex min-w-0 items-center gap-2 rounded-md border border-[#E8E0D0]/20 px-3 py-1.5 text-sm text-[#E8E0D0]/85 active:bg-[#E8E0D0]/10"
+            >
+              <span aria-hidden>☰</span>
+              {song && <ColorDot color={song.color} labels={colorLabels} />}
+              <span className="truncate">{song ? song.title : 'Scratch pad'}</span>
+            </button>
+            <span className={`ml-auto shrink-0 text-[11px] ${saveClass}`}>{saveLabel}</span>
+          </div>
           {song ? (
             <SongMetaEditor
               key={song.id}
@@ -565,52 +601,59 @@ export default function LyricsDesk({
               </p>
             </>
           )}
-          <div className="mb-3 mt-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-            <span />
-            <span
-              className={`text-[11px] ${
-                saveState === 'error'
-                  ? 'text-[#F5A3A3]'
-                  : saveState === 'saved'
-                    ? 'text-[#E8E0D0]/35'
-                    : 'text-[#c8a26a]'
-              }`}
-            >
-              {saveState === 'saved'
-                ? 'saved'
-                : saveState === 'saving'
-                  ? 'saving…'
-                  : saveState === 'unsaved'
-                    ? 'editing…'
-                    : 'not saved'}
-            </span>
+          {/* Markup buttons — the only way to flag/highlight on a phone, and
+              handy on desktop. Pinned under the mobile bar while scrolling.
+              onPointerDown keeps the textarea's focus and selection. */}
+          <div className="sticky top-11 z-20 -mx-3 mt-4 flex items-center gap-1 border-b border-[#E8E0D0]/10 bg-[#2A2420] px-3 py-1.5 md:static md:mx-0 md:mb-2 md:border-0 md:bg-transparent md:px-0">
+            {(
+              [
+                ['⚑ Flag', 'Flag line(s) — ⌘E', flagSelection],
+                ['Highlight', 'Highlight selection — ⌘B', toggleHighlight],
+                ['???', 'Insert a hole', insertHole],
+              ] as const
+            ).map(([label, title, run]) => (
+              <button
+                key={label}
+                type="button"
+                title={title}
+                onPointerDown={(e) => e.preventDefault()}
+                onClick={() => run()}
+                className="rounded-md border border-[#E8E0D0]/15 px-2.5 py-1 text-xs text-[#E8E0D0]/70 transition hover:border-[#E8E0D0]/40 hover:text-[#E8E0D0] active:bg-[#E8E0D0]/10"
+              >
+                {label}
+              </button>
+            ))}
+            <span className={`ml-auto hidden text-[11px] md:inline ${saveClass}`}>{saveLabel}</span>
           </div>
 
-          <div className="flex rounded-lg border border-[#E8E0D0]/15 bg-[#E8E0D0]/[0.03]">
-            <div className="relative min-w-0 flex-1">
-              {/* Flagged-line bands, behind everything. */}
-              {lines.map((l, i) =>
-                l.flagged ? (
-                  <div
-                    key={i}
-                    aria-hidden
-                    className="pointer-events-none absolute inset-x-0 border-l-2 border-[#F2A65A] bg-[#F2A65A]/10"
-                    style={{ top: PAD_PX + i * LINE_PX, height: LINE_PX }}
-                  />
-                ) : null
-              )}
-              {/* Highlight backdrop: same text, same metrics, drawn under a
-                  transparent-text textarea. Color/background only — never
-                  weight or size, which would shift glyph widths. */}
-              <pre
-                ref={backdropRef}
+          <div className="-mx-3 flex border-y border-[#E8E0D0]/15 bg-[#E8E0D0]/[0.03] sm:mx-0 sm:rounded-lg sm:border">
+            {/* The styled copy is in normal flow and sets the height; the
+                transparent-text textarea sits exactly on top of it. Same
+                width, padding, font and pre-wrap, so both wrap identically —
+                long lines wrap on a phone instead of scrolling sideways.
+                Styling is color/background only: weight or size would shift
+                glyph widths and drift the overlay off the caret. */}
+            <div className="relative isolate min-w-0 flex-1">
+              <div
                 aria-hidden
-                className="pointer-events-none absolute inset-0 m-0 overflow-hidden whitespace-pre font-sans text-[17px] text-[#E8E0D0]/90"
-                style={{ padding: PAD_PX, lineHeight: `${LINE_PX}px` }}
+                className="pointer-events-none whitespace-pre-wrap break-words font-sans text-[17px] text-[#E8E0D0]/90"
+                style={{
+                  padding: PAD_PX,
+                  lineHeight: `${LINE_PX}px`,
+                  minHeight: 12 * LINE_PX + PAD_PX * 2,
+                }}
               >
                 {lines.map((l, i) => (
-                  <span key={i}>
-                    {l.kind === 'section' ? (
+                  <div key={i} className="relative">
+                    {l.flagged && (
+                      <span
+                        className="absolute inset-y-0 -z-10 border-l-2 border-[#F2A65A] bg-[#F2A65A]/10"
+                        style={{ left: -PAD_PX, right: -PAD_PX }}
+                      />
+                    )}
+                    {l.text === '' ? (
+                      ' '
+                    ) : l.kind === 'section' ? (
                       <span className="text-[#c8a26a]">{l.text}</span>
                     ) : (
                       l.segments.map((seg, j) =>
@@ -623,13 +666,32 @@ export default function LyricsDesk({
                         )
                       )
                     )}
-                    {'\n'}
-                  </span>
+                    {/* Syllables, out in the gutter column; tap to flag. */}
+                    {l.kind === 'line' && (
+                      <button
+                        type="button"
+                        onPointerDown={(e) => e.preventDefault()}
+                        onClick={() => toggleFlagLines(i, i)}
+                        title={l.flagged ? 'Unflag line (⌘E)' : 'Flag line (⌘E)'}
+                        aria-label={`${l.flagged ? 'Unflag' : 'Flag'} line ${i + 1}`}
+                        className={`pointer-events-auto absolute top-0 pr-2 text-right text-[11px] tabular-nums transition hover:bg-[#F2A65A]/10 hover:text-[#F2A65A] ${
+                          l.flagged ? 'text-[#F2A65A]' : 'text-[#E8E0D0]/35'
+                        }`}
+                        style={{
+                          left: `calc(100% + ${PAD_PX}px)`,
+                          width: GUTTER_PX,
+                          height: LINE_PX,
+                        }}
+                      >
+                        {l.syllables || l.hasHole ? `${l.syllables}${l.hasHole ? '+' : ''}` : ''}
+                      </button>
+                    )}
+                  </div>
                 ))}
-              </pre>
+              </div>
               <textarea
                 ref={editorRef}
-                key={selectedId ?? SCRATCH_ID}
+                key={selectedId}
                 value={body}
                 onChange={(e) => edit(e.target.value)}
                 onKeyDown={(e) => {
@@ -643,54 +705,24 @@ export default function LyricsDesk({
                     toggleHighlight();
                   }
                 }}
-                onScroll={(e) => {
-                  if (backdropRef.current)
-                    backdropRef.current.scrollLeft = e.currentTarget.scrollLeft;
-                }}
-                wrap="off"
                 spellCheck
+                autoCapitalize="sentences"
                 placeholder={
                   song
                     ? '[verse 1]\nfirst line…\na line with a ??? still to write'
                     : 'a line you overheard…\nan image that might be a chorus…'
                 }
                 aria-label={song ? `Lyrics for ${song.title}` : 'Scratch pad'}
-                className="relative block w-full resize-none overflow-x-auto overflow-y-hidden bg-transparent font-sans text-[17px] text-transparent caret-[#E8E0D0] placeholder:text-[#E8E0D0]/25 focus:outline-none"
-                style={{
-                  padding: PAD_PX,
-                  lineHeight: `${LINE_PX}px`,
-                  // Grows with the song so the page scrolls, not the box;
-                  // the extra line leaves room for a horizontal scrollbar.
-                  height: Math.max(14, lines.length + 2) * LINE_PX + PAD_PX * 2,
-                }}
+                className="absolute inset-0 block h-full w-full resize-none overflow-hidden whitespace-pre-wrap break-words bg-transparent font-sans text-[17px] text-transparent caret-[#E8E0D0] placeholder:text-[#E8E0D0]/25 focus:outline-none"
+                style={{ padding: PAD_PX, lineHeight: `${LINE_PX}px` }}
               />
             </div>
-            {/* Syllables per line ("+" when a hole means the count is short).
-                Click a count to flag/unflag its line. */}
+            {/* The gutter column the syllable buttons above sit in. */}
             <div
-              className="w-10 shrink-0 select-none border-l border-[#E8E0D0]/10 text-right text-[11px] tabular-nums"
-              style={{ paddingTop: PAD_PX, lineHeight: `${LINE_PX}px` }}
-            >
-              {lines.map((l, i) =>
-                l.kind === 'line' ? (
-                  <button
-                    key={i}
-                    type="button"
-                    onClick={() => toggleFlagLines(i, i)}
-                    title={l.flagged ? 'Unflag line (⌘E)' : 'Flag line (⌘E)'}
-                    aria-label={`${l.flagged ? 'Unflag' : 'Flag'} line ${i + 1}`}
-                    className={`block w-full pr-2 text-right transition hover:bg-[#F2A65A]/10 hover:text-[#F2A65A] ${
-                      l.flagged ? 'text-[#F2A65A]' : 'text-[#E8E0D0]/35'
-                    }`}
-                    style={{ height: LINE_PX }}
-                  >
-                    {l.syllables || l.hasHole ? `${l.syllables}${l.hasHole ? '+' : ''}` : ''}
-                  </button>
-                ) : (
-                  <div key={i} style={{ height: LINE_PX }} />
-                )
-              )}
-            </div>
+              aria-hidden
+              className="shrink-0 border-l border-[#E8E0D0]/10"
+              style={{ width: GUTTER_PX }}
+            />
           </div>
 
           {error && (

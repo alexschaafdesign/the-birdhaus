@@ -71,7 +71,7 @@ export default async function WorkspaceDeskPage({
   const poolSize = songs.filter((s) => !s.archivedAt).length;
 
   return (
-    <main className="mx-auto w-full max-w-[90rem] px-5 pt-6 pb-28 text-[#E8E0D0] sm:px-8 sm:pt-8">
+    <main className="mx-auto w-full max-w-[90rem] px-3 pt-4 pb-28 text-[#E8E0D0] sm:px-8 sm:pt-8">
       <header className="mb-6 flex items-center justify-between gap-4">
         <div className="flex items-baseline gap-4">
           <h1 className="text-2xl font-semibold">{workspace.name}</h1>
