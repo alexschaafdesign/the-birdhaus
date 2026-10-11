@@ -1,7 +1,7 @@
 import { sql } from '@/lib/db';
 import { getTodayCentral } from '@/lib/shows';
 import { getAvailableDates } from '@/lib/available-dates';
-import type { BookingProspect, DateHold, DateNote } from '@/lib/booking';
+import type { BookingDay, BookingProspect } from '@/lib/booking';
 import BookingDashboard, {
   type BookingShow,
   type BookingDateOffer,
@@ -13,21 +13,16 @@ export default async function BookingPage() {
   const today = getTodayCentral();
   const yearStart = `${today.slice(0, 4)}-01-01`;
 
-  const [prospects, holds, dateNotes, availableDates, dateOffers, shows] = await Promise.all([
+  const [prospects, days, availableDates, dateOffers, shows] = await Promise.all([
     sql<BookingProspect[]>`
       select id, band_id, name, status, priority, last_contacted_at, notes, created_at, updated_at
       from booking_prospects
       order by priority desc, updated_at desc
     `,
-    sql<DateHold[]>`
-      select id, date::text as date, prospect_id, position, status, note, show_id, created_at, updated_at
-      from date_holds
-      order by date asc, created_at asc
-    `,
-    sql<DateNote[]>`
-      select id, date::text as date, body, created_at, updated_at
-      from date_notes
-      order by date asc, created_at asc
+    sql<BookingDay[]>`
+      select date::text as date, title, notepad
+      from booking_days
+      order by date asc
     `,
     getAvailableDates(),
     // Inbound submissions desk overlay (read-only here): what's already been
@@ -53,8 +48,7 @@ export default async function BookingPage() {
       <BookingDashboard
         today={today}
         initialProspects={prospects}
-        initialHolds={holds}
-        initialDateNotes={dateNotes}
+        initialDays={days}
         initialAvailableDates={availableDates}
         dateOffers={dateOffers}
         shows={shows}

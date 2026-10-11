@@ -2,14 +2,12 @@
 
 import { useState } from 'react';
 import { DATE_OFFER_COLORS } from '@/lib/date-offers';
-import { HOLD_STATUS_COLORS, HOLD_STATUS_LABELS } from '@/lib/booking';
-import type { BookingProspect } from '@/lib/booking';
 import type { DayInfo } from './BookingDashboard';
 
 // Forked from components/CalendarView.tsx: same month-grid math, but built
 // for planning — every cell is a select-the-day button (no navigation links,
 // no flyer images), the header adds ±year jumps, and cells layer booking
-// state (bands asked, notes, submission offers) over the show/available base.
+// state (day titles, notepads, submission offers) over the show/available base.
 
 const WEEKDAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
@@ -20,7 +18,6 @@ function parseLocalDate(dateStr: string) {
 
 export default function BookingCalendar({
   dayInfoByDate,
-  prospectsById,
   today,
   selectedDate,
   onSelectDate,
@@ -28,7 +25,6 @@ export default function BookingCalendar({
   onPaintDay,
 }: {
   dayInfoByDate: Map<string, DayInfo>;
-  prospectsById: Map<number, BookingProspect>;
   today: string;
   selectedDate: string | null;
   onSelectDate: (date: string) => void;
@@ -119,12 +115,10 @@ export default function BookingCalendar({
           const show = info?.show;
           const draft = info?.draftShow;
           const titled = show ?? draft;
-          // No show on the day → the first note doubles as the cell's label
-          // ("Fresh Cuts maybe", "Comedy show?").
-          const noteLabel = !titled ? info?.notes[0]?.body : undefined;
-          const noteCount = info?.notes.length ?? 0;
-          // Live asks (not passed); asks are sorted best-first, so [0] sets the badge color.
-          const liveAsks = info?.asks.filter((h) => h.status !== 'passed') ?? [];
+          // No show on the day → the day's own title is the cell's label
+          // ("Fresh Cuts?", "Comedy show?").
+          const dayTitle = !titled ? info?.plan?.title || undefined : undefined;
+          const hasNotepad = Boolean(info?.plan?.notepad.trim());
           const isToday = dateStr === today;
           const isSelected = dateStr === selectedDate;
 
@@ -145,7 +139,7 @@ export default function BookingCalendar({
                 if (paintMode && !titled) onPaintDay(dateStr);
                 else onSelectDate(dateStr);
               }}
-              title={titled ? `${titled.title}${draft && !show ? ' (draft)' : ''}` : noteLabel ?? dateStr}
+              title={titled ? `${titled.title}${draft && !show ? ' (draft)' : ''}` : dayTitle ?? dateStr}
               className={`relative flex aspect-square flex-col items-center justify-center overflow-hidden rounded text-sm transition-all ${
                 paintMode && !titled ? 'hover:border-green-400' : 'hover:border-[#E8E0D0]/60'
               } ${base} ${
@@ -158,32 +152,18 @@ export default function BookingCalendar({
               </span>
 
               {titled && (
-                <span className="mt-2 line-clamp-2 px-0.5 text-center text-[8px] leading-tight">
+                <span className="mt-3 line-clamp-3 break-words px-1 text-center text-[9px] font-medium leading-tight sm:text-xs">
                   {titled.title}
                 </span>
               )}
-              {noteLabel && (
-                <span className="mt-2 line-clamp-2 px-0.5 text-center text-[8px] leading-tight text-[#E8E0D0]/70">
-                  {noteLabel}
-                </span>
-              )}
-
-              {liveAsks.length > 0 && (
-                <span
-                  className="absolute right-0.5 top-0.5 rounded px-1 text-[8px] font-bold text-black"
-                  style={{ backgroundColor: HOLD_STATUS_COLORS[liveAsks[0].status] }}
-                  title={liveAsks
-                    .map((h) => `${prospectsById.get(h.prospect_id)?.name ?? '?'} (${HOLD_STATUS_LABELS[h.status]})`)
-                    .join(', ')}
-                >
-                  {liveAsks.length}
+              {dayTitle && (
+                <span className="mt-3 line-clamp-3 break-words px-1 text-center text-[9px] font-medium leading-tight text-[#E8E0D0]/90 sm:text-xs">
+                  {dayTitle}
                 </span>
               )}
 
               <span className="absolute bottom-0.5 left-1 flex items-center gap-0.5">
-                {noteCount > 0 && (titled || noteCount > 1) && (
-                  <span className="h-1.5 w-1.5 rounded-full bg-[#E8E0D0]/50" title="Has notes" />
-                )}
+                {hasNotepad && <span className="h-1.5 w-1.5 rounded-full bg-[#E8E0D0]/50" title="Has notes" />}
                 {info?.offers.slice(0, 2).map((offer) => (
                   <span
                     key={offer.id}
@@ -213,13 +193,7 @@ export default function BookingCalendar({
           <span className="inline-block h-3 w-3 rounded border border-dotted border-green-500/40" /> available
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="rounded px-1 text-[8px] font-bold text-black" style={{ backgroundColor: HOLD_STATUS_COLORS.asked }}>2</span>
-          bands asked (color = best: <span style={{ color: HOLD_STATUS_COLORS.asked }}>asked</span> /{' '}
-          <span style={{ color: HOLD_STATUS_COLORS.hold }}>hold</span> /{' '}
-          <span style={{ color: HOLD_STATUS_COLORS.booked }}>booked</span>)
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="inline-block h-1.5 w-1.5 rounded-full bg-[#E8E0D0]/50" /> note
+          <span className="inline-block h-1.5 w-1.5 rounded-full bg-[#E8E0D0]/50" /> notes
         </span>
         <span className="flex items-center gap-1.5">
           <span className="inline-block h-1.5 w-1.5 rounded-full" style={{ backgroundColor: DATE_OFFER_COLORS.contacted }} /> offered (submissions)
