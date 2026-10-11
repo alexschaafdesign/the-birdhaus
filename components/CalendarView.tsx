@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { portalRedirect } from '@/lib/site';
+import { SONGHAUS_URL } from '@/lib/site';
 
 // Deliberately narrower than lib/shows.ts's full Show — this is all any caller
 // (public upcoming-shows page, admin shows page) has needed to render a cell.
@@ -30,7 +30,7 @@ export default function CalendarView({
   draftShows,
   availableDates,
   isAdmin,
-  showHref = (show) => (show.type === 'song_club' ? portalRedirect(`/song-club/${show.slug}`) : `/shows/${show.slug}`),
+  showHref = (show) => (show.type === 'song_club' ? `${SONGHAUS_URL}/song-club/${show.slug}` : `/shows/${show.slug}`),
   dark,
 }: {
   shows: CalendarShow[];

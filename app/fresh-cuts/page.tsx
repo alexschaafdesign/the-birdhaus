@@ -3,7 +3,7 @@ import { getFreshCutsContent } from '@/lib/page-content';
 import { isAdminSession } from '@/lib/admin-session';
 import ShowCard from '@/components/ShowCard';
 import FreshCutsIntro from '@/components/FreshCutsIntro';
-import { PORTAL_NAME, PORTAL_SPLIT, PORTAL_URL } from '@/lib/site';
+import { SONGHAUS_NAME, SONGHAUS_URL } from '@/lib/site';
 
 // Evaluate the upcoming/past split per request so it reflects the current date,
 // not the date the site was last built/deployed.
@@ -50,10 +50,10 @@ export default async function FreshCutsPage() {
         <p className="mb-12 text-sm text-ink/60">
           Writing new songs between nights? Share them on{' '}
           <a
-            href={PORTAL_SPLIT ? PORTAL_URL : '/song-club'}
+            href={SONGHAUS_URL}
             className="underline underline-offset-2 hover:text-ink"
           >
-            {PORTAL_NAME}
+            {SONGHAUS_NAME}
           </a>
           .
         </p>

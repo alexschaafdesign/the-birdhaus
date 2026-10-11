@@ -1,5 +1,21 @@
 import type { NextConfig } from "next";
-import { SITE_URL, PORTAL_URL, PORTAL_SPLIT } from "./lib/site";
+import { SITE_URL, PORTAL_URL, PORTAL_SPLIT, SONGHAUS_URL } from "./lib/site";
+
+// Song Club became Songhaus (phase 3 cutover): every portal path on this app,
+// on any host, 308s to the same path on Songhaus. Permanent, because these
+// URLs live on in old emails, texts and flyers. Listed before the
+// portal-split rules so they win. /club predates /song-club, so it goes
+// straight to Songhaus's /song-club in one hop. /api/club stays: Birdhaus's
+// own header, login and photographer pages still call it.
+const SONGHAUS_PATHS = 'song-club|w|yellow-ostrich|monica-marie';
+function songhausRedirects() {
+  return [
+    { source: `/:seg(${SONGHAUS_PATHS})`, destination: `${SONGHAUS_URL}/:seg`, permanent: true },
+    { source: `/:seg(${SONGHAUS_PATHS})/:rest*`, destination: `${SONGHAUS_URL}/:seg/:rest*`, permanent: true },
+    { source: '/club', destination: `${SONGHAUS_URL}/song-club`, permanent: true },
+    { source: '/club/:path*', destination: `${SONGHAUS_URL}/song-club/:path*`, permanent: true },
+  ];
+}
 
 // Domain split: the portal (Song Club, /w workspaces, their vanity paths) is
 // served by this same app on its own host. Emitted only when
@@ -67,14 +83,8 @@ function portalSplitRewrites() {
 }
 
 const nextConfig: NextConfig = {
-  // The Song Club portal moved from /club to /song-club. Redirect old links
-  // (bookmarks, already-sent invite emails) to the new home.
   async redirects() {
-    return [
-      { source: '/club', destination: '/song-club', permanent: true },
-      { source: '/club/:path*', destination: '/song-club/:path*', permanent: true },
-      ...portalSplitRedirects(),
-    ];
+    return [...songhausRedirects(), ...portalSplitRedirects()];
   },
   async rewrites() {
     return { beforeFiles: portalSplitRewrites(), afterFiles: [], fallback: [] };

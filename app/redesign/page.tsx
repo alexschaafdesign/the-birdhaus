@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { SONGHAUS_URL } from '@/lib/site';
 import { getAllShows, getTodayCentral } from '@/lib/shows';
 import type { Show } from '@/lib/shows';
 import {
@@ -174,7 +175,9 @@ export default async function RedesignHome() {
           <Link href="/upcoming">UPCOMING</Link>
           <Link href="/archive">ARCHIVE</Link>
           <Link href="/fresh-cuts">FRESH CUTS</Link>
-          <Link href="/song-club">SONG CLUB</Link>
+          <a href={SONGHAUS_URL} target="_blank" rel="noopener noreferrer">
+            SONGHAUS ↗
+          </a>
           <Link href="/contact">CONTACT</Link>
           <a href="https://birdhausrecords.bandcamp.com" target="_blank" rel="noopener noreferrer">
             BANDCAMP ↗

@@ -37,6 +37,12 @@ export function isPortalHost(host: string | null): boolean {
 
 export const SITE_NAME = 'the BIRDHAUS';
 
+// Songhaus, the songwriting app that Song Club became (its own repo and
+// domain since the phase 3 cutover). Birdhaus only links there; next.config
+// 308s the old portal paths to the same path on this origin.
+export const SONGHAUS_URL = 'https://www.thesonghaus.org';
+export const SONGHAUS_NAME = 'Songhaus';
+
 // The portal's own identity on its host (titles, link previews, manifest).
 export const PORTAL_SITE_NAME = 'Song Club';
 export const PORTAL_DESCRIPTION = 'Song Club — songs, events, and the group thread.';
