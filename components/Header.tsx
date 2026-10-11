@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
-import { portalRedirect } from '@/lib/site';
+import { SONGHAUS_NAME, SONGHAUS_URL } from '@/lib/site';
 import { useEffect, useRef, useState } from 'react';
 import { cloudinaryTransform } from '@/lib/cloudinary-url';
 
@@ -27,7 +27,7 @@ type NavItem = NavLink | NavDropdown;
 const navItems: NavItem[] = [
   { type: 'link', href: '/upcoming', label: 'Upcoming Shows' },
   { type: 'link', href: '/archive', label: 'Archive' },
-  { type: 'link', href: portalRedirect('/song-club'), label: 'Song Club' },
+  { type: 'link', href: SONGHAUS_URL, label: SONGHAUS_NAME, external: true },
   {
     type: 'dropdown',
     label: 'Projects',
@@ -317,8 +317,7 @@ export default function Header({ isAdmin = false }: { isAdmin?: boolean }) {
             );
           }
 
-          // The Song Club href is absolute once the portal has its own host.
-          const isActive = !item.external && (pathname === item.href || portalRedirect(pathname) === item.href);
+          const isActive = !item.external && pathname === item.href;
           return (
             <span key={item.href} className={wrapperClass}>
               {item.external ? (
