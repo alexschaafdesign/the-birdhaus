@@ -297,9 +297,8 @@ export default function BookingDashboard({
       body: JSON.stringify(patch),
     }).catch(() => null);
     if (res?.ok) {
-      const { holds: next, prospect } = await res.json();
+      const { holds: next } = await res.json();
       replaceDateHolds(hold.date, next);
-      if (prospect) upsertProspect(prospect);
       return true;
     }
     setErrorMessage(res?.status === 409 ? 'That band already has a live ask on this date.' : failureMessage);
@@ -454,6 +453,7 @@ export default function BookingDashboard({
           <ProspectRail
             prospects={prospects}
             holds={holds}
+            today={today}
             onAdd={addProspect}
             onUpdate={updateProspect}
             onDelete={deleteProspect}

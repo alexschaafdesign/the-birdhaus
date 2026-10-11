@@ -65,6 +65,32 @@ export const HOLD_STATUS_COLORS: Record<HoldStatus, string> = {
 // Booked first, passed last — the order a date's asked list reads in.
 export const HOLD_STATUS_RANK: Record<HoldStatus, number> = { booked: 0, hold: 1, asked: 2, passed: 3 };
 
+// What the Bands rail shows. Only "not interested" is stored (status
+// 'passed'); everything else derives from the band's dates: any live ask
+// (asked/hold/booked) on today or later → active, otherwise wishlist. The
+// older pipeline values (contacted, in_talks, …) are still valid in the
+// column and simply read as wishlist/active.
+export type BandStanding = 'active' | 'wishlist' | 'not_interested';
+
+export const BAND_STANDINGS: BandStanding[] = ['active', 'wishlist', 'not_interested'];
+
+export const BAND_STANDING_LABELS: Record<BandStanding, string> = {
+  active: 'Active',
+  wishlist: 'Wishlist',
+  not_interested: 'Not interested',
+};
+
+export const BAND_STANDING_COLORS: Record<BandStanding, string> = {
+  active: PROSPECT_STATUS_COLORS.contacted,
+  wishlist: PROSPECT_STATUS_COLORS.idea,
+  not_interested: PROSPECT_STATUS_COLORS.passed,
+};
+
+export function bandStanding(prospect: { status: ProspectStatus }, hasUpcomingLiveAsk: boolean): BandStanding {
+  if (prospect.status === 'passed') return 'not_interested';
+  return hasUpcomingLiveAsk ? 'active' : 'wishlist';
+}
+
 export interface BookingProspect {
   id: number;
   band_id: number | null;

@@ -55,13 +55,13 @@ export default function DayPanel({
     year: 'numeric',
   });
 
-  // Quick-add chips: prospects not already live on this night, most wanted
-  // first, so a band you're chasing is one click away.
+  // Quick-add chips: bands not already live on this night (and not marked
+  // not interested), most wanted first.
   const liveProspectIds = new Set(
     info.asks.filter((h) => LIVE_HOLD_STATUSES.includes(h.status)).map((h) => h.prospect_id)
   );
   const quickPicks = prospects
-    .filter((p) => !liveProspectIds.has(p.id) && p.status !== 'passed' && p.status !== 'booked')
+    .filter((p) => !liveProspectIds.has(p.id) && p.status !== 'passed')
     .sort((a, b) => b.priority - a.priority || a.name.localeCompare(b.name))
     .slice(0, 8);
 

@@ -18,8 +18,8 @@ export async function GET() {
 // Logs that a band was asked about a date. Takes either an existing
 // prospect_id, or a band name (plus optional band_id from the directory
 // autocomplete) — an unknown band becomes a prospect on the spot. Asking
-// counts as contact: last_contacted_at is stamped and the prospect's status
-// nudges forward from 'idea' to 'contacted' (forward only).
+// counts as contact (last_contacted_at is stamped) and brings a band marked
+// not interested back; otherwise the band's standing derives from its dates.
 export async function POST(request: Request) {
   const denied = await requireAdmin();
   if (denied) return denied;
@@ -57,7 +57,7 @@ export async function POST(request: Request) {
         } else {
           const [created] = await tx`
             insert into booking_prospects (band_id, name, status)
-            values (${bandId}, ${name}, 'contacted')
+            values (${bandId}, ${name}, 'idea')
             returning id
           `;
           prospectId = Number(created.id);
@@ -71,7 +71,7 @@ export async function POST(request: Request) {
       `;
       const [prospect] = await tx`
         update booking_prospects
-        set status = case when status = 'idea' then 'contacted' else status end,
+        set status = case when status = 'passed' then 'idea' else status end,
             last_contacted_at = now(),
             updated_at = now()
         where id = ${prospectId}

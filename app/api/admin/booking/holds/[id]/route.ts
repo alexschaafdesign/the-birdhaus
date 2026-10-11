@@ -58,7 +58,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   try {
     const result = await sql.begin(async (tx) => {
       const [hold] = await tx`
-        select id, date::text as date, prospect_id, status from date_holds where id = ${holdId} for update
+        select id, date::text as date from date_holds where id = ${holdId} for update
       `;
       if (!hold) return null;
 
@@ -72,25 +72,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         where id = ${holdId}
       `;
 
-      // A hold or booking on a night moves the band's overall pipeline status
-      // forward (never back): hold lifts early stages to 'hold', booked sets
-      // 'booked'. Passing on one date says nothing about the band overall.
-      let prospect = null;
-      if (hasStatus && body.status !== hold.status && (body.status === 'hold' || body.status === 'booked')) {
-        [prospect] = await tx`
-          update booking_prospects
-          set status = case
-                when ${body.status}::text = 'booked' then 'booked'
-                when status in ('idea', 'contacted', 'in_talks') then 'hold'
-                else status
-              end,
-              updated_at = now()
-          where id = ${hold.prospect_id}
-          returning id, band_id, name, status, priority, last_contacted_at, notes, created_at, updated_at
-        `;
-      }
-
-      return { holds: await holdsForDate(tx, hold.date), prospect: prospect ?? null };
+      return { holds: await holdsForDate(tx, hold.date) };
     });
 
     if (!result) {
