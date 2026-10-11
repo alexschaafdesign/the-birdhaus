@@ -3,6 +3,7 @@
 import { useMemo } from 'react';
 import { DATE_OFFER_COLORS } from '@/lib/date-offers';
 import type { BookingProspect } from '@/lib/booking';
+import { HOLD_STATUS_COLORS, HOLD_STATUS_LABELS } from '@/lib/booking';
 import type { DayInfo } from './BookingDashboard';
 
 function parseLocalDate(dateStr: string) {
@@ -11,7 +12,7 @@ function parseLocalDate(dateStr: string) {
 }
 
 // Agenda counterpart to the calendar: every future date that carries anything
-// (show, draft, availability, holds, notes, offers), chronological, grouped
+// (show, draft, availability, bands asked, notes, offers), chronological, grouped
 // by month. Rows select the date, opening the same DayPanel.
 export default function BookingListView({
   infos,
@@ -38,7 +39,7 @@ export default function BookingListView({
   if (infos.length === 0) {
     return (
       <div className="rounded-lg border border-[#E8E0D0]/20 p-6 text-sm text-[#E8E0D0]/40">
-        Nothing planned yet — switch to the calendar to mark available dates and add holds.
+        Nothing planned yet — switch to the calendar to mark available dates and log who you asked.
       </div>
     );
   }
@@ -80,11 +81,16 @@ export default function BookingListView({
                         {info.available && !info.show && !info.draftShow && (
                           <span className="block text-xs text-green-400/90">Available</span>
                         )}
-                        {info.pendingHolds.length > 0 && (
-                          <span className="block truncate text-xs text-amber-400/90">
-                            {info.pendingHolds
-                              .map((h) => `H${h.position} ${prospectsById.get(h.prospect_id)?.name ?? '?'}`)
-                              .join(' · ')}
+                        {info.asks.some((h) => h.status !== 'passed') && (
+                          <span className="block truncate text-xs">
+                            {info.asks
+                              .filter((h) => h.status !== 'passed')
+                              .map((h, i) => (
+                                <span key={h.id} style={{ color: HOLD_STATUS_COLORS[h.status] }}>
+                                  {i > 0 && ' · '}
+                                  {prospectsById.get(h.prospect_id)?.name ?? '?'} ({HOLD_STATUS_LABELS[h.status]})
+                                </span>
+                              ))}
                           </span>
                         )}
                         {info.offers.length > 0 && (

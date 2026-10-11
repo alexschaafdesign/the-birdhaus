@@ -4,8 +4,16 @@ import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import Section from '@/components/admin/Section';
 import BandNameInput from '@/components/admin/BandNameInput';
-import type { BookingProspect, DateHold, ProspectStatus } from '@/lib/booking';
-import { PROSPECT_STATUSES, PROSPECT_STATUS_LABELS, PROSPECT_STATUS_COLORS } from '@/lib/booking';
+import type { BandStanding, BookingProspect, DateHold } from '@/lib/booking';
+import {
+  BAND_STANDINGS,
+  BAND_STANDING_COLORS,
+  BAND_STANDING_LABELS,
+  HOLD_STATUS_COLORS,
+  HOLD_STATUS_LABELS,
+  LIVE_HOLD_STATUSES,
+  bandStanding,
+} from '@/lib/booking';
 
 const inputClass =
   'bg-transparent border border-[#E8E0D0]/30 rounded px-3 py-1.5 text-sm focus:outline-none focus:border-[#E8E0D0] placeholder:text-[#E8E0D0]/30';
@@ -26,6 +34,7 @@ function formatShortDate(dateStr: string) {
 export default function ProspectRail({
   prospects,
   holds,
+  today,
   onAdd,
   onUpdate,
   onDelete,
@@ -33,6 +42,7 @@ export default function ProspectRail({
 }: {
   prospects: BookingProspect[];
   holds: DateHold[];
+  today: string;
   onAdd: (name: string, bandId: number | null) => void;
   onUpdate: (
     id: number,
@@ -43,21 +53,14 @@ export default function ProspectRail({
   onDelete: (id: number) => void;
   onSelectDate: (date: string) => void;
 }) {
-  const [filter, setFilter] = useState<ProspectStatus | 'all'>('all');
+  const [filter, setFilter] = useState<BandStanding | 'all'>('all');
   const [addName, setAddName] = useState('');
   const [addBandId, setAddBandId] = useState<number | null>(null);
 
-  const counts = useMemo(() => {
-    const map = new Map<ProspectStatus, number>();
-    for (const p of prospects) map.set(p.status, (map.get(p.status) ?? 0) + 1);
-    return map;
-  }, [prospects]);
-
-  // Pending holds per prospect, soonest first, for the held-date chips.
-  const pendingHoldsByProspect = useMemo(() => {
+  // Every date each band was asked about, soonest first, for the date chips.
+  const holdsByProspect = useMemo(() => {
     const map = new Map<number, DateHold[]>();
     for (const h of holds) {
-      if (h.status !== 'pending') continue;
       const list = map.get(h.prospect_id) ?? [];
       list.push(h);
       map.set(h.prospect_id, list);
@@ -66,12 +69,35 @@ export default function ProspectRail({
     return map;
   }, [holds]);
 
+  const standingById = useMemo(() => {
+    const map = new Map<number, BandStanding>();
+    for (const p of prospects) {
+      const upcomingLive = (holdsByProspect.get(p.id) ?? []).some(
+        (h) => h.date >= today && LIVE_HOLD_STATUSES.includes(h.status)
+      );
+      map.set(p.id, bandStanding(p, upcomingLive));
+    }
+    return map;
+  }, [prospects, holdsByProspect, today]);
+
+  const counts = useMemo(() => {
+    const map = new Map<BandStanding, number>();
+    for (const standing of standingById.values()) map.set(standing, (map.get(standing) ?? 0) + 1);
+    return map;
+  }, [standingById]);
+
+  // Active first, then wishlist, then not interested; priority within each.
   const visible = useMemo(
     () =>
       prospects
-        .filter((p) => filter === 'all' || p.status === filter)
-        .sort((a, b) => b.priority - a.priority || b.updated_at.localeCompare(a.updated_at)),
-    [prospects, filter]
+        .filter((p) => filter === 'all' || standingById.get(p.id) === filter)
+        .sort(
+          (a, b) =>
+            BAND_STANDINGS.indexOf(standingById.get(a.id)!) - BAND_STANDINGS.indexOf(standingById.get(b.id)!) ||
+            b.priority - a.priority ||
+            b.updated_at.localeCompare(a.updated_at)
+        ),
+    [prospects, filter, standingById]
   );
 
   function handleAdd(e: React.FormEvent) {
@@ -85,7 +111,7 @@ export default function ProspectRail({
 
   return (
     <div className="min-w-0 space-y-4">
-      <Section title="Add prospect">
+      <Section title="Add to wishlist">
         <form onSubmit={handleAdd} className="space-y-2">
           <BandNameInput
             value={addName}
@@ -104,7 +130,7 @@ export default function ProspectRail({
           />
           <div className="flex items-center justify-between gap-2">
             <span className="text-xs text-[#E8E0D0]/40">
-              {addBandId !== null ? 'Linked to band directory' : 'Free-text prospect'}
+              {addBandId !== null ? 'Linked to band directory' : 'Free-text band'}
             </span>
             <button
               type="submit"
@@ -118,7 +144,7 @@ export default function ProspectRail({
       </Section>
 
       <Section
-        title="Prospects"
+        title="Bands"
         action={
           <span className="text-xs text-[#E8E0D0]/40">
             {visible.length} of {prospects.length}
@@ -126,21 +152,21 @@ export default function ProspectRail({
         }
       >
         <div className="mb-3 flex flex-wrap gap-1.5">
-          {PROSPECT_STATUSES.map((status) => {
-            const active = filter === status;
+          {BAND_STANDINGS.map((standing) => {
+            const active = filter === standing;
             return (
               <button
-                key={status}
-                onClick={() => setFilter(active ? 'all' : status)}
+                key={standing}
+                onClick={() => setFilter(active ? 'all' : standing)}
                 className="rounded-full border px-2.5 py-0.5 text-xs transition-colors"
                 style={{
-                  borderColor: PROSPECT_STATUS_COLORS[status],
-                  backgroundColor: active ? `${PROSPECT_STATUS_COLORS[status]}22` : 'transparent',
-                  color: active ? PROSPECT_STATUS_COLORS[status] : '#E8E0D080',
+                  borderColor: BAND_STANDING_COLORS[standing],
+                  backgroundColor: active ? `${BAND_STANDING_COLORS[standing]}22` : 'transparent',
+                  color: active ? BAND_STANDING_COLORS[standing] : '#E8E0D080',
                 }}
               >
-                {PROSPECT_STATUS_LABELS[status]}
-                {(counts.get(status) ?? 0) > 0 && <span className="opacity-60"> · {counts.get(status)}</span>}
+                {BAND_STANDING_LABELS[standing]}
+                {(counts.get(standing) ?? 0) > 0 && <span className="opacity-60"> · {counts.get(standing)}</span>}
               </button>
             );
           })}
@@ -148,15 +174,20 @@ export default function ProspectRail({
 
         {visible.length === 0 && (
           <p className="text-xs text-[#E8E0D0]/30">
-            {prospects.length === 0 ? 'No prospects yet — add the bands you want to chase.' : 'Nothing matches this filter.'}
+            {prospects.length === 0 ? 'No bands yet — add ones you want to book, or log who you asked on a date.' : 'Nothing matches this filter.'}
           </p>
         )}
 
         <ul className="space-y-3">
           {visible.map((prospect) => {
-            const prospectHolds = pendingHoldsByProspect.get(prospect.id) ?? [];
+            const prospectHolds = holdsByProspect.get(prospect.id) ?? [];
+            const standing = standingById.get(prospect.id) ?? 'wishlist';
+            const notInterested = standing === 'not_interested';
             return (
-              <li key={prospect.id} className="rounded border border-[#E8E0D0]/15 p-3">
+              <li
+                key={prospect.id}
+                className={`rounded border border-[#E8E0D0]/15 p-3 ${notInterested ? 'opacity-60' : ''}`}
+              >
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
                     <span className="text-sm font-semibold">{prospect.name}</span>
@@ -171,7 +202,7 @@ export default function ProspectRail({
                   </div>
                   <button
                     onClick={() => {
-                      if (window.confirm(`Delete prospect “${prospect.name}” and their holds?`)) {
+                      if (window.confirm(`Delete prospect “${prospect.name}” and every date they were asked about?`)) {
                         onDelete(prospect.id);
                       }
                     }}
@@ -183,21 +214,12 @@ export default function ProspectRail({
                 </div>
 
                 <div className="mt-2 flex flex-wrap items-center gap-2">
-                  <select
-                    value={prospect.status}
-                    onChange={(e) => onUpdate(prospect.id, { status: e.target.value as ProspectStatus })}
-                    className="rounded border bg-[#171412] px-2 py-1 text-xs focus:outline-none"
-                    style={{
-                      borderColor: PROSPECT_STATUS_COLORS[prospect.status],
-                      color: PROSPECT_STATUS_COLORS[prospect.status],
-                    }}
+                  <span
+                    className="rounded-full border px-2 py-0.5 text-xs"
+                    style={{ borderColor: BAND_STANDING_COLORS[standing], color: BAND_STANDING_COLORS[standing] }}
                   >
-                    {PROSPECT_STATUSES.map((status) => (
-                      <option key={status} value={status}>
-                        {PROSPECT_STATUS_LABELS[status]}
-                      </option>
-                    ))}
-                  </select>
+                    {BAND_STANDING_LABELS[standing]}
+                  </span>
 
                   <span className="flex items-center gap-1 text-xs text-[#E8E0D0]/50">
                     <button
@@ -224,6 +246,14 @@ export default function ProspectRail({
                   >
                     ☎ today
                   </button>
+
+                  <button
+                    onClick={() => onUpdate(prospect.id, { status: notInterested ? 'idea' : 'passed' })}
+                    title={notInterested ? 'Move back to the wishlist' : 'Hide from quick-add; keeps their dates'}
+                    className="rounded border border-[#E8E0D0]/20 px-2 py-1 text-xs text-[#E8E0D0]/60 hover:bg-[#E8E0D0]/10"
+                  >
+                    {notInterested ? '↺ wishlist' : 'Not interested'}
+                  </button>
                 </div>
 
                 {prospect.last_contacted_at && (
@@ -238,9 +268,13 @@ export default function ProspectRail({
                       <button
                         key={hold.id}
                         onClick={() => onSelectDate(hold.date)}
-                        className="rounded-full border border-amber-500/40 px-2 py-0.5 text-xs text-amber-400/90 hover:bg-amber-500/10"
+                        title={hold.note ?? undefined}
+                        className={`rounded-full border px-2 py-0.5 text-xs hover:bg-[#E8E0D0]/10 ${
+                          hold.status === 'passed' ? 'opacity-50' : ''
+                        }`}
+                        style={{ borderColor: `${HOLD_STATUS_COLORS[hold.status]}80`, color: HOLD_STATUS_COLORS[hold.status] }}
                       >
-                        H{hold.position} · {formatShortDate(hold.date)}
+                        {formatShortDate(hold.date)} · {HOLD_STATUS_LABELS[hold.status]}
                       </button>
                     ))}
                   </div>

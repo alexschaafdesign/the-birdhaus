@@ -5,14 +5,16 @@ import {
   listCrew,
   refreshSetupToken,
   setMemberStatus,
+  setRoles,
   updateCrewFields,
-} from '@/lib/club-members';
-import { sendCrewInviteEmail } from '@/lib/account-email';
-import { requireAdmin } from '@/lib/admin-session';
+} from '@/lib/accounts/members';
+import { ALL_ROLES, type AccountRole } from '@/lib/accounts/roles';
+import { sendCrewInviteEmail } from '@/lib/accounts/email';
+import { getAdminSession, requireAdmin } from '@/lib/admin-session';
 
 // Admin auth: enforced by proxy.ts for all /api/admin routes.
 
-// PATCH { action: 'profile' | 'disable' | 'enable' | 'resend', ... }
+// PATCH { action: 'profile' | 'roles' | 'disable' | 'enable' | 'resend', ... }
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -31,6 +33,29 @@ export async function PATCH(
     const existing = await getMemberById(id);
     if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 });
     await updateCrewFields(id, { title: body?.title ?? null, focusAreas: body?.focusAreas });
+    return NextResponse.json({ crew: await listCrew() });
+  }
+
+  // Crew/staff role editing (it lived on the Song Club members page before
+  // the Songhaus split). At least one role stays: Disable removes access.
+  // Nobody can take staff away from themselves, so an admin can't lock
+  // themselves out. setRoles bumps the session epoch when staff is removed.
+  if (action === 'roles') {
+    const existing = await getMemberById(id);
+    if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    const roles: AccountRole[] = Array.isArray(body?.roles)
+      ? ALL_ROLES.filter((r) => body.roles.includes(r))
+      : [];
+    if (roles.length === 0) {
+      return NextResponse.json(
+        { error: 'Keep at least one role. To remove access, use Disable.' },
+        { status: 400 }
+      );
+    }
+    if (!roles.includes('staff') && (await getAdminSession())?.userId === id) {
+      return NextResponse.json({ error: "You can't remove your own staff role." }, { status: 400 });
+    }
+    await setRoles(id, roles);
     return NextResponse.json({ crew: await listCrew() });
   }
 

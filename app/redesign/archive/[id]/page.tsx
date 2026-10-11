@@ -48,9 +48,7 @@ export async function generateMetadata({
 export const dynamic = 'force-dynamic';
 
 function dateLine(night: Night): string {
-  return night.endDate
-    ? `${broadcastDate(night.date)} – ${broadcastDate(night.endDate)}`
-    : broadcastDate(night.date);
+  return broadcastDate(night.date);
 }
 
 function counts(night: Night, photos: number): string {

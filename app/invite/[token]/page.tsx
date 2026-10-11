@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { getMemberBySetupToken } from '@/lib/club-members';
-import ClubSetPasswordForm from '@/components/club/ClubSetPasswordForm';
+import { getMemberBySetupToken } from '@/lib/accounts/members';
+import SetPasswordForm from '@/components/account/SetPasswordForm';
 
 export const metadata: Metadata = {
   title: 'Set your password',
@@ -11,9 +11,7 @@ export const metadata: Metadata = {
 export const dynamic = 'force-dynamic';
 
 // The emailed set-password link for Birdhaus accounts (crew invites and
-// Birdhaus password resets). Same single-use tokens as the portal's
-// /song-club/invite page, but it lives on the main site and accepts through
-// /api/account/invite, so crew links never route through the portal.
+// Birdhaus password resets), accepted through /api/account/invite.
 export default async function AccountInvitePage({
   params,
 }: {
@@ -53,7 +51,7 @@ export default async function AccountInvitePage({
           : `Pick a password for ${member.email} to get into the Birdhaus admin.`}
       </p>
       <div className="mt-6">
-        <ClubSetPasswordForm token={token} endpoint={`/api/account/invite/${token}`} />
+        <SetPasswordForm token={token} />
       </div>
     </main>
   );

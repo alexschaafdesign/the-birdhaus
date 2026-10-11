@@ -1,13 +1,14 @@
 'use client';
 
 import { useState } from 'react';
-import type { ClubMember } from '@/lib/club-members';
+import type { UserAccount } from '@/lib/accounts/members';
+import { ALL_ROLES, ROLE_LABEL, type AccountRole } from '@/lib/accounts/roles';
 import { FOCUS_AREAS, type FocusAreaKey } from '@/lib/crew';
 
 const inputBase =
   'w-full rounded-md border border-[#E8E0D0]/20 bg-[#E8E0D0]/[0.03] px-3 py-2 text-sm text-[#E8E0D0] placeholder:text-[#E8E0D0]/30 focus:border-[#E8E0D0]/50 focus:outline-none transition';
 
-const STATUS_LABEL: Record<ClubMember['status'], string> = {
+const STATUS_LABEL: Record<UserAccount['status'], string> = {
   invited: 'Invited',
   active: 'Active',
   disabled: 'Disabled',
@@ -16,8 +17,14 @@ const STATUS_LABEL: Record<ClubMember['status'], string> = {
 // Invite + manage Birdhaus crew: people with a login and full admin access.
 // The title is a free-text label; the focus-area checkboxes are what tailor
 // each person's home dashboard.
-export default function CrewList({ initialCrew }: { initialCrew: ClubMember[] }) {
-  const [crew, setCrew] = useState<ClubMember[]>(initialCrew);
+export default function CrewList({
+  initialCrew,
+  currentUserId,
+}: {
+  initialCrew: UserAccount[];
+  currentUserId: number | null;
+}) {
+  const [crew, setCrew] = useState<UserAccount[]>(initialCrew);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [title, setTitle] = useState('');
@@ -64,7 +71,7 @@ export default function CrewList({ initialCrew }: { initialCrew: ClubMember[] })
   // wipe the title and vice versa. `nextFocus`/`nextTitle` override the current
   // stored values for whichever field is changing.
   async function saveProfile(
-    member: ClubMember,
+    member: UserAccount,
     override: { title?: string; focusAreas?: FocusAreaKey[] }
   ) {
     const nextTitle = override.title ?? titleEdits[member.id] ?? member.title ?? '';
@@ -93,14 +100,39 @@ export default function CrewList({ initialCrew }: { initialCrew: ClubMember[] })
     }
   }
 
-  function toggleFocus(member: ClubMember, key: FocusAreaKey) {
+  function toggleFocus(member: UserAccount, key: FocusAreaKey) {
     const next = member.focus_areas.includes(key)
       ? member.focus_areas.filter((k) => k !== key)
       : [...member.focus_areas, key];
     saveProfile(member, { focusAreas: next });
   }
 
-  async function rowAction(member: ClubMember, action: 'disable' | 'enable' | 'resend') {
+  // Crew/staff toggles. The server keeps at least one and won't let you drop
+  // your own staff role; the boxes for those cases are disabled here too.
+  async function toggleRole(member: UserAccount, role: AccountRole) {
+    const next = member.roles.includes(role)
+      ? member.roles.filter((r) => r !== role)
+      : [...member.roles, role];
+    setRowBusy(member.id);
+    setError(null);
+    setNotice(null);
+    try {
+      const res = await fetch(`/api/admin/crew/${member.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'roles', roles: next }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(data?.error ?? `Couldn't update roles (${res.status})`);
+      setCrew(data.crew ?? []);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Couldn't update roles");
+    } finally {
+      setRowBusy(null);
+    }
+  }
+
+  async function rowAction(member: UserAccount, action: 'disable' | 'enable' | 'resend') {
     setRowBusy(member.id);
     setError(null);
     setNotice(null);
@@ -121,7 +153,7 @@ export default function CrewList({ initialCrew }: { initialCrew: ClubMember[] })
     }
   }
 
-  async function remove(member: ClubMember) {
+  async function remove(member: UserAccount) {
     if (!confirm(`Remove ${member.name} (${member.email})? Their login is revoked.`)) return;
     setRowBusy(member.id);
     setError(null);
@@ -305,6 +337,37 @@ export default function CrewList({ initialCrew }: { initialCrew: ClubMember[] })
                       Save title
                     </button>
                   )}
+                </div>
+
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+                  <span className="text-xs uppercase tracking-wide text-[#E8E0D0]/45">Roles</span>
+                  {ALL_ROLES.map((role) => {
+                    const has = m.roles.includes(role);
+                    const lastRole = has && m.roles.length === 1;
+                    const ownStaff = role === 'staff' && has && m.id === currentUserId;
+                    return (
+                      <label
+                        key={role}
+                        title={
+                          lastRole
+                            ? 'Keep at least one role. To remove access, use Disable.'
+                            : ownStaff
+                              ? "You can't remove your own staff role."
+                              : undefined
+                        }
+                        className="flex cursor-pointer items-center gap-1.5 text-[13px] text-[#E8E0D0]/70"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={has}
+                          disabled={rowBusy === m.id || lastRole || ownStaff}
+                          onChange={() => toggleRole(m, role)}
+                          className="accent-[#c8a26a]"
+                        />
+                        {ROLE_LABEL[role]}
+                      </label>
+                    );
+                  })}
                 </div>
 
                 <div className="flex flex-wrap gap-x-4 gap-y-1">

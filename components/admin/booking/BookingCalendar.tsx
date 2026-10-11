@@ -2,12 +2,14 @@
 
 import { useState } from 'react';
 import { DATE_OFFER_COLORS } from '@/lib/date-offers';
+import { HOLD_STATUS_COLORS, HOLD_STATUS_LABELS } from '@/lib/booking';
+import type { BookingProspect } from '@/lib/booking';
 import type { DayInfo } from './BookingDashboard';
 
 // Forked from components/CalendarView.tsx: same month-grid math, but built
 // for planning — every cell is a select-the-day button (no navigation links,
 // no flyer images), the header adds ±year jumps, and cells layer booking
-// state (holds, notes, submission offers) over the show/available base.
+// state (bands asked, notes, submission offers) over the show/available base.
 
 const WEEKDAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
@@ -18,6 +20,7 @@ function parseLocalDate(dateStr: string) {
 
 export default function BookingCalendar({
   dayInfoByDate,
+  prospectsById,
   today,
   selectedDate,
   onSelectDate,
@@ -25,6 +28,7 @@ export default function BookingCalendar({
   onPaintDay,
 }: {
   dayInfoByDate: Map<string, DayInfo>;
+  prospectsById: Map<number, BookingProspect>;
   today: string;
   selectedDate: string | null;
   onSelectDate: (date: string) => void;
@@ -119,7 +123,8 @@ export default function BookingCalendar({
           // ("Fresh Cuts maybe", "Comedy show?").
           const noteLabel = !titled ? info?.notes[0]?.body : undefined;
           const noteCount = info?.notes.length ?? 0;
-          const holdCount = info?.pendingHolds.length ?? 0;
+          // Live asks (not passed); asks are sorted best-first, so [0] sets the badge color.
+          const liveAsks = info?.asks.filter((h) => h.status !== 'passed') ?? [];
           const isToday = dateStr === today;
           const isSelected = dateStr === selectedDate;
 
@@ -163,9 +168,15 @@ export default function BookingCalendar({
                 </span>
               )}
 
-              {holdCount > 0 && (
-                <span className="absolute right-0.5 top-0.5 rounded bg-amber-500/90 px-1 text-[8px] font-bold text-black">
-                  H{holdCount}
+              {liveAsks.length > 0 && (
+                <span
+                  className="absolute right-0.5 top-0.5 rounded px-1 text-[8px] font-bold text-black"
+                  style={{ backgroundColor: HOLD_STATUS_COLORS[liveAsks[0].status] }}
+                  title={liveAsks
+                    .map((h) => `${prospectsById.get(h.prospect_id)?.name ?? '?'} (${HOLD_STATUS_LABELS[h.status]})`)
+                    .join(', ')}
+                >
+                  {liveAsks.length}
                 </span>
               )}
 
@@ -202,7 +213,10 @@ export default function BookingCalendar({
           <span className="inline-block h-3 w-3 rounded border border-dotted border-green-500/40" /> available
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="rounded bg-amber-500/90 px-1 text-[8px] font-bold text-black">H2</span> holds
+          <span className="rounded px-1 text-[8px] font-bold text-black" style={{ backgroundColor: HOLD_STATUS_COLORS.asked }}>2</span>
+          bands asked (color = best: <span style={{ color: HOLD_STATUS_COLORS.asked }}>asked</span> /{' '}
+          <span style={{ color: HOLD_STATUS_COLORS.hold }}>hold</span> /{' '}
+          <span style={{ color: HOLD_STATUS_COLORS.booked }}>booked</span>)
         </span>
         <span className="flex items-center gap-1.5">
           <span className="inline-block h-1.5 w-1.5 rounded-full bg-[#E8E0D0]/50" /> note

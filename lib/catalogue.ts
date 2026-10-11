@@ -3,8 +3,8 @@
 // Catalogue IDs follow the Birdhaus Catalogue Naming Spec (Rev. C). BH ids are
 // NOT stored on shows — they're derived from the show date (BH-YYMMDD). A night
 // in the Fresh Cuts series carries an FC tag alongside its BH id, never merged:
-// "BH-260725 · FC 010". A Song-a-day edition's id is its stored edition number
-// (SAD-###); the songwriter meetup has no id. SC-### is retired.
+// "BH-260725 · FC 010". Song-a-day editions (SAD-###) are minted and owned by
+// Songhaus, not this site (spec Rev. C, amended 2026-10-11). SC-### is retired.
 
 import type { Show } from './shows';
 
@@ -24,11 +24,6 @@ export function sameDateId(baseId: string, n: number): string {
 // A set within a night, numbered in bill order from 1: "BH-261114-2".
 export function setCatalogueId(nightId: string, order: number): string {
   return `${nightId}-${order}`;
-}
-
-// A Song-a-day edition: 6 -> "SAD-006".
-export function songADayId(edition: number): string {
-  return `SAD-${String(edition).padStart(3, '0')}`;
 }
 
 // Fresh Cuts installments carry "fresh-cuts" in the slug and a version number

@@ -22,7 +22,7 @@ export default async function BookingPage() {
     sql<DateHold[]>`
       select id, date::text as date, prospect_id, position, status, note, show_id, created_at, updated_at
       from date_holds
-      order by date asc, position asc
+      order by date asc, created_at asc
     `,
     sql<DateNote[]>`
       select id, date::text as date, body, created_at, updated_at
