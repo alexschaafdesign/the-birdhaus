@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
-import { getClubMember } from '@/lib/club-members';
-import AccountSettings from '@/components/club/AccountSettings';
+import { getSessionAccount } from '@/lib/accounts/members';
+import AccountSettings from '@/components/account/AccountSettings';
 
 // Account settings for crew, staff and photographers, linked from the header
 // user menu. Any logged-in user can reach it.
@@ -13,7 +13,7 @@ export const metadata: Metadata = {
 export const dynamic = 'force-dynamic';
 
 export default async function AccountPage() {
-  const member = await getClubMember();
+  const member = await getSessionAccount();
   if (!member) redirect('/login');
 
   return (

@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
-import { getMemberById } from '@/lib/club-members';
+import { getMemberById } from '@/lib/accounts/members';
 import { getPhotographerByUserId } from '@/lib/photographers';
 import CrewHome from '@/components/admin/CrewHome';
 

@@ -1,15 +1,16 @@
 import { NextResponse } from 'next/server';
-import { MIN_PASSWORD_LENGTH } from '@/lib/club-auth';
-import { acceptSetupToken, touchLastSeen } from '@/lib/club-members';
-import { isBirdhausAccount } from '@/lib/club-roles';
+import { MIN_PASSWORD_LENGTH } from '@/lib/accounts/auth';
+import { acceptSetupToken, getMemberBySetupToken, touchLastSeen } from '@/lib/accounts/members';
+import { isBirdhausAccount } from '@/lib/accounts/roles';
 import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
-import { grantSessionCookies } from '@/lib/club-session';
+import { grantSessionCookies } from '@/lib/accounts/session';
 import { SONGHAUS_URL } from '@/lib/site';
 
 // Consumes a set-password link from a crew invite or a Birdhaus password reset
 // (the /invite/<token> page): sets the password, activates the account, and
-// logs them straight in. Same tokens as /api/club/invite; this is the Birdhaus
-// side's own door so crew links never depend on the portal.
+// logs them straight in. Only for crew/staff accounts: any other token (a
+// leftover Song Club one) is refused before it's used, with a link to
+// Songhaus, where those accounts live now.
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ token: string }> }
@@ -31,7 +32,15 @@ export async function POST(
     );
   }
 
-  const member = await acceptSetupToken((await params).token, password);
+  const { token } = await params;
+  const holder = await getMemberBySetupToken(token);
+  if (holder && !isBirdhausAccount(holder.roles)) {
+    return NextResponse.json(
+      { error: 'Song Club is now Songhaus, and your account moved with it.', movedTo: `${SONGHAUS_URL}/login` },
+      { status: 403 }
+    );
+  }
+  const member = await acceptSetupToken(token, password);
   if (!member) {
     return NextResponse.json(
       { error: 'This link is invalid or has expired. Ask for a new one.' },
@@ -40,10 +49,7 @@ export async function POST(
   }
 
   await touchLastSeen(member.id);
-  // Crew/staff land in /admin. A Songhaus-only account that somehow followed a
-  // Birdhaus link is sent to Songhaus rather than a 401.
-  const dest = isBirdhausAccount(member.roles) ? '/admin' : `${SONGHAUS_URL}/song-club`;
-  const response = NextResponse.json({ ok: true, dest });
+  const response = NextResponse.json({ ok: true, dest: '/admin' });
   await grantSessionCookies(response, member.id, member.roles, member.session_epoch);
   return response;
 }
