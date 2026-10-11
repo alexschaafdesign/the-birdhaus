@@ -10,8 +10,17 @@ const inputBase =
 const labelClass = 'mb-1 block text-xs font-medium uppercase tracking-wide text-[#E8E0D0]/55';
 
 // Sets the password for an invite/reset token and drops the member straight
-// into the portal (the API logs them in on success).
-export default function ClubSetPasswordForm({ token, next }: { token: string; next?: string }) {
+// into the portal (the API logs them in on success). Birdhaus's /invite page
+// points `endpoint` at /api/account/invite/<token>.
+export default function ClubSetPasswordForm({
+  token,
+  next,
+  endpoint = `/api/club/invite/${token}`,
+}: {
+  token: string;
+  next?: string;
+  endpoint?: string;
+}) {
   const router = useRouter();
   const dest = next && next.startsWith('/song-club/') ? next : '/song-club';
   const [password, setPassword] = useState('');
@@ -32,7 +41,7 @@ export default function ClubSetPasswordForm({ token, next }: { token: string; ne
     setBusy(true);
     setError(null);
     try {
-      const res = await fetch(`/api/club/invite/${token}`, {
+      const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ password }),

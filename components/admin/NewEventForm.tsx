@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import ShowForm from './ShowForm';
 import SongClubEventForm from './SongClubEventForm';
+import SongClubFrozen from './SongClubFrozen';
+import { SONGHAUS_ADMIN_URL } from '@/lib/song-club-freeze';
 
 // One "add an event" entry with a type toggle. A Show and a Song Club event are
 // still two separate records with two separate forms + write paths (a show
@@ -52,7 +54,9 @@ export default function NewEventForm({
       {type === 'show' ? (
         <ShowForm mode="create" initialValues={initialDate ? { date: initialDate } : undefined} />
       ) : (
-        <SongClubEventForm mode="add" rounds={rounds} suggestedNumber={suggestedNumber} />
+        <SongClubFrozen bannerClassName="mb-6" href={`${SONGHAUS_ADMIN_URL}/events/new`}>
+          <SongClubEventForm mode="add" rounds={rounds} suggestedNumber={suggestedNumber} />
+        </SongClubFrozen>
       )}
     </div>
   );

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { inviteMember, listCrew } from '@/lib/club-members';
-import { sendCrewInviteEmail } from '@/lib/club-email';
+import { sendCrewInviteEmail } from '@/lib/account-email';
 import { requireAdmin } from '@/lib/admin-session';
 
 // Admin auth: enforced by proxy.ts for all /api/admin routes.

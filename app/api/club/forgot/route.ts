@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server';
-import { sql } from '@/lib/db';
-import { normalizeEmail, refreshSetupToken } from '@/lib/club-members';
-import { sendClubPasswordResetEmail } from '@/lib/club-email';
+import { normalizeEmail } from '@/lib/club-members';
+import { sendPasswordReset } from '@/lib/password-reset';
 import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
 
 // Always answers ok (no account enumeration); the email only goes out when the
-// address actually belongs to a non-disabled member.
+// address actually belongs to a non-disabled member. The portal's login form
+// calls this one; Birdhaus's /login calls /api/account/forgot (same buckets).
 export async function POST(request: Request) {
   const allowed = await checkRateLimit(`club-forgot:${getClientIp(request)}`, 5, 15 * 60);
   if (!allowed) {
@@ -25,20 +25,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true });
   }
 
-  const [member] = await sql<Array<{ id: number; name: string }>>`
-    select id, name from users
-    where email = ${email} and status <> 'disabled'
-  `;
-  if (member) {
-    const refreshed = await refreshSetupToken(Number(member.id), 'reset');
-    if (refreshed) {
-      try {
-        await sendClubPasswordResetEmail({ name: member.name, email, token: refreshed.token });
-      } catch (e) {
-        console.error('[club] password reset email failed', e);
-      }
-    }
-  }
+  await sendPasswordReset(email);
 
   return NextResponse.json({ ok: true });
 }

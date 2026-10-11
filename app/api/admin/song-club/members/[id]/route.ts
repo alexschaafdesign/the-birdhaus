@@ -8,7 +8,10 @@ import {
   setRoles,
 } from '@/lib/club-members';
 import { sendClubInviteEmail, sendClubPasswordResetEmail } from '@/lib/club-email';
+import { sendAccountPasswordResetEmail, sendCrewInviteEmail } from '@/lib/account-email';
+import { isBirdhausAccount } from '@/lib/club-roles';
 import { requireAdmin } from '@/lib/admin-session';
+import { songClubAdminFrozenResponse } from '@/lib/song-club-freeze';
 
 // Admin auth: enforced by proxy.ts for all /api/admin routes.
 
@@ -19,6 +22,8 @@ export async function PATCH(
 ) {
   const denied = await requireAdmin();
   if (denied) return denied;
+  const frozen = songClubAdminFrozenResponse();
+  if (frozen) return frozen;
   const id = Number((await params).id);
   if (!Number.isInteger(id)) {
     return NextResponse.json({ error: 'Invalid id' }, { status: 400 });
@@ -42,7 +47,8 @@ export async function PATCH(
 
   if (action === 'resend') {
     // For someone who never joined this re-sends the invite; for an active
-    // member it doubles as an admin-initiated password reset.
+    // member it doubles as an admin-initiated password reset. Crew/staff
+    // accounts get the Birdhaus emails, whose links stay on this site.
     const existing = await getMemberById(id);
     if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 });
     const purpose = existing.status === 'active' ? 'reset' : 'invite';
@@ -51,12 +57,17 @@ export async function PATCH(
       return NextResponse.json({ error: 'Member is disabled' }, { status: 400 });
     }
     try {
-      const send = purpose === 'reset' ? sendClubPasswordResetEmail : sendClubInviteEmail;
-      await send({
-        name: refreshed.member.name,
-        email: refreshed.member.email,
-        token: refreshed.token,
-      });
+      const { member, token } = refreshed;
+      if (isBirdhausAccount(member.roles)) {
+        if (purpose === 'reset') {
+          await sendAccountPasswordResetEmail({ name: member.name, email: member.email, token });
+        } else {
+          await sendCrewInviteEmail({ name: member.name, email: member.email, token, title: member.title });
+        }
+      } else {
+        const send = purpose === 'reset' ? sendClubPasswordResetEmail : sendClubInviteEmail;
+        await send({ name: member.name, email: member.email, token });
+      }
     } catch (e) {
       console.error('[club] invite email failed', e);
       return NextResponse.json({ error: 'Invite email failed to send' }, { status: 502 });
@@ -73,6 +84,8 @@ export async function DELETE(
 ) {
   const denied = await requireAdmin();
   if (denied) return denied;
+  const frozen = songClubAdminFrozenResponse();
+  if (frozen) return frozen;
   const id = Number((await params).id);
   if (!Number.isInteger(id)) {
     return NextResponse.json({ error: 'Invalid id' }, { status: 400 });

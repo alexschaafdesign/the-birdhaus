@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/admin-session';
+import { songClubAdminFrozenResponse } from '@/lib/song-club-freeze';
 import {
   DAYS_OPEN_VALUES,
   getEventById,
@@ -32,6 +33,8 @@ import {
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const denied = await requireAdmin();
   if (denied) return denied;
+  const frozen = songClubAdminFrozenResponse();
+  if (frozen) return frozen;
   const eventId = Number((await params).id);
   const event = Number.isInteger(eventId) ? await getEventById(eventId) : null;
   if (!event) {

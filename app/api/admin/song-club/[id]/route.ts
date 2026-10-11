@@ -11,11 +11,14 @@ import {
 } from '@/lib/song-club';
 import { maybeNotifyEventPublished } from '@/lib/club-notify';
 import { requireAdmin } from '@/lib/admin-session';
+import { songClubAdminFrozenResponse } from '@/lib/song-club-freeze';
 
 // Admin-gated by proxy.ts (the /api/admin/* matcher).
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const denied = await requireAdmin();
   if (denied) return denied;
+  const frozen = songClubAdminFrozenResponse();
+  if (frozen) return frozen;
   const id = Number((await params).id);
   if (!Number.isInteger(id) || !(await getEventById(id))) {
     return NextResponse.json({ success: false, error: 'Event not found' }, { status: 404 });
@@ -63,6 +66,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 export async function DELETE(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const denied = await requireAdmin();
   if (denied) return denied;
+  const frozen = songClubAdminFrozenResponse();
+  if (frozen) return frozen;
   const id = Number((await params).id);
   if (!Number.isInteger(id)) {
     return NextResponse.json({ success: false, error: 'Bad id' }, { status: 400 });
