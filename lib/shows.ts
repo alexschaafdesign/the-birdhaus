@@ -44,14 +44,6 @@ export interface Show {
   // Cap on online ticket sales. undefined = no cap. See migration 073 and
   // getTicketAvailability().
   ticketLimit?: number;
-  // Discriminates a house show from a Song Club event when the two are shown
-  // in one combined calendar/list (see lib/calendar.ts). Undefined = house
-  // show. Song Club events are ADAPTED into this shape for rendering only —
-  // they still live in their own table (song_club_events).
-  type?: 'show' | 'song_club';
-  // The line shown under the flyer for a Song Club event (venue, etc.), in
-  // place of the band names a house show carries.
-  subtitle?: string;
 }
 
 interface ShowRow {

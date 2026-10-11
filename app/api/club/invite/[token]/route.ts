@@ -3,7 +3,7 @@ import { MIN_PASSWORD_LENGTH } from '@/lib/club-auth';
 import { acceptSetupToken, touchLastSeen } from '@/lib/club-members';
 import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
 import { grantSessionCookies } from '@/lib/club-session';
-import { portalRedirect } from '@/lib/site';
+import { SONGHAUS_URL } from '@/lib/site';
 
 // Consumes an emailed set-password link (invite or reset): sets the password,
 // activates the account, and logs the member straight in.
@@ -37,10 +37,9 @@ export async function POST(
   }
 
   await touchLastSeen(member.id);
-  // A crew/staff-only account (no song_club role) heads to /admin after setting
-  // a password; Song Club members go to the portal. The form prefers this over
-  // any `next` for a non-portal account.
-  const dest = member.roles.includes('song_club') ? portalRedirect('/song-club') : '/admin';
+  // Crew/staff land in /admin; anyone else belongs on Songhaus.
+  const dest =
+    member.roles.includes('staff') || member.roles.includes('crew') ? '/admin' : `${SONGHAUS_URL}/song-club`;
   const response = NextResponse.json({ ok: true, dest });
   await grantSessionCookies(response, member.id, member.roles, member.session_epoch);
   return response;

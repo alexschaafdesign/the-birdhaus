@@ -4,7 +4,7 @@ import { acceptSetupToken, touchLastSeen } from '@/lib/club-members';
 import { isBirdhausAccount } from '@/lib/club-roles';
 import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
 import { grantSessionCookies } from '@/lib/club-session';
-import { portalRedirect } from '@/lib/site';
+import { SONGHAUS_URL } from '@/lib/site';
 
 // Consumes a set-password link from a crew invite or a Birdhaus password reset
 // (the /invite/<token> page): sets the password, activates the account, and
@@ -40,9 +40,9 @@ export async function POST(
   }
 
   await touchLastSeen(member.id);
-  // Crew/staff land in /admin. A portal-only account that somehow followed a
-  // Birdhaus link still ends up in the portal rather than a 401.
-  const dest = isBirdhausAccount(member.roles) ? '/admin' : portalRedirect('/song-club');
+  // Crew/staff land in /admin. A Songhaus-only account that somehow followed a
+  // Birdhaus link is sent to Songhaus rather than a 401.
+  const dest = isBirdhausAccount(member.roles) ? '/admin' : `${SONGHAUS_URL}/song-club`;
   const response = NextResponse.json({ ok: true, dest });
   await grantSessionCookies(response, member.id, member.roles, member.session_epoch);
   return response;

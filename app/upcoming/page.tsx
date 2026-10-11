@@ -1,6 +1,4 @@
 import { getTodayCentral, getAllShows } from '@/lib/shows';
-import { getCombinedShows } from '@/lib/calendar';
-import { listEvents } from '@/lib/song-club';
 import { getAvailableDates } from '@/lib/available-dates';
 import { isAdminSession } from '@/lib/admin-session';
 import ShowsBrowser from '@/components/ShowsBrowser';
@@ -10,19 +8,8 @@ import ShowsBrowser from '@/components/ShowsBrowser';
 export const dynamic = 'force-dynamic';
 
 export default async function UpcomingShows() {
-  // House shows + published in-person Song Club events, interleaved. Online
-  // rounds (song-a-days) live on Songhaus now and stay off the calendar; the
-  // in-person ones (B.S.S 01) remain as history, linking to Songhaus. The page
-  // (not the shared calendar lib) owns the Song Club fetch, so lib/calendar.ts
-  // carries no portal dependency; events are adapted into the Show shape.
-  const [allShows, events] = await Promise.all([
-    getAllShows(),
-    listEvents({ publishedOnly: true }),
-  ]);
-  const shows = getCombinedShows(
-    allShows,
-    events.filter((e) => e.format !== 'online')
-  );
+  // House shows only. Song Club events live on Songhaus now.
+  const shows = await getAllShows();
 
   const today = getTodayCentral();
 

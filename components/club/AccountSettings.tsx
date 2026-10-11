@@ -4,7 +4,6 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { ClubMember, ProfileLink } from '@/lib/club-members';
 import { downscaleImage } from '@/lib/downscale-image';
-import { PORTAL_NAME } from '@/lib/site';
 
 const inputBase =
   'w-full rounded-md border border-[#E8E0D0]/20 bg-[#E8E0D0]/[0.03] px-3 py-2 text-sm text-[#E8E0D0] placeholder:text-[#E8E0D0]/30 focus:border-[#E8E0D0]/50 focus:outline-none transition';
@@ -21,11 +20,6 @@ export default function AccountSettings({ member }: { member: ClubMember }) {
   const [bio, setBio] = useState(member.bio ?? '');
   const [links, setLinks] = useState<ProfileLink[]>(member.links ?? []);
   const [avatarUrl, setAvatarUrl] = useState(member.avatar_url);
-  const [prefs, setPrefs] = useState({
-    notifyTrackComments: member.notify_track_comments,
-    notifyAnnouncements: member.notify_announcements,
-    notifyEvents: member.notify_events,
-  });
   const [savingProfile, setSavingProfile] = useState(false);
   const [profileNotice, setProfileNotice] = useState<string | null>(null);
   const [profileError, setProfileError] = useState<string | null>(null);
@@ -51,7 +45,6 @@ export default function AccountSettings({ member }: { member: ClubMember }) {
           name,
           bio,
           links: links.filter((l) => l.url.trim()),
-          ...prefs,
         }),
       });
       const data = await res.json().catch(() => null);
@@ -219,25 +212,6 @@ export default function AccountSettings({ member }: { member: ClubMember }) {
           )}
         </div>
 
-        <fieldset className="space-y-2">
-          <legend className={labelClass}>Email me when…</legend>
-          <Toggle
-            label="Someone comments on my track"
-            checked={prefs.notifyTrackComments}
-            onChange={(v) => setPrefs({ ...prefs, notifyTrackComments: v })}
-          />
-          <Toggle
-            label="There's a new announcement or board post from the Birdhaus"
-            checked={prefs.notifyAnnouncements}
-            onChange={(v) => setPrefs({ ...prefs, notifyAnnouncements: v })}
-          />
-          <Toggle
-            label={`A new ${PORTAL_NAME} event is scheduled`}
-            checked={prefs.notifyEvents}
-            onChange={(v) => setPrefs({ ...prefs, notifyEvents: v })}
-          />
-        </fieldset>
-
         {profileError && (
           <div className="rounded-lg border border-[#F5A3A3]/40 bg-[#F5A3A3]/10 p-3 text-sm text-[#F5A3A3]">
             {profileError}
@@ -306,27 +280,5 @@ export default function AccountSettings({ member }: { member: ClubMember }) {
         </button>
       </form>
     </div>
-  );
-}
-
-function Toggle({
-  label,
-  checked,
-  onChange,
-}: {
-  label: string;
-  checked: boolean;
-  onChange: (v: boolean) => void;
-}) {
-  return (
-    <label className="flex cursor-pointer items-start gap-2 text-sm text-[#E8E0D0]/80">
-      <input
-        type="checkbox"
-        checked={checked}
-        onChange={(e) => onChange(e.target.checked)}
-        className="mt-0.5 accent-[#c8a26a]"
-      />
-      {label}
-    </label>
   );
 }

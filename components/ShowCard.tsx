@@ -1,7 +1,6 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import type { Show } from '@/lib/shows';
-import { SONGHAUS_NAME, SONGHAUS_URL } from '@/lib/site';
 
 function formatCardDate(dateStr: string) {
   const [year, month, day] = dateStr.split('-').map(Number);
@@ -19,12 +18,7 @@ function bandNames(show: Show) {
 
 export default function ShowCard({ show, draft }: { show: Show; draft?: boolean }) {
   const { day, weekday, month } = formatCardDate(show.date);
-  const isSongClub = show.type === 'song_club';
-  const href = draft
-    ? `/admin/shows/${show.id}`
-    : isSongClub
-      ? `${SONGHAUS_URL}/song-club/${show.slug}`
-      : `/shows/${show.slug}`;
+  const href = draft ? `/admin/shows/${show.id}` : `/shows/${show.slug}`;
 
   return (
     <Link
@@ -55,11 +49,6 @@ export default function ShowCard({ show, draft }: { show: Show; draft?: boolean 
             Draft
           </span>
         )}
-        {isSongClub && !draft && (
-          <span className="absolute left-2 top-2 rounded bg-[#c8a26a] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-black">
-            {SONGHAUS_NAME}
-          </span>
-        )}
         <div className="absolute inset-x-0 bottom-0 flex items-baseline gap-2 bg-gradient-to-t from-black via-black/85 via-40% to-transparent px-4 pb-3 pt-16 [text-shadow:0_1px_4px_rgba(0,0,0,0.8)]">
           <span className="text-3xl font-black leading-none text-[#E8E0D0]">
             {day} {month}
@@ -71,7 +60,7 @@ export default function ShowCard({ show, draft }: { show: Show; draft?: boolean 
       </div>
       <div className="flex items-center justify-between gap-3 px-4 py-3">
         <p className="min-w-0 truncate text-sm text-[#E8E0D0]/60">
-          {isSongClub ? show.subtitle ?? show.title : bandNames(show)}
+          {bandNames(show)}
         </p>
         <span className="flex-shrink-0 text-xs text-[#E8E0D0]/50 transition-colors group-hover:text-[#E8E0D0]">
           {draft ? 'Edit →' : 'RSVP →'}

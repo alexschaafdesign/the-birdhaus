@@ -5,7 +5,6 @@
 
 import { cookies } from 'next/headers';
 import { sql } from './db';
-import { isAdminSession } from './admin-session';
 import {
   CLUB_SESSION_COOKIE,
   createSetupToken,
@@ -104,12 +103,6 @@ function sanitizeRoles(roles: unknown): ClubRole[] {
   if (!Array.isArray(roles)) return ['song_club'];
   const valid = roles.filter((r): r is ClubRole => ALL_ROLES.includes(r as ClubRole));
   return valid.length > 0 ? [...new Set(valid)] : ['song_club'];
-}
-
-export async function listMembers(): Promise<ClubMember[]> {
-  return sql<ClubMember[]>`
-    select ${COLUMNS} from users order by name asc, id asc
-  `;
 }
 
 export async function getMemberById(id: number): Promise<ClubMember | null> {
@@ -324,38 +317,6 @@ export async function touchLastSeen(id: number): Promise<void> {
   await sql`update users set last_seen_at = now() where id = ${id}`;
 }
 
-// Active users who (a) can access the portal and (b) have the given
-// notification category turned on — the recipient list for a blast.
-export type NotifyCategory = 'announcements' | 'events';
-
-export async function getNotificationRecipients(
-  category: NotifyCategory
-): Promise<Array<{ id: number; email: string; name: string }>> {
-  const column = category === 'announcements' ? 'notify_announcements' : 'notify_events';
-  return sql<Array<{ id: number; email: string; name: string }>>`
-    select u.id, u.email, u.name
-    from users u
-    join user_roles r on r.user_id = u.id and r.role = 'song_club'
-    where u.status = 'active' and u.${sql(column)} = true
-  `;
-}
-
-// Recipients for a GROUP board email: only that group's assigned members —
-// never the full event roster, never the whole club. Same announcement
-// opt-out applies.
-export async function getGroupNotificationRecipients(
-  groupId: number
-): Promise<Array<{ id: number; email: string; name: string }>> {
-  return sql<Array<{ id: number; email: string; name: string }>>`
-    select u.id, u.email, u.name
-    from song_club_event_attendees a
-    join users u on u.id = a.user_id
-    join user_roles r on r.user_id = u.id and r.role = 'song_club'
-    where a.group_id = ${groupId}
-      and u.status = 'active' and u.notify_announcements = true
-  `;
-}
-
 // --- self-service account settings (/account) ---
 
 export async function updateProfile(
@@ -429,51 +390,4 @@ export async function getClubMember(): Promise<ClubMember | null> {
   return member && member.status === 'active' && Number(member.session_epoch) === info.epoch
     ? member
     : null;
-}
-
-// The current user only if they can access the Song Club portal. A crew- or
-// staff-only login has a valid session but no 'song_club' role, so it isn't
-// admitted to /club.
-export async function getClubPortalMember(): Promise<ClubMember | null> {
-  const member = await getClubMember();
-  return member?.roles.includes('song_club') ? member : null;
-}
-
-// Whoever is acting on the portal right now: a member, the admin session
-// (Alex, acting as "the Birdhaus"), or nobody. The shape doubles as the
-// `by` argument the club data layers take for ownership checks.
-export type ClubActor = { memberId: number } | { admin: true };
-
-export async function getClubActor(): Promise<ClubActor | null> {
-  // Portal-role-gated: a staff-only login (Alex's unified account, which holds
-  // `staff` but not `song_club`) has a valid club session yet isn't a portal
-  // member, so it must resolve to "the Birdhaus" — matching how the /club pages
-  // decide identity (getClubPortalMember, else admin). Using the un-gated
-  // getClubMember here misidentified staff as a bare member post-auth-unification.
-  const member = await getClubPortalMember();
-  if (member) return { memberId: member.id };
-  return (await isAdminSession()) ? { admin: true } : null;
-}
-
-// The current user only if they can access the Yellow Ostrich workspace:
-// the 'band' role, or staff (who see everything).
-export async function getBandMember(): Promise<ClubMember | null> {
-  const member = await getClubMember();
-  return member && (member.roles.includes('band') || member.roles.includes('staff'))
-    ? member
-    : null;
-}
-
-// Whoever is acting on a songwriting workspace. Unlike ClubActor, staff
-// members keep their memberId (so uploads and comments stay attributed to a
-// person, not "the Birdhaus") and carry a `staff` flag for moderation rights.
-// `owner` is per-workspace moderation (set by lib/workspaces when the actor
-// owns the workspace in question). {admin: true} only means a cookie-only
-// admin session with no member login.
-export type BandActor = { memberId: number; staff: boolean; owner?: boolean } | { admin: true };
-
-export async function getBandActor(): Promise<BandActor | null> {
-  const member = await getBandMember();
-  if (member) return { memberId: member.id, staff: member.roles.includes('staff') };
-  return (await isAdminSession()) ? { admin: true } : null;
 }
