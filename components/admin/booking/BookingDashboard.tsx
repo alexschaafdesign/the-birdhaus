@@ -37,6 +37,13 @@ export interface DayInfo {
   offers: BookingDateOffer[];
 }
 
+// Timestamps arrive as Date objects from the server page (postgres.js parses
+// timestamptz; RSC passes Dates through) but as ISO strings from the JSON API
+// routes. Normalize to ISO strings so the rail's localeCompare sort works on both.
+function toIso(value: string | Date): string {
+  return new Date(value).toISOString();
+}
+
 // bigint ids come over JSON as strings (see BandNameInput's coercion note) —
 // normalize once so client-side equality checks are safe.
 function normalizeProspect(p: BookingProspect): BookingProspect {
@@ -45,6 +52,9 @@ function normalizeProspect(p: BookingProspect): BookingProspect {
     id: Number(p.id),
     band_id: p.band_id == null ? null : Number(p.band_id),
     priority: Number(p.priority),
+    last_contacted_at: p.last_contacted_at == null ? null : toIso(p.last_contacted_at),
+    created_at: toIso(p.created_at),
+    updated_at: toIso(p.updated_at),
   };
 }
 
