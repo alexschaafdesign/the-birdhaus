@@ -10,41 +10,69 @@ export async function GET() {
   const rows = await sql`
     select id, date::text as date, prospect_id, position, status, note, show_id, created_at, updated_at
     from date_holds
-    order by date asc, position asc
+    order by date asc, created_at asc
   `;
   return NextResponse.json(rows);
 }
 
-// Adds a hold at the bottom of the date's ladder (H{n+1}). Also nudges the
-// prospect's pipeline status forward to 'hold' — forward only, so a prospect
-// already booked/passed keeps that status.
+// Logs that a band was asked about a date. Takes either an existing
+// prospect_id, or a band name (plus optional band_id from the directory
+// autocomplete) — an unknown band becomes a prospect on the spot. Asking
+// counts as contact: last_contacted_at is stamped and the prospect's status
+// nudges forward from 'idea' to 'contacted' (forward only).
 export async function POST(request: Request) {
   const denied = await requireAdmin();
   if (denied) return denied;
   const body = await request.json().catch(() => null);
-  const prospectId = Number(body?.prospect_id);
+  const prospectIdInput = body?.prospect_id == null ? null : Number(body.prospect_id);
+  const name = typeof body?.name === 'string' ? body.name.trim() : '';
+  const bandId = body?.band_id == null ? null : Number(body.band_id);
   const date = typeof body?.date === 'string' ? body.date : '';
   const note = typeof body?.note === 'string' && body.note.trim() ? body.note.trim() : null;
 
-  if (!Number.isInteger(prospectId) || !ISO_DATE_RE.test(date)) {
+  if (
+    !ISO_DATE_RE.test(date) ||
+    (prospectIdInput !== null && !Number.isInteger(prospectIdInput)) ||
+    (prospectIdInput === null && (!name || name.length > 120)) ||
+    (bandId !== null && !Number.isInteger(bandId))
+  ) {
     return NextResponse.json({ error: 'Invalid input' }, { status: 400 });
   }
 
   try {
     const result = await sql.begin(async (tx) => {
+      let prospectId = prospectIdInput;
+      if (prospectId === null) {
+        // Reuse a prospect already tracking this band — by directory link
+        // first, then by name — so typing a known band doesn't duplicate it.
+        const [existing] = await tx`
+          select id from booking_prospects
+          where (${bandId}::bigint is not null and band_id = ${bandId}::bigint)
+             or lower(name) = lower(${name})
+          order by (band_id is not distinct from ${bandId}::bigint) desc, id asc
+          limit 1
+        `;
+        if (existing) {
+          prospectId = Number(existing.id);
+        } else {
+          const [created] = await tx`
+            insert into booking_prospects (band_id, name, status)
+            values (${bandId}, ${name}, 'contacted')
+            returning id
+          `;
+          prospectId = Number(created.id);
+        }
+      }
+
       const [hold] = await tx`
-        insert into date_holds (date, prospect_id, position, note)
-        values (
-          ${date},
-          ${prospectId},
-          (select coalesce(max(position), 0) + 1 from date_holds where date = ${date} and status = 'pending'),
-          ${note}
-        )
+        insert into date_holds (date, prospect_id, status, note)
+        values (${date}, ${prospectId}, 'asked', ${note})
         returning id, date::text as date, prospect_id, position, status, note, show_id, created_at, updated_at
       `;
       const [prospect] = await tx`
         update booking_prospects
-        set status = case when status in ('idea', 'contacted', 'in_talks') then 'hold' else status end,
+        set status = case when status = 'idea' then 'contacted' else status end,
+            last_contacted_at = now(),
             updated_at = now()
         where id = ${prospectId}
         returning id, band_id, name, status, priority, last_contacted_at, notes, created_at, updated_at
@@ -59,7 +87,7 @@ export async function POST(request: Request) {
   } catch (error) {
     const pgError = error as { code?: string };
     if (pgError?.code === '23505') {
-      return NextResponse.json({ error: 'Prospect already holds this date' }, { status: 409 });
+      return NextResponse.json({ error: 'Already asked this band about this date' }, { status: 409 });
     }
     if (pgError?.code === '23503') {
       return NextResponse.json({ error: 'Prospect not found' }, { status: 404 });

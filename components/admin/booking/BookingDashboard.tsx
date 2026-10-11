@@ -3,7 +3,8 @@
 import { useMemo, useState } from 'react';
 import type { AvailableDate } from '@/lib/available-dates';
 import type { DateOfferStatus } from '@/lib/date-offers';
-import type { BookingProspect, DateHold, DateNote, ProspectStatus } from '@/lib/booking';
+import type { BookingProspect, DateHold, DateNote } from '@/lib/booking';
+import { HOLD_STATUS_RANK } from '@/lib/booking';
 import BookingCalendar from './BookingCalendar';
 import BookingListView from './BookingListView';
 import DayPanel from './DayPanel';
@@ -31,8 +32,8 @@ export interface DayInfo {
   show?: BookingShow;
   draftShow?: BookingShow;
   available?: AvailableDate;
-  pendingHolds: DateHold[];
-  otherHolds: DateHold[];
+  // Bands asked about this night, booked → hold → asked → passed.
+  asks: DateHold[];
   notes: DateNote[];
   offers: BookingDateOffer[];
 }
@@ -65,6 +66,8 @@ function normalizeHold(h: DateHold): DateHold {
     prospect_id: Number(h.prospect_id),
     position: Number(h.position),
     show_id: h.show_id == null ? null : Number(h.show_id),
+    created_at: toIso(h.created_at),
+    updated_at: toIso(h.updated_at),
   };
 }
 
@@ -113,7 +116,7 @@ export default function BookingDashboard({
     const get = (date: string): DayInfo => {
       let info = map.get(date);
       if (!info) {
-        info = { date, pendingHolds: [], otherHolds: [], notes: [], offers: [] };
+        info = { date, asks: [], notes: [], offers: [] };
         map.set(date, info);
       }
       return info;
@@ -124,14 +127,11 @@ export default function BookingDashboard({
       else info.draftShow = info.draftShow ?? s;
     }
     for (const d of availableDates) get(d.date).available = d;
-    for (const h of holds) {
-      const info = get(h.date);
-      (h.status === 'pending' ? info.pendingHolds : info.otherHolds).push(h);
-    }
+    for (const h of holds) get(h.date).asks.push(h);
     for (const n of dateNotes) get(n.date).notes.push(n);
     for (const o of offers) get(o.date).offers.push(o);
     for (const info of map.values()) {
-      info.pendingHolds.sort((a, b) => a.position - b.position);
+      info.asks.sort((a, b) => HOLD_STATUS_RANK[a.status] - HOLD_STATUS_RANK[b.status] || a.id - b.id);
     }
     return map;
   }, [shows, availableDates, holds, dateNotes, offers]);
@@ -154,15 +154,13 @@ export default function BookingDashboard({
   const selectedInfo: DayInfo | null = selectedDate
     ? dayInfoByDate.get(selectedDate) ?? {
         date: selectedDate,
-        pendingHolds: [],
-        otherHolds: [],
+        asks: [],
         notes: [],
         offers: [],
       }
     : null;
 
-  // Replace one date's ladder wholesale with what the server returned after a
-  // hold mutation — positions are server-assigned, so no client-side guessing.
+  // Replace one date's asked list wholesale with what the server returned.
   function replaceDateHolds(date: string, next: DateHold[]) {
     setHolds((prev) => [...prev.filter((h) => h.date !== date), ...next.map(normalizeHold)]);
   }
@@ -259,41 +257,52 @@ export default function BookingDashboard({
     }
   }
 
-  async function addHold(date: string, prospectId: number) {
+  function upsertProspect(raw: BookingProspect) {
+    const row = normalizeProspect(raw);
+    setProspects((prev) =>
+      prev.some((p) => p.id === row.id) ? prev.map((p) => (p.id === row.id ? row : p)) : [row, ...prev]
+    );
+  }
+
+  // Either an existing prospect, or a typed band name (the server reuses a
+  // matching prospect or creates one).
+  async function addAsk(
+    date: string,
+    band: { prospectId: number } | { name: string; bandId: number | null }
+  ) {
     const res = await fetch('/api/admin/booking/holds', {
       method: 'POST',
       headers: JSON_HEADERS,
-      body: JSON.stringify({ date, prospect_id: prospectId }),
+      body: JSON.stringify(
+        'prospectId' in band
+          ? { date, prospect_id: band.prospectId }
+          : { date, name: band.name, band_id: band.bandId }
+      ),
     }).catch(() => null);
     if (res?.status === 201) {
       const { hold, prospect } = await res.json();
       setHolds((prev) => [...prev, normalizeHold(hold)]);
-      const row = normalizeProspect(prospect);
-      setProspects((prev) => prev.map((p) => (p.id === row.id ? row : p)));
+      upsertProspect(prospect);
     } else if (res?.status === 409) {
-      setErrorMessage('That prospect already holds this date.');
+      setErrorMessage('That band is already on this date.');
     } else {
-      setErrorMessage('Failed to add hold.');
+      setErrorMessage('Failed to add the band to this date.');
     }
   }
 
-  async function patchHold(hold: DateHold, patch: Record<string, unknown>, failureMessage = 'Failed to update hold.') {
+  async function patchHold(hold: DateHold, patch: Record<string, unknown>, failureMessage = 'Failed to update.') {
     const res = await fetch(`/api/admin/booking/holds/${hold.id}`, {
       method: 'PATCH',
       headers: JSON_HEADERS,
       body: JSON.stringify(patch),
     }).catch(() => null);
     if (res?.ok) {
-      const { holds: next } = await res.json();
+      const { holds: next, prospect } = await res.json();
       replaceDateHolds(hold.date, next);
-      if (patch.status === 'confirmed') {
-        setProspects((prev) =>
-          prev.map((p) => (p.id === hold.prospect_id ? { ...p, status: 'booked' as ProspectStatus } : p))
-        );
-      }
+      if (prospect) upsertProspect(prospect);
       return true;
     }
-    setErrorMessage(failureMessage);
+    setErrorMessage(res?.status === 409 ? 'That band already has a live ask on this date.' : failureMessage);
     resyncHolds();
     return false;
   }
@@ -304,15 +313,15 @@ export default function BookingDashboard({
       const { holds: next } = await res.json();
       replaceDateHolds(hold.date, next);
     } else {
-      setErrorMessage('Failed to remove hold.');
+      setErrorMessage('Failed to remove the band from this date.');
       resyncHolds();
     }
   }
 
   // Two calls by design: reuse the full show-creation path (slug, defaults,
-  // revalidation), then mark the hold confirmed. If the second call fails the
-  // show still exists and the banner says how to finish up.
-  async function confirmHold(hold: DateHold) {
+  // revalidation), then link the show to the booked ask. If the second call
+  // fails the show still exists and the banner says so.
+  async function createDraftShow(hold: DateHold) {
     const prospect = prospectsById.get(hold.prospect_id);
     const title = prospect?.name?.trim() || 'TBD';
     const res = await fetch('/api/admin/shows', {
@@ -335,8 +344,8 @@ export default function BookingDashboard({
     setShows((prev) => [...prev, show]);
     await patchHold(
       hold,
-      { status: 'confirmed', show_id: show.id },
-      'Show created, but marking the hold confirmed failed — hit Confirm on the ladder again.'
+      { status: 'booked', show_id: show.id },
+      'Draft show created, but linking it to the booking failed — it’s on the Shows page.'
     );
   }
 
@@ -407,6 +416,7 @@ export default function BookingDashboard({
           {view === 'calendar' ? (
             <BookingCalendar
               dayInfoByDate={dayInfoByDate}
+              prospectsById={prospectsById}
               today={today}
               selectedDate={selectedDate}
               onSelectDate={(date) => setSelectedDate((prev) => (prev === date ? null : date))}
@@ -433,10 +443,10 @@ export default function BookingDashboard({
               prospectsById={prospectsById}
               onClose={() => setSelectedDate(null)}
               onToggleAvailable={toggleAvailable}
-              onAddHold={addHold}
+              onAddAsk={addAsk}
               onPatchHold={patchHold}
               onDeleteHold={deleteHold}
-              onConfirmHold={confirmHold}
+              onCreateDraftShow={createDraftShow}
               onAddNote={addNote}
               onDeleteNote={deleteNote}
             />

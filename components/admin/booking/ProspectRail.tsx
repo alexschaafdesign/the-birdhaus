@@ -5,7 +5,13 @@ import Link from 'next/link';
 import Section from '@/components/admin/Section';
 import BandNameInput from '@/components/admin/BandNameInput';
 import type { BookingProspect, DateHold, ProspectStatus } from '@/lib/booking';
-import { PROSPECT_STATUSES, PROSPECT_STATUS_LABELS, PROSPECT_STATUS_COLORS } from '@/lib/booking';
+import {
+  HOLD_STATUS_COLORS,
+  HOLD_STATUS_LABELS,
+  PROSPECT_STATUSES,
+  PROSPECT_STATUS_LABELS,
+  PROSPECT_STATUS_COLORS,
+} from '@/lib/booking';
 
 const inputClass =
   'bg-transparent border border-[#E8E0D0]/30 rounded px-3 py-1.5 text-sm focus:outline-none focus:border-[#E8E0D0] placeholder:text-[#E8E0D0]/30';
@@ -53,11 +59,10 @@ export default function ProspectRail({
     return map;
   }, [prospects]);
 
-  // Pending holds per prospect, soonest first, for the held-date chips.
-  const pendingHoldsByProspect = useMemo(() => {
+  // Every date each band was asked about, soonest first, for the date chips.
+  const holdsByProspect = useMemo(() => {
     const map = new Map<number, DateHold[]>();
     for (const h of holds) {
-      if (h.status !== 'pending') continue;
       const list = map.get(h.prospect_id) ?? [];
       list.push(h);
       map.set(h.prospect_id, list);
@@ -154,7 +159,7 @@ export default function ProspectRail({
 
         <ul className="space-y-3">
           {visible.map((prospect) => {
-            const prospectHolds = pendingHoldsByProspect.get(prospect.id) ?? [];
+            const prospectHolds = holdsByProspect.get(prospect.id) ?? [];
             return (
               <li key={prospect.id} className="rounded border border-[#E8E0D0]/15 p-3">
                 <div className="flex items-start justify-between gap-2">
@@ -171,7 +176,7 @@ export default function ProspectRail({
                   </div>
                   <button
                     onClick={() => {
-                      if (window.confirm(`Delete prospect “${prospect.name}” and their holds?`)) {
+                      if (window.confirm(`Delete prospect “${prospect.name}” and every date they were asked about?`)) {
                         onDelete(prospect.id);
                       }
                     }}
@@ -238,9 +243,13 @@ export default function ProspectRail({
                       <button
                         key={hold.id}
                         onClick={() => onSelectDate(hold.date)}
-                        className="rounded-full border border-amber-500/40 px-2 py-0.5 text-xs text-amber-400/90 hover:bg-amber-500/10"
+                        title={hold.note ?? undefined}
+                        className={`rounded-full border px-2 py-0.5 text-xs hover:bg-[#E8E0D0]/10 ${
+                          hold.status === 'passed' ? 'opacity-50' : ''
+                        }`}
+                        style={{ borderColor: `${HOLD_STATUS_COLORS[hold.status]}80`, color: HOLD_STATUS_COLORS[hold.status] }}
                       >
-                        H{hold.position} · {formatShortDate(hold.date)}
+                        {formatShortDate(hold.date)} · {HOLD_STATUS_LABELS[hold.status]}
                       </button>
                     ))}
                   </div>

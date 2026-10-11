@@ -3,9 +3,10 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import Section from '@/components/admin/Section';
+import BandNameInput from '@/components/admin/BandNameInput';
 import { DATE_OFFER_COLORS, DATE_OFFER_LABELS } from '@/lib/date-offers';
-import type { BookingProspect, DateHold, DateNote } from '@/lib/booking';
-import { HOLD_STATUS_LABELS } from '@/lib/booking';
+import type { BookingProspect, DateHold, DateNote, HoldStatus } from '@/lib/booking';
+import { HOLD_STATUSES, HOLD_STATUS_COLORS, HOLD_STATUS_LABELS, LIVE_HOLD_STATUSES } from '@/lib/booking';
 import type { DayInfo } from './BookingDashboard';
 
 const inputClass =
@@ -22,10 +23,10 @@ export default function DayPanel({
   prospectsById,
   onClose,
   onToggleAvailable,
-  onAddHold,
+  onAddAsk,
   onPatchHold,
   onDeleteHold,
-  onConfirmHold,
+  onCreateDraftShow,
   onAddNote,
   onDeleteNote,
 }: {
@@ -34,14 +35,15 @@ export default function DayPanel({
   prospectsById: Map<number, BookingProspect>;
   onClose: () => void;
   onToggleAvailable: (date: string) => void;
-  onAddHold: (date: string, prospectId: number) => void;
+  onAddAsk: (date: string, band: { prospectId: number } | { name: string; bandId: number | null }) => void;
   onPatchHold: (hold: DateHold, patch: Record<string, unknown>) => void;
   onDeleteHold: (hold: DateHold) => void;
-  onConfirmHold: (hold: DateHold) => void;
+  onCreateDraftShow: (hold: DateHold) => void;
   onAddNote: (date: string, body: string) => void;
   onDeleteNote: (note: DateNote) => void;
 }) {
-  const [holdProspectId, setHoldProspectId] = useState('');
+  const [askName, setAskName] = useState('');
+  const [askBandId, setAskBandId] = useState<number | null>(null);
   const [noteDraft, setNoteDraft] = useState('');
 
   const { date } = info;
@@ -53,21 +55,27 @@ export default function DayPanel({
     year: 'numeric',
   });
 
-  const pendingProspectIds = new Set(info.pendingHolds.map((h) => h.prospect_id));
-  const holdOptions = prospects
-    .filter((p) => !pendingProspectIds.has(p.id) && p.status !== 'passed')
-    .sort((a, b) => a.name.localeCompare(b.name));
+  // Quick-add chips: prospects not already live on this night, most wanted
+  // first, so a band you're chasing is one click away.
+  const liveProspectIds = new Set(
+    info.asks.filter((h) => LIVE_HOLD_STATUSES.includes(h.status)).map((h) => h.prospect_id)
+  );
+  const quickPicks = prospects
+    .filter((p) => !liveProspectIds.has(p.id) && p.status !== 'passed' && p.status !== 'booked')
+    .sort((a, b) => b.priority - a.priority || a.name.localeCompare(b.name))
+    .slice(0, 8);
 
   function prospectName(id: number) {
     return prospectsById.get(id)?.name ?? 'Deleted prospect';
   }
 
-  function handleAddHold(e: React.FormEvent) {
+  function handleAddAsk(e: React.FormEvent) {
     e.preventDefault();
-    const id = Number(holdProspectId);
-    if (!Number.isInteger(id) || id <= 0) return;
-    onAddHold(date, id);
-    setHoldProspectId('');
+    const name = askName.trim();
+    if (!name) return;
+    onAddAsk(date, { name, bandId: askBandId });
+    setAskName('');
+    setAskBandId(null);
   }
 
   function handleAddNote(e: React.FormEvent) {
@@ -175,110 +183,114 @@ export default function DayPanel({
           </Section>
         )}
 
-        <Section title="Hold ladder">
-          {info.pendingHolds.length === 0 && info.otherHolds.length === 0 && (
-            <p className="mb-3 text-xs text-[#E8E0D0]/30">No holds on this date yet.</p>
+        <Section title="Bands asked">
+          {info.asks.length === 0 && (
+            <p className="mb-3 text-xs text-[#E8E0D0]/30">Nobody asked about this night yet.</p>
           )}
 
-          {info.pendingHolds.length > 0 && (
+          {info.asks.length > 0 && (
             <ul className="mb-3 space-y-2">
-              {info.pendingHolds.map((hold) => (
-                <li key={hold.id} className="flex flex-wrap items-center gap-2">
-                  <span className="rounded bg-amber-500/90 px-1.5 py-0.5 font-mono text-xs font-bold text-black">
-                    H{hold.position}
-                  </span>
-                  <span className="text-sm font-medium">{prospectName(hold.prospect_id)}</span>
-                  {hold.note && <span className="text-xs text-[#E8E0D0]/40">{hold.note}</span>}
-                  <span className="ml-auto flex items-center gap-1">
-                    {hold.position > 1 && (
-                      <button
-                        onClick={() => onPatchHold(hold, { position: hold.position - 1 })}
-                        title="Promote"
-                        className="rounded border border-[#E8E0D0]/30 px-2 py-0.5 text-xs hover:bg-[#E8E0D0]/10"
+              {info.asks.map((hold) => {
+                const passed = hold.status === 'passed';
+                return (
+                  <li key={hold.id} className={`space-y-1 ${passed ? 'opacity-50' : ''}`}>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="min-w-0 flex-1 truncate text-sm font-medium">{prospectName(hold.prospect_id)}</span>
+                      <select
+                        value={hold.status}
+                        onChange={(e) => onPatchHold(hold, { status: e.target.value as HoldStatus })}
+                        aria-label={`Status for ${prospectName(hold.prospect_id)}`}
+                        className="rounded border bg-[#171412] px-2 py-0.5 text-xs focus:outline-none"
+                        style={{ borderColor: HOLD_STATUS_COLORS[hold.status], color: HOLD_STATUS_COLORS[hold.status] }}
                       >
-                        ▲
+                        {HOLD_STATUSES.map((status) => (
+                          <option key={status} value={status}>
+                            {HOLD_STATUS_LABELS[status]}
+                          </option>
+                        ))}
+                      </select>
+                      <button
+                        onClick={() => {
+                          if (window.confirm(`Remove ${prospectName(hold.prospect_id)} from this date?`)) onDeleteHold(hold);
+                        }}
+                        aria-label="Remove from this date"
+                        className="rounded px-1.5 py-0.5 text-xs text-[#E8E0D0]/40 hover:text-red-400"
+                      >
+                        ×
                       </button>
+                    </div>
+                    <input
+                      key={`${hold.id}-${hold.updated_at}`}
+                      defaultValue={hold.note ?? ''}
+                      placeholder="Note (e.g. “waiting to hear back”, “$300 guarantee”)"
+                      onBlur={(e) => {
+                        const note = e.target.value.trim();
+                        if (note !== (hold.note ?? '')) onPatchHold(hold, { note: note || null });
+                      }}
+                      className={`${inputClass} w-full py-1 text-xs`}
+                    />
+                    {hold.status === 'booked' && (
+                      <p className="text-xs">
+                        {hold.show_id !== null ? (
+                          <Link href={`/admin/shows/${hold.show_id}`} className="text-yellow-400/90 hover:underline">
+                            Open show →
+                          </Link>
+                        ) : showOnDate ? (
+                          <span className="text-[#E8E0D0]/40">A show already exists on this date.</span>
+                        ) : (
+                          <button
+                            onClick={() => onCreateDraftShow(hold)}
+                            className="rounded border border-green-500/50 px-2 py-0.5 text-green-400 hover:bg-green-500/10"
+                          >
+                            Create draft show
+                          </button>
+                        )}
+                      </p>
                     )}
-                    <button
-                      onClick={() => {
-                        if (
-                          window.confirm(
-                            `Confirm ${prospectName(hold.prospect_id)} on ${longDate}? This creates a draft show and releases the other holds.`
-                          )
-                        ) {
-                          onConfirmHold(hold);
-                        }
-                      }}
-                      className="rounded border border-green-500/50 px-2 py-0.5 text-xs text-green-400 hover:bg-green-500/10"
-                    >
-                      Confirm
-                    </button>
-                    <button
-                      onClick={() => onPatchHold(hold, { status: 'released' })}
-                      className="rounded border border-[#E8E0D0]/30 px-2 py-0.5 text-xs text-[#E8E0D0]/60 hover:bg-[#E8E0D0]/10"
-                    >
-                      Release
-                    </button>
-                    <button
-                      onClick={() => {
-                        if (window.confirm('Delete this hold entirely?')) onDeleteHold(hold);
-                      }}
-                      aria-label="Delete hold"
-                      className="rounded px-1.5 py-0.5 text-xs text-[#E8E0D0]/40 hover:text-red-400"
-                    >
-                      ×
-                    </button>
-                  </span>
-                </li>
-              ))}
+                  </li>
+                );
+              })}
             </ul>
           )}
 
-          {info.otherHolds.length > 0 && (
-            <ul className="mb-3 space-y-1">
-              {info.otherHolds.map((hold) => (
-                <li key={hold.id} className="flex items-center gap-2 text-xs text-[#E8E0D0]/40">
-                  <span className={hold.status === 'confirmed' ? 'text-green-400/70' : ''}>
-                    {HOLD_STATUS_LABELS[hold.status]}
-                  </span>
-                  <span>{prospectName(hold.prospect_id)}</span>
-                  <button
-                    onClick={() => {
-                      if (window.confirm('Delete this hold from history?')) onDeleteHold(hold);
-                    }}
-                    aria-label="Delete hold"
-                    className="px-1 text-[#E8E0D0]/30 hover:text-red-400"
-                  >
-                    ×
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-
-          <form onSubmit={handleAddHold} className="flex items-center gap-2">
-            <select
-              value={holdProspectId}
-              onChange={(e) => setHoldProspectId(e.target.value)}
-              className={`${inputClass} min-w-0 flex-1 bg-[#171412]`}
-            >
-              <option value="">Add a hold — pick a prospect…</option>
-              {holdOptions.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
+          <form onSubmit={handleAddAsk} className="flex items-center gap-2">
+            <div className="min-w-0 flex-1">
+              <BandNameInput
+                value={askName}
+                onChange={(value) => {
+                  setAskName(value);
+                  setAskBandId(null);
+                }}
+                onSelect={(match) => {
+                  setAskName(match.name);
+                  setAskBandId(match.id);
+                }}
+                className={`${inputClass} w-full`}
+                placeholder="Who did you ask? Band name…"
+              />
+            </div>
             <button
               type="submit"
-              disabled={!holdProspectId}
+              disabled={!askName.trim()}
               className="rounded border border-[#E8E0D0]/30 px-3 py-1.5 text-sm hover:bg-[#E8E0D0]/10 disabled:opacity-40"
             >
-              + Hold
+              + Asked
             </button>
           </form>
-          {holdOptions.length === 0 && prospects.length === 0 && (
-            <p className="mt-2 text-xs text-[#E8E0D0]/30">Add prospects in the rail first.</p>
+
+          {quickPicks.length > 0 && (
+            <div className="mt-2 flex flex-wrap items-center gap-1.5">
+              <span className="text-xs text-[#E8E0D0]/40">Prospects:</span>
+              {quickPicks.map((p) => (
+                <button
+                  key={p.id}
+                  onClick={() => onAddAsk(date, { prospectId: p.id })}
+                  className="rounded-full border border-[#E8E0D0]/20 px-2 py-0.5 text-xs text-[#E8E0D0]/70 hover:bg-[#E8E0D0]/10"
+                >
+                  + {p.name}
+                </button>
+              ))}
+            </div>
           )}
 
           {!showOnDate && (
