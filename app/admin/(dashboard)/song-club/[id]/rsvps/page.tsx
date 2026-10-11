@@ -7,6 +7,7 @@ import { getEventSignups } from '@/lib/club-events';
 import { listGroups } from '@/lib/club-groups';
 import SongClubRsvpBlast from '@/components/admin/SongClubRsvpBlast';
 import EventSignupsTable from '@/components/admin/EventSignupsTable';
+import { SONG_CLUB_ADMIN_FROZEN } from '@/lib/song-club-freeze';
 
 export const metadata: Metadata = {
   title: 'RSVPs',
@@ -60,6 +61,7 @@ export default async function SongClubRsvpsPage({
           eventId={event.id}
           initialSignups={signups}
           initialGroups={groups}
+          readOnly={SONG_CLUB_ADMIN_FROZEN}
         />
       </main>
     );

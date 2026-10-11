@@ -4,6 +4,7 @@ import { sendClubInviteEmail } from '@/lib/club-email';
 import { sendCrewInviteEmail } from '@/lib/account-email';
 import { isBirdhausAccount } from '@/lib/club-roles';
 import { requireAdmin } from '@/lib/admin-session';
+import { songClubAdminFrozenResponse } from '@/lib/song-club-freeze';
 
 // Admin auth: enforced by proxy.ts for all /api/admin routes.
 
@@ -19,6 +20,8 @@ export async function GET() {
 export async function POST(request: Request) {
   const denied = await requireAdmin();
   if (denied) return denied;
+  const frozen = songClubAdminFrozenResponse();
+  if (frozen) return frozen;
   const body = await request.json().catch(() => null);
   const email = typeof body?.email === 'string' ? body.email : '';
   const name = typeof body?.name === 'string' ? body.name : '';

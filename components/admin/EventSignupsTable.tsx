@@ -29,10 +29,14 @@ export default function EventSignupsTable({
   eventId,
   initialSignups,
   initialGroups = [],
+  readOnly = false,
 }: {
   eventId: number;
   initialSignups: EventSignup[];
   initialGroups?: ClubGroup[];
+  // No drag-to-assign (the frozen Song Club admin; buttons are disabled by
+  // its fieldset, but drag-and-drop isn't a form control).
+  readOnly?: boolean;
 }) {
   const [signups, setSignups] = useState<EventSignup[]>(initialSignups);
   const [groups, setGroups] = useState<ClubGroup[]>(initialGroups);
@@ -167,6 +171,7 @@ export default function EventSignupsTable({
 
   // Drop-target handlers for a column/lane (groupId null == Unassigned).
   function dropProps(groupId: number | null) {
+    if (readOnly) return {};
     const key = colKey(groupId);
     return {
       onDragOver: (e: React.DragEvent<HTMLDivElement>) => {
@@ -194,6 +199,7 @@ export default function EventSignupsTable({
       person={p}
       columns={columns}
       currentGroupId={currentGroupId}
+      draggable={!readOnly}
       dragging={draggingId === p.id}
       menuOpen={openMenuId === p.id}
       removing={removingId === p.id}
@@ -411,6 +417,7 @@ function Chip({
   person,
   columns,
   currentGroupId,
+  draggable,
   dragging,
   menuOpen,
   removing,
@@ -425,6 +432,7 @@ function Chip({
   person: EventSignup;
   columns: ColKey[];
   currentGroupId: number | null;
+  draggable: boolean;
   dragging: boolean;
   menuOpen: boolean;
   removing: boolean;
@@ -485,7 +493,7 @@ function Chip({
 
   return (
     <div
-      draggable
+      draggable={draggable}
       data-person={person.id}
       onDragStart={(e) => {
         e.dataTransfer.setData('text/plain', String(person.id));

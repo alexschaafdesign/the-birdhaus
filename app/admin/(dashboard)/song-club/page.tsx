@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { listEvents } from '@/lib/song-club';
 import DeleteSongClubEventButton from '@/components/admin/DeleteSongClubEventButton';
+import { SONG_CLUB_ADMIN_FROZEN, SONGHAUS_ADMIN_URL } from '@/lib/song-club-freeze';
 
 export const metadata: Metadata = {
   title: 'Song Club',
@@ -33,10 +34,10 @@ export default async function AdminSongClubPage() {
             Portal members
           </Link>
           <Link
-            href="/admin/events/new?type=song_club"
+            href={SONG_CLUB_ADMIN_FROZEN ? `${SONGHAUS_ADMIN_URL}/events/new` : '/admin/events/new?type=song_club'}
             className="rounded-md bg-[#E8E0D0] px-3.5 py-1.5 text-sm font-semibold text-[#2A2420] transition hover:bg-white"
           >
-            + New event
+            {SONG_CLUB_ADMIN_FROZEN ? 'New event in Songhaus →' : '+ New event'}
           </Link>
         </div>
       </div>

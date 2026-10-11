@@ -11,6 +11,7 @@ import { sendClubInviteEmail, sendClubPasswordResetEmail } from '@/lib/club-emai
 import { sendAccountPasswordResetEmail, sendCrewInviteEmail } from '@/lib/account-email';
 import { isBirdhausAccount } from '@/lib/club-roles';
 import { requireAdmin } from '@/lib/admin-session';
+import { songClubAdminFrozenResponse } from '@/lib/song-club-freeze';
 
 // Admin auth: enforced by proxy.ts for all /api/admin routes.
 
@@ -21,6 +22,8 @@ export async function PATCH(
 ) {
   const denied = await requireAdmin();
   if (denied) return denied;
+  const frozen = songClubAdminFrozenResponse();
+  if (frozen) return frozen;
   const id = Number((await params).id);
   if (!Number.isInteger(id)) {
     return NextResponse.json({ error: 'Invalid id' }, { status: 400 });
@@ -81,6 +84,8 @@ export async function DELETE(
 ) {
   const denied = await requireAdmin();
   if (denied) return denied;
+  const frozen = songClubAdminFrozenResponse();
+  if (frozen) return frozen;
   const id = Number((await params).id);
   if (!Number.isInteger(id)) {
     return NextResponse.json({ error: 'Invalid id' }, { status: 400 });
