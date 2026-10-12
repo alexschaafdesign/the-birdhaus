@@ -9,6 +9,9 @@ import type { DayInfo } from './BookingDashboard';
 // no flyer images), the header adds ±year jumps, and cells layer booking
 // state (day titles, notepads, submission offers) over the show/available base.
 
+// First month of the season being booked; bump when planning moves on.
+const PLANNING_SEASON_START = '2027-01-01';
+
 const WEEKDAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
 function parseLocalDate(dateStr: string) {
@@ -34,10 +37,13 @@ export default function BookingCalendar({
   onPaintDay: (date: string) => void;
 }) {
   const todayDate = parseLocalDate(today);
-  const [cursor, setCursor] = useState({
-    year: todayDate.getFullYear(),
-    month: todayDate.getMonth(),
-  });
+  // Opens on the season being planned (or today, once that's in the past);
+  // the Today button still jumps to the current month.
+  const [cursor, setCursor] = useState(() =>
+    today < PLANNING_SEASON_START
+      ? { year: Number(PLANNING_SEASON_START.slice(0, 4)), month: Number(PLANNING_SEASON_START.slice(5, 7)) - 1 }
+      : { year: todayDate.getFullYear(), month: todayDate.getMonth() }
+  );
 
   const goToMonth = (delta: number) => {
     setCursor((prev) => {
