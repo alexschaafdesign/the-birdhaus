@@ -1,6 +1,7 @@
 import { sql } from '@/lib/db';
 import { getTodayCentral } from '@/lib/shows';
 import { getAvailableDates } from '@/lib/available-dates';
+import { feedUrl, getOrCreateFeedToken } from '@/lib/booking-feed';
 import type { BookingDay, BookingProspect } from '@/lib/booking';
 import BookingDashboard, {
   type BookingShow,
@@ -13,7 +14,7 @@ export default async function BookingPage() {
   const today = getTodayCentral();
   const yearStart = `${today.slice(0, 4)}-01-01`;
 
-  const [prospects, days, availableDates, dateOffers, shows] = await Promise.all([
+  const [prospects, days, availableDates, dateOffers, shows, feedToken] = await Promise.all([
     sql<BookingProspect[]>`
       select id, band_id, name, status, priority, last_contacted_at, notes, created_at, updated_at
       from booking_prospects
@@ -40,6 +41,7 @@ export default async function BookingPage() {
       where date >= ${yearStart}
       order by date asc
     `,
+    getOrCreateFeedToken(),
   ]);
 
   return (
@@ -52,6 +54,7 @@ export default async function BookingPage() {
         initialAvailableDates={availableDates}
         dateOffers={dateOffers}
         shows={shows}
+        feedUrl={feedUrl(feedToken)}
       />
     </main>
   );

@@ -6,6 +6,7 @@ import type { DateOfferStatus } from '@/lib/date-offers';
 import type { BookingDay, BookingProspect } from '@/lib/booking';
 import BookingCalendar from './BookingCalendar';
 import BookingListView from './BookingListView';
+import CalendarSubscribe from './CalendarSubscribe';
 import DayPanel from './DayPanel';
 import ProspectRail from './ProspectRail';
 
@@ -65,6 +66,7 @@ export default function BookingDashboard({
   initialAvailableDates,
   dateOffers,
   shows: initialShows,
+  feedUrl,
 }: {
   today: string;
   initialProspects: BookingProspect[];
@@ -72,6 +74,7 @@ export default function BookingDashboard({
   initialAvailableDates: AvailableDate[];
   dateOffers: BookingDateOffer[];
   shows: BookingShow[];
+  feedUrl: string;
 }) {
   const [prospects, setProspects] = useState(() => initialProspects.map(normalizeProspect));
   const [days, setDays] = useState(() => new Map(initialDays.map((d) => [d.date, d])));
@@ -259,6 +262,7 @@ export default function BookingDashboard({
             ✎ mark available
           </button>
         )}
+        <CalendarSubscribe initialUrl={feedUrl} />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
