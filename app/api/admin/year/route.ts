@@ -42,6 +42,11 @@ export interface YearMonth {
   bandPayout: number;
 }
 
+// January 2026's shows were one-offs money-wise and skew the season, so the
+// page leaves them out unless asked (?all=1). Excluding a leading month is just
+// a later range start, so every query below picks it up for free.
+const SKEWED_MONTH = { year: 2026, label: 'January 2026', resumeOn: '2026-02-01' };
+
 // Monday of the ISO week containing dateStr, as YYYY-MM-DD.
 function weekStart(dateStr: string): string {
   const d = new Date(`${dateStr}T00:00:00Z`);
@@ -70,8 +75,21 @@ export async function GET(request: Request) {
   if (!Number.isInteger(year)) {
     return NextResponse.json({ error: 'Invalid year' }, { status: 400 });
   }
-  const rangeStart = `${year}-01-01`;
+  const includeAll = url.searchParams.get('all') === '1';
+  const skewApplies = year === SKEWED_MONTH.year;
+  const excludeSkewed = skewApplies && !includeAll;
+  const rangeStart = excludeSkewed ? SKEWED_MONTH.resumeOn : `${year}-01-01`;
   const rangeEnd = `${year}-12-31`;
+
+  // How many shows the toggle hides, so the page can say so.
+  let skewedShows = 0;
+  if (skewApplies) {
+    const [row] = await sql<{ n: number }[]>`
+      select count(*)::int as n from shows sh
+      where sh.date >= ${`${year}-01-01`} and sh.date < ${SKEWED_MONTH.resumeOn}
+    `;
+    skewedShows = row.n;
+  }
 
   // Countable totals (independent of settlements).
   const [counts] = await sql<{ shows: number; sets: number; bands: number }[]>`
@@ -361,5 +379,8 @@ export async function GET(request: Request) {
     monthly,
     perShow,
     availableYears: yearRows.map((r) => r.year),
+    skewed: skewApplies && skewedShows > 0
+      ? { label: SKEWED_MONTH.label, shows: skewedShows, excluded: excludeSkewed }
+      : null,
   });
 }
