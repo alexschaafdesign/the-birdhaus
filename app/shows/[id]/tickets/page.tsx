@@ -1,4 +1,4 @@
-import { findShowSlugIgnoringCase, getShowBySlug, getTicketAvailability } from '@/lib/shows';
+import { findShowSlugIgnoringCase, getShowById, getShowBySlug, getTicketAvailability, slugForShowParam } from '@/lib/shows';
 import { sql } from '@/lib/db';
 import { notFound, permanentRedirect } from 'next/navigation';
 import Link from 'next/link';
@@ -33,9 +33,9 @@ function dollars(cents: number): string {
 export async function generateMetadata({
   params,
 }: {
-  params: Promise<{ slug: string }>;
+  params: Promise<{ id: string }>;
 }): Promise<Metadata> {
-  const { slug } = await params;
+  const slug = await slugForShowParam((await params).id);
   const show = await getShowBySlug(slug);
   if (!show) return {};
   return { title: `Donate — ${show.title}`, robots: { index: false } };
@@ -45,10 +45,12 @@ export default async function TicketsPage({
   params,
   searchParams,
 }: {
-  params: Promise<{ slug: string }>;
+  params: Promise<{ id: string }>;
   searchParams: Promise<{ checkout_error?: string; sold_out?: string; left?: string }>;
 }) {
-  const { slug } = await params;
+  // The segment is a catalogue id or an old slug (Phase 3 turns slugs into
+  // 308s to the id); the ticket code below still keys on the slug.
+  const slug = await slugForShowParam((await params).id);
   const show = await getShowBySlug(slug);
   if (!show) {
     // A case-only mismatch (old capitalised link) → 308 to the stored slug,
@@ -61,6 +63,43 @@ export default async function TicketsPage({
       permanentRedirect(`/shows/${encodeURIComponent(canonical)}/tickets${qs ? `?${qs}` : ''}`);
     }
     notFound();
+  }
+
+  // Cancelled or postponed: no buy buttons — a notice instead, and for a
+  // postponed show a link to the new date's tickets. Returns before any of the
+  // ticket logic below runs (the /checkout route refuses these shows too).
+  if (show.status !== 'scheduled') {
+    const next = show.status === 'postponed' && show.rescheduledTo ? await getShowById(show.rescheduledTo) : null;
+    const nextPublic = next && next.announced ? next : null;
+    return (
+      <main className="min-h-screen">
+        <div className="max-w-2xl mx-auto px-6 py-12">
+          <Link
+            href={`/shows/${show.catalogueId}`}
+            className="text-ink/70 hover:text-vhs-red mb-8 inline-block font-mono text-sm uppercase tracking-wide"
+          >
+            ← Back to show
+          </Link>
+          <h1 className="text-3xl md:text-4xl font-bold mb-2 leading-tight">{show.title}</h1>
+          <div role="status" className="mt-8 border-2 border-ink bg-paper-deep px-6 py-8 shadow-hard">
+            <p className="text-lg font-bold mb-1">
+              {show.status === 'cancelled' ? 'This show is cancelled.' : 'This show is postponed.'}
+            </p>
+            <p className="text-sm text-ink/70 max-w-prose">
+              Tickets for this date are no longer on sale. Bought one already? We&apos;ll be in touch.
+            </p>
+            {nextPublic && (
+              <Link
+                href={nextPublic.ticketUrl ? `/shows/${nextPublic.catalogueId}/tickets` : `/shows/${nextPublic.catalogueId}`}
+                className="mt-6 inline-block bg-ink text-paper font-bold py-2.5 px-5 hover:bg-ink/85 transition-colors text-sm"
+              >
+                {nextPublic.ticketUrl ? 'Tickets for the new date →' : 'See the new date →'}
+              </Link>
+            )}
+          </div>
+        </div>
+      </main>
+    );
   }
 
   // Set when /checkout couldn't mint a Square link and bounced the buyer back

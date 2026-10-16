@@ -4,7 +4,7 @@ import { archiveHref, setSummary } from '@/lib/archive';
 import { SeriesTick } from '@/components/ui/SeriesTick';
 import { AudioLink, Duration, MoreVideos, Notes, PhotoStrip, VideoPlayer } from './Media';
 
-// One set in the night band, anchored at its catalogue id (#BH-260904-2), with
+// One set in the night band (the archived /shows/[id] page), anchored at its catalogue id (#BH-260904-2), with
 // the band-name anchor (#joe-kaplow) kept as an alias. A set with media is a native
 // <details> (no client JS): the night's first set with video renders open,
 // the rest collapse to one line that says what exists ("photos only"). A set
@@ -20,7 +20,7 @@ function SlugAlias({ set }: { set: ArchiveSet }) {
   return <span id={set.slug} data-set={set.id} aria-hidden className="block scroll-mt-6" />;
 }
 
-function Heading({ set, summary }: { set: ArchiveSet; summary: string | null }) {
+function Heading({ set, summary, linkBand = false }: { set: ArchiveSet; summary: string | null; linkBand?: boolean }) {
   return (
     <>
       <span className="text-timecode text-text-meta w-6 shrink-0 tabular-nums">
@@ -32,11 +32,24 @@ function Heading({ set, summary }: { set: ArchiveSet; summary: string | null }) 
         {set.start}
       </span>
       <h3 className="text-header-4 text-text-inverse min-w-0 flex-1 leading-[1.2] uppercase">
-        {set.band}
+        {/* Only a set with no media links its name: inside a <summary> the
+            name is the toggle, and the band link sits in the opened set. */}
+        {linkBand && set.bandSlug ? (
+          <Link
+            href={`/bands/${set.bandSlug}`}
+            className="hover:text-accent-brick focus-visible:outline-accent-brick focus-visible:outline-2 focus-visible:outline-offset-2"
+          >
+            {set.band}
+          </Link>
+        ) : (
+          set.band
+        )}
       </h3>
       <span className="text-data-spec-12 text-text-meta order-last flex basis-full items-center gap-3 pl-24 tracking-[--spacing(0.25)] uppercase sm:order-none sm:basis-auto sm:pl-0">
         <Duration sec={set.durationSec} />
-        {summary ?? 'no media yet'}
+        {/* A set with nothing of its own says nothing: an archived night with
+            only a lineup is complete, not waiting on something. */}
+        {summary}
       </span>
     </>
   );
@@ -68,7 +81,7 @@ export function SetBlock({
           id={set.id}
           className={`${anchor} ${ROW} target:bg-surface-ink-raised [:target+&]:bg-surface-ink-raised`}
         >
-          <Heading set={set} summary={null} />
+          <Heading set={set} summary={null} linkBand />
         </div>
       </>
     );
@@ -136,13 +149,21 @@ export function SetBlock({
           ) : null}
 
           <p className="text-data-spec-12 text-text-meta flex flex-wrap gap-x-3 gap-y-1 tracking-[--spacing(0.25)] uppercase">
+            {set.bandSlug && (
+              <Link
+                href={`/bands/${set.bandSlug}`}
+                className="text-text-inverse hover:text-accent-brick focus-visible:outline-accent-brick font-bold focus-visible:outline-2 focus-visible:outline-offset-2"
+              >
+                {set.band} →
+              </Link>
+            )}
             {others.length ? (
               <>
                 <span>Other Birdhaus sets:</span>
                 {others.map(({ night: n, set: s }) => (
                   <Link
                     key={s.id}
-                    href={archiveHref(`/redesign/archive/${n.id}#${s.id}`, sample)}
+                    href={archiveHref(`/shows/${n.id}#${s.id}`, sample)}
                     className="text-accent-brick hover:text-text-inverse focus-visible:outline-accent-brick font-bold focus-visible:outline-2 focus-visible:outline-offset-2"
                   >
                     {n.id}

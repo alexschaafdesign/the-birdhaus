@@ -106,6 +106,11 @@ export default function Header({ isAdmin = false }: { isAdmin?: boolean }) {
   // whole viewport — suppress the shared logo band + nav there.
   if (pathname.startsWith('/redesign')) return null;
 
+  // Already on the 2027 system, with the rail header in the page (SiteFrame)
+  // until Phase 2 moves it into the root layout: the archive index and the
+  // night page itself — not /shows/[id]/tickets, which is still old-style.
+  if (pathname === '/archive' || /^\/shows\/[^/]+\/?$/.test(pathname)) return null;
+
   // The home page runs the venue photo as a full-page dark background, so the
   // header goes transparent there and the nav flips to cream-on-dark.
   const onPhoto = pathname === '/';

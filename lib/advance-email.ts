@@ -84,9 +84,9 @@ export function normalizeEmailList(input: unknown): string[] {
   return out;
 }
 
-// Build the public show URL bands are pointed at for RSVPs, from the slug.
-export function showAdvanceUrl(slug: string): string {
-  return `${SITE_URL}/shows/${slug}`;
+// Build the public show URL bands are pointed at for RSVPs: /shows/BH-….
+export function showAdvanceUrl(catalogueId: string): string {
+  return `${SITE_URL}/shows/${catalogueId}`;
 }
 
 // Matches lib/rsvp-email.ts's formatShowDate: weekday + month + day, no year,

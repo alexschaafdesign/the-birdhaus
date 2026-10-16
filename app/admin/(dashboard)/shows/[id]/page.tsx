@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation';
 import { sql } from '@/lib/db';
-import { SHOW_COLUMNS, bandsJoinFragment, videosJoinFragment, normalizePhotosInput } from '@/lib/shows';
+import { SHOW_COLUMNS, bandsJoinFragment, getNightDateCentral, videosJoinFragment, normalizePhotosInput } from '@/lib/shows';
 import { getPhotographerCredits } from '@/lib/photographers';
 import { soundEngineersJoinFragment, type ShowSoundEngineer } from '@/lib/sound-engineers';
 import { getOrCreateShareToken } from '@/lib/share-token';
@@ -14,6 +14,9 @@ export const dynamic = 'force-dynamic';
 interface ShowRow {
   id: number;
   slug: string;
+  catalogue_id: string;
+  status: 'scheduled' | 'cancelled' | 'postponed';
+  rescheduled_to: string | number | null;
   title: string;
   date: string;
   doors_time: string | null;
@@ -91,7 +94,9 @@ export default async function EditShowPage({ params }: { params: Promise<{ id: s
   `;
   const engineers = (row.sound_engineers as Array<{ name: string; status: string }> | null) ?? [];
   const confirmedEngineer = engineers.find((e) => e.status === 'confirmed')?.name ?? null;
-  const isPastShow = row.date < new Date().toLocaleDateString('en-CA'); // en-CA = YYYY-MM-DD, local
+  // Past by the show page's rule: the night is over at 5am Central.
+  const nightDate = getNightDateCentral();
+  const isPastShow = row.date < nightDate;
 
   // Resolve each photo's photographerId → name so the form can display the
   // credit next to each thumbnail (only ids are stored on the row).
@@ -103,9 +108,21 @@ export default async function EditShowPage({ params }: { params: Promise<{ id: s
   const assignedPhotographerName =
     row.photographer_id != null ? photoCredits.get(row.photographer_id)?.name ?? null : null;
 
+  // A postponed show links to the night that replaced it.
+  const [rescheduled] = row.rescheduled_to != null
+    ? await sql<{ id: string; catalogue_id: string; date: string }[]>`
+        select id, catalogue_id, date::text as date from shows where id = ${row.rescheduled_to}
+      `
+    : [];
+
   const initialValues: ShowFormInitialValues = {
     id: row.id,
     slug: row.slug,
+    catalogueId: row.catalogue_id,
+    status: row.status,
+    rescheduledTo: rescheduled
+      ? { id: Number(rescheduled.id), catalogueId: rescheduled.catalogue_id, date: rescheduled.date }
+      : null,
     title: row.title,
     date: row.date,
     doorsTime: row.doors_time,
@@ -164,7 +181,7 @@ export default async function EditShowPage({ params }: { params: Promise<{ id: s
         settlementSaved={overview?.settlement_saved ?? false}
       />
       {shareUrl && <ShareLinkBox showId={showId} initialUrl={shareUrl} />}
-      <ShowForm mode="edit" embedded initialValues={initialValues} />
+      <ShowForm mode="edit" embedded initialValues={initialValues} isPast={isPastShow} nightDate={nightDate} />
     </div>
   );
 }

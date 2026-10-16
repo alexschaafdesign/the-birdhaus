@@ -29,7 +29,7 @@ export async function GET(request: Request) {
 
   if (result.updated > 0) {
     revalidatePath('/bands/[slug]', 'page');
-    revalidatePath('/shows/[slug]', 'page');
+    revalidatePath('/shows/[id]', 'page');
     revalidatePath('/bands');
     revalidatePath('/shows');
   }

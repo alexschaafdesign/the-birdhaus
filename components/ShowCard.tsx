@@ -14,7 +14,7 @@ function formatCardDate(dateStr: string) {
 
 export default function ShowCard({ show, draft }: { show: Show; draft?: boolean }) {
   const { day, weekday, month } = formatCardDate(show.date);
-  const href = draft ? `/admin/shows/${show.id}` : `/shows/${show.slug}`;
+  const href = draft ? `/admin/shows/${show.id}` : `/shows/${show.catalogueId}`;
 
   return (
     <Link

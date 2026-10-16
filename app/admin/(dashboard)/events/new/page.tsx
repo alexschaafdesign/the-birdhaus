@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import ShowForm from '@/components/admin/ShowForm';
+import { ISO_DATE_RE, getNightDateCentral } from '@/lib/shows';
 
 export const metadata: Metadata = {
   title: 'New event',
@@ -15,11 +16,17 @@ export default async function NewEventPage({
   searchParams: Promise<{ date?: string }>;
 }) {
   const { date } = await searchParams;
+  const nightDate = getNightDateCentral();
 
   return (
     <main className="mx-auto max-w-6xl px-6 pb-16 pt-6 text-[#E8E0D0]">
       <h1 className="mb-6 text-2xl font-bold">New event</h1>
-      <ShowForm mode="create" initialValues={date ? { date } : undefined} />
+      <ShowForm
+        mode="create"
+        initialValues={date ? { date } : undefined}
+        isPast={Boolean(date && ISO_DATE_RE.test(date) && date < nightDate)}
+        nightDate={nightDate}
+      />
     </main>
   );
 }

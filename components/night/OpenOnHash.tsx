@@ -3,7 +3,7 @@
 import { useEffect } from 'react';
 
 // Opens the set a #fragment points at (a collapsed <details>) on load and on
-// in-page hash changes, so links like /redesign/archive/BH-260904#BH-260904-2
+// in-page hash changes, so links like /shows/BH-260904#BH-260904-2
 // land on an open set rather than its one-line summary. A #band-slug alias
 // (#joe-kaplow) points at a marker whose data-set names the set's id.
 export function OpenOnHash() {

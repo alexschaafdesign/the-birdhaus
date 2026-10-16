@@ -146,7 +146,7 @@ export async function POST(request: Request) {
       await setShowSoundEngineers(Number(row.id), soundEngineers as ShowSoundEngineer[], tx);
       return row;
     });
-    revalidatePath('/shows/[slug]', 'page');
+    revalidatePath('/shows/[id]', 'page');
     revalidatePath('/bands/[slug]', 'page');
     revalidatePath('/shows');
     revalidatePath('/bands');

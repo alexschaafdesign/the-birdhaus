@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation';
 import { getAllBands, getBandBySlug, getShowsForBand, getVideosForBand } from '@/lib/bands';
 import AdminEditFAB from '@/components/admin/AdminEditFAB';
 import { isAdminSession } from '@/lib/admin-session';
+import { isPrivateBooking } from '@/lib/nights';
 import type { Metadata } from 'next';
 
 export async function generateStaticParams() {
@@ -46,9 +47,11 @@ export default async function BandPage({ params }: { params: Promise<{ slug: str
   const band = await getBandBySlug(slug);
   if (!band) notFound();
 
-  const shows = await getShowsForBand(band.id);
-  const videos = await getVideosForBand(band.id);
   const isAdmin = await isAdminSession();
+  // Unannounced upcoming shows are private bookings (their /shows/ page 404s
+  // for the public), so they stay off the public band page too.
+  const shows = (await getShowsForBand(band.id)).filter((s) => isAdmin || !isPrivateBooking(s));
+  const videos = await getVideosForBand(band.id);
 
   return (
     <main className="min-h-screen">
@@ -118,7 +121,7 @@ export default async function BandPage({ params }: { params: Promise<{ slug: str
               {shows.map((show) => (
                 <Link
                   key={show.id}
-                  href={`/shows/${show.slug}`}
+                  href={`/shows/${show.catalogueId}`}
                   className="block border-2 border-ink bg-paper p-4 transition-all hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-hard"
                 >
                   <p className="font-mono text-ink/50 text-sm mb-0.5">{show.date}</p>
@@ -136,7 +139,7 @@ export default async function BandPage({ params }: { params: Promise<{ slug: str
               {videos.map((video, index) => (
                 <div key={index}>
                   <Link
-                    href={`/shows/${video.showSlug}`}
+                    href={`/shows/${video.showCatalogueId}`}
                     className="text-sm text-ink/50 hover:text-vhs-red mb-2 inline-block"
                   >
                     {video.showTitle}

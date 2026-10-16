@@ -10,6 +10,8 @@ import Image from 'next/image';
 export interface CalendarShow {
   id: number;
   slug: string;
+  /** The night's /shows/ URL segment (BH-…); falls back to the slug. */
+  catalogueId?: string;
   title: string;
   date: string;
   flyer?: string | null;
@@ -28,7 +30,7 @@ export default function CalendarView({
   draftShows,
   availableDates,
   isAdmin,
-  showHref = (show) => `/shows/${show.slug}`,
+  showHref = (show) => `/shows/${show.catalogueId || show.slug}`,
   dark,
 }: {
   shows: CalendarShow[];

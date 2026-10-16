@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { sql } from '@/lib/db';
 import { claimAlertSlot, sendAdminAlertEmail } from '@/lib/alerts';
 import { createTierPaymentLink, isSquareSyncEnabled } from '@/lib/square';
-import { getTicketAvailability } from '@/lib/shows';
+import { getTicketAvailability, slugForShowParam } from '@/lib/shows';
 
 // On-demand Square checkout. Square API payment links are single-use — a stored
 // link shows a "payment confirmed" receipt to everyone after its first sale — so
@@ -15,8 +15,10 @@ import { getTicketAvailability } from '@/lib/shows';
 // variation server-side — we never trust a variation id supplied in the URL.
 export const dynamic = 'force-dynamic';
 
-export async function GET(request: Request, { params }: { params: Promise<{ slug: string }> }) {
-  const { slug } = await params;
+export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  // The segment is a catalogue id or an old slug; the checkout code below
+  // keys on the slug, unchanged.
+  const slug = await slugForShowParam((await params).id);
   const searchParams = new URL(request.url).searchParams;
   const amount = Number(searchParams.get('tier'));
   if (!Number.isInteger(amount) || amount <= 0) {
@@ -25,6 +27,16 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
   // Optional party size chosen on /tickets. Square's checkout page has no quantity
   // field, so we bake it into the order. Clamp to 1..10 (createTierPaymentLink also
   // clamps); default to 1 when absent or garbage.
+  // Guard, in front of the ticket logic below: a cancelled or postponed show
+  // sells nothing. Back to its page, which carries the notice (and, when
+  // postponed, the link to the new date's tickets).
+  const [gate] = await sql<{ catalogueId: string; status: string }[]>`
+    select catalogue_id as "catalogueId", status from shows where slug = ${slug} limit 1
+  `;
+  if (gate && gate.status !== 'scheduled') {
+    return NextResponse.redirect(new URL(`/shows/${gate.catalogueId}?tickets=closed`, request.url), 302);
+  }
+
   const qtyRaw = Number(searchParams.get('qty'));
   const quantity = Number.isInteger(qtyRaw) && qtyRaw > 0 ? Math.min(qtyRaw, 10) : 1;
 
