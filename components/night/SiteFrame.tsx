@@ -1,11 +1,12 @@
 import type { ReactNode } from 'react';
 import { RailHeader } from '@/components/ui/RailHeader';
 import { NAV, TAGLINE } from '@/app/redesign/home/nav';
+import { AccountSlot } from './AccountSlot';
 
 // The 2027 page shell (until Phase 2 moves the rail header into the root
 // layout): /archive and /shows/[id] share it, matching /redesign/home: paper
 // ground, CommitMono, the rail header (fed the archive's own computed totals)
-// and the tagline + counts row under it.
+// and the tagline + counts row under it, and the footer's account slot.
 
 export function SiteFrame({
   stats,
@@ -36,7 +37,18 @@ export function SiteFrame({
         </div>
       </div>
       {children}
+      <SiteFooter />
     </main>
+  );
+}
+
+// The page foot: a hairline, then the account slot (Log in, or the signed-in
+// links). mt-auto pins it to the bottom of a short page.
+export function SiteFooter() {
+  return (
+    <footer className="border-surface-ink/20 mt-auto border-t pt-4">
+      <AccountSlot />
+    </footer>
   );
 }
 
