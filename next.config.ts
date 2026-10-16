@@ -20,6 +20,12 @@ const nextConfig: NextConfig = {
   async redirects() {
     return [
       ...songhausRedirects(),
+      // Song-a-day editions (SAD-###, any casing) are Songhaus's. It has no
+      // public per-edition URL yet (edition pages are members-only, by slug),
+      // so these go to its home — 307, not 308, so browsers don't cache a
+      // permanent hop to the home page. Switch to a per-edition 308 once
+      // Songhaus has public edition pages.
+      { source: '/:section(archive|shows)/:id([sS][aA][dD]-[0-9]+)', destination: SONGHAUS_URL, permanent: false },
       // One page per night is /shows/BH-…; /archive is the index. Any casing
       // here — the show page itself 308s to the canonical spelling. Old slug
       // URLs (/shows/2025-03-29-caley-conway) redirect in the page, since that
