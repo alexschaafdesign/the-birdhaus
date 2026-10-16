@@ -56,17 +56,17 @@ export default function ContactPage() {
       <div className="max-w-xl mx-auto px-8 pb-16">
         <h2 className="text-4xl font-bold mb-2">Contact</h2>
         <p className="text-[#E8E0D0]/70 text-lg mb-6">
-          Send us a message and we'll get back to you as soon as possible! note: I'm just one dude doing this as an unpaid labor of love so your patience is appreciated :D
+          Send us a message and we&apos;ll get back to you as soon as possible! note: I&apos;m just one dude doing this as an unpaid labor of love so your patience is appreciated :D
         </p>
 
         <div className="border border-[#E8E0D0]/30 rounded-lg p-4 mb-8 bg-[#E8E0D0]/5">
           <p className="text-sm">
-            <span className="font-semibold">Heads up:</span> we are fully booked for the rest of the 2026 season (we'll be closed October-December), but feel free to send a message to get on our radar for 2027!
+            <span className="font-semibold">Heads up:</span> we are fully booked for the rest of the 2026 season (we&apos;ll be closed October-December), but feel free to send a message to get on our radar for 2027!
           </p>
         </div>
 
         {ctStatus === 'success' ? (
-          <p className="text-lg">Thanks for reaching out! We'll get back to you as soon as we can.</p>
+          <p className="text-lg">Thanks for reaching out! We&apos;ll get back to you as soon as we can.</p>
         ) : (
           <form onSubmit={handleContact} className="space-y-5">
             <div>
