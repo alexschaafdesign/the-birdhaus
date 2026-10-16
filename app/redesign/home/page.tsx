@@ -81,7 +81,7 @@ async function liveModel(): Promise<Model> {
   const next = upcoming[0] ?? null;
 
   const past = shows
-    .filter((s) => s.date < today && (s.type ?? 'show') === 'show')
+    .filter((s) => s.date < today)
     .sort((a, b) => b.date.localeCompare(a.date));
 
   return {

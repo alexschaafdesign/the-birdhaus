@@ -3,16 +3,16 @@ import { getFreshCutsContent } from '@/lib/page-content';
 import { isAdminSession } from '@/lib/admin-session';
 import ShowCard from '@/components/ShowCard';
 import FreshCutsIntro from '@/components/FreshCutsIntro';
-import { PORTAL_NAME, PORTAL_SPLIT, PORTAL_URL } from '@/lib/site';
+import { SONGHAUS_NAME, SONGHAUS_URL } from '@/lib/site';
 
 // Evaluate the upcoming/past split per request so it reflects the current date,
 // not the date the site was last built/deployed.
 export const dynamic = 'force-dynamic';
 
 export const metadata = {
-  title: 'Fresh Cuts Live | The Birdhaus',
+  title: 'Fresh Cuts | The Birdhaus',
   description:
-    'Fresh Cuts Live is The Birdhaus event series spotlighting brand-new material from Twin Cities artists — a recurring night built for first listens and fresh starts.',
+    'Fresh Cuts is The Birdhaus event series spotlighting brand-new material from Twin Cities artists — a recurring night built for first listens and fresh starts.',
 };
 
 // Fresh Cuts installments are numbered (v1, v2, ...) and always carry
@@ -46,14 +46,14 @@ export default async function FreshCutsPage() {
       <div className="max-w-4xl mx-auto">
         <FreshCutsIntro content={content} isAdmin={isAdmin} />
 
-        {/* The songwriter portal shares the name; point people at it. */}
+        {/* Point songwriters at the portal. */}
         <p className="mb-12 text-sm text-ink/60">
           Writing new songs between nights? Share them on{' '}
           <a
-            href={PORTAL_SPLIT ? PORTAL_URL : '/song-club'}
+            href={SONGHAUS_URL}
             className="underline underline-offset-2 hover:text-ink"
           >
-            {PORTAL_NAME}
+            {SONGHAUS_NAME}
           </a>
           .
         </p>
@@ -89,7 +89,7 @@ export default async function FreshCutsPage() {
 
         {upcoming.length === 0 && past.length === 0 && (
           <p className="text-ink/60">
-            No Fresh Cuts Live shows on the books yet — check back soon.
+            No Fresh Cuts shows on the books yet — check back soon.
           </p>
         )}
       </div>

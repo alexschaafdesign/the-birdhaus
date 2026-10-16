@@ -2,7 +2,6 @@
 
 import { useMemo } from 'react';
 import { DATE_OFFER_COLORS } from '@/lib/date-offers';
-import type { BookingProspect } from '@/lib/booking';
 import type { DayInfo } from './BookingDashboard';
 
 function parseLocalDate(dateStr: string) {
@@ -11,16 +10,14 @@ function parseLocalDate(dateStr: string) {
 }
 
 // Agenda counterpart to the calendar: every future date that carries anything
-// (show, draft, availability, holds, notes, offers), chronological, grouped
+// (show, draft, availability, title/notepad, offers), chronological, grouped
 // by month. Rows select the date, opening the same DayPanel.
 export default function BookingListView({
   infos,
-  prospectsById,
   selectedDate,
   onSelectDate,
 }: {
   infos: DayInfo[];
-  prospectsById: Map<number, BookingProspect>;
   selectedDate: string | null;
   onSelectDate: (date: string) => void;
 }) {
@@ -38,7 +35,7 @@ export default function BookingListView({
   if (infos.length === 0) {
     return (
       <div className="rounded-lg border border-[#E8E0D0]/20 p-6 text-sm text-[#E8E0D0]/40">
-        Nothing planned yet — switch to the calendar to mark available dates and add holds.
+        Nothing planned yet — switch to the calendar to mark available dates and jot down ideas.
       </div>
     );
   }
@@ -77,15 +74,11 @@ export default function BookingListView({
                             {info.draftShow.title} <span className="text-xs uppercase">draft</span>
                           </span>
                         )}
+                        {info.plan?.title && !info.show && !info.draftShow && (
+                          <span className="block truncate text-sm font-medium">{info.plan.title}</span>
+                        )}
                         {info.available && !info.show && !info.draftShow && (
                           <span className="block text-xs text-green-400/90">Available</span>
-                        )}
-                        {info.pendingHolds.length > 0 && (
-                          <span className="block truncate text-xs text-amber-400/90">
-                            {info.pendingHolds
-                              .map((h) => `H${h.position} ${prospectsById.get(h.prospect_id)?.name ?? '?'}`)
-                              .join(' · ')}
-                          </span>
                         )}
                         {info.offers.length > 0 && (
                           <span className="block truncate text-xs">
@@ -97,9 +90,9 @@ export default function BookingListView({
                             ))}
                           </span>
                         )}
-                        {info.notes.length > 0 && (
+                        {info.plan?.notepad.trim() && (
                           <span className="block truncate text-xs text-[#E8E0D0]/50">
-                            {info.notes.map((n) => n.body).join(' · ')}
+                            {info.plan.notepad.trim().split('\n').filter(Boolean).join(' · ')}
                           </span>
                         )}
                       </span>

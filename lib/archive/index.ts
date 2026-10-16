@@ -11,15 +11,12 @@ export async function getNights(sample: boolean): Promise<Night[]> {
 }
 
 export function seriesOf(night: Night): SeriesFilter {
-  if (night.kind === 'sad') return 'sad';
   return night.freshCuts != null ? 'fc' : 'bh';
 }
 
 // The SeriesTick colour for a night: one tick per ID.
-export function tickOf(night: Night): 'bh' | 'fc' | 'song-club' {
-  const s = seriesOf(night);
-  // Song-a-day keeps the song-club series tick (the token is unchanged).
-  return s === 'sad' ? 'song-club' : s;
+export function tickOf(night: Night): 'bh' | 'fc' {
+  return seriesOf(night);
 }
 
 // "FC 010" for Fresh Cuts nights, else null.
@@ -66,7 +63,6 @@ export function nightSummary(night: Night): string {
   if (hasAudio(night)) parts.push('audio');
   if (hasPhotos(night)) parts.push('photos');
   if (night.sets.some((s) => s.notes)) parts.push('notes');
-  if (parts.length === 0 && night.kind === 'sad') parts.push('song-a-day');
   return parts.join(' · ');
 }
 
@@ -141,13 +137,9 @@ export function monthLabel(key: string): string {
   return `${MONTHS[m - 1]} ${y}`;
 }
 
-// The ledger date: "FRI 4 SEP", or a range "SEP 16 – SEP 25".
+// The ledger date: "FRI 4 SEP".
 export function ledgerDate(night: Night): string {
   const [y, m, d] = night.date.split('-').map(Number);
-  if (night.endDate) {
-    const [, m2, d2] = night.endDate.split('-').map(Number);
-    return `${MONTHS[m - 1]} ${d} – ${MONTHS[m2 - 1]} ${d2}`;
-  }
   const weekday = new Date(y, m - 1, d).toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase();
   return `${weekday} ${d} ${MONTHS[m - 1]}`;
 }

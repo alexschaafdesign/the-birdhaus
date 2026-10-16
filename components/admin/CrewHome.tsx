@@ -1,4 +1,4 @@
-import type { ClubMember } from '@/lib/club-members';
+import type { UserAccount } from '@/lib/accounts/members';
 import {
   getPhotographerByUserId,
   getPhotographerQueue,
@@ -15,7 +15,7 @@ export default async function CrewHome({
   member,
   preview = false,
 }: {
-  member: ClubMember;
+  member: UserAccount;
   // Admin preview render — disables the interactive controls (they'd act as the
   // logged-in admin, not this member).
   preview?: boolean;

@@ -7,7 +7,10 @@ import type { DayInfo } from './BookingDashboard';
 // Forked from components/CalendarView.tsx: same month-grid math, but built
 // for planning — every cell is a select-the-day button (no navigation links,
 // no flyer images), the header adds ±year jumps, and cells layer booking
-// state (holds, notes, submission offers) over the show/available base.
+// state (day titles, notepads, submission offers) over the show/available base.
+
+// First month of the season being booked; bump when planning moves on.
+const PLANNING_SEASON_START = '2027-01-01';
 
 const WEEKDAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
@@ -34,10 +37,13 @@ export default function BookingCalendar({
   onPaintDay: (date: string) => void;
 }) {
   const todayDate = parseLocalDate(today);
-  const [cursor, setCursor] = useState({
-    year: todayDate.getFullYear(),
-    month: todayDate.getMonth(),
-  });
+  // Opens on the season being planned (or today, once that's in the past);
+  // the Today button still jumps to the current month.
+  const [cursor, setCursor] = useState(() =>
+    today < PLANNING_SEASON_START
+      ? { year: Number(PLANNING_SEASON_START.slice(0, 4)), month: Number(PLANNING_SEASON_START.slice(5, 7)) - 1 }
+      : { year: todayDate.getFullYear(), month: todayDate.getMonth() }
+  );
 
   const goToMonth = (delta: number) => {
     setCursor((prev) => {
@@ -115,11 +121,10 @@ export default function BookingCalendar({
           const show = info?.show;
           const draft = info?.draftShow;
           const titled = show ?? draft;
-          // No show on the day → the first note doubles as the cell's label
-          // ("Fresh Cuts maybe", "Comedy show?").
-          const noteLabel = !titled ? info?.notes[0]?.body : undefined;
-          const noteCount = info?.notes.length ?? 0;
-          const holdCount = info?.pendingHolds.length ?? 0;
+          // No show on the day → the day's own title is the cell's label
+          // ("Fresh Cuts?", "Comedy show?").
+          const dayTitle = !titled ? info?.plan?.title || undefined : undefined;
+          const hasNotepad = Boolean(info?.plan?.notepad.trim());
           const isToday = dateStr === today;
           const isSelected = dateStr === selectedDate;
 
@@ -140,7 +145,7 @@ export default function BookingCalendar({
                 if (paintMode && !titled) onPaintDay(dateStr);
                 else onSelectDate(dateStr);
               }}
-              title={titled ? `${titled.title}${draft && !show ? ' (draft)' : ''}` : noteLabel ?? dateStr}
+              title={titled ? `${titled.title}${draft && !show ? ' (draft)' : ''}` : dayTitle ?? dateStr}
               className={`relative flex aspect-square flex-col items-center justify-center overflow-hidden rounded text-sm transition-all ${
                 paintMode && !titled ? 'hover:border-green-400' : 'hover:border-[#E8E0D0]/60'
               } ${base} ${
@@ -153,26 +158,18 @@ export default function BookingCalendar({
               </span>
 
               {titled && (
-                <span className="mt-2 line-clamp-2 px-0.5 text-center text-[8px] leading-tight">
+                <span className="mt-3 line-clamp-3 break-words px-1 text-center text-[9px] font-medium leading-tight sm:text-xs">
                   {titled.title}
                 </span>
               )}
-              {noteLabel && (
-                <span className="mt-2 line-clamp-2 px-0.5 text-center text-[8px] leading-tight text-[#E8E0D0]/70">
-                  {noteLabel}
-                </span>
-              )}
-
-              {holdCount > 0 && (
-                <span className="absolute right-0.5 top-0.5 rounded bg-amber-500/90 px-1 text-[8px] font-bold text-black">
-                  H{holdCount}
+              {dayTitle && (
+                <span className="mt-3 line-clamp-3 break-words px-1 text-center text-[9px] font-medium leading-tight text-[#E8E0D0]/90 sm:text-xs">
+                  {dayTitle}
                 </span>
               )}
 
               <span className="absolute bottom-0.5 left-1 flex items-center gap-0.5">
-                {noteCount > 0 && (titled || noteCount > 1) && (
-                  <span className="h-1.5 w-1.5 rounded-full bg-[#E8E0D0]/50" title="Has notes" />
-                )}
+                {hasNotepad && <span className="h-1.5 w-1.5 rounded-full bg-[#E8E0D0]/50" title="Has notes" />}
                 {info?.offers.slice(0, 2).map((offer) => (
                   <span
                     key={offer.id}
@@ -202,10 +199,7 @@ export default function BookingCalendar({
           <span className="inline-block h-3 w-3 rounded border border-dotted border-green-500/40" /> available
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="rounded bg-amber-500/90 px-1 text-[8px] font-bold text-black">H2</span> holds
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="inline-block h-1.5 w-1.5 rounded-full bg-[#E8E0D0]/50" /> note
+          <span className="inline-block h-1.5 w-1.5 rounded-full bg-[#E8E0D0]/50" /> notes
         </span>
         <span className="flex items-center gap-1.5">
           <span className="inline-block h-1.5 w-1.5 rounded-full" style={{ backgroundColor: DATE_OFFER_COLORS.contacted }} /> offered (submissions)

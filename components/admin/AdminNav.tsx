@@ -24,10 +24,6 @@ const GROUPS: NavGroup[] = [
     ],
   },
   {
-    label: 'Song Club',
-    links: [{ href: '/admin/song-club', label: 'Song Club' }],
-  },
-  {
     label: 'Bands',
     links: [{ href: '/admin/bands', label: 'Bands' }],
   },

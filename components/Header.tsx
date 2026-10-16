@@ -3,11 +3,11 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
-import { PORTAL_NAME, portalRedirect } from '@/lib/site';
+import { SONGHAUS_NAME, SONGHAUS_URL } from '@/lib/site';
 import { useEffect, useRef, useState } from 'react';
 import { cloudinaryTransform } from '@/lib/cloudinary-url';
 
-// Minimal current-user summary the header fetches from /api/club/me. `undefined`
+// Minimal current-user summary the header fetches from /api/account/me. `undefined`
 // while loading (render nothing to avoid a flash), `null` when logged out.
 type HeaderMe = { name: string; firstName: string; avatarUrl: string | null; canAdmin: boolean };
 
@@ -27,14 +27,14 @@ type NavItem = NavLink | NavDropdown;
 const navItems: NavItem[] = [
   { type: 'link', href: '/upcoming', label: 'Upcoming Shows' },
   { type: 'link', href: '/archive', label: 'Archive' },
-  { type: 'link', href: portalRedirect('/song-club'), label: PORTAL_NAME },
+  { type: 'link', href: SONGHAUS_URL, label: SONGHAUS_NAME, external: true },
   {
     type: 'dropdown',
     label: 'Projects',
     children: [
       { href: 'https://birdhausrecords.bandcamp.com', label: 'Birdhaus Records', external: true },
       { href: 'https://twinscene.org', label: 'Twin Scene', external: true },
-      { href: '/fresh-cuts', label: 'Fresh Cuts Live' },
+      { href: '/fresh-cuts', label: 'Fresh Cuts' },
     ],
   },
   { type: 'link', href: '/contact', label: 'Contact' },
@@ -66,7 +66,7 @@ export default function Header({ isAdmin = false }: { isAdmin?: boolean }) {
   // the Log in button showing.
   useEffect(() => {
     let cancelled = false;
-    fetch('/api/club/me', { cache: 'no-store' })
+    fetch('/api/account/me', { cache: 'no-store' })
       .then((res) => (res.ok ? res.json() : { member: null }))
       .then((data) => {
         if (!cancelled) setMe(data?.member ?? null);
@@ -91,7 +91,7 @@ export default function Header({ isAdmin = false }: { isAdmin?: boolean }) {
   }, [userMenuOpen]);
 
   async function handleLogout() {
-    await fetch('/api/club/logout', { method: 'POST' }).catch(() => {});
+    await fetch('/api/account/logout', { method: 'POST' }).catch(() => {});
     setMe(null);
     setUserMenuOpen(false);
     router.push('/');
@@ -124,7 +124,7 @@ export default function Header({ isAdmin = false }: { isAdmin?: boolean }) {
 
   const initial = me ? me.firstName.charAt(0).toUpperCase() || '?' : '?';
   // On /admin the yellow admin split button (below) already carries the account
-  // menu + Log out, so skip the header's club auth area to avoid a duplicate.
+  // menu + Log out, so skip the header's account area to avoid a duplicate.
   const showAuth = !pathname.startsWith('/admin');
 
   return (
@@ -279,8 +279,7 @@ export default function Header({ isAdmin = false }: { isAdmin?: boolean }) {
             );
           }
 
-          // The Song Club href is absolute once the portal has its own host.
-          const isActive = !item.external && (pathname === item.href || portalRedirect(pathname) === item.href);
+          const isActive = !item.external && pathname === item.href;
           return (
             <span key={item.href} className={wrapperClass}>
               {item.external ? (

@@ -65,7 +65,7 @@ export default function PhotographerDashboard({
       const prepared = await downscaleImage(file, { maxDim: 1000 });
       const formData = new FormData();
       formData.append('file', prepared);
-      const res = await fetch('/api/club/photographer/photo', { method: 'POST', body: formData });
+      const res = await fetch('/api/photographer/photo', { method: 'POST', body: formData });
       const body = await res.json().catch(() => null);
       if (!res.ok) throw new Error(body?.error || 'Upload failed');
       setPhoto(body.photo);
@@ -82,7 +82,7 @@ export default function PhotographerDashboard({
     setProfileMsg(null);
     setError(null);
     try {
-      const res = await fetch('/api/club/photographer/profile', {
+      const res = await fetch('/api/photographer/profile', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ instagram, bio }),
@@ -114,7 +114,7 @@ export default function PhotographerDashboard({
         const prepared = await downscaleImage(file, { maxDim: 2400 });
         const formData = new FormData();
         formData.append('file', prepared);
-        const res = await fetch(`/api/club/photographer/shows/${showId}/photos`, {
+        const res = await fetch(`/api/photographer/shows/${showId}/photos`, {
           method: 'POST',
           body: formData,
         });

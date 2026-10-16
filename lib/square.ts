@@ -11,6 +11,7 @@
 //   SQUARE_SYNC_ENABLED     - "true" to actually call Square; anything else = skip
 
 import { sql } from './db';
+import { parseLocalTime, wallTimeToUtc } from './local-time';
 
 try {
   // Populate process.env from .env.local when running locally. In production the
@@ -130,53 +131,6 @@ async function uploadFlyer(itemId: string, flyerUrl: string, showId: number | st
   const data = (await res.json()) as CatalogImageResponse;
   if (!data.image?.id) throw new Error('[square] image upload returned no image id');
   return data.image.id;
-}
-
-// --- local wall time -> UTC, DST-correct (no hardcoded offset) ----------------
-function parseLocalTime(raw: string | null | undefined): { hour: number; minute: number } | null {
-  if (!raw) return null;
-  const text = raw.trim();
-  const m = text.match(/^(\d{1,2})(?::(\d{2}))?\s*([ap])\.?m\.?$/i) ?? text.match(/^(\d{1,2}):(\d{2})$/);
-  if (!m) return null;
-  let hour = Number(m[1]);
-  const minute = m[2] ? Number(m[2]) : 0;
-  const ampm = m[3]?.toLowerCase();
-  if (ampm) {
-    if (hour === 12) hour = 0;
-    if (ampm === 'p') hour += 12;
-  }
-  if (hour > 23 || minute > 59) return null;
-  return { hour, minute };
-}
-
-// How far ahead of UTC the zone is, in ms, at the given instant.
-function tzOffsetMs(timeZone: string, date: Date): number {
-  const dtf = new Intl.DateTimeFormat('en-US', {
-    timeZone,
-    hourCycle: 'h23',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-  });
-  const p: Record<string, number> = {};
-  for (const part of dtf.formatToParts(date)) {
-    if (part.type !== 'literal') p[part.type] = Number(part.value);
-  }
-  const asUTC = Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute, p.second);
-  return asUTC - date.getTime();
-}
-
-// Interpret (dateStr, hour, minute) as a wall-clock time in timeZone and return
-// the corresponding UTC instant. Two passes so DST transitions resolve cleanly.
-function wallTimeToUtc(dateStr: string, hour: number, minute: number, timeZone: string): Date {
-  const [y, mo, d] = dateStr.split('-').map(Number);
-  const guess = Date.UTC(y, mo - 1, d, hour, minute);
-  let offset = tzOffsetMs(timeZone, new Date(guess));
-  offset = tzOffsetMs(timeZone, new Date(guess - offset));
-  return new Date(guess - offset);
 }
 
 function computeEventWindow(show: ShowInput): { startAt: string; endAt: string } {

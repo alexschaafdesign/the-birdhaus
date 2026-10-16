@@ -16,11 +16,11 @@ export interface FreshCutsContent {
 // override any of this; anything the row omits falls back to here.
 export const FRESH_CUTS_DEFAULT: FreshCutsContent = {
   eyebrow: 'A Birdhaus Event Series',
-  title: 'FRESH CUTS LIVE',
+  title: 'FRESH CUTS',
   tagline:
     "A recurring night built for first listens — new bands, new songs, and material that hasn't left the practice space until now.",
   body: [
-    "Fresh Cuts Live is a showcase for what's next. Every installment stacks the bill with emerging Twin Cities artists and asks each of them to bring something new — a debut set, an unreleased song, a side project's first-ever show. It's a low-stakes, high-energy room where trying something out in front of a crowd is the whole point.",
+    "Fresh Cuts is a showcase for what's next. Every installment stacks the bill with emerging Twin Cities artists and asks each of them to bring something new — a debut set, an unreleased song, a side project's first-ever show. It's a low-stakes, high-energy room where trying something out in front of a crowd is the whole point.",
     "The series runs a few times a year, and the numbers keep climbing (we're well past v1). Each night we record every set, so a band's first pass at a new tune lives on in the archive.",
   ],
   valuesHeading: 'What it adds to the scene',

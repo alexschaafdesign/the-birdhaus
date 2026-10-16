@@ -7,10 +7,9 @@ import type { SeriesFilter } from '@/lib/archive';
 // carries the other filter (and ?sample) as hidden fields so choosing one
 // keeps the rest. An empty value means "all".
 
-const SERIES: Array<{ value: SeriesFilter; label: string; tick: 'bh' | 'fc' | 'song-club' }> = [
+const SERIES: Array<{ value: SeriesFilter; label: string; tick: 'bh' | 'fc' }> = [
   { value: 'bh', label: 'BH', tick: 'bh' },
   { value: 'fc', label: 'FC', tick: 'fc' },
-  { value: 'sad', label: 'SAD', tick: 'song-club' },
 ];
 
 function Option({

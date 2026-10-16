@@ -7,52 +7,13 @@ export const SITE_URL = (
   process.env.NEXT_PUBLIC_SITE_URL ?? 'https://www.thebirdhaus.org'
 ).replace(/\/$/, '');
 
-// Origin that serves the Song Club portal and /w/ workspaces. Same as SITE_URL
-// today; set NEXT_PUBLIC_PORTAL_URL to a subdomain (e.g. freshcuts.thebirdhaus.org)
-// when the portal moves to its own app. Links that point INTO Song Club or a
-// workspace — invite/reset/announcement emails and post-login redirects — use
-// this instead of SITE_URL, so flipping the env var repoints them all at once.
-export const PORTAL_URL = (
-  process.env.NEXT_PUBLIC_PORTAL_URL ?? SITE_URL
-).replace(/\/$/, '');
-
-// Destination for an in-app redirect into the portal/workspaces. While the
-// portal shares this app's origin (PORTAL_URL === SITE_URL) it returns a
-// relative path, so localhost and preview deploys keep navigating internally;
-// once a distinct portal host is configured it returns the absolute portal URL.
-export function portalRedirect(path: string): string {
-  return PORTAL_URL === SITE_URL ? path : `${PORTAL_URL}${path}`;
-}
-
-// Domain split: the portal is the same app served on a second host. The host
-// routing (next.config.ts redirects/rewrites), robots, and sitemap all key off
-// PORTAL_SPLIT, so with NEXT_PUBLIC_PORTAL_URL unset — localhost, previews —
-// nothing changes.
-export const PORTAL_SPLIT = new URL(PORTAL_URL).host !== new URL(SITE_URL).host;
-
-// For request-time checks against the Host header (which includes any port).
-export function isPortalHost(host: string | null): boolean {
-  return PORTAL_SPLIT && host === new URL(PORTAL_URL).host;
-}
+// Songhaus, the songwriting app that Song Club became (its own repo and
+// domain since the phase 3 cutover). Birdhaus only links there; next.config
+// 308s the old portal paths to the same path on this origin.
+export const SONGHAUS_URL = 'https://www.thesonghaus.org';
+export const SONGHAUS_NAME = 'Songhaus';
 
 export const SITE_NAME = 'the BIRDHAUS';
 
-// The portal's own identity on its host (titles, link previews, manifest).
-export const PORTAL_SITE_NAME = 'Fresh Cuts';
-export const PORTAL_DESCRIPTION = 'Fresh Cuts — songs, events, and the group thread.';
-
-// The portal's name in visible copy (pages, member emails, the main nav):
-// "Fresh Cuts" once the split is on, the old Song Club wording until then.
-// Three forms because the old copy said "Song Club", "Song Club portal", and
-// "the Song Club portal" in different spots.
-export const PORTAL_NAME = PORTAL_SPLIT ? PORTAL_SITE_NAME : 'Song Club';
-export const PORTAL_HEADING = PORTAL_SPLIT ? PORTAL_SITE_NAME : 'Song Club portal';
-export const PORTAL_PLACE = PORTAL_SPLIT ? PORTAL_SITE_NAME : 'the Song Club portal';
-
-// Page titles that read "Song Club — <detail>" before the split; after it the
-// root template already appends "· Fresh Cuts", so just the detail.
-export function portalPageTitle(detail: string): string {
-  return PORTAL_SPLIT ? detail.charAt(0).toUpperCase() + detail.slice(1) : `Song Club — ${detail}`;
-}
 export const SITE_DESCRIPTION =
   'A DIY house venue and record label in Powderhorn, Minneapolis.';

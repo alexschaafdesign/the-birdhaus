@@ -1,7 +1,6 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import type { Show } from '@/lib/shows';
-import { portalRedirect } from '@/lib/site';
 
 function formatCardDate(dateStr: string) {
   const [year, month, day] = dateStr.split('-').map(Number);
@@ -15,12 +14,7 @@ function formatCardDate(dateStr: string) {
 
 export default function ShowCard({ show, draft }: { show: Show; draft?: boolean }) {
   const { day, weekday, month } = formatCardDate(show.date);
-  const isSongClub = show.type === 'song_club';
-  const href = draft
-    ? `/admin/shows/${show.id}`
-    : isSongClub
-      ? portalRedirect(`/song-club/${show.slug}`)
-      : `/shows/${show.catalogueId}`;
+  const href = draft ? `/admin/shows/${show.id}` : `/shows/${show.catalogueId}`;
 
   return (
     <Link
@@ -51,11 +45,7 @@ export default function ShowCard({ show, draft }: { show: Show; draft?: boolean 
             Draft
           </span>
         )}
-        {isSongClub && !draft && (
-          <span className="absolute left-2 top-2 bg-vhs-red px-1.5 py-0.5 font-mono text-[10px] font-bold uppercase tracking-wide text-paper">
-            Song Club
-          </span>
-        )}
+
       </div>
       <div className="flex items-baseline justify-between gap-3 border-t-2 border-ink px-4 py-2.5">
         <span className="flex items-baseline gap-2 min-w-0">

@@ -77,7 +77,7 @@ export default function ShowsBrowser({
             {listEntries.map((entry) =>
               entry.kind === 'show' ? (
                 <ShowCard
-                  key={`${entry.show.type ?? 'show'}-${entry.show.slug}`}
+                  key={`show-${entry.show.slug}`}
                   show={entry.show}
                 />
               ) : entry.kind === 'draft' ? (

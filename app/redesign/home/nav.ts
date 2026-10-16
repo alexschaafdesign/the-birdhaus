@@ -1,5 +1,5 @@
 import type { RailNavEntry } from '@/components/ui/RailNav';
-import { portalRedirect } from '@/lib/site';
+import { SONGHAUS_URL } from '@/lib/site';
 
 export const TAGLINE = 'A HUMBLE DIY MUSIC EMPIRE IN SOUTH MINNEAPOLIS';
 
@@ -12,9 +12,7 @@ export const NAV: RailNavEntry[] = [
   { label: 'ARCHIVE', href: '/archive', match: ['/archive', '/videos', '/photos', '/bands'] },
   // No 2027 Label page yet.
   { label: 'LABEL', href: '#', match: [] },
-  // Links out to the Fresh Cuts site (Song Club, Yellow Ostrich): the portal
-  // host when the domain split is on, /song-club on this origin until then.
-  // Never active here.
-  { label: 'FRESH CUTS', href: portalRedirect('/song-club'), match: [], external: true },
+  // Links out to Songhaus (what Song Club became). Never active here.
+  { label: 'SONGHAUS', href: SONGHAUS_URL, match: [], external: true },
   { label: 'ABOUT/CONTACT', href: '/contact', match: ['/contact'] },
 ];

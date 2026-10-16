@@ -75,6 +75,8 @@ interface YearResponse {
   monthly: Month[];
   perShow: PerShow[];
   availableYears: number[];
+  // Set when this year has the January 2026 shows the page hides by default.
+  skewed: { label: string; shows: number; excluded: boolean } | null;
 }
 
 const usd0 = (n: number) => `$${Math.round(n).toLocaleString('en-US')}`;
@@ -134,6 +136,7 @@ export default function YearInReviewView() {
   const router = useRouter();
   const currentYear = new Date().getFullYear();
   const [year, setYear] = useState(currentYear);
+  const [showAll, setShowAll] = useState(false);
   const [data, setData] = useState<YearResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -145,7 +148,7 @@ export default function YearInReviewView() {
       setLoading(true);
       setError(null);
       try {
-        const res = await fetch(`/api/admin/year?year=${year}`);
+        const res = await fetch(`/api/admin/year?year=${year}${showAll ? '&all=1' : ''}`);
         const body = await res.json().catch(() => null);
         if (!res.ok) throw new Error(body?.error || 'Failed to load year');
         if (!cancelled) setData(body as YearResponse);
@@ -159,7 +162,7 @@ export default function YearInReviewView() {
     return () => {
       cancelled = true;
     };
-  }, [year]);
+  }, [year, showAll]);
 
   const years = useMemo(() => {
     const set = new Set(data?.availableYears ?? []);
@@ -204,13 +207,29 @@ export default function YearInReviewView() {
     <div className="space-y-6" onMouseLeave={() => setTip(null)}>
       <div className="flex items-center justify-between flex-wrap gap-3">
         <h1 className="text-2xl font-bold">Year in Review</h1>
-        <select value={year} onChange={(e) => setYear(Number(e.target.value))} className={inputClass}>
-          {years.map((y) => (
-            <option key={y} value={y}>
-              {y}
-            </option>
-          ))}
-        </select>
+        <div className="flex items-center gap-3 flex-wrap">
+          {data?.skewed && (
+            <label className="inline-flex items-center gap-2 text-sm text-[#E8E0D0]/70 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={showAll}
+                onChange={(e) => setShowAll(e.target.checked)}
+                className="accent-[#E8E0D0]"
+              />
+              Show all
+              <span className="text-xs text-[#E8E0D0]/40">
+                ({data.skewed.label} {data.skewed.excluded ? 'hidden' : 'included'})
+              </span>
+            </label>
+          )}
+          <select value={year} onChange={(e) => setYear(Number(e.target.value))} className={inputClass}>
+            {years.map((y) => (
+              <option key={y} value={y}>
+                {y}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
       {error && (
@@ -477,6 +496,8 @@ export default function YearInReviewView() {
             Money figures reuse each show&rsquo;s settlement math (splits, guarantees, overrides). &ldquo;Ticket
             revenue&rdquo; is online Square card sales only; &ldquo;money in&rdquo; is total settlement income across all
             settled shows. Venue net is before admin-help labor.
+            {data.skewed?.excluded &&
+              ` ${data.skewed.label}'s ${data.skewed.shows} show${data.skewed.shows === 1 ? ' is' : 's are'} left out of every figure above — they were one-offs money-wise. Tick “Show all” to include them.`}
           </p>
         </>
       )}

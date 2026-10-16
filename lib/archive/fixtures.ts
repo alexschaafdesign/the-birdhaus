@@ -17,7 +17,6 @@ import type { ArchiveSet, Night, Photo, Release, SetMedia } from './types';
 //   night-level photos only                                BH-260917
 //   set-level photos only / notes only                     BH-260906, BH-251018
 //   no media at all                                        BH-251206
-//   Song-a-day edition, a date range with no sets          SAD-005
 
 const photos = (n: number, credit?: string): Photo[] =>
   Array.from({ length: n }, () => ({ credit }));
@@ -71,16 +70,6 @@ export const SAMPLE_NIGHTS: Night[] = [
     sets: sets('BH-260917', ['Losing Dogs', '20:00'], ['Abalone', '20:45'], ['Kacie Jewel Hill', '21:30']),
     media: { photos: photos(42, 'Maya Feld') },
     credits: { sound: 'Ben Ostrander', photos: ['Maya Feld'] },
-  },
-  {
-    id: 'SAD-005',
-    kind: 'sad',
-    date: '2026-09-16',
-    endDate: '2026-09-25',
-    title: 'Song-a-Day V5',
-    sets: [],
-    media: {},
-    credits: {},
   },
   {
     id: 'BH-260911',

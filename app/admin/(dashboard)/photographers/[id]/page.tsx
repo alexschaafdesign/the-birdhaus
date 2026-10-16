@@ -6,7 +6,7 @@ import {
   getShowsForPhotographer,
   photographerSlug,
 } from '@/lib/photographers';
-import { listCrew } from '@/lib/club-members';
+import { listCrew } from '@/lib/accounts/members';
 
 export const dynamic = 'force-dynamic';
 

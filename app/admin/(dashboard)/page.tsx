@@ -1,12 +1,12 @@
 import { redirect } from 'next/navigation';
-import { getClubMember } from '@/lib/club-members';
+import { getSessionAccount } from '@/lib/accounts/members';
 import { getPhotographerByUserId } from '@/lib/photographers';
 import CrewHome from '@/components/admin/CrewHome';
 
 export const dynamic = 'force-dynamic';
 
 export default async function AdminPage() {
-  const member = await getClubMember();
+  const member = await getSessionAccount();
   // Crew members land on a dashboard tailored to their focus areas — but only
   // when there's actually something tailored to show (an assigned focus area or
   // a linked photographer profile). Accounts with neither — the Birdhaus admin

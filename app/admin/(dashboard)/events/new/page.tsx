@@ -1,7 +1,5 @@
 import type { Metadata } from 'next';
-import { listPlaylists } from '@/lib/club-music';
-import { nextCatalogueNumber } from '@/lib/song-club';
-import NewEventForm from '@/components/admin/NewEventForm';
+import ShowForm from '@/components/admin/ShowForm';
 
 export const metadata: Metadata = {
   title: 'New event',
@@ -10,25 +8,18 @@ export const metadata: Metadata = {
 
 export const dynamic = 'force-dynamic';
 
-// Unified "add an event": pick Show or Song Club, then fill the matching form.
+// Add a show. (Song Club events are added in Songhaus admin.)
 export default async function NewEventPage({
   searchParams,
 }: {
-  searchParams: Promise<{ date?: string; type?: string }>;
+  searchParams: Promise<{ date?: string }>;
 }) {
-  const { date, type } = await searchParams;
-  const [playlists, suggestedNumber] = await Promise.all([listPlaylists(), nextCatalogueNumber()]);
-  const rounds = playlists.map((p) => ({ id: p.id, title: p.title }));
+  const { date } = await searchParams;
 
   return (
     <main className="mx-auto max-w-6xl px-6 pb-16 pt-6 text-[#E8E0D0]">
       <h1 className="mb-6 text-2xl font-bold">New event</h1>
-      <NewEventForm
-        initialDate={date}
-        initialType={type === 'song_club' ? 'song_club' : 'show'}
-        rounds={rounds}
-        suggestedNumber={suggestedNumber}
-      />
+      <ShowForm mode="create" initialValues={date ? { date } : undefined} />
     </main>
   );
 }

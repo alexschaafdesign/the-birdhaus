@@ -87,7 +87,7 @@ export default function FreshCutsIntro({
       <div className="mb-16 border-2 border-ink bg-paper-deep p-5">
         <div className="mb-4 flex items-center justify-between">
           <span className="bg-ink px-2 py-0.5 font-mono text-xs uppercase tracking-widest text-paper">
-            Editing Fresh Cuts Live copy
+            Editing Fresh Cuts copy
           </span>
           <div className="flex gap-2">
             <button
