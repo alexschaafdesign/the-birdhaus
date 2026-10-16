@@ -25,7 +25,7 @@ type NavDropdown = {
 type NavItem = NavLink | NavDropdown;
 
 const navItems: NavItem[] = [
-  { type: 'link', href: '/upcoming', label: 'Upcoming Shows' },
+  { type: 'link', href: '/', label: 'Upcoming Shows' },
   { type: 'link', href: '/archive', label: 'Archive' },
   { type: 'link', href: SONGHAUS_URL, label: SONGHAUS_NAME, external: true },
   {
@@ -106,13 +106,16 @@ export default function Header({ isAdmin = false }: { isAdmin?: boolean }) {
   // whole viewport — suppress the shared logo band + nav there.
   if (pathname.startsWith('/redesign')) return null;
 
-  // Already on the 2027 system, with the rail header in the page (SiteFrame)
-  // until Phase 2 moves it into the root layout: the archive index and the
-  // night page itself — not /shows/[id]/tickets, which is still old-style.
-  if (pathname === '/archive' || /^\/shows\/[^/]+\/?$/.test(pathname)) return null;
+  // Already on the 2027 system, with the rail header in the page: home, the
+  // archive index and the night page itself — not /shows/[id]/tickets, which
+  // is still old-style.
+  if (pathname === '/' || pathname === '/archive' || /^\/shows\/[^/]+\/?$/.test(pathname)) {
+    return null;
+  }
 
-  // The home page runs the venue photo as a full-page dark background, so the
-  // header goes transparent there and the nav flips to cream-on-dark.
+  // The old home page ran the venue photo as a full-page dark background, so
+  // the header went transparent there. The 2027 home hides this header, so
+  // this is never true now; it goes when the old header does.
   const onPhoto = pathname === '/';
 
   const linkClass = (isActive: boolean) =>

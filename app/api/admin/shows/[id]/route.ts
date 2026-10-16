@@ -328,7 +328,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     // public site keeps serving pre-edit HTML until the next deploy.
     revalidatePath('/shows/[id]', 'page');
     revalidatePath('/bands/[slug]', 'page');
-    revalidatePath('/shows');
+    revalidatePath('/');
     revalidatePath('/bands');
     // An edit can move a show's date onto/off today, changing tonight's TV
     // program — drop the feed cache so the next /api/tv poll re-reads.
@@ -361,7 +361,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
 
   await sql`delete from shows where id = ${showId}`;
   revalidatePath('/shows/[id]', 'page');
-  revalidatePath('/shows');
+  revalidatePath('/');
   // Deleting today's show changes tonight's TV program — drop the feed cache.
   revalidateTag(TV_FEED_TAG, { expire: 0 });
   return NextResponse.json({ ok: true });

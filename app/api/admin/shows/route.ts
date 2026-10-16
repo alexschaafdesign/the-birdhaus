@@ -148,7 +148,7 @@ export async function POST(request: Request) {
     });
     revalidatePath('/shows/[id]', 'page');
     revalidatePath('/bands/[slug]', 'page');
-    revalidatePath('/shows');
+    revalidatePath('/');
     revalidatePath('/bands');
     // A show dated today is tonight's TV program — drop the feed cache so the
     // next /api/tv poll re-reads. (Unconditional: a date edited to/from today

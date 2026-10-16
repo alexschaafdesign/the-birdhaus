@@ -223,7 +223,7 @@ async function ShowNight({
         tag={fc}
         date={show.date}
         lineup={bandNames(show).join(' · ') || show.title}
-        back={{ href: '/redesign/home', label: 'ALL SHOWS' }}
+        back={{ href: '/', label: 'ALL SHOWS' }}
         flag={flag}
       />
 

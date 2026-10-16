@@ -1,7 +1,7 @@
 import type { NextShowAct } from '@/components/ui/NextShow';
 
 // The Figma mockup's own placeholder content (235:8286), rendered with
-// /redesign/home?sample so the composition can be checked against the design
+// /?sample (the home page) so the composition can be checked against the design
 // even when the DB has nothing upcoming. Display-only; nothing links anywhere.
 
 export const SAMPLE_NEXT = {

@@ -34,6 +34,11 @@ const nextConfig: NextConfig = {
       // The 2027 archive preview's old home.
       { source: '/redesign/archive', destination: '/archive', permanent: true },
       { source: '/redesign/archive/:id', destination: '/shows/:id', permanent: true },
+      // 2027 Phase 2: the home page took over the show listings. Query
+      // strings carry through.
+      { source: '/upcoming', destination: '/', permanent: true },
+      { source: '/shows', destination: '/', permanent: true },
+      { source: '/redesign/home', destination: '/', permanent: true },
     ];
   },
   images: {

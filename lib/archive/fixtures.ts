@@ -2,7 +2,7 @@ import { setCatalogueId } from '@/lib/catalogue';
 import type { ArchiveSet, Night, Photo, Release, SetMedia } from './types';
 
 // Placeholder nights for /redesign/archive?sample — the same role as
-// app/redesign/home/sample.ts: check the layout against the design when the
+// components/night/home-sample.ts: check the layout against the design when the
 // real data can't exercise it. Lineups follow the Figma archive mockup
 // (259:15993) and BH-260904 matches Home's sample. Display-only: media has no
 // youtube ids or photo urls (players render still panels, photos render tiles)
