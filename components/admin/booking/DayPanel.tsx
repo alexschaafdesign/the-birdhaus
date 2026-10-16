@@ -1,52 +1,65 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import Section from '@/components/admin/Section';
-import BandNameInput from '@/components/admin/BandNameInput';
 import { DATE_OFFER_COLORS, DATE_OFFER_LABELS } from '@/lib/date-offers';
-import type { BookingProspect, DateHold, DateNote, HoldStatus } from '@/lib/booking';
-import { HOLD_STATUSES, HOLD_STATUS_COLORS, HOLD_STATUS_LABELS, LIVE_HOLD_STATUSES } from '@/lib/booking';
 import type { DayInfo } from './BookingDashboard';
 
 const inputClass =
   'bg-transparent border border-[#E8E0D0]/30 rounded px-3 py-1.5 text-sm focus:outline-none focus:border-[#E8E0D0] placeholder:text-[#E8E0D0]/30';
+
+const SAVE_DELAY_MS = 800;
 
 function parseLocalDate(dateStr: string) {
   const [year, month, day] = dateStr.split('-').map(Number);
   return new Date(year, month - 1, day);
 }
 
+// Keyed by date in the dashboard, so the drafts below reset per day.
 export default function DayPanel({
   info,
-  prospects,
-  prospectsById,
   onClose,
   onToggleAvailable,
-  onAddAsk,
-  onPatchHold,
-  onDeleteHold,
-  onCreateDraftShow,
-  onAddNote,
-  onDeleteNote,
+  onSave,
 }: {
   info: DayInfo;
-  prospects: BookingProspect[];
-  prospectsById: Map<number, BookingProspect>;
   onClose: () => void;
   onToggleAvailable: (date: string) => void;
-  onAddAsk: (date: string, band: { prospectId: number } | { name: string; bandId: number | null }) => void;
-  onPatchHold: (hold: DateHold, patch: Record<string, unknown>) => void;
-  onDeleteHold: (hold: DateHold) => void;
-  onCreateDraftShow: (hold: DateHold) => void;
-  onAddNote: (date: string, body: string) => void;
-  onDeleteNote: (note: DateNote) => void;
+  onSave: (date: string, title: string, notepad: string) => Promise<boolean>;
 }) {
-  const [askName, setAskName] = useState('');
-  const [askBandId, setAskBandId] = useState<number | null>(null);
-  const [noteDraft, setNoteDraft] = useState('');
-
   const { date } = info;
+  const [title, setTitle] = useState(info.plan?.title ?? '');
+  const [notepad, setNotepad] = useState(info.plan?.notepad ?? '');
+  const [saveState, setSaveState] = useState<'idle' | 'pending' | 'saved' | 'failed'>('idle');
+
+  // Autosave: debounce while typing, flush on close/unmount (switching days
+  // unmounts too, via the key) so nothing typed is dropped.
+  const saved = useRef({ title, notepad });
+  const latest = useRef({ title, notepad });
+  useEffect(() => {
+    latest.current = { title, notepad };
+  }, [title, notepad]);
+
+  useEffect(() => {
+    if (title === saved.current.title && notepad === saved.current.notepad) return;
+    setSaveState('pending');
+    const timer = setTimeout(async () => {
+      saved.current = { title, notepad };
+      setSaveState((await onSave(date, title, notepad)) ? 'saved' : 'failed');
+    }, SAVE_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [title, notepad, date, onSave]);
+
+  useEffect(
+    () => () => {
+      const { title: t, notepad: n } = latest.current;
+      if (t !== saved.current.title || n !== saved.current.notepad) void onSave(date, t, n);
+    },
+    // Unmount-only flush; latest/saved are refs.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    []
+  );
+
   const showOnDate = info.show ?? info.draftShow;
   const longDate = parseLocalDate(date).toLocaleDateString('en-US', {
     weekday: 'long',
@@ -54,37 +67,6 @@ export default function DayPanel({
     day: 'numeric',
     year: 'numeric',
   });
-
-  // Quick-add chips: bands not already live on this night (and not marked
-  // not interested), most wanted first.
-  const liveProspectIds = new Set(
-    info.asks.filter((h) => LIVE_HOLD_STATUSES.includes(h.status)).map((h) => h.prospect_id)
-  );
-  const quickPicks = prospects
-    .filter((p) => !liveProspectIds.has(p.id) && p.status !== 'passed')
-    .sort((a, b) => b.priority - a.priority || a.name.localeCompare(b.name))
-    .slice(0, 8);
-
-  function prospectName(id: number) {
-    return prospectsById.get(id)?.name ?? 'Deleted prospect';
-  }
-
-  function handleAddAsk(e: React.FormEvent) {
-    e.preventDefault();
-    const name = askName.trim();
-    if (!name) return;
-    onAddAsk(date, { name, bandId: askBandId });
-    setAskName('');
-    setAskBandId(null);
-  }
-
-  function handleAddNote(e: React.FormEvent) {
-    e.preventDefault();
-    const body = noteDraft.trim();
-    if (!body) return;
-    onAddNote(date, body);
-    setNoteDraft('');
-  }
 
   return (
     // Inline card under the calendar on desktop; bottom sheet on mobile so the
@@ -128,44 +110,38 @@ export default function DayPanel({
           </div>
         )}
 
-        {/* The first note doubles as the day's label on the calendar grid. */}
-        <Section title="Notes / ideas">
-          {info.notes.length > 0 && (
-            <ul className="mb-3 space-y-1.5">
-              {info.notes.map((note) => (
-                <li key={note.id} className="flex items-start gap-2 text-sm">
-                  <span className="flex-1 whitespace-pre-wrap text-[#E8E0D0]/80">{note.body}</span>
-                  <button
-                    onClick={() => onDeleteNote(note)}
-                    aria-label="Delete note"
-                    className="px-1 text-[#E8E0D0]/40 hover:text-red-400"
-                  >
-                    ×
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-          <form onSubmit={handleAddNote} className="flex items-center gap-2">
-            <input
-              value={noteDraft}
-              onChange={(e) => setNoteDraft(e.target.value)}
-              placeholder="e.g. “Fresh Cuts maybe”, “Comedy show?”"
-              className={`${inputClass} min-w-0 flex-1`}
-            />
-            <button
-              type="submit"
-              disabled={!noteDraft.trim()}
-              className="rounded border border-[#E8E0D0]/30 px-3 py-1.5 text-sm hover:bg-[#E8E0D0]/10 disabled:opacity-40"
-            >
-              + Note
-            </button>
-          </form>
-          <p className="mt-2 text-xs text-[#E8E0D0]/40">The first note shows on the calendar cell.</p>
-        </Section>
+        <div className="space-y-2">
+          <input
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            maxLength={120}
+            placeholder={
+              showOnDate ? 'Title (the show’s title shows on the calendar)' : 'Title — shows on the calendar, e.g. “Fresh Cuts?”'
+            }
+            aria-label="Day title"
+            className={`${inputClass} w-full text-base font-semibold`}
+          />
+          <textarea
+            value={notepad}
+            onChange={(e) => setNotepad(e.target.value)}
+            maxLength={10000}
+            rows={8}
+            placeholder={'Notepad — e.g.\nGhosting Merit?\nFend - asked\nJosie - asked'}
+            aria-label="Day notepad"
+            className={`${inputClass} w-full resize-y leading-relaxed`}
+          />
+          <p className="h-4 text-right text-xs text-[#E8E0D0]/40">
+            {saveState === 'pending' && 'Saving…'}
+            {saveState === 'saved' && 'Saved'}
+            {saveState === 'failed' && <span className="text-red-400">Not saved</span>}
+          </p>
+        </div>
 
         {info.offers.length > 0 && (
-          <Section title="Offered via submissions">
+          <div>
+            <h4 className="mb-2 font-mono text-xs uppercase tracking-widest text-[#E8E0D0]/50">
+              Offered via submissions
+            </h4>
             <div className="flex flex-wrap gap-2">
               {info.offers.map((offer) => (
                 <span
@@ -178,131 +154,22 @@ export default function DayPanel({
               ))}
             </div>
             <p className="mt-2 text-xs text-[#E8E0D0]/40">
-              Managed on the <Link href="/admin/submissions" className="underline hover:text-[#E8E0D0]">Submissions</Link> board.
+              Managed on the{' '}
+              <Link href="/admin/submissions" className="underline hover:text-[#E8E0D0]">
+                Submissions
+              </Link>{' '}
+              board.
             </p>
-          </Section>
+          </div>
         )}
 
-        <Section title="Bands asked">
-          {info.asks.length === 0 && (
-            <p className="mb-3 text-xs text-[#E8E0D0]/30">Nobody asked about this night yet.</p>
-          )}
-
-          {info.asks.length > 0 && (
-            <ul className="mb-3 space-y-2">
-              {info.asks.map((hold) => {
-                const passed = hold.status === 'passed';
-                return (
-                  <li key={hold.id} className={`space-y-1 ${passed ? 'opacity-50' : ''}`}>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="min-w-0 flex-1 truncate text-sm font-medium">{prospectName(hold.prospect_id)}</span>
-                      <select
-                        value={hold.status}
-                        onChange={(e) => onPatchHold(hold, { status: e.target.value as HoldStatus })}
-                        aria-label={`Status for ${prospectName(hold.prospect_id)}`}
-                        className="rounded border bg-[#171412] px-2 py-0.5 text-xs focus:outline-none"
-                        style={{ borderColor: HOLD_STATUS_COLORS[hold.status], color: HOLD_STATUS_COLORS[hold.status] }}
-                      >
-                        {HOLD_STATUSES.map((status) => (
-                          <option key={status} value={status}>
-                            {HOLD_STATUS_LABELS[status]}
-                          </option>
-                        ))}
-                      </select>
-                      <button
-                        onClick={() => {
-                          if (window.confirm(`Remove ${prospectName(hold.prospect_id)} from this date?`)) onDeleteHold(hold);
-                        }}
-                        aria-label="Remove from this date"
-                        className="rounded px-1.5 py-0.5 text-xs text-[#E8E0D0]/40 hover:text-red-400"
-                      >
-                        ×
-                      </button>
-                    </div>
-                    <input
-                      key={`${hold.id}-${hold.updated_at}`}
-                      defaultValue={hold.note ?? ''}
-                      placeholder="Note (e.g. “waiting to hear back”, “$300 guarantee”)"
-                      onBlur={(e) => {
-                        const note = e.target.value.trim();
-                        if (note !== (hold.note ?? '')) onPatchHold(hold, { note: note || null });
-                      }}
-                      className={`${inputClass} w-full py-1 text-xs`}
-                    />
-                    {hold.status === 'booked' && (
-                      <p className="text-xs">
-                        {hold.show_id !== null ? (
-                          <Link href={`/admin/shows/${hold.show_id}`} className="text-yellow-400/90 hover:underline">
-                            Open show →
-                          </Link>
-                        ) : showOnDate ? (
-                          <span className="text-[#E8E0D0]/40">A show already exists on this date.</span>
-                        ) : (
-                          <button
-                            onClick={() => onCreateDraftShow(hold)}
-                            className="rounded border border-green-500/50 px-2 py-0.5 text-green-400 hover:bg-green-500/10"
-                          >
-                            Create draft show
-                          </button>
-                        )}
-                      </p>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-
-          <form onSubmit={handleAddAsk} className="flex items-center gap-2">
-            <div className="min-w-0 flex-1">
-              <BandNameInput
-                value={askName}
-                onChange={(value) => {
-                  setAskName(value);
-                  setAskBandId(null);
-                }}
-                onSelect={(match) => {
-                  setAskName(match.name);
-                  setAskBandId(match.id);
-                }}
-                className={`${inputClass} w-full`}
-                placeholder="Who did you ask? Band name…"
-              />
-            </div>
-            <button
-              type="submit"
-              disabled={!askName.trim()}
-              className="rounded border border-[#E8E0D0]/30 px-3 py-1.5 text-sm hover:bg-[#E8E0D0]/10 disabled:opacity-40"
-            >
-              + Asked
-            </button>
-          </form>
-
-          {quickPicks.length > 0 && (
-            <div className="mt-2 flex flex-wrap items-center gap-1.5">
-              <span className="text-xs text-[#E8E0D0]/40">Prospects:</span>
-              {quickPicks.map((p) => (
-                <button
-                  key={p.id}
-                  onClick={() => onAddAsk(date, { prospectId: p.id })}
-                  className="rounded-full border border-[#E8E0D0]/20 px-2 py-0.5 text-xs text-[#E8E0D0]/70 hover:bg-[#E8E0D0]/10"
-                >
-                  + {p.name}
-                </button>
-              ))}
-            </div>
-          )}
-
-          {!showOnDate && (
-            <p className="mt-3 text-xs text-[#E8E0D0]/40">
-              Prefer the full form?{' '}
-              <Link href={`/admin/shows/new?date=${date}`} className="underline hover:text-[#E8E0D0]">
-                Draft a show for this date
-              </Link>
-            </p>
-          )}
-        </Section>
-
+        {!showOnDate && (
+          <p className="text-xs text-[#E8E0D0]/40">
+            <Link href={`/admin/shows/new?date=${date}`} className="underline hover:text-[#E8E0D0]">
+              Draft a show for this date
+            </Link>
+          </p>
+        )}
       </div>
     </div>
   );

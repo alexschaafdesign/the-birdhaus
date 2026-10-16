@@ -1,12 +1,12 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import type { AvailableDate } from '@/lib/available-dates';
 import type { DateOfferStatus } from '@/lib/date-offers';
-import type { BookingProspect, DateHold, DateNote } from '@/lib/booking';
-import { HOLD_STATUS_RANK } from '@/lib/booking';
+import type { BookingDay, BookingProspect } from '@/lib/booking';
 import BookingCalendar from './BookingCalendar';
 import BookingListView from './BookingListView';
+import CalendarSubscribe from './CalendarSubscribe';
 import DayPanel from './DayPanel';
 import ProspectRail from './ProspectRail';
 
@@ -32,15 +32,13 @@ export interface DayInfo {
   show?: BookingShow;
   draftShow?: BookingShow;
   available?: AvailableDate;
-  // Bands asked about this night, booked → hold → asked → passed.
-  asks: DateHold[];
-  notes: DateNote[];
+  plan?: BookingDay;
   offers: BookingDateOffer[];
 }
 
 // Timestamps arrive as Date objects from the server page (postgres.js parses
 // timestamptz; RSC passes Dates through) but as ISO strings from the JSON API
-// routes. Normalize to ISO strings so the rail's localeCompare sort works on both.
+// routes. Normalize to ISO strings so the wishlist's localeCompare sort works on both.
 function toIso(value: string | Date): string {
   return new Date(value).toISOString();
 }
@@ -59,48 +57,31 @@ function normalizeProspect(p: BookingProspect): BookingProspect {
   };
 }
 
-function normalizeHold(h: DateHold): DateHold {
-  return {
-    ...h,
-    id: Number(h.id),
-    prospect_id: Number(h.prospect_id),
-    position: Number(h.position),
-    show_id: h.show_id == null ? null : Number(h.show_id),
-    created_at: toIso(h.created_at),
-    updated_at: toIso(h.updated_at),
-  };
-}
-
-function normalizeNote(n: DateNote): DateNote {
-  return { ...n, id: Number(n.id) };
-}
-
 const JSON_HEADERS = { 'Content-Type': 'application/json' };
 
 export default function BookingDashboard({
   today,
   initialProspects,
-  initialHolds,
-  initialDateNotes,
+  initialDays,
   initialAvailableDates,
   dateOffers,
   shows: initialShows,
+  feedUrl,
 }: {
   today: string;
   initialProspects: BookingProspect[];
-  initialHolds: DateHold[];
-  initialDateNotes: DateNote[];
+  initialDays: BookingDay[];
   initialAvailableDates: AvailableDate[];
   dateOffers: BookingDateOffer[];
   shows: BookingShow[];
+  feedUrl: string;
 }) {
   const [prospects, setProspects] = useState(() => initialProspects.map(normalizeProspect));
-  const [holds, setHolds] = useState(() => initialHolds.map(normalizeHold));
-  const [dateNotes, setDateNotes] = useState(() => initialDateNotes.map(normalizeNote));
+  const [days, setDays] = useState(() => new Map(initialDays.map((d) => [d.date, d])));
   const [availableDates, setAvailableDates] = useState(() =>
     initialAvailableDates.map((d) => ({ ...d, id: Number(d.id) }))
   );
-  const [shows, setShows] = useState(() => initialShows.map((s) => ({ ...s, id: Number(s.id) })));
+  const [shows] = useState(() => initialShows.map((s) => ({ ...s, id: Number(s.id) })));
   const [view, setView] = useState<'calendar' | 'list'>('calendar');
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [paintAvailability, setPaintAvailability] = useState(false);
@@ -116,7 +97,7 @@ export default function BookingDashboard({
     const get = (date: string): DayInfo => {
       let info = map.get(date);
       if (!info) {
-        info = { date, asks: [], notes: [], offers: [] };
+        info = { date, offers: [] };
         map.set(date, info);
       }
       return info;
@@ -127,20 +108,10 @@ export default function BookingDashboard({
       else info.draftShow = info.draftShow ?? s;
     }
     for (const d of availableDates) get(d.date).available = d;
-    for (const h of holds) get(h.date).asks.push(h);
-    for (const n of dateNotes) get(n.date).notes.push(n);
+    for (const day of days.values()) get(day.date).plan = day;
     for (const o of offers) get(o.date).offers.push(o);
-    for (const info of map.values()) {
-      info.asks.sort((a, b) => HOLD_STATUS_RANK[a.status] - HOLD_STATUS_RANK[b.status] || a.id - b.id);
-    }
     return map;
-  }, [shows, availableDates, holds, dateNotes, offers]);
-
-  const prospectsById = useMemo(() => {
-    const map = new Map<number, BookingProspect>();
-    for (const p of prospects) map.set(p.id, p);
-    return map;
-  }, [prospects]);
+  }, [shows, availableDates, days, offers]);
 
   // Future dates that carry anything — the agenda list's source.
   const agendaInfos = useMemo(
@@ -152,34 +123,15 @@ export default function BookingDashboard({
   );
 
   const selectedInfo: DayInfo | null = selectedDate
-    ? dayInfoByDate.get(selectedDate) ?? {
-        date: selectedDate,
-        asks: [],
-        notes: [],
-        offers: [],
-      }
+    ? dayInfoByDate.get(selectedDate) ?? { date: selectedDate, offers: [] }
     : null;
-
-  // Replace one date's asked list wholesale with what the server returned.
-  function replaceDateHolds(date: string, next: DateHold[]) {
-    setHolds((prev) => [...prev.filter((h) => h.date !== date), ...next.map(normalizeHold)]);
-  }
-
-  async function resyncHolds() {
-    try {
-      const res = await fetch('/api/admin/booking/holds');
-      if (res.ok) setHolds((await res.json()).map(normalizeHold));
-    } catch {
-      // banner already tells the operator something failed; a reload resyncs
-    }
-  }
 
   async function resyncProspects() {
     try {
       const res = await fetch('/api/admin/booking/prospects');
       if (res.ok) setProspects((await res.json()).map(normalizeProspect));
     } catch {
-      // see resyncHolds
+      // the error banner already says something failed; a reload resyncs
     }
   }
 
@@ -217,7 +169,7 @@ export default function BookingDashboard({
       const row = normalizeProspect(await res.json());
       setProspects((prev) => [row, ...prev]);
     } else {
-      setErrorMessage('Failed to add prospect.');
+      setErrorMessage('Failed to add the artist.');
     }
   }
 
@@ -241,135 +193,37 @@ export default function BookingDashboard({
       const row = normalizeProspect(await res.json());
       setProspects((prev) => prev.map((p) => (p.id === id ? row : p)));
     } else {
-      setErrorMessage('Failed to update prospect.');
+      setErrorMessage('Failed to update the artist.');
       resyncProspects();
     }
   }
 
   async function deleteProspect(id: number) {
     setProspects((prev) => prev.filter((p) => p.id !== id));
-    setHolds((prev) => prev.filter((h) => h.prospect_id !== id));
     const res = await fetch(`/api/admin/booking/prospects/${id}`, { method: 'DELETE' }).catch(() => null);
     if (!res?.ok) {
-      setErrorMessage('Failed to delete prospect.');
+      setErrorMessage('Failed to delete the artist.');
       resyncProspects();
-      resyncHolds();
     }
   }
 
-  function upsertProspect(raw: BookingProspect) {
-    const row = normalizeProspect(raw);
-    setProspects((prev) =>
-      prev.some((p) => p.id === row.id) ? prev.map((p) => (p.id === row.id ? row : p)) : [row, ...prev]
-    );
-  }
-
-  // Either an existing prospect, or a typed band name (the server reuses a
-  // matching prospect or creates one).
-  async function addAsk(
-    date: string,
-    band: { prospectId: number } | { name: string; bandId: number | null }
-  ) {
-    const res = await fetch('/api/admin/booking/holds', {
-      method: 'POST',
+  // Optimistic: the calendar label follows the title as you type; the day
+  // panel debounces the actual save. Returns whether the save landed.
+  const saveDay = useCallback(async (date: string, title: string, notepad: string) => {
+    setDays((prev) => {
+      const next = new Map(prev);
+      if (!title.trim() && !notepad.trim()) next.delete(date);
+      else next.set(date, { date, title, notepad });
+      return next;
+    });
+    const res = await fetch('/api/admin/booking/days', {
+      method: 'PUT',
       headers: JSON_HEADERS,
-      body: JSON.stringify(
-        'prospectId' in band
-          ? { date, prospect_id: band.prospectId }
-          : { date, name: band.name, band_id: band.bandId }
-      ),
+      body: JSON.stringify({ date, title, notepad }),
     }).catch(() => null);
-    if (res?.status === 201) {
-      const { hold, prospect } = await res.json();
-      setHolds((prev) => [...prev, normalizeHold(hold)]);
-      upsertProspect(prospect);
-    } else if (res?.status === 409) {
-      setErrorMessage('That band is already on this date.');
-    } else {
-      setErrorMessage('Failed to add the band to this date.');
-    }
-  }
-
-  async function patchHold(hold: DateHold, patch: Record<string, unknown>, failureMessage = 'Failed to update.') {
-    const res = await fetch(`/api/admin/booking/holds/${hold.id}`, {
-      method: 'PATCH',
-      headers: JSON_HEADERS,
-      body: JSON.stringify(patch),
-    }).catch(() => null);
-    if (res?.ok) {
-      const { holds: next } = await res.json();
-      replaceDateHolds(hold.date, next);
-      return true;
-    }
-    setErrorMessage(res?.status === 409 ? 'That band already has a live ask on this date.' : failureMessage);
-    resyncHolds();
-    return false;
-  }
-
-  async function deleteHold(hold: DateHold) {
-    const res = await fetch(`/api/admin/booking/holds/${hold.id}`, { method: 'DELETE' }).catch(() => null);
-    if (res?.ok) {
-      const { holds: next } = await res.json();
-      replaceDateHolds(hold.date, next);
-    } else {
-      setErrorMessage('Failed to remove the band from this date.');
-      resyncHolds();
-    }
-  }
-
-  // Two calls by design: reuse the full show-creation path (slug, defaults,
-  // revalidation), then link the show to the booked ask. If the second call
-  // fails the show still exists and the banner says so.
-  async function createDraftShow(hold: DateHold) {
-    const prospect = prospectsById.get(hold.prospect_id);
-    const title = prospect?.name?.trim() || 'TBD';
-    const res = await fetch('/api/admin/shows', {
-      method: 'POST',
-      headers: JSON_HEADERS,
-      body: JSON.stringify({ title, date: hold.date }),
-    }).catch(() => null);
-    if (!res?.ok) {
-      setErrorMessage('Failed to create the show.');
-      return;
-    }
-    const created = await res.json();
-    const show: BookingShow = {
-      id: Number(created.id),
-      slug: created.slug,
-      title: created.title,
-      date: hold.date,
-      announced: false,
-    };
-    setShows((prev) => [...prev, show]);
-    await patchHold(
-      hold,
-      { status: 'booked', show_id: show.id },
-      'Draft show created, but linking it to the booking failed — it’s on the Shows page.'
-    );
-  }
-
-  async function addNote(date: string, body: string) {
-    const res = await fetch('/api/admin/booking/date-notes', {
-      method: 'POST',
-      headers: JSON_HEADERS,
-      body: JSON.stringify({ date, body }),
-    }).catch(() => null);
-    if (res?.status === 201) {
-      const row = normalizeNote(await res.json());
-      setDateNotes((prev) => [...prev, row]);
-    } else {
-      setErrorMessage('Failed to add note.');
-    }
-  }
-
-  async function deleteNote(note: DateNote) {
-    setDateNotes((prev) => prev.filter((n) => n.id !== note.id));
-    const res = await fetch(`/api/admin/booking/date-notes/${note.id}`, { method: 'DELETE' }).catch(() => null);
-    if (!res?.ok) {
-      setDateNotes((prev) => [...prev, note]);
-      setErrorMessage('Failed to delete note.');
-    }
-  }
+    if (!res?.ok) setErrorMessage('Failed to save that day — copy your text somewhere before reloading.');
+    return Boolean(res?.ok);
+  }, []);
 
   return (
     <div>
@@ -408,6 +262,7 @@ export default function BookingDashboard({
             ✎ mark available
           </button>
         )}
+        <CalendarSubscribe initialUrl={feedUrl} />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
@@ -415,7 +270,6 @@ export default function BookingDashboard({
           {view === 'calendar' ? (
             <BookingCalendar
               dayInfoByDate={dayInfoByDate}
-              prospectsById={prospectsById}
               today={today}
               selectedDate={selectedDate}
               onSelectDate={(date) => setSelectedDate((prev) => (prev === date ? null : date))}
@@ -425,7 +279,6 @@ export default function BookingDashboard({
           ) : (
             <BookingListView
               infos={agendaInfos}
-              prospectsById={prospectsById}
               selectedDate={selectedDate}
               onSelectDate={(date) => setSelectedDate((prev) => (prev === date ? null : date))}
             />
@@ -437,22 +290,16 @@ export default function BookingDashboard({
         <div className="min-w-0 space-y-4">
           {selectedInfo && (
             <DayPanel
+              key={selectedInfo.date}
               info={selectedInfo}
-              prospects={prospects}
-              prospectsById={prospectsById}
               onClose={() => setSelectedDate(null)}
               onToggleAvailable={toggleAvailable}
-              onAddAsk={addAsk}
-              onPatchHold={patchHold}
-              onDeleteHold={deleteHold}
-              onCreateDraftShow={createDraftShow}
-              onAddNote={addNote}
-              onDeleteNote={deleteNote}
+              onSave={saveDay}
             />
           )}
           <ProspectRail
             prospects={prospects}
-            holds={holds}
+            days={days}
             today={today}
             onAdd={addProspect}
             onUpdate={updateProspect}

@@ -4,16 +4,7 @@ import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import Section from '@/components/admin/Section';
 import BandNameInput from '@/components/admin/BandNameInput';
-import type { BandStanding, BookingProspect, DateHold } from '@/lib/booking';
-import {
-  BAND_STANDINGS,
-  BAND_STANDING_COLORS,
-  BAND_STANDING_LABELS,
-  HOLD_STATUS_COLORS,
-  HOLD_STATUS_LABELS,
-  LIVE_HOLD_STATUSES,
-  bandStanding,
-} from '@/lib/booking';
+import type { BookingDay, BookingProspect } from '@/lib/booking';
 
 const inputClass =
   'bg-transparent border border-[#E8E0D0]/30 rounded px-3 py-1.5 text-sm focus:outline-none focus:border-[#E8E0D0] placeholder:text-[#E8E0D0]/30';
@@ -31,9 +22,17 @@ function formatShortDate(dateStr: string) {
   });
 }
 
+// Whole-word, case-insensitive: "Fend" matches "Fend - asked" but not "Fender".
+function mentionPattern(name: string) {
+  const escaped = name.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`(^|[^\\p{L}\\p{N}])${escaped}($|[^\\p{L}\\p{N}])`, 'iu');
+}
+
+// The artist wishlist (table: booking_prospects). Each card links back to
+// the days whose title or notepad mentions the artist by name.
 export default function ProspectRail({
   prospects,
-  holds,
+  days,
   today,
   onAdd,
   onUpdate,
@@ -41,63 +40,33 @@ export default function ProspectRail({
   onSelectDate,
 }: {
   prospects: BookingProspect[];
-  holds: DateHold[];
+  days: Map<string, BookingDay>;
   today: string;
   onAdd: (name: string, bandId: number | null) => void;
-  onUpdate: (
-    id: number,
-    patch: Partial<Pick<BookingProspect, 'name' | 'band_id' | 'status' | 'priority' | 'notes'>> & {
-      touch_contacted?: boolean;
-    }
-  ) => void;
+  onUpdate: (id: number, patch: Partial<Pick<BookingProspect, 'priority' | 'notes'>>) => void;
   onDelete: (id: number) => void;
   onSelectDate: (date: string) => void;
 }) {
-  const [filter, setFilter] = useState<BandStanding | 'all'>('all');
   const [addName, setAddName] = useState('');
   const [addBandId, setAddBandId] = useState<number | null>(null);
 
-  // Every date each band was asked about, soonest first, for the date chips.
-  const holdsByProspect = useMemo(() => {
-    const map = new Map<number, DateHold[]>();
-    for (const h of holds) {
-      const list = map.get(h.prospect_id) ?? [];
-      list.push(h);
-      map.set(h.prospect_id, list);
-    }
-    for (const list of map.values()) list.sort((a, b) => a.date.localeCompare(b.date));
-    return map;
-  }, [holds]);
-
-  const standingById = useMemo(() => {
-    const map = new Map<number, BandStanding>();
+  const mentionsById = useMemo(() => {
+    const sortedDays = [...days.values()].sort((a, b) => a.date.localeCompare(b.date));
+    const map = new Map<number, string[]>();
     for (const p of prospects) {
-      const upcomingLive = (holdsByProspect.get(p.id) ?? []).some(
-        (h) => h.date >= today && LIVE_HOLD_STATUSES.includes(h.status)
+      if (!p.name.trim()) continue;
+      const pattern = mentionPattern(p.name);
+      map.set(
+        p.id,
+        sortedDays.filter((d) => pattern.test(`${d.title}\n${d.notepad}`)).map((d) => d.date)
       );
-      map.set(p.id, bandStanding(p, upcomingLive));
     }
     return map;
-  }, [prospects, holdsByProspect, today]);
+  }, [prospects, days]);
 
-  const counts = useMemo(() => {
-    const map = new Map<BandStanding, number>();
-    for (const standing of standingById.values()) map.set(standing, (map.get(standing) ?? 0) + 1);
-    return map;
-  }, [standingById]);
-
-  // Active first, then wishlist, then not interested; priority within each.
   const visible = useMemo(
-    () =>
-      prospects
-        .filter((p) => filter === 'all' || standingById.get(p.id) === filter)
-        .sort(
-          (a, b) =>
-            BAND_STANDINGS.indexOf(standingById.get(a.id)!) - BAND_STANDINGS.indexOf(standingById.get(b.id)!) ||
-            b.priority - a.priority ||
-            b.updated_at.localeCompare(a.updated_at)
-        ),
-    [prospects, filter, standingById]
+    () => [...prospects].sort((a, b) => b.priority - a.priority || b.updated_at.localeCompare(a.updated_at)),
+    [prospects]
   );
 
   function handleAdd(e: React.FormEvent) {
@@ -111,83 +80,46 @@ export default function ProspectRail({
 
   return (
     <div className="min-w-0 space-y-4">
-      <Section title="Add to wishlist">
-        <form onSubmit={handleAdd} className="space-y-2">
-          <BandNameInput
-            value={addName}
-            onChange={(value) => {
-              setAddName(value);
-              // Free typing after a pick means the text no longer matches the
-              // linked band — drop the link and treat it as a name-only prospect.
-              setAddBandId(null);
-            }}
-            onSelect={(match) => {
-              setAddName(match.name);
-              setAddBandId(match.id);
-            }}
-            className={`${inputClass} w-full`}
-            placeholder="Band name (links to directory if it matches)…"
-          />
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-xs text-[#E8E0D0]/40">
-              {addBandId !== null ? 'Linked to band directory' : 'Free-text band'}
-            </span>
-            <button
-              type="submit"
-              disabled={!addName.trim()}
-              className="rounded border border-[#E8E0D0]/30 px-3 py-1.5 text-sm hover:bg-[#E8E0D0]/10 disabled:opacity-40"
-            >
-              + Add
-            </button>
-          </div>
-        </form>
-      </Section>
-
       <Section
-        title="Bands"
-        action={
-          <span className="text-xs text-[#E8E0D0]/40">
-            {visible.length} of {prospects.length}
-          </span>
-        }
+        title="Wishlist"
+        action={<span className="text-xs text-[#E8E0D0]/40">{prospects.length} artists</span>}
       >
-        <div className="mb-3 flex flex-wrap gap-1.5">
-          {BAND_STANDINGS.map((standing) => {
-            const active = filter === standing;
-            return (
-              <button
-                key={standing}
-                onClick={() => setFilter(active ? 'all' : standing)}
-                className="rounded-full border px-2.5 py-0.5 text-xs transition-colors"
-                style={{
-                  borderColor: BAND_STANDING_COLORS[standing],
-                  backgroundColor: active ? `${BAND_STANDING_COLORS[standing]}22` : 'transparent',
-                  color: active ? BAND_STANDING_COLORS[standing] : '#E8E0D080',
-                }}
-              >
-                {BAND_STANDING_LABELS[standing]}
-                {(counts.get(standing) ?? 0) > 0 && <span className="opacity-60"> · {counts.get(standing)}</span>}
-              </button>
-            );
-          })}
-        </div>
+        <form onSubmit={handleAdd} className="mb-4 flex items-center gap-2">
+          <div className="min-w-0 flex-1">
+            <BandNameInput
+              value={addName}
+              onChange={(value) => {
+                setAddName(value);
+                // Free typing after a pick means the text no longer matches the
+                // linked artist — drop the link and keep it name-only.
+                setAddBandId(null);
+              }}
+              onSelect={(match) => {
+                setAddName(match.name);
+                setAddBandId(match.id);
+              }}
+              className={`${inputClass} w-full`}
+              placeholder="Artist you’d love to book…"
+            />
+          </div>
+          <button
+            type="submit"
+            disabled={!addName.trim()}
+            className="rounded border border-[#E8E0D0]/30 px-3 py-1.5 text-sm hover:bg-[#E8E0D0]/10 disabled:opacity-40"
+          >
+            + Add
+          </button>
+        </form>
 
         {visible.length === 0 && (
-          <p className="text-xs text-[#E8E0D0]/30">
-            {prospects.length === 0 ? 'No bands yet — add ones you want to book, or log who you asked on a date.' : 'Nothing matches this filter.'}
-          </p>
+          <p className="text-xs text-[#E8E0D0]/30">No artists yet — add the ones you want here someday.</p>
         )}
 
         <ul className="space-y-3">
           {visible.map((prospect) => {
-            const prospectHolds = holdsByProspect.get(prospect.id) ?? [];
-            const standing = standingById.get(prospect.id) ?? 'wishlist';
-            const notInterested = standing === 'not_interested';
+            const mentions = mentionsById.get(prospect.id) ?? [];
             return (
-              <li
-                key={prospect.id}
-                className={`rounded border border-[#E8E0D0]/15 p-3 ${notInterested ? 'opacity-60' : ''}`}
-              >
+              <li key={prospect.id} className="rounded border border-[#E8E0D0]/15 p-3">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
                     <span className="text-sm font-semibold">{prospect.name}</span>
@@ -196,32 +128,11 @@ export default function ProspectRail({
                         href={`/admin/bands/${prospect.band_id}`}
                         className="ml-2 text-xs text-[#E8E0D0]/40 hover:text-[#E8E0D0] hover:underline"
                       >
-                        band ↗
+                        artist ↗
                       </Link>
                     )}
                   </div>
-                  <button
-                    onClick={() => {
-                      if (window.confirm(`Delete prospect “${prospect.name}” and every date they were asked about?`)) {
-                        onDelete(prospect.id);
-                      }
-                    }}
-                    aria-label={`Delete ${prospect.name}`}
-                    className="px-1 text-[#E8E0D0]/30 hover:text-red-400"
-                  >
-                    ×
-                  </button>
-                </div>
-
-                <div className="mt-2 flex flex-wrap items-center gap-2">
-                  <span
-                    className="rounded-full border px-2 py-0.5 text-xs"
-                    style={{ borderColor: BAND_STANDING_COLORS[standing], color: BAND_STANDING_COLORS[standing] }}
-                  >
-                    {BAND_STANDING_LABELS[standing]}
-                  </span>
-
-                  <span className="flex items-center gap-1 text-xs text-[#E8E0D0]/50">
+                  <div className="flex shrink-0 items-center gap-1 text-xs text-[#E8E0D0]/50">
                     <button
                       onClick={() => onUpdate(prospect.id, { priority: prospect.priority + 1 })}
                       title="Raise priority"
@@ -237,44 +148,30 @@ export default function ProspectRail({
                     >
                       ▼
                     </button>
-                  </span>
-
-                  <button
-                    onClick={() => onUpdate(prospect.id, { touch_contacted: true })}
-                    title="Log that you contacted them today"
-                    className="rounded border border-[#E8E0D0]/20 px-2 py-1 text-xs text-[#E8E0D0]/60 hover:bg-[#E8E0D0]/10"
-                  >
-                    ☎ today
-                  </button>
-
-                  <button
-                    onClick={() => onUpdate(prospect.id, { status: notInterested ? 'idea' : 'passed' })}
-                    title={notInterested ? 'Move back to the wishlist' : 'Hide from quick-add; keeps their dates'}
-                    className="rounded border border-[#E8E0D0]/20 px-2 py-1 text-xs text-[#E8E0D0]/60 hover:bg-[#E8E0D0]/10"
-                  >
-                    {notInterested ? '↺ wishlist' : 'Not interested'}
-                  </button>
+                    <button
+                      onClick={() => {
+                        if (window.confirm(`Remove “${prospect.name}” from the wishlist?`)) onDelete(prospect.id);
+                      }}
+                      aria-label={`Remove ${prospect.name}`}
+                      className="ml-1 px-1 text-[#E8E0D0]/30 hover:text-red-400"
+                    >
+                      ×
+                    </button>
+                  </div>
                 </div>
 
-                {prospect.last_contacted_at && (
-                  <p className="mt-1.5 text-xs text-[#E8E0D0]/40">
-                    Last contact {new Date(prospect.last_contacted_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                  </p>
-                )}
-
-                {prospectHolds.length > 0 && (
-                  <div className="mt-2 flex flex-wrap gap-1.5">
-                    {prospectHolds.map((hold) => (
+                {mentions.length > 0 && (
+                  <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                    <span className="text-xs text-[#E8E0D0]/40">Mentioned on</span>
+                    {mentions.map((date) => (
                       <button
-                        key={hold.id}
-                        onClick={() => onSelectDate(hold.date)}
-                        title={hold.note ?? undefined}
-                        className={`rounded-full border px-2 py-0.5 text-xs hover:bg-[#E8E0D0]/10 ${
-                          hold.status === 'passed' ? 'opacity-50' : ''
+                        key={date}
+                        onClick={() => onSelectDate(date)}
+                        className={`rounded-full border border-[#E8E0D0]/25 px-2 py-0.5 text-xs text-[#E8E0D0]/80 hover:bg-[#E8E0D0]/10 ${
+                          date < today ? 'opacity-50' : ''
                         }`}
-                        style={{ borderColor: `${HOLD_STATUS_COLORS[hold.status]}80`, color: HOLD_STATUS_COLORS[hold.status] }}
                       >
-                        {formatShortDate(hold.date)} · {HOLD_STATUS_LABELS[hold.status]}
+                        {formatShortDate(date)}
                       </button>
                     ))}
                   </div>
