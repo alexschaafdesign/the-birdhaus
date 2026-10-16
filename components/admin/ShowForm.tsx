@@ -14,15 +14,6 @@ import { downscaleImage } from '@/lib/downscale-image';
 const inputClass =
   'bg-transparent border border-[#E8E0D0]/30 rounded px-3 py-1.5 text-sm focus:outline-none focus:border-[#E8E0D0] placeholder:text-[#E8E0D0]/30';
 
-// Local (not UTC) YYYY-MM-DD for "is this show in the past?" comparisons.
-function todayISODate(): string {
-  const now = new Date();
-  const y = now.getFullYear();
-  const m = String(now.getMonth() + 1).padStart(2, '0');
-  const d = String(now.getDate()).padStart(2, '0');
-  return `${y}-${m}-${d}`;
-}
-
 function slugify(text: string): string {
   return text
     .toLowerCase()
@@ -215,7 +206,7 @@ interface FormState {
   status: 'scheduled' | 'cancelled' | 'postponed';
 }
 
-function initFormState(initial?: ShowFormInitialValues): FormState {
+function initFormState(initial: ShowFormInitialValues | undefined, isPast: boolean): FormState {
   const bands = (initial?.bands ?? []).map((b) =>
     typeof b === 'string'
       ? { bandId: null, name: b, instagram: '', bio: '', photo: '', notes: '' }
@@ -246,7 +237,6 @@ function initFormState(initial?: ShowFormInitialValues): FormState {
   // (pre-tagged to that band) so filling in the recap is a matter of pasting
   // links, not adding rows one at a time. Blank rows are dropped on save, and
   // "+ add video" still works for shows that need more.
-  const isPast = /^\d{4}-\d{2}-\d{2}$/.test(initial?.date ?? '') && (initial?.date ?? '') < todayISODate();
   const videos: Video[] =
     isPast && existingVideos.length === 0 && bands.length > 0
       ? bands.map((_, i) => ({ youtube: '', title: '', bandIndexes: [i] }))
@@ -315,17 +305,25 @@ function initFormState(initial?: ShowFormInitialValues): FormState {
 export default function ShowForm({
   mode,
   initialValues,
+  isPast,
+  nightDate,
   embedded = false,
 }: {
   mode: 'create' | 'edit';
   initialValues?: ShowFormInitialValues;
+  // "Past" is the show page's rule (lib/shows getNightDateCentral: a night
+  // lasts until 5am America/Chicago the morning after), worked out on the
+  // server, never in the browser's time zone. isPast is the saved date's
+  // answer; nightDate is the night it is now, for a date typed into the form.
+  isPast: boolean;
+  nightDate: string;
   // When rendered inside the per-show tabbed workspace the surrounding layout
   // already supplies the title / back link / tab nav, so the form's own header
   // is suppressed to avoid duplicating them.
   embedded?: boolean;
 }) {
   const router = useRouter();
-  const [form, setForm] = useState<FormState>(() => initFormState(initialValues));
+  const [form, setForm] = useState<FormState>(() => initFormState(initialValues, isPast));
   const [submitting, setSubmitting] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -333,10 +331,7 @@ export default function ShowForm({
   // "Show & lineup" (identity, bands, engineers) and "Public page & tickets"
   // (tickets, media, page content). Past shows default to the public view since
   // the gallery is the main post-show task.
-  const [view, setView] = useState<'show' | 'public'>(() => {
-    const d = initialValues?.date;
-    return d && /^\d{4}-\d{2}-\d{2}$/.test(d) && d < todayISODate() ? 'public' : 'show';
-  });
+  const [view, setView] = useState<'show' | 'public'>(isPast ? 'public' : 'show');
   const [photosUploading, setPhotosUploading] = useState(false);
   const [photosUploadProgress, setPhotosUploadProgress] = useState<{ done: number; total: number } | null>(
     null
@@ -392,18 +387,16 @@ export default function ShowForm({
     setForm((prev) => ({ ...prev, slug: slugify(`${prev.date}-${prev.title}`) }));
   }, [form.date, form.title, form.slugTouched]);
 
-  // A show is "past" once its date is before today (local). Post-show edits
-  // hide the pre-show "bands available this date" helper.
-  const isPastShow = /^\d{4}-\d{2}-\d{2}$/.test(form.date) && form.date < todayISODate();
+  // A show is "past" once its night is over (5am Central the morning after).
+  // Post-show edits hide the pre-show "bands available this date" helper.
+  const isPastShow = /^\d{4}-\d{2}-\d{2}$/.test(form.date) && form.date < nightDate;
 
   // Once saved as announced, or once it's happened, the date is frozen with
   // the show's /shows/ id: moving it is a Postpone (a new night with its own
   // id), never an edit. Judged on what's saved, not the unsaved checkbox, so
   // a draft can still be re-dated and announced in one save.
   const savedDate = initialValues?.date ?? '';
-  const dateFrozen =
-    mode === 'edit' &&
-    (Boolean(initialValues?.announced) || (/^\d{4}-\d{2}-\d{2}$/.test(savedDate) && savedDate < todayISODate()));
+  const dateFrozen = mode === 'edit' && (Boolean(initialValues?.announced) || isPast);
   const [postponeDate, setPostponeDate] = useState('');
   const [postponing, setPostponing] = useState(false);
   const [showPostpone, setShowPostpone] = useState(false);

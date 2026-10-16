@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation';
 import { sql } from '@/lib/db';
-import { SHOW_COLUMNS, bandsJoinFragment, videosJoinFragment, normalizePhotosInput } from '@/lib/shows';
+import { SHOW_COLUMNS, bandsJoinFragment, getNightDateCentral, videosJoinFragment, normalizePhotosInput } from '@/lib/shows';
 import { getPhotographerCredits } from '@/lib/photographers';
 import { soundEngineersJoinFragment, type ShowSoundEngineer } from '@/lib/sound-engineers';
 import { getOrCreateShareToken } from '@/lib/share-token';
@@ -94,7 +94,9 @@ export default async function EditShowPage({ params }: { params: Promise<{ id: s
   `;
   const engineers = (row.sound_engineers as Array<{ name: string; status: string }> | null) ?? [];
   const confirmedEngineer = engineers.find((e) => e.status === 'confirmed')?.name ?? null;
-  const isPastShow = row.date < new Date().toLocaleDateString('en-CA'); // en-CA = YYYY-MM-DD, local
+  // Past by the show page's rule: the night is over at 5am Central.
+  const nightDate = getNightDateCentral();
+  const isPastShow = row.date < nightDate;
 
   // Resolve each photo's photographerId → name so the form can display the
   // credit next to each thumbnail (only ids are stored on the row).
@@ -179,7 +181,7 @@ export default async function EditShowPage({ params }: { params: Promise<{ id: s
         settlementSaved={overview?.settlement_saved ?? false}
       />
       {shareUrl && <ShareLinkBox showId={showId} initialUrl={shareUrl} />}
-      <ShowForm mode="edit" embedded initialValues={initialValues} />
+      <ShowForm mode="edit" embedded initialValues={initialValues} isPast={isPastShow} nightDate={nightDate} />
     </div>
   );
 }

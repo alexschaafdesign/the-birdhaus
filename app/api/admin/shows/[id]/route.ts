@@ -4,6 +4,7 @@ import { sql } from '@/lib/db';
 import { TV_FEED_TAG } from '@/lib/tv-feed';
 import {
   ISO_DATE_RE,
+  getNightDateCentral,
   isValidBandsInput,
   isValidVideosInput,
   isValidAudioInput,
@@ -100,13 +101,13 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     // id (097): moving it is a postpone, never an edit. The form resends the
     // date on every save, so only an actual change is refused. The DB trigger
     // enforces the same rule as a backstop.
-    const [current] = await sql<Array<{ date: string; announced: boolean; past: boolean }>>`
-      select date::text as date, announced,
-             date < (now() at time zone 'America/Chicago')::date as past
-      from shows where id = ${showId}
+    // Past = the night is over (5am Central the morning after), as on the show page.
+    const [current] = await sql<Array<{ date: string; announced: boolean }>>`
+      select date::text as date, announced from shows where id = ${showId}
     `;
     if (current && current.date !== body.date) {
-      if (current.announced || current.past) {
+      const past = current.date < getNightDateCentral();
+      if (current.announced || past) {
         return NextResponse.json(
           { error: `This show is ${current.announced ? 'announced' : 'past'}, so its date can't change. Use Postpone to move it to a new date.` },
           { status: 409 }
