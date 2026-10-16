@@ -145,52 +145,34 @@ export default function FreshCutsIntro({
     );
   }
 
+  // The Fresh Cuts view of the archive (/archive?series=fc) opens with this:
+  // what the series is, from the editable copy. The values list is edit-only
+  // for now; the old /fresh-cuts page was its only reader.
   return (
-    <div className="relative">
-      {isAdmin && (
-        <button
-          type="button"
-          onClick={startEditing}
-          className="absolute right-0 top-0 z-10 border-2 border-ink px-3 py-1.5 text-xs font-bold uppercase tracking-widest hover:bg-ink hover:text-paper"
-        >
-          Edit copy
-        </button>
-      )}
-
-      {/* Hero / program description */}
-      <header className="mb-16">
-        <div className="vhs-stripes h-1.5 w-24 mb-3" aria-hidden="true" />
-        <p className="font-mono text-xs uppercase tracking-[0.3em] text-vhs-red mb-4">
+    <section aria-labelledby="fresh-cuts-title" className="flex max-w-3xl flex-col gap-3">
+      <div className="flex items-start justify-between gap-4">
+        <p className="text-data-overline-11 text-accent-red font-bold leading-[1.3] tracking-[--spacing(0.625)] uppercase">
           {current.eyebrow}
         </p>
-        <h1 className="text-5xl md:text-6xl font-bold mb-6 uppercase tracking-tight">{current.title}</h1>
-        <p className="text-lg md:text-xl text-ink/80 leading-relaxed max-w-2xl">
-          {current.tagline}
+        {isAdmin && (
+          <button
+            type="button"
+            onClick={startEditing}
+            className="text-data-overline-11 border-surface-ink hover:bg-surface-ink hover:text-surface-paper focus-visible:outline-accent-red shrink-0 cursor-pointer border px-2 py-1 font-bold tracking-[--spacing(0.625)] uppercase focus-visible:outline-2 focus-visible:outline-offset-2"
+          >
+            Edit copy
+          </button>
+        )}
+      </div>
+      <h1 id="fresh-cuts-title" className="text-display-2 font-bold leading-none uppercase">
+        {current.title}
+      </h1>
+      <p className="text-body-1 leading-normal">{current.tagline}</p>
+      {current.body.map((paragraph, i) => (
+        <p key={i} className="text-body-3 leading-normal">
+          {paragraph}
         </p>
-      </header>
-
-      {/* What it is */}
-      <section className="mb-16 grid gap-10 md:grid-cols-2">
-        <div className="space-y-4 text-ink/70 leading-relaxed">
-          {current.body.map((paragraph, i) => (
-            <p key={i}>{paragraph}</p>
-          ))}
-        </div>
-
-        <div>
-          <h3 className="font-mono text-xs uppercase tracking-widest text-vhs-red mb-2">
-            {current.valuesHeading}
-          </h3>
-          <ul className="space-y-3 text-ink/70 leading-relaxed">
-            {current.values.map((value, i) => (
-              <li key={i} className="flex gap-3">
-                <span className="text-vhs-red">→</span>
-                <span>{value}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      </section>
-    </div>
+      ))}
+    </section>
   );
 }
