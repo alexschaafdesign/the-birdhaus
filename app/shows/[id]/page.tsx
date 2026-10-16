@@ -57,9 +57,8 @@ import {
 } from '@/components/night/NightParts';
 import type { CloudinaryPhoto } from '@/lib/cloudinary-url';
 
-// One page per night, /shows/BH-YYMMDD (and /shows/SAD-### for Song-a-day
-// editions), from announcement through archive — a link shared before the show
-// (or a flyer QR code) ends up at the recordings. The header (ID, date,
+// One page per night, /shows/BH-YYMMDD, from announcement through archive — a
+// link shared before the show (or a flyer QR code) ends up at the recordings. The header (ID, date,
 // lineup) is the same in every state; below it the page renders one state
 // (lib/nights.ts):
 //   upcoming   flyer, door details, RSVP/tickets, lineup with set times
@@ -77,9 +76,7 @@ type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 export async function generateMetadata({ params }: { params: Params }): Promise<Metadata> {
   const { id } = await params;
   const parsed = parseNightParam(id);
-  if (parsed.kind !== 'bh') {
-    return parsed.kind === 'sad' ? { title: parsed.id, alternates: { canonical: `/shows/${parsed.id}` } } : {};
-  }
+  if (parsed.kind !== 'bh') return {};
   const show = await getShowByCatalogueId(parsed.id);
   if (!show) return {};
   if (isPrivateBooking(show) && !(await isAdminSession())) return {};
@@ -135,7 +132,7 @@ export default async function NightPage({ params, searchParams }: { params: Para
 
   // ?sample renders the archive fixtures (lib/archive/fixtures.ts).
   const sample = query.sample !== undefined;
-  if (parsed.kind === 'sad' || sample) {
+  if (sample) {
     const nights = await getNights(sample);
     const night = nights.find((n) => n.id === parsed.id);
     if (!night) notFound();
@@ -153,8 +150,8 @@ export default async function NightPage({ params, searchParams }: { params: Para
     const nights = await getNights(false);
     const night = nights.find((n) => n.id === show.catalogueId);
     if (night) return <ArchivedNight nights={nights} night={night} show={show} isAdmin={isAdmin} />;
-    // Not an archive night (e.g. a Song Club event adapted into a show):
-    // fall through to the plain page, without tickets.
+    // Not an archive night (getLiveNights missed it): fall through to the
+    // plain page, without tickets.
   }
 
   return (
@@ -347,14 +344,13 @@ async function ArchivedNight({
 
   return (
     <SiteFrame stats={archiveTotals(nights)} navPath="/archive">
-      {isAdmin && adminHref && <AdminEditFAB href={adminHref} label={night.kind === 'sad' ? 'Edit Event' : 'Edit Show'} />}
+      {isAdmin && adminHref && <AdminEditFAB href={adminHref} label="Edit Show" />}
       <OpenOnHash />
       <NightHeader
         id={night.id}
         tick={tickOf(night)}
         tag={seriesTag(night)}
         date={night.date}
-        endDate={night.endDate}
         lineup={nightLineup(night)}
         back={{ href: sample ? '/archive?sample' : '/archive', label: 'ARCHIVE' }}
       />

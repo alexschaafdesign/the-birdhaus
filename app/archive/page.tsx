@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { SONGHAUS_URL } from '@/lib/site';
 import {
   archiveHref,
   archiveTotals,
@@ -21,7 +22,7 @@ import { SiteFrame, NightBand } from '@/components/night/SiteFrame';
 import { Filters } from '@/components/night/Filters';
 
 // The archive: every night, newest first (Figma bones: 259:15993). Each row
-// opens the night's one page, /shows/BH-… (or SAD-…). ?sample renders the
+// opens the night's one page, /shows/BH-…. ?sample renders the
 // fixture nights (lib/archive/fixtures.ts) to check the layout.
 // ?series=fc is the Fresh Cuts view (/fresh-cuts redirects here in Phase 2).
 
@@ -37,7 +38,7 @@ export const dynamic = 'force-dynamic';
 const RECORDING_COUNT = 5;
 
 const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) || null;
-const isSeries = (v: string | null): v is SeriesFilter => v === 'bh' || v === 'fc' || v === 'sad';
+const isSeries = (v: string | null): v is SeriesFilter => v === 'bh' || v === 'fc';
 
 export default async function ArchiveIndexPage({
   searchParams,
@@ -102,6 +103,17 @@ export default async function ArchiveIndexPage({
         {nights.length > 0 && (
           <Filters years={years} year={year} series={series} sample={sample} />
         )}
+        {/* Song-a-day editions (SAD-###) are minted and listed by Songhaus. */}
+        <p className="text-body-3">
+          <a
+            href={SONGHAUS_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hover:text-accent-brick underline underline-offset-4"
+          >
+            Song-a-day editions live on Songhaus →
+          </a>
+        </p>
         {months.length === 0 ? (
           <p className="text-body-1">
             {nights.length === 0 ? 'Nothing in the archive yet.' : 'No nights match those filters.'}

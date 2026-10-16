@@ -17,17 +17,15 @@ export function NightHeader({
   tick,
   tag,
   date,
-  endDate,
   lineup,
   back,
   flag,
 }: {
   id: string;
-  tick: 'bh' | 'fc' | 'song-club';
+  tick: 'bh' | 'fc';
   /** "FC 010" on Fresh Cuts nights. */
   tag?: string | null;
   date: string;
-  endDate?: string;
   lineup: string;
   back: { href: string; label: string };
   /** Admin-only marker, e.g. "UNANNOUNCED". */
@@ -50,9 +48,7 @@ export function NightHeader({
           )}
         </h1>
         <p className="text-timecode leading-[1.2] tracking-[--spacing(0.125)]">
-          <time dateTime={date}>
-            {endDate ? `${broadcastDate(date)} – ${broadcastDate(endDate)}` : broadcastDate(date)}
-          </time>
+          <time dateTime={date}>{broadcastDate(date)}</time>
         </p>
       </div>
       {lineup && <p className="text-header-3 max-w-4xl leading-[1.15] uppercase">{lineup}</p>}

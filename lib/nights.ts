@@ -9,18 +9,16 @@ import type { GalleryPhoto } from '@/components/PhotoGallery';
 
 export type NightParam =
   | { kind: 'bh'; id: string; raw: string }
-  | { kind: 'sad'; id: string; raw: string }
   | { kind: 'slug'; slug: string };
 
 // "BH-250329" / "bh-250329b" → canonical "BH-250329b" (upper prefix, lower
-// suffix, per the spec); "SAD-005" likewise. Anything else is an old slug URL.
+// suffix, per the spec). Anything else is an old slug URL. Song-a-day editions
+// (SAD-###) are Songhaus's; next.config sends their URLs there.
 // `raw` is the decoded segment, so the caller can 308 a different casing.
 export function parseNightParam(raw: string): NightParam {
   const value = safeDecode(raw);
   const bh = value.match(/^bh-(\d{6})([a-z]?)$/i);
   if (bh) return { kind: 'bh', id: `BH-${bh[1]}${bh[2].toLowerCase()}`, raw: value };
-  const sad = value.match(/^sad-(\d{3,})$/i);
-  if (sad) return { kind: 'sad', id: `SAD-${sad[1]}`, raw: value };
   return { kind: 'slug', slug: value };
 }
 
