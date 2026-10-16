@@ -230,21 +230,25 @@ export default function TokenSpecimen() {
     };
   }, []);
 
-  // Colors are context-independent: read once after mount.
+  // Colors are context-independent: read once after mount, on the next frame
+  // (after layout) rather than synchronously in the effect.
   useEffect(() => {
-    const root = colorRef.current;
-    if (!root) return;
-    const next: Record<string, Reading> = {};
-    root.querySelectorAll<HTMLElement>('[data-color-token]').forEach((el) => {
-      const token = el.getAttribute('data-color-token');
-      if (!token) return;
-      const cs = getComputedStyle(el);
-      const bg = cs.backgroundColor;
-      const varToken = el.getAttribute('data-color-alias') || token;
-      const cssVar = cs.getPropertyValue('--color-' + varToken).trim();
-      next[token] = { value: bg, ok: cssVar !== '' && !TRANSPARENT.has(bg) };
+    const frame = requestAnimationFrame(() => {
+      const root = colorRef.current;
+      if (!root) return;
+      const next: Record<string, Reading> = {};
+      root.querySelectorAll<HTMLElement>('[data-color-token]').forEach((el) => {
+        const token = el.getAttribute('data-color-token');
+        if (!token) return;
+        const cs = getComputedStyle(el);
+        const bg = cs.backgroundColor;
+        const varToken = el.getAttribute('data-color-alias') || token;
+        const cssVar = cs.getPropertyValue('--color-' + varToken).trim();
+        next[token] = { value: bg, ok: cssVar !== '' && !TRANSPARENT.has(bg) };
+      });
+      setColorReadings(next);
     });
-    setColorReadings(next);
+    return () => cancelAnimationFrame(frame);
   }, []);
 
   // Web sizes are fluid, so re-read on resize as well as on context change.
@@ -260,23 +264,26 @@ export default function TokenSpecimen() {
   // same context, so a broken utility (which would inherit) is caught and the
   // live TV/print/etc. switch and fluid scaling are provably reflected.
   useEffect(() => {
-    const root = typeRef.current;
-    if (!root) return;
-    const next: Record<string, Reading> = {};
-    root.querySelectorAll<HTMLElement>('[data-size-token]').forEach((el) => {
-      const token = el.getAttribute('data-size-token');
-      if (!token) return;
-      const cs = getComputedStyle(el);
-      const applied = cs.fontSize;
-      const raw = cs.getPropertyValue('--bh-size-' + token).trim();
-      const probe = document.createElement('span');
-      probe.style.fontSize = `var(--bh-size-${token})`;
-      el.appendChild(probe);
-      const expected = getComputedStyle(probe).fontSize;
-      probe.remove();
-      next[token] = { value: applied, ok: raw !== '' && applied === expected };
+    const frame = requestAnimationFrame(() => {
+      const root = typeRef.current;
+      if (!root) return;
+      const next: Record<string, Reading> = {};
+      root.querySelectorAll<HTMLElement>('[data-size-token]').forEach((el) => {
+        const token = el.getAttribute('data-size-token');
+        if (!token) return;
+        const cs = getComputedStyle(el);
+        const applied = cs.fontSize;
+        const raw = cs.getPropertyValue('--bh-size-' + token).trim();
+        const probe = document.createElement('span');
+        probe.style.fontSize = `var(--bh-size-${token})`;
+        el.appendChild(probe);
+        const expected = getComputedStyle(probe).fontSize;
+        probe.remove();
+        next[token] = { value: applied, ok: raw !== '' && applied === expected };
+      });
+      setSizeReadings(next);
     });
-    setSizeReadings(next);
+    return () => cancelAnimationFrame(frame);
   }, [context, viewportTick]);
 
   const colorOk = Object.values(colorReadings).filter((r) => r.ok).length;
