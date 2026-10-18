@@ -52,6 +52,48 @@ export function logBlocked(kind: string, detail: LogDetail = {}): void {
   logStaging(`blocked ${kind}`, detail);
 }
 
+// Square's hosted checkout. A stored link on one of these hosts is a live
+// payment link on the real account — 18 older shows keep one in ticket_url, and
+// show_square_links holds the per-tier ones.
+const SQUARE_CHECKOUT_HOST = /(^|\.)(square\.link|square\.site|squareup\.com)$/i;
+// The production site. Some stored ticket_urls are absolute links to it
+// (https://thebirdhaus.org/shows/…/tickets); followed from staging they'd land
+// on prod's tickets page, whose checkout is live.
+const PRODUCTION_HOST = /^(www\.)?thebirdhaus\.org$/i;
+
+export function isSquareCheckoutUrl(url: string): boolean {
+  try {
+    return SQUARE_CHECKOUT_HOST.test(new URL(url).hostname);
+  } catch {
+    return false;
+  }
+}
+
+// A ticket URL that's safe to show here. On production it's returned as is.
+// Anywhere else:
+//   * a Square checkout link becomes this show's /checkout path, which answers
+//     "checkout disabled" off production (app/shows/[id]/checkout), so a stored
+//     square.link never reaches a page, the hub, an email or an admin link;
+//   * an absolute link to the production site keeps its path but drops the
+//     host, so it stays on this deploy instead of crossing to prod;
+//   * anything else passes through.
+// Rewritten URLs are relative: callers that need an absolute URL (emails)
+// prefix SITE_URL.
+export function guardTicketUrl(url: string, showParam: string): string;
+export function guardTicketUrl(url: string | undefined, showParam: string): string | undefined;
+export function guardTicketUrl(url: string | undefined, showParam: string): string | undefined {
+  // No log line: this runs for every show a list page maps.
+  if (!url || outboundAllowed()) return url;
+  if (isSquareCheckoutUrl(url)) return `/shows/${encodeURIComponent(showParam)}/checkout`;
+  try {
+    const parsed = new URL(url);
+    if (PRODUCTION_HOST.test(parsed.hostname)) return `${parsed.pathname}${parsed.search}${parsed.hash}`;
+  } catch {
+    // relative or unparseable: leave it
+  }
+  return url;
+}
+
 // R2 filename tag. The bucket is shared with prod, so uploads from anywhere but
 // a production deploy are named folder/staging-<time>-<hex>.ext: easy to list
 // and delete, and never mistaken for prod's. A tag on the filename rather than a

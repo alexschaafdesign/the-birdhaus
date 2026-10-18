@@ -1,6 +1,7 @@
 import { remark } from 'remark';
 import html from 'remark-html';
 import { sql } from './db';
+import { guardTicketUrl } from './staging';
 
 // One entry in a show's photo gallery. `photographerId` references the
 // photographers registry (050_photographers.sql); null means uncredited.
@@ -118,8 +119,11 @@ async function rowToShow(row: ShowRow, renderContent = false): Promise<Show> {
     description: row.description ?? undefined,
     photographer: (row.photographer as Show['photographer']) ?? undefined,
     rsvpUrl: row.rsvp_url ?? undefined,
-    ticketUrl: row.ticket_url ?? undefined,
-    externalTicketUrl: row.external_ticket_url ?? undefined,
+    // Public-facing, so passed through the staging guard: off production a
+    // stored Square link becomes the show's /checkout (disabled) path. The
+    // admin form reads the raw columns itself and saves those, never these.
+    ticketUrl: guardTicketUrl(row.ticket_url ?? undefined, row.catalogue_id ?? row.slug),
+    externalTicketUrl: guardTicketUrl(row.external_ticket_url ?? undefined, row.catalogue_id ?? row.slug),
     rsvpForm: row.rsvp_form,
     videos: (row.videos as Show['videos']) ?? [],
     audio: (row.audio as Show['audio']) ?? [],

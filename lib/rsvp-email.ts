@@ -1,6 +1,7 @@
 import { getResendClient } from './email';
 import type { Show } from './shows';
 import { splitName } from './name';
+import { SITE_URL } from './site';
 
 const BCC_EMAIL = 'alex@thebirdhaus.org';
 
@@ -28,7 +29,9 @@ export function renderRsvpConfirmationEmail(
   const doorsTime = show.doorsTime;
   const showTime = show.showTime;
   const flyerUrl = show.flyer;
-  const ticketUrl = show.ticketUrl;
+  // Off production lib/shows' guard may have turned a Square link into a
+  // relative /checkout path; an email needs it absolute.
+  const ticketUrl = show.ticketUrl?.startsWith('/') ? `${SITE_URL}${show.ticketUrl}` : show.ticketUrl;
   const firstName = splitName(name).firstName;
   const greeting = firstName ? `hi ${firstName}!` : 'hi there!';
 
