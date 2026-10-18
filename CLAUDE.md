@@ -12,6 +12,14 @@ the three repos divide ownership and why.
 
 No select *, alias.* or returning * in app code; the build enforces it. A migration that changes a column's type on shows, bands, settlements or submissions needs a plan for the pooler first. Ask before writing one.
 
+## Deploys and staging
+
+- Merging into `main` deploys **production** (and runs pending migrations on
+  prod; see docs/db-safety.md).
+- Never point a preview deployment at the prod database.
+- `future-2027` is the 2027 release branch, staged at **next.thebirdhaus.org**.
+  New 2027 work branches from it, not from `main`.
+
 ## Square
 
 Never manually resend pre-081 `payment.updated` events for MULTI-ITEM orders
