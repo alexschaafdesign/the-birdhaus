@@ -64,7 +64,7 @@ ${doorsTime && showTime ? `<p>Doors open at <strong>${esc(doorsTime)}</strong> a
 <p>alex / the BIRDHAUS</p>
 `;
 
-  const { error } = await getResendClient().emails.send({
+  const { error } = await getResendClient('ticket-confirmation').emails.send({
     from,
     to,
     bcc: BCC_EMAIL,

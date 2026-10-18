@@ -74,7 +74,7 @@ export async function sendNewTimesheetEntryEmail(entry: TimesheetEntry): Promise
 <p><a href="${TIMESHEET_URL}">Review the timesheet →</a></p>
 `;
 
-  const { error } = await getResendClient().emails.send({ from, to: notifyTo(), subject, html, text });
+  const { error } = await getResendClient('timesheet-new-entry').emails.send({ from, to: notifyTo(), subject, html, text });
   if (error) throw new Error(`Resend send failed: ${JSON.stringify(error)}`);
 }
 
@@ -120,6 +120,6 @@ export async function sendUnpaidTimesheetReminderEmail(entries: TimesheetEntry[]
 <p><a href="${TIMESHEET_URL}">Mark them paid →</a></p>
 `;
 
-  const { error } = await getResendClient().emails.send({ from, to: notifyTo(), subject, html, text });
+  const { error } = await getResendClient('timesheet-unpaid-reminder').emails.send({ from, to: notifyTo(), subject, html, text });
   if (error) throw new Error(`Resend send failed: ${JSON.stringify(error)}`);
 }

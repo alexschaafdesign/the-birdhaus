@@ -146,7 +146,7 @@ export async function POST(request: Request) {
     signature: request.headers.get('svix-signature') ?? '',
   };
 
-  const resend = getResendClient();
+  const resend = getResendClient('advance-inbound');
   let event: InboundEvent;
   try {
     event = resend.webhooks.verify({

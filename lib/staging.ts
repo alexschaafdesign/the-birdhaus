@@ -38,11 +38,18 @@ export function stagingEmailTo(): string | null {
   return to ? to : null;
 }
 
-// Log line for a blocked side effect. Counts and labels only — never addresses,
-// bodies or payment details, since these land in Vercel's runtime logs.
-export function logBlocked(kind: string, detail: Record<string, string | number | boolean | null> = {}): void {
+type LogDetail = Record<string, string | number | boolean | null>;
+
+// `[staging] <event>` log line for a side effect handled off production. Counts
+// and labels only — never addresses, bodies or payment details, since these land
+// in Vercel's runtime logs.
+export function logStaging(event: string, detail: LogDetail = {}): void {
   const parts = Object.entries(detail).map(([k, v]) => `${k}=${JSON.stringify(v)}`);
-  console.log(`[staging] blocked ${kind}${parts.length ? ' ' + parts.join(' ') : ''}`);
+  console.log(`[staging] ${event}${parts.length ? ' ' + parts.join(' ') : ''}`);
+}
+
+export function logBlocked(kind: string, detail: LogDetail = {}): void {
+  logStaging(`blocked ${kind}`, detail);
 }
 
 // R2 filename tag. The bucket is shared with prod, so uploads from anywhere but
