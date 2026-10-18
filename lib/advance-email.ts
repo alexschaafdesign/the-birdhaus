@@ -402,7 +402,7 @@ export async function sendAdvanceEmail({
   const toSet = new Set(toEmails.map((e) => e.toLowerCase()));
   const cc = ccEmails.filter((e) => !toSet.has(e.toLowerCase()));
 
-  const { data, error } = await getResendClient().emails.send({
+  const { data, error } = await getResendClient('advance').emails.send({
     from,
     to: toEmails,
     ...(cc.length > 0 ? { cc } : {}),
@@ -438,7 +438,7 @@ export async function notifyAdvanceActivity({
   if (to.length === 0) return; // No watchers — nothing to notify.
   const adminUrl = `${SITE_URL}/admin/shows/${showId}/portal`;
   const detailLine = detail ? `<p>${escapeHtml(detail)}</p>` : '';
-  await getResendClient().emails.send({
+  await getResendClient('advance-activity').emails.send({
     from,
     to,
     subject: `[Portal] ${summary} — ${showTitle}`,

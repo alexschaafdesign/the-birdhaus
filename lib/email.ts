@@ -1,5 +1,5 @@
 import { Resend } from 'resend';
-import { logBlocked, outboundAllowed, stagingEmailTo } from './staging';
+import { logBlocked, logStaging, outboundAllowed, stagingEmailTo } from './staging';
 
 // The one place the app makes a Resend client. Every sender (RSVP, advance,
 // tickets, timesheet, alerts, accounts, the inbound forwarder) calls this.
@@ -9,8 +9,14 @@ import { logBlocked, outboundAllowed, stagingEmailTo } from './staging';
 // are swapped out:
 //   * BH_STAGING_EMAIL_TO set: each message goes to that one address instead,
 //     cc/bcc and reply-to dropped (a reply-to can carry an advance reply token
-//     that prod's inbound webhook would act on), subject tagged.
-//   * unset: nothing is sent; a count-only line is logged.
+//     that prod's inbound webhook would act on), subject tagged, and a
+//     `[staging] redirected email` line logged.
+//   * unset: nothing is sent; a `[staging] blocked email` line is logged.
+// Either way the line carries the caller's template label, the subject and
+// the original recipient count — never an address.
+//
+// `template` names the email for those log lines ('rsvp-confirmation', ...).
+// Production ignores it.
 //
 // Instantiated lazily, at request time: Resend's constructor throws without a
 // key, and `next build` imports these modules to collect page data.
@@ -31,9 +37,12 @@ function recipientCount(value: unknown): number {
   return value ? 1 : 0;
 }
 
+function originalRecipients(payload: SendPayload): number {
+  return recipientCount(payload.to) + recipientCount(payload.cc) + recipientCount(payload.bcc);
+}
+
 function redirect(payload: SendPayload, to: string): SendPayload {
-  const original = recipientCount(payload.to) + recipientCount(payload.cc) + recipientCount(payload.bcc);
-  const copy = { ...payload, to, subject: `[staging · ${original} recipient(s)] ${payload.subject}` };
+  const copy = { ...payload, to, subject: `[staging · ${originalRecipients(payload)} recipient(s)] ${payload.subject}` };
   delete copy.cc;
   delete copy.bcc;
   delete copy.replyTo;
@@ -44,7 +53,7 @@ function fakeId(prefix: string): string {
   return `staging-${prefix}-${Date.now()}`;
 }
 
-export function getResendClient(): Resend {
+export function getResendClient(template = 'unlabelled'): Resend {
   const apiKey = process.env.RESEND_API_KEY;
   if (outboundAllowed()) {
     if (!apiKey) throw new Error('RESEND_API_KEY is not set');
@@ -58,21 +67,34 @@ export function getResendClient(): Resend {
   const realBatch = client.batch.send.bind(client.batch);
 
   client.emails.send = (async (payload: SendPayload) => {
-    if (testTo) return realSend(redirect(payload, testTo));
-    logBlocked('email', { subject: payload.subject ?? null, recipients: recipientCount(payload.to) + recipientCount(payload.cc) + recipientCount(payload.bcc) });
+    const detail = { template, subject: payload.subject ?? null, recipients: originalRecipients(payload) };
+    if (testTo) {
+      logStaging('redirected email', detail);
+      return realSend(redirect(payload, testTo));
+    }
+    logBlocked('email', detail);
     return { data: { id: fakeId('email') }, error: null, headers: null } as SendResult;
   }) as Resend['emails']['send'];
 
   client.batch.send = (async (payloads: BatchPayload) => {
-    if (testTo) return realBatch(payloads.map((p) => redirect(p as SendPayload, testTo)) as BatchPayload);
-    logBlocked('email batch', { messages: payloads.length, subject: payloads[0]?.subject ?? null });
+    const detail = {
+      template,
+      subject: payloads[0]?.subject ?? null,
+      messages: payloads.length,
+      recipients: payloads.reduce((n, p) => n + originalRecipients(p as SendPayload), 0),
+    };
+    if (testTo) {
+      logStaging('redirected email batch', detail);
+      return realBatch(payloads.map((p) => redirect(p as SendPayload, testTo)) as BatchPayload);
+    }
+    logBlocked('email batch', detail);
     return { data: { data: payloads.map(() => ({ id: fakeId('batch') })) }, error: null, headers: null } as BatchResult;
   }) as Resend['batch']['send'];
 
   // Forwarding an inbound reply sends mail to the advance watchers. Off the
   // production site it's never forwarded, test address or not.
   client.emails.receiving.forward = (async (payload: ForwardPayload) => {
-    logBlocked('email forward', { recipients: recipientCount(payload.to) });
+    logBlocked('email forward', { template, recipients: recipientCount(payload.to) });
     return { data: { id: fakeId('forward') }, error: null, headers: null } as unknown as ForwardResult;
   }) as Resend['emails']['receiving']['forward'];
 

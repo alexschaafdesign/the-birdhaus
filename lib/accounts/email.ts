@@ -25,7 +25,7 @@ async function notifyAdminCopy(subject: string, line: string): Promise<void> {
   const from = process.env.RESEND_FROM_EMAIL;
   if (!from) return;
   try {
-    const { error } = await getResendClient().emails.send({
+    const { error } = await getResendClient('account-admin-copy').emails.send({
       from,
       to: NOTIFY_EMAIL,
       subject,
@@ -83,7 +83,7 @@ export async function sendCrewInviteEmail({
 <p style="font-size: 13px; color: #777;">This link is just for you — please don't forward it.</p>
 <p>— the BIRDHAUS</p>`;
 
-  const { error } = await getResendClient().emails.send({
+  const { error } = await getResendClient('crew-invite').emails.send({
     from,
     to: email,
     subject: "You're on the Birdhaus crew",
@@ -131,7 +131,7 @@ export async function sendAccountPasswordResetEmail({
 <p style="font-size: 13px; color: #777;">If you didn't ask for this, you can ignore this email.</p>
 <p>— the BIRDHAUS</p>`;
 
-  const { error } = await getResendClient().emails.send({
+  const { error } = await getResendClient('password-reset').emails.send({
     from,
     to: email,
     subject: 'Reset your Birdhaus password',

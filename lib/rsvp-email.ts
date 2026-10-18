@@ -114,7 +114,7 @@ export async function sendRsvpBlast({
   const from = process.env.RESEND_FROM_EMAIL;
   if (!from) throw new Error('RESEND_FROM_EMAIL is not set');
 
-  const client = getResendClient();
+  const client = getResendClient('rsvp-blast');
   const failed: { email: string; error: string }[] = [];
   let sent = 0;
 
@@ -158,7 +158,7 @@ export async function sendRsvpConfirmationEmail({
   if (!from) throw new Error('RESEND_FROM_EMAIL is not set');
 
   const { subject, html } = renderRsvpConfirmationEmail(show, name);
-  const { error } = await getResendClient().emails.send({
+  const { error } = await getResendClient('rsvp-confirmation').emails.send({
     from,
     to: email,
     bcc: BCC_EMAIL,

@@ -41,6 +41,6 @@ export async function sendAdminAlertEmail(subject: string, lines: string[]): Pro
 <p style="margin:16px 0;">${lines.map((l) => esc(l)).join('<br>')}</p>
 `;
 
-  const { error } = await getResendClient().emails.send({ from, to: notifyTo(), subject, html, text });
+  const { error } = await getResendClient('admin-alert').emails.send({ from, to: notifyTo(), subject, html, text });
   if (error) throw new Error(`Resend send failed: ${JSON.stringify(error)}`);
 }
