@@ -1,16 +1,29 @@
+import type { Metadata } from 'next';
 import { getAllBandsWithPlayCount } from '@/lib/bands';
+import { SiteFrame } from '@/components/night/SiteFrame';
+import { SectionHeader } from '@/components/ui/SectionHeader';
 import BandsGallery from '@/components/BandsGallery';
+
+// Every band that's played the Birdhaus (2027 frame). No nav item: reached
+// from the archive's "All bands →" link, band links on night pages, and the
+// sitemap. ARCHIVE is the lit nav item.
+
+export const metadata: Metadata = {
+  title: 'Bands',
+  description: "Every band that's played the Birdhaus.",
+  alternates: { canonical: '/bands' },
+};
 
 export default async function BandsPage() {
   const bands = await getAllBandsWithPlayCount();
 
   return (
-    <main className="min-h-screen p-8">
-      <div className="max-w-6xl mx-auto">
-        <div className="vhs-stripes h-1.5 w-24 mb-3" aria-hidden="true" />
-        <h1 className="text-5xl font-bold mb-2 uppercase tracking-tight">Bands</h1>
+    <SiteFrame stats={null} navPath="/bands">
+      <h1 className="sr-only">Bands</h1>
+      <section aria-labelledby="bands" className="flex flex-col gap-4">
+        <SectionHeader id="bands" label="Bands" rule="none" />
         <BandsGallery bands={bands} />
-      </div>
-    </main>
+      </section>
+    </SiteFrame>
   );
 }

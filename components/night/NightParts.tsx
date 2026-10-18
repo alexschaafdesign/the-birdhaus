@@ -194,7 +194,7 @@ export function StatusNotice({
   );
 }
 
-function Credit({ label, value }: { label: string; value?: string }) {
+function Credit({ label, value }: { label: string; value?: ReactNode }) {
   if (!value) return null;
   return (
     <div className="flex flex-col gap-1">
@@ -204,6 +204,25 @@ function Credit({ label, value }: { label: string; value?: string }) {
       <dd className="text-body-3 leading-normal">{value}</dd>
     </div>
   );
+}
+
+// Photographer names, each linked to their /photos page when they have one.
+function PhotoCredits({ names, links }: { names: string[]; links?: Record<string, string> }) {
+  return names.map((name, i) => (
+    <span key={name}>
+      {i > 0 && ', '}
+      {links?.[name] ? (
+        <Link
+          href={links[name]}
+          className="ui-hover:text-accent-red focus-visible:outline-accent-red underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-2"
+        >
+          {name}
+        </Link>
+      ) : (
+        name
+      )}
+    </span>
+  ));
 }
 
 // Credits + releases, on paper. Renders nothing when nothing is known.
@@ -219,7 +238,7 @@ export function NightCredits({ night }: { night: Night }) {
         <Credit label="Sound" value={credits.sound} />
         <Credit label="Camera ops" value={credits.cameras?.join(', ')} />
         <Credit label="Recorded" value={credits.channels ? `${credits.channels} channels` : undefined} />
-        <Credit label="Photos" value={credits.photos?.join(', ')} />
+        <Credit label="Photos" value={credits.photos && <PhotoCredits names={credits.photos} links={credits.photoLinks} />} />
       </dl>
       {night.releases?.length ? (
         <ul className="flex flex-col gap-2">

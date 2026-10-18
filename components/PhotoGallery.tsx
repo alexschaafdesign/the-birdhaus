@@ -28,22 +28,29 @@ export default function PhotoGallery({ photos, showTitle }: { photos: GalleryPho
 
   return (
     <>
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+      {/* Square corners (2027). Each photo is a button so the lightbox opens
+          from the keyboard too. */}
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
         {photos.map((photo, idx) => (
-          <Image
+          <button
             key={idx}
-            src={photo.url}
-            alt={`${showTitle} photo ${idx + 1}`}
-            width={0}
-            height={0}
-            sizes="(max-width: 768px) 50vw, 33vw"
-            unoptimized
-            className="w-full h-auto rounded cursor-pointer hover:opacity-80 transition-opacity"
+            type="button"
             onClick={() => {
               setIndex(idx);
               setOpen(true);
             }}
-          />
+            className="focus-visible:outline-accent-red block cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2"
+          >
+            <Image
+              src={photo.url}
+              alt={`${showTitle} photo ${idx + 1}`}
+              width={0}
+              height={0}
+              sizes="(max-width: 768px) 50vw, 33vw"
+              unoptimized
+              className="h-auto w-full transition-opacity hover:opacity-80"
+            />
+          </button>
         ))}
       </div>
 

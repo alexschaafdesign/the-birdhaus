@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { SONGHAUS_URL } from '@/lib/site';
 import { getFreshCutsContent } from '@/lib/page-content';
 import { isAdminSession } from '@/lib/admin-session';
@@ -136,8 +137,12 @@ export default async function ArchiveIndexPage({
         {nights.length > 0 && (
           <Filters years={years} year={year} series={series} sample={sample} />
         )}
-        {/* Song-a-day editions (SAD-###) are minted and listed by Songhaus. */}
-        <p className="text-body-3">
+        {/* Song-a-day editions (SAD-###) are minted and listed by Songhaus.
+            /bands has no nav item, so the archive is where it's linked. */}
+        <p className="text-body-3 flex flex-wrap gap-x-6 gap-y-1">
+          <Link href="/bands" className="hover:text-accent-brick underline underline-offset-4">
+            All bands →
+          </Link>
           <a
             href={SONGHAUS_URL}
             target="_blank"

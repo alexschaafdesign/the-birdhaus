@@ -108,7 +108,8 @@ export default function Header({ isAdmin = false }: { isAdmin?: boolean }) {
 
   // Already on the 2027 system, with the rail header in the page: home, the
   // archive index, About/Contact, the night page itself (not
-  // /shows/[id]/tickets, which is still old-style) and the account pages.
+  // /shows/[id]/tickets, which is still old-style), the account pages, and
+  // the band and photographer pages.
   if (
     pathname === '/' ||
     pathname === '/archive' ||
@@ -116,7 +117,10 @@ export default function Header({ isAdmin = false }: { isAdmin?: boolean }) {
     /^\/shows\/[^/]+\/?$/.test(pathname) ||
     pathname === '/login' ||
     pathname === '/account' ||
-    pathname.startsWith('/invite/')
+    pathname.startsWith('/invite/') ||
+    pathname === '/bands' ||
+    pathname.startsWith('/bands/') ||
+    pathname.startsWith('/photos/')
   ) {
     return null;
   }
