@@ -5,6 +5,7 @@ import { getPhotographerCredits } from '@/lib/photographers';
 import { soundEngineersJoinFragment, type ShowSoundEngineer } from '@/lib/sound-engineers';
 import { getOrCreateShareToken } from '@/lib/share-token';
 import { SITE_URL } from '@/lib/site';
+import { guardTicketUrl } from '@/lib/staging';
 import ShowForm, { type ShowFormInitialValues } from '@/components/admin/ShowForm';
 import ShareLinkBox from '@/components/admin/ShareLinkBox';
 import ShowOverview from '@/components/admin/ShowOverview';
@@ -67,12 +68,18 @@ export default async function EditShowPage({ params }: { params: Promise<{ id: s
   `;
   const notesByBand = new Map(setNotes.map((r) => [Number(r.band_id), r.notes]));
 
-  const squareLinks = await sql<{ tierLabel: string; amountCents: number; url: string | null }[]>`
+  const squareLinkRows = await sql<{ tierLabel: string; amountCents: number; url: string | null }[]>`
     select tier_label as "tierLabel", amount_cents as "amountCents", url
     from show_square_links
     where show_id = ${showId}
     order by amount_cents
   `;
+  // Display only (the form never saves these): off production a live Square
+  // link shows as the disabled /checkout path, so a click on staging can't buy.
+  const squareLinks = squareLinkRows.map((l) => ({
+    ...l,
+    url: l.url ? guardTicketUrl(l.url, row.catalogue_id ?? row.slug) : null,
+  }));
 
   // Lifecycle status for the top-of-tab Overview checklist. One round-trip; each
   // subquery degrades to 0/false when that subsystem has no rows yet.
