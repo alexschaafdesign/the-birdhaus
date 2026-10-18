@@ -1,9 +1,11 @@
 import type { Metadata } from 'next';
+import { headers } from 'next/headers';
 import { getNightDateCentral } from '@/lib/shows';
 import { getOpenDates } from '@/lib/available-dates';
 import { broadcastDate } from '@/lib/catalogue';
 import { SectionHeader } from '@/components/ui/SectionHeader';
 import { SiteFrame } from '@/components/night/SiteFrame';
+import { outboundAllowed } from '@/lib/staging';
 import { ContactForm } from './ContactForm';
 
 // About/Contact (2027): what the venue is, the open dates, and the message
@@ -22,6 +24,9 @@ export const dynamic = 'force-dynamic';
 
 export default async function ContactPage() {
   const openDates = await getOpenDates(getNightDateCentral());
+  // Off the production site the form posts to a log-only route, not the venue's
+  // Apps Script (lib/staging.ts).
+  const logOnly = !outboundAllowed((await headers()).get('host'));
 
   return (
     <SiteFrame stats={null}>
@@ -60,7 +65,7 @@ export default async function ContactPage() {
           Send us a message and we&apos;ll get back to you as soon as possible! note: I&apos;m just
           one dude doing this as an unpaid labor of love so your patience is appreciated :D
         </p>
-        <ContactForm />
+        <ContactForm logOnly={logOnly} />
       </section>
     </SiteFrame>
   );

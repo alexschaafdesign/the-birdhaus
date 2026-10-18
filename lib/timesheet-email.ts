@@ -3,7 +3,7 @@
 // Resend, same lazy-client pattern as lib/rsvp-email.ts so a missing key never
 // breaks `next build`.
 
-import { Resend } from 'resend';
+import { getResendClient } from './email';
 import { SITE_URL } from './site';
 import type { TimesheetEntry } from './timesheet-shared';
 
@@ -11,12 +11,6 @@ import type { TimesheetEntry } from './timesheet-shared';
 // already used as the RSVP/advance BCC.
 function notifyTo(): string {
   return process.env.ADMIN_NOTIFY_EMAIL || 'alex@thebirdhaus.org';
-}
-
-function getResendClient(): Resend {
-  const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey) throw new Error('RESEND_API_KEY is not set');
-  return new Resend(apiKey);
 }
 
 function formatCurrency(value: number): string {

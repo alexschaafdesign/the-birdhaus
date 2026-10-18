@@ -6,11 +6,13 @@
 // themselves), so this module can use node:crypto freely.
 //
 // The cookie name (birdhaus_club_session) and the "club2:" signature prefix
-// are from when this served the Song Club portal. They stay as they are:
-// changing either would sign everyone out.
+// are from when this served the Song Club portal. They stay as they are on
+// production: changing either would sign everyone out. (Staging's cookie is
+// birdhaus_club_session_stg; see ACCOUNT_SESSION_COOKIE.)
 
 import crypto from 'crypto';
 import { promisify } from 'util';
+import { isStaging } from '../staging';
 
 const scrypt = promisify(crypto.scrypt) as (
   password: string,
@@ -18,7 +20,8 @@ const scrypt = promisify(crypto.scrypt) as (
   keylen: number
 ) => Promise<Buffer>;
 
-export const ACCOUNT_SESSION_COOKIE = 'birdhaus_club_session';
+// _stg on staging, for the same reason as SESSION_COOKIE in lib/auth.ts.
+export const ACCOUNT_SESSION_COOKIE = isStaging() ? 'birdhaus_club_session_stg' : 'birdhaus_club_session';
 export const ACCOUNT_SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 60; // 60 days
 
 export const MIN_PASSWORD_LENGTH = 8;

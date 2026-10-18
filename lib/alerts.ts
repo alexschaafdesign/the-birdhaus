@@ -3,17 +3,11 @@
 // Resend client pattern as lib/timesheet-email.ts so a missing key never breaks
 // `next build`.
 
-import { Resend } from 'resend';
+import { getResendClient } from './email';
 import { sql } from './db';
 
 function notifyTo(): string {
   return process.env.ADMIN_NOTIFY_EMAIL || 'alex@thebirdhaus.org';
-}
-
-function getResendClient(): Resend {
-  const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey) throw new Error('RESEND_API_KEY is not set');
-  return new Resend(apiKey);
 }
 
 function esc(s: string): string {

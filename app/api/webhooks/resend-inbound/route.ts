@@ -1,10 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { Resend } from 'resend';
-import {
-  getResendClient,
-  parseReplyToken,
-  extractEmailAddress,
-} from '@/lib/advance-email';
+import { getResendClient } from '@/lib/email';
+import { parseReplyToken, extractEmailAddress } from '@/lib/advance-email';
 import { recordInboundReply, type InboundAttachmentInput } from '@/lib/advance';
 import { getAdvanceWatchers } from '@/lib/advance-watchers';
 

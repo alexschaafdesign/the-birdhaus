@@ -4,9 +4,11 @@ import { useState } from 'react';
 
 // The About/Contact page's message form, posted to the venue's Google Apps
 // Script endpoint (the response isn't read; a network failure shows the
-// fallback address).
+// fallback address). `logOnly` (staging, previews, local dev) posts to
+// /api/staging/outbox instead, which logs and sends nothing.
 
 const CONTACT_URL = 'https://script.google.com/macros/s/AKfycbyqjkeA5Ik4w6pTpB9ZbZ-J0X8R3g6Zi0MAhlkEOBWTjZ2ncFmXH6AUH2IN5dqutsDPpA/exec';
+const LOG_ONLY_URL = '/api/staging/outbox';
 
 // Basic RFC-ish format check.
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -36,7 +38,7 @@ const FIELD =
 const LABEL =
   'text-data-overline-11 mb-1 block font-bold leading-[1.3] tracking-[--spacing(0.625)] uppercase';
 
-export function ContactForm() {
+export function ContactForm({ logOnly }: { logOnly: boolean }) {
   const [ct, setCt] = useState({ name: '', email: '', message: '' });
   const [ctStatus, setCtStatus] = useState<'idle' | 'sending' | 'success' | 'error'>('idle');
   const [ctEmailError, setCtEmailError] = useState<string | null>(null);
@@ -48,7 +50,7 @@ export function ContactForm() {
     setCtEmailError(null);
     setCtStatus('sending');
     try {
-      await fetch(CONTACT_URL, {
+      await fetch(logOnly ? LOG_ONLY_URL : CONTACT_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: new URLSearchParams({ action: 'contact', ...ct }).toString(),

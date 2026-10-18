@@ -1,6 +1,7 @@
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import crypto from 'crypto';
 import sharp from 'sharp';
+import { uploadNameTag } from './staging';
 
 declare global {
   var __birdhausR2: S3Client | undefined;
@@ -127,7 +128,7 @@ export async function uploadToR2(
 
   const processed = await processUploadedImage(body, contentType, MAX_DIMENSION[folder]);
 
-  const key = `${folder}/${Date.now()}-${crypto.randomBytes(4).toString('hex')}.${processed.extension}`;
+  const key = `${folder}/${uploadNameTag()}${Date.now()}-${crypto.randomBytes(4).toString('hex')}.${processed.extension}`;
 
   const client = getClient();
   await client.send(
@@ -174,7 +175,7 @@ export async function uploadFileToR2(
   }
 
   const extension = extensionFor(filename, contentType);
-  const key = `${folder}/${Date.now()}-${crypto.randomBytes(4).toString('hex')}.${extension}`;
+  const key = `${folder}/${uploadNameTag()}${Date.now()}-${crypto.randomBytes(4).toString('hex')}.${extension}`;
 
   const client = getClient();
   await client.send(

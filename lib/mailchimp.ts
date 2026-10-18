@@ -1,5 +1,6 @@
 import crypto from 'crypto';
 import { splitName } from './name';
+import { logBlocked, outboundAllowed } from './staging';
 
 function subscriberHash(email: string): string {
   return crypto.createHash('md5').update(email.trim().toLowerCase()).digest('hex');
@@ -81,6 +82,11 @@ export async function upsertMailchimpSubscriber({
   email: string;
   name: string;
 }): Promise<void> {
+  // The audience is the real mailing list: only a production deploy adds to it.
+  if (!outboundAllowed()) {
+    logBlocked('mailchimp upsert');
+    return;
+  }
   const apiKey = process.env.MAILCHIMP_API_KEY;
   const audienceId = process.env.MAILCHIMP_AUDIENCE_ID;
   if (!apiKey || !audienceId) {

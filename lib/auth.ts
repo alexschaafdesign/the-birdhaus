@@ -12,7 +12,13 @@
 // Uses Web Crypto (not node:crypto) so this works in both the Node.js and Edge
 // runtimes; anything needing the DB lives in lib/admin-session.ts instead.
 
-export const SESSION_COOKIE = 'birdhaus_admin_session';
+import { isStaging } from './staging';
+
+// Staging (next.thebirdhaus.org) gets its own name, _stg: production's cookie is
+// set on .thebirdhaus.org and so also reaches next., and two same-name cookies
+// in one Cookie header read last-wins. Production's name is unchanged — changing
+// it would sign everyone out.
+export const SESSION_COOKIE = isStaging() ? 'birdhaus_admin_session_stg' : 'birdhaus_admin_session';
 // Staff admin cookies are shorter-lived than the club cookie: even if the
 // epoch/status re-check were somehow skipped, an issued cookie ages out fast.
 export const STAFF_SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 7;
