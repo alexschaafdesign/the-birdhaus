@@ -15,7 +15,11 @@ export const metadata: Metadata = {
 };
 
 export default async function BandsPage() {
-  const bands = await getAllBandsWithPlayCount();
+  // Only what the tiles use crosses to the client: the full band rows carry
+  // bios, links and socials for all ~370 bands (it was 432 KB of HTML).
+  const bands = (await getAllBandsWithPlayCount()).map(
+    ({ id, slug, name, photo, isTouring, hometown, playCount }) => ({ id, slug, name, photo, isTouring, hometown, playCount })
+  );
 
   return (
     <SiteFrame stats={null} navPath="/bands">
