@@ -57,17 +57,17 @@ export default function ContactPage() {
         <div className="vhs-stripes h-1.5 w-24 mb-3" aria-hidden="true" />
         <h2 className="text-4xl font-bold mb-2 uppercase tracking-tight">Contact</h2>
         <p className="text-ink/70 text-base mb-6">
-          Send us a message and we'll get back to you as soon as possible! note: I'm just one dude doing this as an unpaid labor of love so your patience is appreciated :D
+          Send us a message and we&apos;ll get back to you as soon as possible! note: I&apos;m just one dude doing this as an unpaid labor of love so your patience is appreciated :D
         </p>
 
         <div className="border-2 border-ink p-4 mb-8 bg-paper-deep">
           <p className="text-sm">
-            <span className="font-semibold">Heads up:</span> we are fully booked for the rest of the 2026 season (we'll be closed October-December), but feel free to send a message to get on our radar for 2027!
+            <span className="font-semibold">Heads up:</span> we are fully booked for the rest of the 2026 season (we&apos;ll be closed October-December), but feel free to send a message to get on our radar for 2027!
           </p>
         </div>
 
         {ctStatus === 'success' ? (
-          <p className="text-base">Thanks for reaching out! We'll get back to you as soon as we can.</p>
+          <p className="text-base">Thanks for reaching out! We&apos;ll get back to you as soon as we can.</p>
         ) : (
           <form onSubmit={handleContact} className="space-y-5">
             <div>
