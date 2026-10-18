@@ -1,9 +1,8 @@
 // Timesheet — hourly entries logged by admin helpers (migration 042). Raw-SQL
-// data layer, same shape/conventions as lib/song-club.ts. Money is stored as
-// integer cents (rate_cents); hours are derived from clock_in/clock_out at read
-// time so an edited rate always recomputes the payout cleanly. Pure types +
-// math live in ./timesheet-shared so client components can import them without
-// pulling in the postgres driver.
+// data layer. Money is stored as integer cents (rate_cents); hours are derived
+// from clock_in/clock_out at read time so an edited rate always recomputes the
+// payout cleanly. Pure types + math live in ./timesheet-shared so client
+// components can import them without pulling in the postgres driver.
 
 import { sql } from './db';
 import {
@@ -134,7 +133,7 @@ export async function deleteEntry(id: number): Promise<boolean> {
   return result.count > 0;
 }
 
-// Today in Central Time as "YYYY-MM-DD" (same convention as lib/song-club).
+// Today in Central Time as "YYYY-MM-DD".
 export function getTodayCentral(): string {
   return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Chicago' });
 }

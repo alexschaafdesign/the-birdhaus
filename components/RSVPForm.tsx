@@ -101,7 +101,7 @@ export default function RSVPForm({
       <p className="text-sm text-[#E8E0D0]/70 mb-4">
         RSVP below to get the venue address and show details emailed to you.
         {ticketUrl && (
-          <> After submitting, you'll have the option to <strong>buy an advance ticket</strong> to guarantee your spot.</>
+          <> After submitting, you&apos;ll have the option to <strong>buy an advance ticket</strong> to guarantee your spot.</>
         )}
       </p>
 
@@ -114,7 +114,7 @@ export default function RSVPForm({
             <div className="bg-[#E8E0D0] text-[#2A2420] rounded-lg p-5">
               <p className="font-bold mb-1">🎟 Want to guarantee your spot?</p>
               <p className="text-[#2A2420]/70 text-sm mb-4">
-                RSVPs are first-come, first-served and the venue is small. Buying an advance ticket means you're in — no matter how packed it gets.
+                RSVPs are first-come, first-served and the venue is small. Buying an advance ticket means you&apos;re in — no matter how packed it gets.
               </p>
               <a
                 href={ticketUrl}
