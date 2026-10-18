@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { FORM } from '@/components/night/form';
 
 // The About/Contact page's message form, posted to the venue's Google Apps
 // Script endpoint (the response isn't read; a network failure shows the
@@ -33,10 +34,8 @@ function validateEmail(email: string): string | null {
   return null;
 }
 
-const FIELD =
-  'border-surface-ink bg-surface-paper text-body-3 w-full border px-3 py-2 focus-visible:outline-accent-red focus-visible:outline-2 focus-visible:outline-offset-2';
-const LABEL =
-  'text-data-overline-11 mb-1 block font-bold leading-[1.3] tracking-[--spacing(0.625)] uppercase';
+const FIELD = FORM.field;
+const LABEL = FORM.label;
 
 export function ContactForm({ logOnly }: { logOnly: boolean }) {
   const [ct, setCt] = useState({ name: '', email: '', message: '' });
@@ -105,10 +104,10 @@ export function ContactForm({ logOnly }: { logOnly: boolean }) {
           }}
           aria-invalid={ctEmailError ? true : undefined}
           aria-describedby={ctEmailError ? 'contact-email-error' : undefined}
-          className={`${FIELD} ${ctEmailError ? 'border-accent-red' : ''}`}
+          className={ctEmailError ? FORM.fieldInvalid : FIELD}
         />
         {ctEmailError && (
-          <p id="contact-email-error" className="text-body-3 text-accent-red mt-1">
+          <p id="contact-email-error" className={FORM.fieldError} role="alert">
             {ctEmailError}
           </p>
         )}
@@ -127,7 +126,7 @@ export function ContactForm({ logOnly }: { logOnly: boolean }) {
         />
       </div>
       {ctStatus === 'error' && (
-        <p className="text-body-3 text-accent-red" role="alert">
+        <p className={FORM.error} role="alert">
           Something went wrong — try emailing us directly at alex@thebirdhaus.org
         </p>
       )}

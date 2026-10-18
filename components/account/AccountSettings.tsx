@@ -26,6 +26,10 @@ export default function AccountSettings({ member }: { member: UserAccount }) {
   const [savingPw, setSavingPw] = useState(false);
   const [pwNotice, setPwNotice] = useState<string | null>(null);
   const [pwError, setPwError] = useState<string | null>(null);
+  // "Current password is incorrect" is about the current-password field:
+  // shown under it with a red border. Other password errors sit above the
+  // button.
+  const [pwErrorOnCurrent, setPwErrorOnCurrent] = useState(false);
 
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
@@ -86,6 +90,7 @@ export default function AccountSettings({ member }: { member: UserAccount }) {
     e.preventDefault();
     setSavingPw(true);
     setPwError(null);
+    setPwErrorOnCurrent(false);
     setPwNotice(null);
     try {
       const res = await fetch('/api/account', {
@@ -94,7 +99,11 @@ export default function AccountSettings({ member }: { member: UserAccount }) {
         body: JSON.stringify({ currentPassword, newPassword }),
       });
       const data = await res.json().catch(() => null);
-      if (!res.ok) throw new Error(data?.error ?? `Couldn't change (${res.status})`);
+      if (!res.ok) {
+        const message: string = data?.error ?? `Couldn't change (${res.status})`;
+        setPwErrorOnCurrent(res.status === 400 && /current password/i.test(message));
+        throw new Error(message);
+      }
       setPwNotice('Password changed.');
       setCurrentPassword('');
       setNewPassword('');
@@ -212,9 +221,9 @@ export default function AccountSettings({ member }: { member: UserAccount }) {
         </div>
 
         {profileError && (
-          <div className={FORM.error} role="alert">
+          <p className={FORM.error} role="alert">
             {profileError}
-          </div>
+          </p>
         )}
         {profileNotice && (
           <div className={FORM.notice} role="status">
@@ -243,8 +252,15 @@ export default function AccountSettings({ member }: { member: UserAccount }) {
             autoComplete="current-password"
             value={currentPassword}
             onChange={(e) => setCurrentPassword(e.target.value)}
-            className={FORM.field}
+            aria-invalid={pwErrorOnCurrent ? true : undefined}
+            aria-describedby={pwErrorOnCurrent ? 'acct-pw-error' : undefined}
+            className={pwErrorOnCurrent ? FORM.fieldInvalid : FORM.field}
           />
+          {pwError && pwErrorOnCurrent && (
+            <p id="acct-pw-error" className={FORM.fieldError} role="alert">
+              {pwError}
+            </p>
+          )}
         </div>
         <div>
           <label htmlFor="acct-new-pw" className={FORM.label}>
@@ -260,10 +276,10 @@ export default function AccountSettings({ member }: { member: UserAccount }) {
             className={FORM.field}
           />
         </div>
-        {pwError && (
-          <div className={FORM.error} role="alert">
+        {pwError && !pwErrorOnCurrent && (
+          <p className={FORM.error} role="alert">
             {pwError}
-          </div>
+          </p>
         )}
         {pwNotice && (
           <div className={FORM.notice} role="status">
