@@ -1,10 +1,12 @@
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { getSessionAccount } from '@/lib/accounts/members';
+import { SiteFrame } from '@/components/night/SiteFrame';
+import { SectionHeader } from '@/components/ui/SectionHeader';
 import AccountSettings from '@/components/account/AccountSettings';
 
-// Account settings for crew, staff and photographers, linked from the header
-// user menu. Any logged-in user can reach it.
+// Account settings for crew, staff and photographers, linked from the footer
+// account slot. Any logged-in user can reach it.
 export const metadata: Metadata = {
   title: 'The Birdhaus — account',
   robots: { index: false, follow: false },
@@ -17,11 +19,12 @@ export default async function AccountPage() {
   if (!member) redirect('/login');
 
   return (
-    <main className="mx-auto w-full max-w-md px-5 py-8 text-[#E8E0D0] sm:py-10">
-      <h1 className="text-2xl font-semibold">Your account</h1>
-      <div className="mt-6">
+    <SiteFrame stats={null}>
+      <h1 className="sr-only">Your account</h1>
+      <section aria-labelledby="account" className="flex w-full max-w-md flex-col gap-6">
+        <SectionHeader id="account" label="Your account" rule="none" />
         <AccountSettings member={member} />
-      </div>
-    </main>
+      </section>
+    </SiteFrame>
   );
 }

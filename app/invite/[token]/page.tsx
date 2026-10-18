@@ -1,6 +1,9 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { getMemberBySetupToken } from '@/lib/accounts/members';
+import { SiteFrame } from '@/components/night/SiteFrame';
+import { SectionHeader } from '@/components/ui/SectionHeader';
+import { FORM } from '@/components/night/form';
 import SetPasswordForm from '@/components/account/SetPasswordForm';
 
 export const metadata: Metadata = {
@@ -22,37 +25,37 @@ export default async function AccountInvitePage({
 
   if (!member) {
     return (
-      <main className="mx-auto w-full max-w-sm px-5 py-10 text-[#E8E0D0] sm:py-14">
-        <h1 className="text-2xl font-semibold">Set your password</h1>
-        <p className="mt-3 text-sm text-[#E8E0D0]/70">
-          This link is invalid or has expired — these links are single-use.
-        </p>
-        <p className="mt-2 text-sm text-[#E8E0D0]/70">
-          If you already picked a password,{' '}
-          <Link href="/login" className="underline underline-offset-2 hover:text-white">
-            log in here
-          </Link>
-          . Otherwise use “Forgot password?” on that page, or ask Alex for a
-          fresh invite.
-        </p>
-      </main>
+      <SiteFrame stats={null}>
+        <h1 className="sr-only">Set your password</h1>
+        <section aria-labelledby="set-password" className="text-body-3 flex w-full max-w-sm flex-col gap-3 leading-normal">
+          <SectionHeader id="set-password" label="Set your password" rule="none" />
+          <p>This link is invalid or has expired — these links are single-use.</p>
+          <p>
+            If you already picked a password,{' '}
+            <Link href="/login" className={FORM.link}>
+              log in here
+            </Link>
+            . Otherwise use “Forgot password?” on that page, or ask Alex for a fresh invite.
+          </p>
+        </section>
+      </SiteFrame>
     );
   }
 
   const returning = member.has_password;
+  const heading = returning ? 'Set a new password' : `Welcome, ${member.name.split(' ')[0]}!`;
   return (
-    <main className="mx-auto w-full max-w-sm px-5 py-10 text-[#E8E0D0] sm:py-14">
-      <h1 className="text-2xl font-semibold">
-        {returning ? 'Set a new password' : `Welcome, ${member.name.split(' ')[0]}!`}
-      </h1>
-      <p className="mt-1 text-sm text-[#E8E0D0]/60">
-        {returning
-          ? `Pick a new password for ${member.email}.`
-          : `Pick a password for ${member.email} to get into the Birdhaus admin.`}
-      </p>
-      <div className="mt-6">
+    <SiteFrame stats={null}>
+      <h1 className="sr-only">{heading}</h1>
+      <section aria-labelledby="set-password" className="flex w-full max-w-sm flex-col gap-4">
+        <SectionHeader id="set-password" label={heading} rule="none" />
+        <p className="text-body-3 leading-normal break-words">
+          {returning
+            ? `Pick a new password for ${member.email}.`
+            : `Pick a password for ${member.email} to get into the Birdhaus admin.`}
+        </p>
         <SetPasswordForm token={token} />
-      </div>
-    </main>
+      </section>
+    </SiteFrame>
   );
 }

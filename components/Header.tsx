@@ -107,13 +107,16 @@ export default function Header({ isAdmin = false }: { isAdmin?: boolean }) {
   if (pathname.startsWith('/redesign')) return null;
 
   // Already on the 2027 system, with the rail header in the page: home, the
-  // archive index, About/Contact and the night page itself — not
-  // /shows/[id]/tickets, which is still old-style.
+  // archive index, About/Contact, the night page itself (not
+  // /shows/[id]/tickets, which is still old-style) and the account pages.
   if (
     pathname === '/' ||
     pathname === '/archive' ||
     pathname === '/contact' ||
-    /^\/shows\/[^/]+\/?$/.test(pathname)
+    /^\/shows\/[^/]+\/?$/.test(pathname) ||
+    pathname === '/login' ||
+    pathname === '/account' ||
+    pathname.startsWith('/invite/')
   ) {
     return null;
   }
