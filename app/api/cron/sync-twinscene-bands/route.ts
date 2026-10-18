@@ -31,7 +31,7 @@ export async function GET(request: Request) {
     revalidatePath('/bands/[slug]', 'page');
     revalidatePath('/shows/[id]', 'page');
     revalidatePath('/bands');
-    revalidatePath('/shows');
+    revalidatePath('/');
   }
 
   return NextResponse.json({ ok: true, ...result });

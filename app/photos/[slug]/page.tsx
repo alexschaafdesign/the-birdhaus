@@ -60,7 +60,7 @@ export default async function PhotographerPage({
   return (
     <main className="min-h-screen p-8">
       <div className="max-w-4xl mx-auto">
-        <Link href="/shows" className="text-sm text-[#E8E0D0]/50 hover:text-[#E8E0D0]">
+        <Link href="/" className="text-sm text-[#E8E0D0]/50 hover:text-[#E8E0D0]">
           ← Shows
         </Link>
 

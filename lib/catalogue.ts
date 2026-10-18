@@ -27,7 +27,7 @@ export function setCatalogueId(nightId: string, order: number): string {
 }
 
 // Fresh Cuts installments carry "fresh-cuts" in the slug and a version number
-// (…-fresh-cuts-v10). Same detection the existing /fresh-cuts route uses.
+// (…-fresh-cuts-v10). Same detection the old /fresh-cuts page used.
 export function isFreshCuts(slug: string): boolean {
   return slug.toLowerCase().includes('fresh-cuts');
 }

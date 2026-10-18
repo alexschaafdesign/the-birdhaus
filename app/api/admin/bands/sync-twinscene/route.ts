@@ -16,7 +16,7 @@ export async function POST() {
     revalidatePath('/bands/[slug]', 'page');
     revalidatePath('/shows/[id]', 'page');
     revalidatePath('/bands');
-    revalidatePath('/shows');
+    revalidatePath('/');
   }
 
   return NextResponse.json(result);

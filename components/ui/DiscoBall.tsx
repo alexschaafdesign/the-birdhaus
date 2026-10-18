@@ -25,7 +25,7 @@ import styles from './DiscoBall.module.css';
 // --disco-drop below its top (the wire bridges that gap). So the wire runs from
 // wherever the span starts to the ball, whatever the text between them does.
 // --disco-lift (default 0) can raise the mount + wire start above the span's
-// top edge, with the sway pivot. /redesign/home leaves it at 0: its span starts
+// top edge, with the sway pivot. The home page leaves it at 0: its span starts
 // at the header rail's bottom edge, so the mount hangs from the rail's
 // underside and the wire never crosses the rail.
 //

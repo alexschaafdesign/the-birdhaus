@@ -12,7 +12,7 @@ import { NavLink } from '@/components/ui/NavLink';
 import { SeriesTick, type Series } from '@/components/ui/SeriesTick';
 import { CloseIcon, MobileMenuPanel, RailHeader } from '@/components/ui/RailHeader';
 import { activeRailItem } from '@/components/ui/RailNav';
-import { NAV, TAGLINE } from '../home/nav';
+import { NAV, TAGLINE, FRESH_CUTS_NAV_PATH } from '@/components/night/nav';
 
 type Ctx = 'web' | 'print' | 'social' | 'tv' | 'mobile';
 
@@ -40,15 +40,16 @@ const BUTTON_STATES = ['default', 'hover', 'pressed', 'disabled'] as const;
 
 // Mobile menu open state per route, and the counts shown in its footer
 // (preview copy, the mockup's numbers).
-const MENU_ROUTES = ['/redesign/home', '/archive', '/contact', '/tv'] as const;
+const MENU_ROUTES = ['/', '/archive', '/contact', '/tv'] as const;
 const SAMPLE_STATS = { bands: 98, sets: 134 };
 
 // Rail header active state per route (pathname override): one per nav item,
 // plus routes that claim no item.
 const RAIL_ROUTES = [
-  '/redesign/home',
+  '/',
   '/shows/some-show',
   '/archive',
+  FRESH_CUTS_NAV_PATH,
   '/photos/someone',
   '/contact',
   '/song-club',
@@ -193,7 +194,7 @@ export default function ComponentGallery() {
                   <div className="text-data-spec-12 text-surface-ink/50 mb-2">{path}</div>
                   <RailHeader
                     entries={NAV}
-                    homeHref="/redesign/home"
+                    homeHref="/"
                     tagline={TAGLINE}
                     stats={SAMPLE_STATS}
                     pathname={path}
@@ -219,7 +220,7 @@ export default function ComponentGallery() {
                     <MobileMenuPanel
                       entries={NAV}
                       active={activeRailItem(NAV, path)}
-                      homeHref="/redesign/home"
+                      homeHref="/"
                       tagline={TAGLINE}
                       stats={SAMPLE_STATS}
                       closeButton={

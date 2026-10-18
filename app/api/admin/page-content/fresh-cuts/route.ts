@@ -16,6 +16,6 @@ export async function PUT(request: Request) {
   }
 
   const content = await saveFreshCutsContent(body);
-  revalidatePath('/fresh-cuts');
+  revalidatePath('/archive');
   return NextResponse.json({ content });
 }

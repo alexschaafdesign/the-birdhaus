@@ -100,7 +100,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     revalidatePath('/bands/[slug]', 'page');
     revalidatePath('/shows/[id]', 'page');
     revalidatePath('/bands');
-    revalidatePath('/shows');
+    revalidatePath('/');
 
     return NextResponse.json(row);
   } catch (error) {
@@ -124,6 +124,6 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
   revalidatePath('/bands/[slug]', 'page');
   revalidatePath('/shows/[id]', 'page');
   revalidatePath('/bands');
-  revalidatePath('/shows');
+  revalidatePath('/');
   return NextResponse.json({ ok: true });
 }

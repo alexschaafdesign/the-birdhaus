@@ -1,11 +1,12 @@
 import type { ReactNode } from 'react';
 import { RailHeader } from '@/components/ui/RailHeader';
-import { NAV, TAGLINE } from '@/app/redesign/home/nav';
+import { NAV, TAGLINE } from './nav';
+import { AccountSlot } from './AccountSlot';
 
-// The 2027 page shell (until Phase 2 moves the rail header into the root
-// layout): /archive and /shows/[id] share it, matching /redesign/home: paper
-// ground, CommitMono, the rail header (fed the archive's own computed totals)
-// and the tagline + counts row under it.
+// The 2027 page shell: /archive, /shows/[id] and /contact share it, matching
+// the home page (/, which lays out its own header around the disco ball):
+// paper ground, CommitMono, the rail header (fed the archive's own computed
+// totals), the tagline + counts row under it, and the footer's account slot.
 
 export function SiteFrame({
   stats,
@@ -24,8 +25,7 @@ export function SiteFrame({
       style={{ WebkitTextStroke: 0 }}
     >
       <div className="flex flex-col [--rail-h:--spacing(1)]">
-        {/* TODO(launch): homeHref → / once this replaces the live home. */}
-        <RailHeader entries={NAV} homeHref="/redesign/home" tagline={TAGLINE} stats={stats} pathname={navPath} />
+        <RailHeader entries={NAV} homeHref="/" tagline={TAGLINE} stats={stats} pathname={navPath} />
         <div className="text-body-3 mt-3 flex flex-wrap justify-between gap-x-8 gap-y-1">
           <p className="leading-normal">{TAGLINE}</p>
           {stats && (
@@ -36,7 +36,18 @@ export function SiteFrame({
         </div>
       </div>
       {children}
+      <SiteFooter />
     </main>
+  );
+}
+
+// The page foot: a hairline, then the account slot (Log in, or the signed-in
+// links). mt-auto pins it to the bottom of a short page.
+export function SiteFooter() {
+  return (
+    <footer className="border-surface-ink/20 mt-auto border-t pt-4">
+      <AccountSlot />
+    </footer>
   );
 }
 

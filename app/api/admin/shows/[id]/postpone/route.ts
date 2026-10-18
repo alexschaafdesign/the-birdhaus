@@ -79,7 +79,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   revalidatePath('/shows/[id]', 'page');
   revalidatePath('/bands/[slug]', 'page');
-  revalidatePath('/shows');
+  revalidatePath('/');
   // Either date may be today's TV program.
   revalidateTag(TV_FEED_TAG, { expire: 0 });
   return NextResponse.json(created, { status: 201 });
