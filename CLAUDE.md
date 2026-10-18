@@ -14,6 +14,18 @@ Figma is read-only. Never call use_figma, upload_assets, or add_code_connect_map
 
 No select *, alias.* or returning * in app code; the build enforces it. A migration that changes a column's type on shows, bands, settlements or submissions needs a plan for the pooler first. Ask before writing one.
 
+## Deploys and staging
+
+- `future-2027` deploys to **next.thebirdhaus.org**: staging, behind Vercel
+  Authentication, reading `staging-2027`, a Neon copy of prod (real people's
+  data). See [`docs/staging.md`](docs/staging.md).
+- Merging into `main` deploys **production** (and runs pending migrations on
+  prod; see docs/db-safety.md).
+- Outbound (email, Square, Mailchimp, Twin Scene writes, the contact form) is
+  blocked off production by `lib/staging.ts`. New code that leaves the app must
+  go through it.
+- Never point a preview deployment at the prod database.
+
 ## Square
 
 Never manually resend pre-081 `payment.updated` events for MULTI-ITEM orders
