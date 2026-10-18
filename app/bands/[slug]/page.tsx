@@ -140,7 +140,9 @@ export default async function BandPage({ params }: { params: Promise<{ slug: str
                 ground="ink"
                 href={`/shows/${video.showCatalogueId}`}
                 catalogueId={video.showCatalogueId}
-                title={video.title || video.showTitle}
+                // The night, not the stored video title: those repeat the
+                // date and band name ("06.12.2026 - Yellow Ostrich…").
+                title={video.showTitle}
                 thumbnail={`https://i.ytimg.com/vi/${video.youtube}/mqdefault.jpg`}
               />
             ))}
