@@ -12,6 +12,7 @@
 
 import { sql } from './db';
 import { parseLocalTime, wallTimeToUtc } from './local-time';
+import { logBlocked, outboundAllowed } from './staging';
 
 try {
   // Populate process.env from .env.local when running locally. In production the
@@ -77,6 +78,13 @@ type PaymentLinkResponse = {
 };
 
 async function squareFetch<T>(path: string, init: RequestInit, token: string): Promise<T> {
+  // Backstop behind isSquareSyncEnabled(): nothing but a production deploy
+  // (lib/staging.ts) writes to the live Square account. Reads pass.
+  const method = (init.method ?? 'GET').toUpperCase();
+  if (method !== 'GET' && !outboundAllowed()) {
+    logBlocked('square', { method, path: path.split('?')[0] });
+    throw new Error(`[square] ${method} ${path} blocked: Square writes are production-only`);
+  }
   const res = await fetch(`${SQUARE_BASE}${path}`, {
     ...init,
     headers: {
@@ -96,6 +104,10 @@ async function squareFetch<T>(path: string, init: RequestInit, token: string): P
 // IMAGE, attached to `itemId` as its primary photo. Square requires the actual
 // bytes (not a URL); shows.flyer is a public CDN URL, so we just stream it.
 async function uploadFlyer(itemId: string, flyerUrl: string, showId: number | string, token: string): Promise<string> {
+  if (!outboundAllowed()) {
+    logBlocked('square', { method: 'POST', path: '/v2/catalog/images' });
+    throw new Error('[square] flyer upload blocked: Square writes are production-only');
+  }
   const img = await fetch(flyerUrl);
   if (!img.ok) throw new Error(`[square] could not fetch flyer ${flyerUrl}: ${img.status}`);
   const bytes = new Uint8Array(await img.arrayBuffer());
@@ -146,7 +158,7 @@ function computeEventWindow(show: ShowInput): { startAt: string; endAt: string }
 }
 
 export async function syncShowToSquare(show: ShowInput): Promise<SyncShowResult | undefined> {
-  if (process.env.SQUARE_SYNC_ENABLED !== 'true') {
+  if (!isSquareSyncEnabled()) {
     console.log('[square] sync disabled, skipping');
     return;
   }
@@ -254,9 +266,11 @@ export async function syncShowToSquare(show: ShowInput): Promise<SyncShowResult 
 }
 
 // Whether Square writes are turned on in this environment. Off by default so
-// local dev never hits the live Catalog API (no Sandbox support for it).
+// local dev never hits the live Catalog API (no Sandbox support for it), and
+// off on anything but a production deploy whatever SQUARE_SYNC_ENABLED says —
+// previews and staging carry the live token (lib/staging.ts).
 export function isSquareSyncEnabled(): boolean {
-  return process.env.SQUARE_SYNC_ENABLED === 'true';
+  return process.env.SQUARE_SYNC_ENABLED === 'true' && outboundAllowed();
 }
 
 export type FreshPaymentLink = { url: string; paymentLinkId: string; orderId: string | null };

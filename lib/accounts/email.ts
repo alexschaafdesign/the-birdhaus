@@ -2,17 +2,11 @@
 // reset. Their single-use set-password link goes to this site's own
 // /invite/<token> page.
 
-import { Resend } from 'resend';
+import { getResendClient } from '../email';
 import { SITE_URL } from '../site';
 import { splitName } from '../name';
 
 const NOTIFY_EMAIL = 'alex@thebirdhaus.org';
-
-function getResendClient(): Resend {
-  const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey) throw new Error('RESEND_API_KEY is not set');
-  return new Resend(apiKey);
-}
 
 function requireFrom(): string {
   const from = process.env.RESEND_FROM_EMAIL;

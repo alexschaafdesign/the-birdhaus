@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { RailHeader } from '@/components/ui/RailHeader';
 import { NAV, TAGLINE } from './nav';
 import { AccountSlot } from './AccountSlot';
+import { isStaging } from '@/lib/staging';
 
 // The 2027 page shell: /archive, /shows/[id] and /contact share it, matching
 // the home page (/, which lays out its own header around the disco ball):
@@ -42,11 +43,23 @@ export function SiteFrame({
 }
 
 // The page foot: a hairline, then the account slot (Log in, or the signed-in
-// links). mt-auto pins it to the bottom of a short page.
+// links). mt-auto pins it to the bottom of a short page. On next.thebirdhaus.org
+// a STAGING mark sits beside it (lib/staging.ts), so a screenshot can't pass
+// for the live site.
 export function SiteFooter() {
+  if (!isStaging()) {
+    return (
+      <footer className="border-surface-ink/20 mt-auto border-t pt-4">
+        <AccountSlot />
+      </footer>
+    );
+  }
   return (
-    <footer className="border-surface-ink/20 mt-auto border-t pt-4">
+    <footer className="border-surface-ink/20 mt-auto flex items-baseline justify-between gap-4 border-t pt-4">
       <AccountSlot />
+      <span className="text-data-overline-11 text-accent-red font-bold tracking-[--spacing(0.625)] uppercase">
+        Staging
+      </span>
     </footer>
   );
 }

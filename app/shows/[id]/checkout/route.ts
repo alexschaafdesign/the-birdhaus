@@ -3,6 +3,7 @@ import { sql } from '@/lib/db';
 import { claimAlertSlot, sendAdminAlertEmail } from '@/lib/alerts';
 import { createTierPaymentLink, isSquareSyncEnabled } from '@/lib/square';
 import { getTicketAvailability, slugForShowParam } from '@/lib/shows';
+import { isStaging, logBlocked, outboundAllowed } from '@/lib/staging';
 
 // On-demand Square checkout. Square API payment links are single-use — a stored
 // link shows a "payment confirmed" receipt to everyone after its first sale — so
@@ -15,7 +16,29 @@ import { getTicketAvailability, slugForShowParam } from '@/lib/shows';
 // variation server-side — we never trust a variation id supplied in the URL.
 export const dynamic = 'force-dynamic';
 
+// Off the production site (staging, previews, local dev — lib/staging.ts) nobody
+// reaches Square: no minted link, and not the stored-link fallback below either,
+// since stored links are the live account's. Checked first, before any lookup.
+function checkoutDisabled(request: Request, id: string): NextResponse {
+  const host = request.headers.get('host');
+  const where = isStaging(host) ? 'staging' : 'this deploy';
+  logBlocked('checkout', { show: id });
+  const back = `/shows/${encodeURIComponent(id)}`;
+  return new NextResponse(
+    `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">` +
+      `<meta name="robots" content="noindex"><title>Checkout disabled</title>` +
+      `<body style="font-family:system-ui,sans-serif;max-width:32rem;margin:4rem auto;padding:0 1rem">` +
+      `<h1>Checkout disabled on ${where}</h1>` +
+      `<p>Ticket sales only run on thebirdhaus.org. Nothing was charged and Square wasn't contacted.</p>` +
+      `<p><a href="${back}">Back to the show</a></p>`,
+    { status: 503, headers: { 'content-type': 'text/html; charset=utf-8' } },
+  );
+}
+
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  if (!outboundAllowed(request.headers.get('host'))) {
+    return checkoutDisabled(request, (await params).id);
+  }
   // The segment is a catalogue id or an old slug; the checkout code below
   // keys on the slug, unchanged.
   const slug = await slugForShowParam((await params).id);

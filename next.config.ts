@@ -1,5 +1,6 @@
 import type { NextConfig } from "next";
 import { SONGHAUS_URL } from "./lib/site";
+import { isStaging, outboundAllowed } from "./lib/staging";
 
 // Song Club became Songhaus (phase 3 cutover): every portal path on this app,
 // on any host, 308s to the same path on Songhaus. Permanent, because these
@@ -16,7 +17,16 @@ function songhausRedirects() {
   ];
 }
 
+// Staging and every other non-production deploy: noindex on every response,
+// pages and API alike (lib/staging.ts). Decided at build time, which is the
+// same env the deploy runs with.
+const noindex = isStaging() || !outboundAllowed();
+
 const nextConfig: NextConfig = {
+  async headers() {
+    if (!noindex) return [];
+    return [{ source: '/:path*', headers: [{ key: 'X-Robots-Tag', value: 'noindex, nofollow' }] }];
+  },
   async redirects() {
     return [
       ...songhausRedirects(),

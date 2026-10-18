@@ -1,4 +1,4 @@
-import { Resend } from 'resend';
+import { getResendClient } from './email';
 import { remark } from 'remark';
 import html from 'remark-html';
 import { SITE_URL } from './site';
@@ -11,16 +11,6 @@ import { normalizeScheduleTime } from './schedule-time';
 // webhook gap-forwards that reply to the watchers (never the engineer or bands —
 // a private reply shouldn't be fanned out).
 export const DEFAULT_ADVANCE_WATCHER = 'alex@thebirdhaus.org';
-
-// Instantiate lazily rather than at module load: Resend's constructor throws
-// when the API key is missing, and Next imports this module during `next build`,
-// so a build-time absence of the key would crash the build. Same reasoning as
-// lib/rsvp-email.ts.
-export function getResendClient(): Resend {
-  const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey) throw new Error('RESEND_API_KEY is not set');
-  return new Resend(apiKey);
-}
 
 // Per-show values substituted into the boilerplate template's {{placeholders}}.
 // Everything else in the template body is static across shows.

@@ -3,16 +3,10 @@
 // must never break `next build`), same voice as the RSVP confirmation. BCCs the
 // house inbox, which doubles as a passive per-sale heads-up.
 
-import { Resend } from 'resend';
+import { getResendClient } from './email';
 import { SITE_URL } from './site';
 
 const BCC_EMAIL = 'alex@thebirdhaus.org';
-
-function getResendClient(): Resend {
-  const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey) throw new Error('RESEND_API_KEY is not set');
-  return new Resend(apiKey);
-}
 
 // e.g. "Saturday, August 15" — matches the RSVP confirmation's date format.
 function formatShowDate(isoDate: string): string {
