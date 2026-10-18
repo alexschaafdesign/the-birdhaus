@@ -88,6 +88,9 @@ export type Credits = {
   /** Recorded channel count (e.g. 18). */
   channels?: number;
   photos?: string[];
+  /** Photographer name → their /photos/<slug> page, for the credited names
+   *  that have a public page (at least one photo on a show). */
+  photoLinks?: Record<string, string>;
 };
 
 export type Release = {

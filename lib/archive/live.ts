@@ -1,7 +1,7 @@
 import { sql } from '@/lib/db';
 import { getAllShows, getNightDateCentral, type Show } from '@/lib/shows';
 import { getAllBandSlugs } from '@/lib/bands';
-import { getPhotographerCredits } from '@/lib/photographers';
+import { getPhotographerCredits, getPublicPhotographers, photographerSlug } from '@/lib/photographers';
 import { freshCutsTag, setCatalogueId, to24h } from '@/lib/catalogue';
 import type { ArchiveSet, Night, Photo, Release } from './types';
 
@@ -131,12 +131,18 @@ export async function getLiveNights(): Promise<Night[]> {
   const nightDate = getNightDateCentral();
   const past = shows.filter((s) => s.date < nightDate && s.status === 'scheduled');
 
-  const [credits, extras] = await Promise.all([
+  const [credits, extras, publicPhotographers] = await Promise.all([
     getPhotographerCredits(
       past.flatMap((s) => (s.photos ?? []).map((p) => p.photographerId)).filter((n): n is number => n != null)
     ),
     loadExtras(past.map((s) => Number(s.id))),
+    getPublicPhotographers(),
   ]);
+  // Credited names with a public /photos page link there; matched by name,
+  // case-insensitively, the way the page resolves its slug.
+  const photographerPages = new Map(
+    publicPhotographers.map((p) => [p.name.toLowerCase(), `/photos/${photographerSlug(p.name)}`])
+  );
 
   const showNights = past.map((show): Night => {
     // Stored and minted by the DB (097), suffix included (BH-250307b).
@@ -172,6 +178,12 @@ export async function getLiveNights(): Promise<Night[]> {
       ]),
     ];
     if (photoCredits.length === 0 && legacyPhotographer) photoCredits.push(legacyPhotographer);
+    const photoLinks = Object.fromEntries(
+      photoCredits.flatMap((name) => {
+        const href = photographerPages.get(name.toLowerCase());
+        return href ? [[name, href]] : [];
+      })
+    );
 
     const rig = extras.rig.get(Number(show.id));
     const ops = extras.cameraOps.get(Number(show.id));
@@ -201,6 +213,7 @@ export async function getLiveNights(): Promise<Night[]> {
         channels: rig?.channelCount,
         cameras: ops,
         photos: photoCredits.length ? photoCredits : undefined,
+        photoLinks: Object.keys(photoLinks).length ? photoLinks : undefined,
       },
       releases: extras.releases.get(`${Number(show.id)}:night`),
       adminHref: `/admin/shows/${Number(show.id)}`,

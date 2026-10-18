@@ -22,55 +22,65 @@ export default function BandsGallery({ bands }: { bands: GalleryBand[] }) {
     [bands, showAll]
   );
 
+  const playedCount = bands.filter((b) => b.playCount > 0).length;
+
   return (
-    <div>
-      <div className="mb-10">
-        <p className="text-ink/70">
+    <div className="flex flex-col gap-6">
+      <div className="text-body-3 flex flex-col gap-2 leading-normal">
+        <p>
           {showAll
             ? 'Every artist in the Twin Cities scene database.'
-            : "Every artist that's played the Birdhaus."}
+            : `Every artist that's played the Birdhaus (${playedCount}).`}
         </p>
-        <label className="flex items-center gap-2 text-sm text-ink/70 select-none mt-2 w-fit">
-          <input type="checkbox" checked={showAll} onChange={(e) => setShowAll(e.target.checked)} />
+        <label className="flex w-fit items-center gap-2 select-none">
+          <input
+            type="checkbox"
+            checked={showAll}
+            onChange={(e) => setShowAll(e.target.checked)}
+            className="accent-surface-ink size-4"
+          />
           Show all Twin Cities bands (in-progress)
         </label>
       </div>
 
       {visible.length === 0 ? (
-        <p className="text-ink/60">No bands yet.</p>
+        <p className="text-body-3">No bands yet.</p>
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
+        <ul className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
           {visible.map((band) => (
-            <Link key={band.id} href={`/bands/${band.slug}`} className="group block">
-              <div className="relative aspect-square overflow-hidden bg-ink/5 border-2 border-ink transition-all group-hover:-translate-x-0.5 group-hover:-translate-y-0.5 group-hover:shadow-hard">
-                {band.photo ? (
-                  <Image
-                    src={band.photo}
-                    alt={band.name}
-                    fill
-                    sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, (max-width: 1024px) 25vw, 20vw"
-                    unoptimized
-                    className="object-cover"
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center">
-                    <span className="text-4xl font-bold text-ink/20">
+            <li key={band.id}>
+              <Link
+                href={`/bands/${band.slug}`}
+                className="group focus-visible:outline-accent-red flex flex-col gap-2 focus-visible:outline-2 focus-visible:outline-offset-2"
+              >
+                <div className="border-surface-ink bg-surface-paper-shade relative aspect-square overflow-hidden border">
+                  {band.photo ? (
+                    <Image
+                      src={band.photo}
+                      alt=""
+                      fill
+                      sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, (max-width: 1024px) 25vw, 17vw"
+                      unoptimized
+                      className="object-cover"
+                    />
+                  ) : (
+                    <div className="text-header-2 flex h-full w-full items-center justify-center font-bold opacity-30">
                       {band.name.charAt(0).toUpperCase()}
-                    </span>
-                  </div>
+                    </div>
+                  )}
+                </div>
+                <span className="text-ui-nav-item-14 group-hover:text-accent-red truncate leading-[1.3] tracking-[--spacing(0.25)] uppercase">
+                  {band.name}
+                </span>
+                {band.isTouring && (
+                  <span className="text-data-spec-12 -mt-1.5 truncate uppercase opacity-70">
+                    Touring{band.hometown ? ` · ${band.hometown}` : ''}
+                  </span>
                 )}
-              </div>
-              <p className="mt-2 text-center font-medium truncate group-hover:text-vhs-red transition-colors">
-                {band.name}
-              </p>
-              {band.isTouring && (
-                <p className="text-center font-mono text-xs text-ink/40 truncate">
-                  Touring{band.hometown ? ` · ${band.hometown}` : ''}
-                </p>
-              )}
-            </Link>
+              </Link>
+            </li>
           ))}
-        </div>
+        </ul>
       )}
     </div>
   );
