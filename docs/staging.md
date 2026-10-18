@@ -30,6 +30,7 @@ When outbound isn't allowed:
 | R2 uploads | `lib/r2.ts` | Same shared bucket, filenames tagged `folder/staging-<time>-<hex>.ext` |
 | Indexing | `next.config.ts`, `app/robots.ts` | `X-Robots-Tag: noindex, nofollow` on every response; robots.txt disallows `/` |
 | Footer | `components/night/SiteFrame.tsx` | A STAGING mark (staging only, not other previews) |
+| Session cookies | `lib/auth.ts`, `lib/accounts/auth.ts`, `lib/accounts/session.ts` | Staging only: names end `_stg` and are host-only (no `Domain`). Production's names, domain and signing are unchanged. |
 
 Blocked-action logs carry counts and labels only, never addresses or bodies.
 
@@ -44,21 +45,40 @@ staff-only on staging.
 ## Vercel env (Preview, branch `future-2027` only)
 
 A branch-scoped Preview variable overrides the general Preview one of the same
-name for that branch only. Every other preview keeps the dev database.
+name for that branch only. Every other preview keeps the dev database and the
+shared session secret.
 
-```bash
-vercel env add NAME preview future-2027
-```
+**Order matters: set everything else, confirm it, then `DATABASE_URL` last.**
+Until `DATABASE_URL` is set, the branch reads dev, so nothing real is at risk
+while the rest goes in.
 
-| Name | Value from |
-|---|---|
-| `BH_STAGING` | `1` |
-| `BH_STAGING_EMAIL_TO` | your test inbox (optional; unset = log only) |
-| `NEXT_PUBLIC_SITE_URL` | `https://next.thebirdhaus.org` |
-| `SQUARE_SYNC_ENABLED` | `false` |
-| `SQUARE_ACCESS_TOKEN`, `MAILCHIMP_API_KEY`, `TWIN_SCENE_API_KEY` | any dummy string (backstop behind the code guards) |
-| `ADMIN_SESSION_SECRET` | a new random value (`openssl rand -hex 32`), so staging signs its own sessions |
-| `DATABASE_URL` | staging-2027's **pooled** connection string. **Set this last.** |
+1. Set these (`vercel env add NAME preview future-2027`, value on stdin):
+
+   | Name | Value |
+   |---|---|
+   | `BH_STAGING` | `1` |
+   | `BH_STAGING_EMAIL_TO` | your test inbox (optional; unset = log only) |
+   | `NEXT_PUBLIC_SITE_URL` | `https://next.thebirdhaus.org` |
+   | `SQUARE_SYNC_ENABLED` | `false` |
+   | `SQUARE_ACCESS_TOKEN`, `MAILCHIMP_API_KEY`, `TWIN_SCENE_API_KEY` | any dummy string (backstop behind the code guards) |
+
+2. Session secret: freshly generated, piped straight in, never printed or saved:
+   ```bash
+   openssl rand -hex 32 | tr -d '\n' | vercel env add ADMIN_SESSION_SECRET preview future-2027 --sensitive
+   ```
+   Staging then signs its own sessions: a prod cookie that reaches `next.` fails
+   the signature check there, and staging's cookies are host-only
+   `birdhaus_*_session_stg`, so they never reach www.
+
+3. Confirm: `vercel env ls preview` shows each name above scoped to
+   `future-2027`, and the general Preview `DATABASE_URL` and
+   `ADMIN_SESSION_SECRET` are still there for every other branch.
+
+4. **Last:** `DATABASE_URL`, staging-2027's **pooled** string, without printing it:
+   ```bash
+   neon connection-string staging-2027 --project-id summer-forest-54623278 --org-id org-nameless-math-39737153 --pooled | tr -d '\n' | vercel env add DATABASE_URL preview future-2027 --sensitive
+   ```
+   Then redeploy `future-2027` so the build picks it up.
 
 ## Refresh (re-copy prod)
 
@@ -86,7 +106,9 @@ Run from the repo root. The shell's `DATABASE_URL` (dev) is never used.
    ```
    The two prod lines must match (count, last id, sha256).
 5. A re-created branch gets a new endpoint, so the connection string changes.
-   Update the branch-scoped `DATABASE_URL` in Vercel and redeploy `future-2027`.
+   Replace the branch-scoped `DATABASE_URL` in Vercel (`vercel env rm DATABASE_URL
+   preview future-2027`, then step 4 of the env list above) and redeploy
+   `future-2027`.
 
 Once the 2027 migrations are on prod, the refresh is just steps 1–3 and 5:
 nothing will be pending.
