@@ -22,3 +22,8 @@ uniqueness from per-payment to per-(payment, variation); a redelivered legacy
 event keeps the old full-amount row AND adds per-line rows for the other
 matched lines, double-counting that payment's revenue in settlements.
 Single-item redeliveries no-op safely.
+
+## Reports
+
+When you finish a task or a plan that needs my decision, also save the full
+report as `~/Desktop/claude-reports/YYYY-MM-DD-HHMM-<topic>.md`.
