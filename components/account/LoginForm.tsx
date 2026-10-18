@@ -15,6 +15,9 @@ export default function LoginForm() {
   const [mode, setMode] = useState<'login' | 'forgot'>('login');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Wrong credentials mark both fields (the server doesn't say which was
+  // wrong); other errors (rate limit, network) are about the whole form.
+  const [invalid, setInvalid] = useState<'credentials' | null>(null);
   const [movedTo, setMovedTo] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -22,6 +25,7 @@ export default function LoginForm() {
     e.preventDefault();
     setBusy(true);
     setError(null);
+    setInvalid(null);
     setMovedTo(null);
     setNotice(null);
     try {
@@ -42,6 +46,7 @@ export default function LoginForm() {
         });
         const data = await res.json().catch(() => null);
         if (typeof data?.movedTo === 'string') setMovedTo(data.movedTo);
+        else if (res.status === 401) setInvalid('credentials');
         if (!res.ok) throw new Error(data?.error ?? `Something went wrong (${res.status})`);
         router.push(typeof data?.dest === 'string' ? data.dest : '/admin');
         router.refresh();
@@ -66,7 +71,9 @@ export default function LoginForm() {
           autoComplete="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          className={FORM.field}
+          aria-invalid={invalid === 'credentials' ? true : undefined}
+          aria-describedby={invalid === 'credentials' ? 'login-error' : undefined}
+          className={invalid === 'credentials' ? FORM.fieldInvalid : FORM.field}
         />
       </div>
 
@@ -82,13 +89,15 @@ export default function LoginForm() {
             autoComplete="current-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className={FORM.field}
+            aria-invalid={invalid === 'credentials' ? true : undefined}
+            aria-describedby={invalid === 'credentials' ? 'login-error' : undefined}
+            className={invalid === 'credentials' ? FORM.fieldInvalid : FORM.field}
           />
         </div>
       )}
 
       {error && (
-        <div className={FORM.error} role="alert">
+        <p id="login-error" className={FORM.error} role="alert">
           {error}
           {movedTo && (
             <>
@@ -98,7 +107,7 @@ export default function LoginForm() {
               </a>
             </>
           )}
-        </div>
+        </p>
       )}
       {notice && (
         <div className={FORM.notice} role="status">
@@ -119,6 +128,7 @@ export default function LoginForm() {
         onClick={() => {
           setMode(mode === 'login' ? 'forgot' : 'login');
           setError(null);
+          setInvalid(null);
           setNotice(null);
         }}
         className={`${FORM.link} text-body-3 w-fit`}
