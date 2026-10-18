@@ -33,7 +33,8 @@ export async function generateMetadata(
   const photographer = await getPhotographerProfileBySlug(slug);
   if (!photographer) return {};
   return {
-    title: `${photographer.name} · Photographer · The Birdhaus`,
+    // The root layout's template adds "· the BIRDHAUS".
+    title: `${photographer.name} · Photographer`,
     description: photographer.bio ?? `Photos by ${photographer.name} from The Birdhaus shows.`,
   };
 }
