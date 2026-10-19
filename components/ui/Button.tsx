@@ -9,7 +9,11 @@ import type { ComponentProps } from 'react';
 // px-6.5 = 26, gap-2.5 = 10 …) — the DS spacing scale doesn't cover them.
 // Corners are square per the DS rule. No hex or px literals live here.
 
-export type Variant = 'primary' | 'secondary' | 'ghost';
+// The -on-ink variants are the same buttons for an ink ground (the cancelled /
+// postponed notice): paper fill, or a paper outline. Their own colours, not
+// overrides on primary/secondary: two text colours in one class list resolve
+// by CSS order, which once left a paper label on a paper button.
+export type Variant = 'primary' | 'secondary' | 'ghost' | 'primary-on-ink' | 'secondary-on-ink';
 export type Size = 'm' | 's';
 
 const BASE =
@@ -31,6 +35,13 @@ const VARIANTS: Record<Variant, string> = {
     'ui-pressed:border-accent-red ui-pressed:bg-accent-red ui-pressed:text-surface-paper',
   // No box, zero horizontal padding so it sits flush with body text.
   ghost: 'bg-transparent text-accent-red ui-hover:underline ui-pressed:text-surface-ink',
+  'primary-on-ink':
+    'bg-surface-paper text-surface-ink ' +
+    'ui-hover:bg-accent-red ui-hover:text-surface-paper ui-pressed:bg-accent-red ui-pressed:text-surface-paper',
+  'secondary-on-ink':
+    'border-2 border-surface-paper bg-transparent text-surface-paper ' +
+    'ui-hover:bg-surface-paper ui-hover:text-surface-ink ' +
+    'ui-pressed:border-accent-red ui-pressed:bg-accent-red ui-pressed:text-surface-paper',
 };
 
 // M: UI/Button 15 (Bold, lh 1.2, +1 tracking). S: Body/3 — 14 Bold (lh 1.5).
