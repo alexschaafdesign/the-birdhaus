@@ -1,8 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Instrument_Sans, IBM_Plex_Mono } from "next/font/google";
 import "./globals.css";
-import Header from "@/components/Header";
-import { isAdminSession } from "@/lib/admin-session";
 import { SITE_URL, SITE_NAME, SITE_DESCRIPTION } from "@/lib/site";
 
 const instrumentSans = Instrument_Sans({
@@ -60,18 +58,19 @@ export const viewport: Viewport = {
   themeColor: "#1A1712",
 };
 
-export default async function RootLayout({
+// Every page renders per request. This used to follow from the old header's
+// admin-cookie read here; that's gone, so it's stated outright. Which pages
+// could be cached instead is a separate decision (Phase 3 F).
+export const dynamic = 'force-dynamic';
+
+export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  // Every page renders per request (isAdminSession reads cookies).
-  const isAdmin = await isAdminSession();
-
   return (
     <html lang="en" style={{ backgroundColor: "#F2EEE3", color: "#1A1712" }}>
       <body className={`${instrumentSans.variable} ${plexMono.variable}`} style={{ color: "#1A1712" }}>
-        <Header isAdmin={isAdmin} />
         {children}
       </body>
     </html>
