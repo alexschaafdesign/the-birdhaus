@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { imageSource } from '@/lib/image-source';
 
 interface GalleryBand {
   id: number;
@@ -56,11 +57,11 @@ export default function BandsGallery({ bands }: { bands: GalleryBand[] }) {
                 <div className="border-surface-ink bg-surface-paper-shade relative aspect-square overflow-hidden border">
                   {band.photo ? (
                     <Image
-                      src={band.photo}
+                      {...imageSource(band.photo, 400)}
                       alt=""
                       fill
+                      // Tile widths for the 2 / 3 / 4 / 6-column grid.
                       sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, (max-width: 1024px) 25vw, 17vw"
-                      unoptimized
                       className="object-cover"
                     />
                   ) : (

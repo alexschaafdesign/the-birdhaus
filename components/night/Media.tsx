@@ -1,3 +1,5 @@
+import Image from 'next/image';
+import { imageSource } from '@/lib/image-source';
 import type { Audio, Photo, Video } from '@/lib/archive';
 import { timecode } from '@/lib/archive';
 
@@ -53,8 +55,14 @@ export function PhotoStrip({ photos, label }: { photos: Photo[]; label: string }
               className={`bg-surface-ink-raised relative aspect-square overflow-hidden ${i >= 3 ? 'hidden sm:block' : ''}`}
             >
               {p.url && (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={p.url} alt="" loading="lazy" className="size-full object-cover" />
+                <Image
+                  {...imageSource(p.url, 400)}
+                  alt=""
+                  fill
+                  // Square tiles: 3 across below sm, 6 across above.
+                  sizes="(max-width: 640px) 33vw, 17vw"
+                  className="object-cover"
+                />
               )}
               {/* On mobile the third tile is the last visible one, so it
                   carries the count for everything hidden. */}
