@@ -233,15 +233,27 @@ const EMAIL_ELEMENT_STYLES: Record<string, string> = {
     `${T}`,
 };
 
+// The email shell's dark-mode class hooks (lib/email-layout), per tag.
+const EMAIL_ELEMENT_CLASSES: Record<string, string> = {
+  h2: 'bh-t bh-h2',
+  h3: 'bh-ov',
+  p: 'bh-t',
+  ul: 'bh-t',
+  ol: 'bh-t',
+  li: 'bh-t',
+  blockquote: 'bh-box bh-t',
+};
+
 function applyInlineStyles(fragment: string): string {
   let out = fragment;
   for (const [tag, style] of Object.entries(EMAIL_ELEMENT_STYLES)) {
     // Only bare tags (no attributes) — our injected schedule box uses <b> and
     // pre-styled <table>/<td> so it's untouched here.
-    out = out.replaceAll(`<${tag}>`, `<${tag} style="${style}">`);
+    const cls = EMAIL_ELEMENT_CLASSES[tag];
+    out = out.replaceAll(`<${tag}>`, `<${tag}${cls ? ` class="${cls}"` : ''} style="${style}">`);
   }
   // Links carry an href, so match/insert around it.
-  out = out.replace(/<a href=/g, `<a style="color:${EMAIL_COLORS.red};text-decoration:underline;" href=`);
+  out = out.replace(/<a href=/g, `<a class="bh-a" style="color:${EMAIL_COLORS.red};text-decoration:underline;" href=`);
   return out;
 }
 
@@ -261,10 +273,10 @@ function boxAsks(fragment: string): string {
 }
 
 // Wrap the styled body in the 2027 email shell (lib/email-layout) with a SHOW
-// ADVANCE overline. The same HTML is injected into the admin hub preview, which
-// is why the shell is inline-styles only (no <style> to leak into the page).
-function wrapEmailShell(styledBody: string): string {
-  return emailDocument({ body: emailOverline('Show advance') + styledBody });
+// ADVANCE overline. The admin hub preview injects this HTML into the page, so
+// that render leaves out the dark-mode <style> (`preview: true`).
+function wrapEmailShell(styledBody: string, preview = false): string {
+  return emailDocument({ body: emailOverline('Show advance') + styledBody, darkMode: !preview });
 }
 
 // The plain-text part of an advance or reply: its Markdown, minus the HTML
@@ -311,12 +323,13 @@ export function extractEmailAddress(from: string): string {
 // <style>/<head>, so styling must be inline).
 export async function renderAdvanceEmail(
   template: { subject: string; body: string },
-  vars: AdvanceTemplateVars
+  vars: AdvanceTemplateVars,
+  { preview = false }: { preview?: boolean } = {}
 ): Promise<{ subject: string; html: string; markdown: string }> {
   const subject = substitutePlaceholders(template.subject, vars);
   const markdown = substitutePlaceholders(template.body, vars);
   const body = await mdToHtml(markdown, true);
-  const html = wrapEmailShell(boxAsks(applyInlineStyles(body)));
+  const html = wrapEmailShell(boxAsks(applyInlineStyles(body)), preview);
   return { subject, html, markdown };
 }
 
