@@ -26,6 +26,9 @@ No select *, alias.* or returning * in app code; the build enforces it. A migrat
   blocked off production by `lib/staging.ts`. New code that leaves the app must
   go through it.
 - Never point a preview deployment at the prod database.
+- If Vercel's Git webhook misses a push, you may create preview/staging
+  deployments yourself through the Vercel API (from the GitHub source). Never
+  create a production deployment, by any route: tell me and I'll handle prod.
 
 ## Square
 
