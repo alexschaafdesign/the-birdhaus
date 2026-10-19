@@ -429,9 +429,11 @@ export async function getShowAdvanceState(showId: number): Promise<ShowAdvanceSt
     : { ...EMPTY_VARS };
   const hubUrl = await hubUrlFor(showId);
   const templateVars = buildTemplateVars(show, recipients, saved, hubUrl);
+  // Injected into the admin hub page (HubAdmin), so no dark-mode <style>.
   const preview = await renderAdvanceEmail(
     { subject: template.subject, body: advanceBody(template.body, show) },
-    templateVars
+    templateVars,
+    { preview: true }
   );
 
   return {
