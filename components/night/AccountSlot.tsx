@@ -4,11 +4,10 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
-// The 2027 pages' account slot, in the page footer (the old Header, which
-// carries Log in and the account menu, hides on 2027 pages). Signed out:
+// The site's account slot, in the page footer (SiteFrame). Signed out:
 // "Log in". Signed in: an ADMIN marker for crew/staff, then Dashboard (or
-// Account) · Log out. Fetched client-side from /api/account/me, the same as
-// the old Header; renders nothing while loading so it doesn't flash.
+// Account) · Log out. Fetched client-side from /api/account/me; renders
+// nothing while loading so it doesn't flash. /admin has its own AdminBar.
 
 type Me = { firstName: string; canAdmin: boolean };
 
