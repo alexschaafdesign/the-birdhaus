@@ -174,7 +174,7 @@ export function StatusNotice({
         <div className="flex flex-wrap gap-3">
           <Link
             href={`/shows/${newDate.id}`}
-            className={`${buttonClassName('primary')} bg-surface-paper text-surface-ink w-fit`}
+            className={`${buttonClassName('primary-on-ink')} w-fit`}
           >
             {newDate.id}
             <ButtonArrow />
@@ -182,7 +182,7 @@ export function StatusNotice({
           {newDate.tickets && (
             <Link
               href={`/shows/${newDate.id}/tickets`}
-              className={`${buttonClassName('secondary')} border-surface-paper text-surface-paper w-fit`}
+              className={`${buttonClassName('secondary-on-ink')} w-fit`}
             >
               Tickets for the new date
               <ButtonArrow />
