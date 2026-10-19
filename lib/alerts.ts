@@ -4,6 +4,7 @@
 // `next build`.
 
 import { getResendClient } from './email';
+import { emailDocument, emailP, emailTextFooter } from './email-layout';
 import { sql } from './db';
 
 function notifyTo(): string {
@@ -35,11 +36,12 @@ export async function sendAdminAlertEmail(subject: string, lines: string[]): Pro
   const from = process.env.RESEND_FROM_EMAIL;
   if (!from) throw new Error('RESEND_FROM_EMAIL is not set');
 
-  const text = lines.join('\n');
-  const html = `
-<p><strong>${esc(subject)}</strong></p>
-<p style="margin:16px 0;">${lines.map((l) => esc(l)).join('<br>')}</p>
-`;
+  const text = lines.join('\n') + emailTextFooter('admin');
+  // Minimal admin shell (lib/email-layout): the subject, then the lines.
+  const html = emailDocument({
+    variant: 'admin',
+    body: emailP(`<strong>${esc(subject)}</strong>`) + emailP(lines.map((l) => esc(l)).join('<br>')),
+  });
 
   const { error } = await getResendClient('admin-alert').emails.send({ from, to: notifyTo(), subject, html, text });
   if (error) throw new Error(`Resend send failed: ${JSON.stringify(error)}`);
