@@ -12,8 +12,9 @@ export async function getAvailableDates(): Promise<AvailableDate[]> {
 
 // Dates marked available (the booking dashboard's "mark available" toggle)
 // from `fromDate` on that don't already have a show, as "YYYY-MM-DD",
-// soonest first. Any show on the date counts, announced or not. Public on
-// /contact; the home page's admin preview links each one to a new show.
+// soonest first. Any show on the date counts, announced or not. Private: only
+// the home page's admin preview reads this, linking each one to a new show.
+// Don't render it on a public page.
 export async function getOpenDates(fromDate: string): Promise<string[]> {
   const rows = await sql<Array<{ date: string }>>`
     select a.date::text as date
