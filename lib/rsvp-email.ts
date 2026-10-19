@@ -47,11 +47,11 @@ export function renderRsvpConfirmationEmail(
 
 <p>Doors open at <strong>${doorsTime}</strong> and music starts at <strong>${showTime}</strong>.</p>
 
-<p>Important -- your RSVP is mostly a way to get the address and help us predict turnout — it doesn't guarantee a spot. If you want to lock in your place, grab an advance ticket:</p>
+<p>Important -- your RSVP is mostly a way to get the address and help us predict turnout — it doesn't guarantee a spot. If you want to lock in your place, donate online to guarantee your spot:</p>
 
 <p style="margin: 24px 0;">
   <a href="${ticketUrl}" style="background-color: #2A2420; color: #E8E0D0; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">
-    Buy an advance ticket →
+    Donate →
   </a>
 </p>
 

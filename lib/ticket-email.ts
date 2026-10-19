@@ -45,7 +45,7 @@ export async function sendTicketConfirmationEmail(opts: {
   const html = `
 <p>hi!</p>
 
-<p>Thanks so much for your ${esc(dollars)} advance ticket${quantity > 1 ? `s (×${quantity})` : ''} for <strong>${esc(showTitle)}</strong> on ${esc(formattedDate)}. ${spots} locked in!</p>
+<p>Thanks for your ${esc(dollars)} donation for <strong>${esc(showTitle)}</strong> on ${esc(formattedDate)}. ${spots} locked in!</p>
 
 <p>the BIRDHAUS is located at <strong>3721 17th Ave S, Minneapolis MN 55407</strong>, near Powderhorn Park. The house has a red roof, a little free library in front, and a pride flag in the porch window.</p>
 
