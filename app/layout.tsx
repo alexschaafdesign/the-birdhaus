@@ -53,14 +53,15 @@ export const metadata: Metadata = {
   },
 };
 
-// Ink, matching the dark logo band at the top of every page.
+// Paper, the 2027 page ground (the same colour as <html> below), so mobile
+// browser chrome blends into the page instead of showing the old ink band.
 export const viewport: Viewport = {
-  themeColor: "#1A1712",
+  themeColor: "#F2EEE3",
 };
 
 // Every page renders per request. This used to follow from the old header's
-// admin-cookie read here; that's gone, so it's stated outright. Which pages
-// could be cached instead is a separate decision (Phase 3 F).
+// admin-cookie read here; that's gone, so it's stated outright. Caching the
+// pages that could be is a post-launch item.
 export const dynamic = 'force-dynamic';
 
 export default function RootLayout({
