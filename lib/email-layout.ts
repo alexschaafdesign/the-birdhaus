@@ -13,14 +13,13 @@
 //   * Apple Mail / iOS Mail honour prefers-color-scheme. The document declares
 //     `color-scheme: light dark` and carries one small <style> whose rules all
 //     sit under `.bh-email` and match only the bh-* classes on these blocks: an
-//     ink ground, paper text, the on-ink red, paper buttons, and a paper
-//     wordmark swapped in for the ink one.
+//     ink ground, paper text, the on-ink red and paper buttons.
 //   * Gmail ignores that media query and darkens the email's colours itself,
-//     but never images. So the wordmark is a transparent PNG with a thin paper
-//     outline (legible on paper and on Gmail's dark ground, no box), and the
-//     colour bars are a small PNG so Gmail can't shift them. The ink rule after
-//     the bars stays a cell: Gmail turns it light, which on its dark ground
-//     reads as the same line.
+//     but never images. So the wordmark is a transparent accent-red PNG (no
+//     box; reads on paper and on a dark ground alike), and the colour bars are
+//     a small PNG so Gmail can't shift them. The ink rule after the bars stays
+//     a cell: Gmail turns it light, which on its dark ground reads as the same
+//     line.
 // Every block also sets its own bgcolor and color, so forced inversion keeps
 // text and ground together. No text sits on an image.
 //
@@ -40,12 +39,11 @@ export const EMAIL_COLORS = {
 
 export const EMAIL_FONT = "CommitMono, ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', 'Courier New', monospace";
 
-// The 2027 wordmark in its medium (primary) weight at 2× (480 wide, shown at
-// 240), transparent: the light version (ink with a thin paper outline) and the
-// paper version the dark-mode rule swaps in. Hosted with the site's images;
-// see scripts/email-wordmark.mjs and scripts/email-bars.mjs.
-export const EMAIL_WORDMARK_URL = 'https://images.thebirdhaus.org/email/birdhaus-wordmark-2027-ink-outline@2x.png';
-export const EMAIL_WORDMARK_DARK_URL = 'https://images.thebirdhaus.org/email/birdhaus-wordmark-2027-paper@2x.png';
+// The 2027 wordmark in its medium (primary) weight at 2× (480×79, shown at
+// 240×40), accent red on transparent: the same in light and dark mode, in
+// every client. Hosted with the site's images; see scripts/email-wordmark.mjs
+// (variant `red`) and scripts/email-bars.mjs.
+export const EMAIL_WORDMARK_URL = 'https://images.thebirdhaus.org/email/birdhaus-wordmark-2027-red@2x.png';
 // The rail's five colour bars as one image (2×: 280×8, shown 140×4).
 export const EMAIL_BARS_URL = 'https://images.thebirdhaus.org/email/birdhaus-bars-2027@2x.png';
 const WORDMARK_W = 240;
@@ -74,8 +72,6 @@ const DARK_CSS =
   `.bh-email .bh-rule{background:${DARK.rule}!important}` +
   `.bh-email .bh-inkrule{background:${DARK.text}!important}` +
   `.bh-email .bh-h2,.bh-email .bh-img{border-color:${DARK.text}!important}` +
-  `.bh-email .bh-wm-l{display:none!important}` +
-  `.bh-email .bh-wm-d{display:block!important;max-height:none!important;overflow:visible!important}` +
   `}`;
 
 export function escapeEmail(value: string): string {
@@ -179,7 +175,6 @@ export type EmailLayoutOptions = {
   variant?: 'public' | 'admin';
   /** Override the hosted images (previews point them at local files). */
   wordmarkUrl?: string;
-  wordmarkDarkUrl?: string;
   barsUrl?: string;
   /** Include the dark-mode <style> (Apple Mail / iOS). Off for HTML that gets
    *  injected into a page (the HubAdmin advance preview). Default on. */
@@ -191,7 +186,6 @@ export function emailDocument({
   preheader,
   variant = 'public',
   wordmarkUrl = EMAIL_WORDMARK_URL,
-  wordmarkDarkUrl = EMAIL_WORDMARK_DARK_URL,
   barsUrl = EMAIL_BARS_URL,
   darkMode = true,
 }: EmailLayoutOptions): string {
@@ -204,16 +198,7 @@ export function emailDocument({
   const pre = preheader
     ? `<div style="display:none;max-height:0;overflow:hidden;mso-hide:all;font-size:1px;line-height:1px;color:${C.paper};">${escapeEmail(preheader)}</div>`
     : '';
-  // The light wordmark, plus (with darkMode) a paper one that stays hidden
-  // unless the dark-mode rule shows it: inline display:none, so clients that
-  // ignore the media query (Gmail) never show it.
-  const wordmark =
-    `<a href="${escapeEmail(SITE_URL)}" style="text-decoration:none;">` +
-    `<div class="bh-wm-l">${wmImg(wordmarkUrl)}</div>` +
-    (darkMode
-      ? `<div class="bh-wm-d" style="display:none;max-height:0;overflow:hidden;mso-hide:all;">${wmImg(wordmarkDarkUrl)}</div>`
-      : '') +
-    `</a>`;
+  const wordmark = `<a href="${escapeEmail(SITE_URL)}" style="text-decoration:none;">${wmImg(wordmarkUrl)}</a>`;
   const footer = admin
     ? `<p class="bh-m" style="margin:0;font-family:${EMAIL_FONT};font-size:11px;line-height:1.6;letter-spacing:1px;text-transform:uppercase;color:${C.meta};">the BIRDHAUS · admin notice</p>`
     : `<p class="bh-m" style="margin:0 0 4px;font-family:${EMAIL_FONT};font-size:11px;line-height:1.6;letter-spacing:1px;text-transform:uppercase;color:${C.meta};">A humble DIY music empire in South Minneapolis</p>` +
