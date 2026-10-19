@@ -171,16 +171,16 @@ export default async function TicketsPage({
         <div role="alert" className={`${FORM.error} flex max-w-2xl flex-col gap-1`}>
           <p className="font-bold">Almost full online.</p>
           <p>
-            Only {leftParam} spot{leftParam === '1' ? '' : 's'} left to donate online — please lower the quantity
-            to {leftParam} or fewer. You can always pay what you can at the door.
+            Only {leftParam} spot{leftParam === '1' ? '' : 's'} left online — please lower the quantity to{' '}
+            {leftParam} or fewer. You can always pay what you can at the door.
           </p>
         </div>
       )}
 
       {soldOut ? (
-        <Panel label="Donations full">
+        <Panel label="Online spots full">
           <p className="text-body-3 max-w-2xl leading-normal">
-            Online donations are full for this show. You can still pay what you can at the door — cash, Venmo, and
+            Online spots are full for this show. You can still pay what you can at the door — cash, Venmo, and
             card all work. Come early; entry is first come, first served.
           </p>
         </Panel>
@@ -193,7 +193,7 @@ export default async function TicketsPage({
           </p>
           {capped && remaining !== null && (
             <p className="text-body-3 text-accent-red font-bold">
-              {remaining} spot{remaining === 1 ? '' : 's'} left to donate online.
+              {remaining} spot{remaining === 1 ? '' : 's'} left online.
             </p>
           )}
           {tiers.length === 0 ? (
