@@ -98,31 +98,12 @@ export default function Header({ isAdmin = false }: { isAdmin?: boolean }) {
     router.refresh();
   }
 
-  // The door check-in kiosk and the in-venue TV are standalone full-screen
-  // views — no site chrome.
-  if (pathname.startsWith('/door') || pathname.startsWith('/tv')) return null;
-
-  // The /redesign broadcast homepage carries its own header band and owns the
-  // whole viewport — suppress the shared logo band + nav there.
-  if (pathname.startsWith('/redesign')) return null;
-
-  // Already on the 2027 system, with the rail header in the page: home, the
-  // archive index, About/Contact, the night page and its tickets page, the
-  // account pages, and the band and photographer pages.
-  if (
-    pathname === '/' ||
-    pathname === '/archive' ||
-    pathname === '/contact' ||
-    /^\/shows\/[^/]+(\/tickets)?\/?$/.test(pathname) ||
-    pathname === '/login' ||
-    pathname === '/account' ||
-    pathname.startsWith('/invite/') ||
-    pathname === '/bands' ||
-    pathname.startsWith('/bands/') ||
-    pathname.startsWith('/photos/')
-  ) {
-    return null;
-  }
+  // Every public page is on the 2027 frame now (its rail header is in the
+  // page), and so are the 404 and error pages, which can sit at any path. So
+  // this old header renders only where it's still the chrome: /admin (until
+  // the admin bar) and /hub. /door and /tv are full-screen; /redesign has its
+  // own header.
+  if (!pathname.startsWith('/admin') && !pathname.startsWith('/hub')) return null;
 
   // The old home page ran the venue photo as a full-page dark background, so
   // the header went transparent there. The 2027 home hides this header, so
