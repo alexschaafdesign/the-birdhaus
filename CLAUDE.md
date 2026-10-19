@@ -36,6 +36,12 @@ event keeps the old full-amount row AND adds per-line rows for the other
 matched lines, double-counting that payment's revenue in settlements.
 Single-item redeliveries no-op safely.
 
+## Connected accounts
+
+Don't search my email or any other connected account (Gmail, Notion, Drive,
+calendar, …) unless I ask for that search. If a check depends on an inbox,
+tell me what to look for and I'll check it.
+
 ## Reports
 
 When you finish a task or a plan that needs my decision, also save the full
