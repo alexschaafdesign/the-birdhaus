@@ -10,6 +10,7 @@ import { SectionHeader } from '@/components/ui/SectionHeader';
 import { ShowRow } from '@/components/ui/ShowRow';
 import { RecordingCard } from '@/components/ui/RecordingCard';
 import { FORM } from '@/components/night/form';
+import { imageSource } from '@/lib/image-source';
 import type { Metadata } from 'next';
 
 export async function generateStaticParams() {
@@ -70,12 +71,12 @@ export default async function BandPage({ params }: { params: Promise<{ slug: str
         {band.photo && (
           <div className="border-surface-ink relative aspect-square w-full max-w-xs shrink-0 overflow-hidden border">
             <Image
-              src={band.photo}
+              {...imageSource(band.photo, 640)}
               alt={band.name}
               fill
-              sizes="(max-width: 640px) 100vw, 320px"
+              // Full width below sm (minus the 16px gutters), 320px beside the text.
+              sizes="(max-width: 640px) calc(100vw - 32px), 320px"
               priority
-              unoptimized
               className="object-cover"
             />
           </div>

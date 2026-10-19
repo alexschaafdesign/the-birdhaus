@@ -53,6 +53,14 @@ const nextConfig: NextConfig = {
     ];
   },
   images: {
+    // Band photos and gallery uploads go through the optimizer
+    // (lib/image-source.ts); Cloudinary images resize on Cloudinary instead.
+    // Vercel bills per transformation (one per source × width × format), so:
+    // WebP only, a short list of widths, and a 31-day cache.
+    formats: ['image/webp'],
+    deviceSizes: [640, 828, 1080, 1920],
+    imageSizes: [96, 192, 256, 384],
+    minimumCacheTTL: 2678400,
     remotePatterns: [
       {
         protocol: "https",

@@ -6,6 +6,7 @@ import { broadcastDate } from '@/lib/catalogue';
 import { SiteFrame } from '@/components/night/SiteFrame';
 import { SectionHeader } from '@/components/ui/SectionHeader';
 import { FORM } from '@/components/night/form';
+import { imageSource } from '@/lib/image-source';
 import PhotoGallery from '@/components/PhotoGallery';
 
 // Rendered on demand so a photographer's page always reflects the latest shows
@@ -61,11 +62,10 @@ export default async function PhotographerPage({
       <section className="flex flex-col gap-6 sm:flex-row sm:items-center sm:gap-8">
         {photographer.photo && (
           <Image
-            src={photographer.photo}
+            {...imageSource(photographer.photo, 192)}
             alt=""
             width={96}
             height={96}
-            unoptimized
             className="border-surface-ink size-24 shrink-0 rounded-full border object-cover"
           />
         )}
