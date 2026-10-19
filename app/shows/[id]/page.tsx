@@ -278,7 +278,7 @@ function TicketPanel({ show, soldOut }: { show: Show; soldOut: boolean }) {
       </Panel>
     );
   }
-  if (show.rsvpForm) return <RSVPForm showId={show.id} ticketUrl={show.ticketUrl} variant="2027" />;
+  if (show.rsvpForm) return <RSVPForm showId={show.id} ticketUrl={show.ticketUrl} />;
   if (show.externalTicketUrl) {
     return (
       <Panel label="Tickets">

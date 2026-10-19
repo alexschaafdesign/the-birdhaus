@@ -1,11 +1,22 @@
 import { findShowSlugIgnoringCase, getShowById, getShowBySlug, getTicketAvailability, slugForShowParam } from '@/lib/shows';
 import { sql } from '@/lib/db';
 import { notFound, permanentRedirect } from 'next/navigation';
+import { headers } from 'next/headers';
 import Link from 'next/link';
 import type { Metadata } from 'next';
+import { broadcastDate } from '@/lib/catalogue';
+import { isStaging, outboundAllowed } from '@/lib/staging';
+import { SiteFrame } from '@/components/night/SiteFrame';
+import { Panel, StatusNotice } from '@/components/night/NightParts';
+import { SectionHeader } from '@/components/ui/SectionHeader';
+import { ButtonArrow, buttonClassName } from '@/components/ui/Button';
+import { FORM } from '@/components/night/form';
 
-// Donation-tier picker. Ticket URL points here; each button opens that tier's
-// Square checkout. Kept dynamic so it always reflects the current Square links.
+// Donation-tier picker (2027 frame). Ticket URL points here; each button opens
+// that tier's Square checkout. Kept dynamic so it always reflects the current
+// Square links. States, top to bottom: cancelled / postponed (StatusNotice in
+// place of everything), checkout disabled (off production), checkout error,
+// only-N-left, sold out, no tiers yet, the tiers.
 export const dynamic = 'force-dynamic';
 
 // One row per donation tier. A tier is buyable when it has a catalog variation
@@ -46,7 +57,7 @@ export default async function TicketsPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ checkout_error?: string; sold_out?: string; left?: string }>;
+  searchParams: Promise<{ checkout_error?: string; sold_out?: string; left?: string; checkout?: string }>;
 }) {
   // The segment is a catalogue id or an old slug (Phase 3 turns slugs into
   // 308s to the id); the ticket code below still keys on the slug.
@@ -65,40 +76,41 @@ export default async function TicketsPage({
     notFound();
   }
 
-  // Cancelled or postponed: no buy buttons — a notice instead, and for a
-  // postponed show a link to the new date's tickets. Returns before any of the
+  // The page header, the same in every state: back to the night, then the
+  // night's title and date.
+  const head = (
+    <section className="flex flex-col gap-3">
+      <Link
+        href={`/shows/${show.catalogueId}`}
+        className={`${FORM.link} text-ui-nav-item-14 w-fit tracking-[--spacing(0.25)] uppercase`}
+      >
+        ← {show.catalogueId}
+      </Link>
+      <p className="text-data-overline-11 text-accent-red font-bold tracking-[--spacing(0.625)] uppercase">
+        Tickets
+      </p>
+      <h1 className="text-header-2 max-w-3xl leading-[1.1] font-bold break-words uppercase">{show.title}</h1>
+      <p className="text-data-spec-12 uppercase">{broadcastDate(show.date)}</p>
+    </section>
+  );
+
+  // Cancelled or postponed: no buy buttons — the show page's notice instead,
+  // with the new date's tickets for a postponed show. Returns before any of the
   // ticket logic below runs (the /checkout route refuses these shows too).
   if (show.status !== 'scheduled') {
     const next = show.status === 'postponed' && show.rescheduledTo ? await getShowById(show.rescheduledTo) : null;
     const nextPublic = next && next.announced ? next : null;
     return (
-      <main className="min-h-screen">
-        <div className="max-w-2xl mx-auto px-6 py-12">
-          <Link
-            href={`/shows/${show.catalogueId}`}
-            className="text-ink/70 hover:text-vhs-red mb-8 inline-block font-mono text-sm uppercase tracking-wide"
-          >
-            ← Back to show
-          </Link>
-          <h1 className="text-3xl md:text-4xl font-bold mb-2 leading-tight">{show.title}</h1>
-          <div role="status" className="mt-8 border-2 border-ink bg-paper-deep px-6 py-8 shadow-hard">
-            <p className="text-lg font-bold mb-1">
-              {show.status === 'cancelled' ? 'This show is cancelled.' : 'This show is postponed.'}
-            </p>
-            <p className="text-sm text-ink/70 max-w-prose">
-              Tickets for this date are no longer on sale. Bought one already? We&apos;ll be in touch.
-            </p>
-            {nextPublic && (
-              <Link
-                href={nextPublic.ticketUrl ? `/shows/${nextPublic.catalogueId}/tickets` : `/shows/${nextPublic.catalogueId}`}
-                className="mt-6 inline-block bg-ink text-paper font-bold py-2.5 px-5 hover:bg-ink/85 transition-colors text-sm"
-              >
-                {nextPublic.ticketUrl ? 'Tickets for the new date →' : 'See the new date →'}
-              </Link>
-            )}
-          </div>
-        </div>
-      </main>
+      <SiteFrame stats={null} navPath="/shows">
+        {head}
+        <StatusNotice
+          status={show.status}
+          newDate={
+            nextPublic ? { id: nextPublic.catalogueId, date: nextPublic.date, tickets: Boolean(nextPublic.ticketUrl) } : null
+          }
+          ticketsClosed
+        />
+      </SiteFrame>
     );
   }
 
@@ -106,7 +118,11 @@ export default async function TicketsPage({
   // here (the tier forms open in a new tab, so the banner lands in that tab).
   // `left` is set when /checkout turned a buyer away because they asked for more
   // than remain; the sold-out state itself is derived from live availability below.
-  const { checkout_error: checkoutError, left: leftParam } = await searchParams;
+  // `checkout=disabled` is where /checkout sends everyone off production
+  // (lib/staging.ts); ignored on production, where checkout runs.
+  const { checkout_error: checkoutError, left: leftParam, checkout } = await searchParams;
+  const host = (await headers()).get('host');
+  const checkoutDisabled = checkout === 'disabled' && !outboundAllowed(host);
 
   // Online ticket cap (null when the show is uncapped).
   const availability = await getTicketAvailability(show.id, show.ticketLimit ?? null);
@@ -130,121 +146,108 @@ export default async function TicketsPage({
   // Cap the qty selector to what's left (never above 10, always at least 1).
   const maxQty = capped && remaining !== null ? Math.min(10, Math.max(1, remaining)) : 10;
 
-  const formattedDate = new Date(show.date + 'T00:00:00').toLocaleDateString('en-US', {
-    weekday: 'long',
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  });
-
   return (
-    <main className="min-h-screen">
-      <div className="max-w-2xl mx-auto px-6 py-12">
-        <Link
-          href={`/shows/${show.slug}`}
-          className="text-ink/70 hover:text-vhs-red mb-8 inline-block font-mono text-sm uppercase tracking-wide"
-        >
-          ← Back to show
-        </Link>
+    <SiteFrame stats={null} navPath="/shows">
+      {head}
 
-        <h1 className="text-3xl md:text-4xl font-bold mb-2 leading-tight">{show.title}</h1>
-        <p className="font-mono text-sm text-ink/70 mb-8">{formattedDate}</p>
+      {checkoutDisabled && (
+        <div role="status" className={`${FORM.notice} flex max-w-2xl flex-col gap-1`}>
+          <p className="font-bold uppercase">Checkout disabled on {isStaging(host) ? 'staging' : 'this deploy'}</p>
+          <p>Ticket sales only run on thebirdhaus.org. Nothing was charged and Square wasn&apos;t contacted.</p>
+        </div>
+      )}
 
-        {checkoutError ? (
-          <div
-            role="alert"
-            className="mb-6 border-2 border-vhs-red bg-paper px-5 py-4 text-sm"
-          >
-            <p className="font-bold mb-1 text-vhs-red">Sorry — we couldn&apos;t start checkout just now.</p>
-            <p className="text-ink/80">
-              It&apos;s not you. Please try again in a minute, or just pay at the door — cash,
-              Venmo, and card all work. We&apos;ve been notified and are on it.
-            </p>
-          </div>
-        ) : null}
-
-        {leftParam !== undefined && !soldOut ? (
-          <div
-            role="alert"
-            className="mb-6 border-2 border-amber-600/50 bg-amber-500/10 px-5 py-4 text-sm"
-          >
-            <p className="font-bold mb-1">Almost sold out.</p>
-            <p className="text-ink/80">
-              Only {leftParam} ticket{leftParam === '1' ? '' : 's'} left online — please lower the
-              quantity to {leftParam} or fewer. There&apos;s always room to pay at the door too.
-            </p>
-          </div>
-        ) : null}
-
-        <h2 className="text-lg font-bold mb-2">Choose your donation</h2>
-        <p className="text-sm text-ink/70 mb-6 max-w-prose">
-          No ticket is required for entry — donations go straight to the artists and keeping the
-          venue running. Pick whatever works for you.
-        </p>
-
-        {capped && !soldOut && remaining !== null ? (
-          <p className="text-sm font-bold text-amber-700 mb-6">
-            {remaining} ticket{remaining === 1 ? '' : 's'} left online.
+      {checkoutError && (
+        <div role="alert" className={`${FORM.error} flex max-w-2xl flex-col gap-1`}>
+          <p className="font-bold">Sorry — we couldn&apos;t start checkout just now.</p>
+          <p>
+            It&apos;s not you. Please try again in a minute, or just pay at the door — cash, Venmo, and card all
+            work. We&apos;ve been notified and are on it.
           </p>
-        ) : null}
+        </div>
+      )}
 
-        {soldOut ? (
-          <div className="border-2 border-ink bg-paper-deep px-6 py-8 text-center shadow-hard">
-            <p className="text-lg font-bold mb-1">Online tickets are sold out.</p>
-            <p className="text-sm text-ink/70 max-w-prose mx-auto">
-              You can still pay what you can at the door — cash, Venmo, and card all work. Come early;
-              entry is first come, first served.
-            </p>
-          </div>
-        ) : tiers.length === 0 ? (
-          <p className="text-sm text-ink/50">
-            Donation links aren&apos;t available for this show yet — check back soon.
+      {leftParam !== undefined && !soldOut && (
+        <div role="alert" className={`${FORM.error} flex max-w-2xl flex-col gap-1`}>
+          <p className="font-bold">Almost sold out.</p>
+          <p>
+            Only {leftParam} ticket{leftParam === '1' ? '' : 's'} left online — please lower the quantity to{' '}
+            {leftParam} or fewer. There&apos;s always room to pay at the door too.
           </p>
-        ) : (
-          <div className="space-y-3">
-            {tiers.map((tier) => (
-              // A GET <form> (not next/link) so the route handler isn't prefetched —
-              // each submit mints a fresh Square link, so we only want it on click.
-              // The quantity <select> lets buyers cover their whole party in one
-              // checkout (Square's own page has no quantity field, so we set it here).
-              <form
-                key={tier.amountCents}
-                action={`/shows/${show.slug}/checkout`}
-                method="GET"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center justify-between gap-4 border-2 border-ink bg-paper-deep px-6 py-4 hover:bg-ink/10 transition-colors"
-              >
-                <input type="hidden" name="tier" value={tier.amountCents} />
-                <span className="font-bold">{tierName(tier.tierLabel)}</span>
-                <div className="flex items-center gap-3">
-                  <label className="flex items-center gap-1.5 text-sm text-ink/70">
-                    <span className="font-mono uppercase tracking-wide">Qty</span>
-                    <select
-                      name="qty"
-                      defaultValue="1"
-                      aria-label={`Quantity for ${tierName(tier.tierLabel)}`}
-                      className="border-2 border-ink/40 bg-paper px-2 py-1 font-bold focus:outline-none focus:border-ink"
-                    >
-                      {Array.from({ length: maxQty }, (_, i) => i + 1).map((n) => (
-                        <option key={n} value={n}>
-                          {n}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <button
-                    type="submit"
-                    className="font-mono text-base font-bold whitespace-nowrap hover:text-vhs-red transition-colors"
+        </div>
+      )}
+
+      {soldOut ? (
+        <Panel label="Sold out">
+          <p className="text-body-3 max-w-2xl leading-normal">
+            Online tickets are sold out. You can still pay what you can at the door — cash, Venmo, and card all
+            work. Come early; entry is first come, first served.
+          </p>
+        </Panel>
+      ) : (
+        <section className="flex max-w-2xl flex-col gap-4">
+          <SectionHeader label="Choose your donation" rule="none" />
+          <p className="text-body-3 leading-normal">
+            No ticket is required for entry — donations go straight to the artists and keeping the venue running.
+            Pick whatever works for you.
+          </p>
+          {capped && remaining !== null && (
+            <p className="text-body-3 text-accent-red font-bold">
+              {remaining} ticket{remaining === 1 ? '' : 's'} left online.
+            </p>
+          )}
+          {tiers.length === 0 ? (
+            <p className="text-body-3 leading-normal">
+              Donation links aren&apos;t available for this show yet — check back soon.
+            </p>
+          ) : (
+            <ul className="border-surface-ink/20 flex flex-col border-t">
+              {tiers.map((tier) => (
+                <li key={tier.amountCents} className="border-surface-ink/20 border-b">
+                  {/* A GET <form> (not next/link) so the route handler isn't
+                      prefetched — each submit mints a fresh Square link, so we
+                      only want it on click. The quantity <select> lets buyers
+                      cover their whole party in one checkout (Square's own page
+                      has no quantity field, so we set it here). */}
+                  <form
+                    action={`/shows/${show.slug}/checkout`}
+                    method="GET"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3 py-4"
                   >
-                    {dollars(tier.amountCents)} →
-                  </button>
-                </div>
-              </form>
-            ))}
-          </div>
-        )}
-      </div>
-    </main>
+                    <input type="hidden" name="tier" value={tier.amountCents} />
+                    <span className="text-ui-nav-item-14 min-w-0 leading-[1.3] font-bold tracking-[--spacing(0.25)] uppercase">
+                      {tierName(tier.tierLabel)}
+                    </span>
+                    <div className="flex items-center gap-3">
+                      <label className="flex items-center gap-2">
+                        <span className="text-data-overline-11 font-bold tracking-[--spacing(0.625)] uppercase">Qty</span>
+                        <select
+                          name="qty"
+                          defaultValue="1"
+                          aria-label={`Quantity for ${tierName(tier.tierLabel)}`}
+                          className={`${FORM.field} w-auto py-1.5 font-bold`}
+                        >
+                          {Array.from({ length: maxQty }, (_, i) => i + 1).map((n) => (
+                            <option key={n} value={n}>
+                              {n}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <button type="submit" className={`${buttonClassName('primary', 's')} cursor-pointer`}>
+                        {dollars(tier.amountCents)}
+                        <ButtonArrow size="s" />
+                      </button>
+                    </div>
+                  </form>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      )}
+    </SiteFrame>
   );
 }

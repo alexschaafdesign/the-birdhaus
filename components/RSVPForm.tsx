@@ -39,65 +39,36 @@ function validateEmail(email: string): string | null {
   return null;
 }
 
-// Class sets per look. 'legacy' is the paper/VHS site (and the Song Club
-// portal); '2027' is the DS look for /shows/[id]: CommitMono, tokens, square
-// corners, no shadows. Markup and behaviour are shared — only classes differ.
-const LOOKS = {
-  legacy: {
-    panel: 'h-full overflow-y-auto border-2 border-ink bg-paper-deep p-4 shadow-hard',
-    title: 'text-base font-bold mb-1.5',
-    intro: 'text-sm text-ink/70 mb-4',
-    success: 'border-2 border-vhs-green bg-paper p-4 text-vhs-green',
-    upsell: 'bg-ink text-paper p-5',
-    upsellTitle: 'font-bold mb-1',
-    upsellText: 'text-paper/70 text-sm mb-4',
-    upsellButton: 'inline-block bg-paper text-ink font-bold py-2.5 px-5 hover:bg-paper/80 transition-colors text-sm',
-    label: 'block text-sm font-medium mb-1 text-ink/80',
-    input: 'w-full bg-paper border-2 border-ink/40 px-3 py-1.5 placeholder:text-ink/40 focus:border-ink focus:outline-none transition-colors',
-    inputBase: 'w-full bg-paper border-2 px-3 py-1.5 placeholder:text-ink/40 focus:outline-none transition-colors',
-    inputOk: 'border-ink/40 focus:border-ink',
-    inputBad: 'border-vhs-red focus:border-vhs-red',
-    fieldError: 'mt-1.5 text-sm text-vhs-red',
-    checkbox: 'w-4 h-4 border-2 border-ink/40 accent-ink focus:ring-ink',
-    checkLabel: 'text-sm text-ink/80',
-    submit: 'w-full bg-ink text-paper font-bold py-2.5 px-6 hover:bg-ink/85 disabled:opacity-50 disabled:cursor-not-allowed transition-colors',
-    error: 'border-2 border-vhs-red bg-paper p-4 text-vhs-red',
-  },
-  '2027': {
-    panel: 'border-surface-ink flex flex-col border-2 p-4 sm:p-6',
-    title: 'text-header-4 mb-2 font-bold uppercase leading-[1.2]',
-    intro: 'text-body-3 mb-5 leading-normal',
-    success: 'border-surface-ink text-body-3 border-2 p-4 leading-normal',
-    upsell: 'bg-surface-ink text-surface-paper p-5',
-    upsellTitle: 'text-body-3 mb-1 font-bold uppercase',
-    upsellText: 'text-body-3 mb-4 leading-normal opacity-80',
-    upsellButton:
-      'bg-surface-paper text-surface-ink ui-hover:bg-accent-red ui-hover:text-surface-paper inline-flex h-9.5 items-center px-4.5 text-body-3 font-bold transition-colors',
-    label: 'text-data-overline-11 mb-1.5 block font-bold uppercase tracking-[--spacing(0.625)]',
-    input:
-      'bg-surface-paper border-surface-ink/40 focus:border-surface-ink text-body-3 w-full rounded-none border-2 px-3 py-2 focus:outline-none',
-    inputBase: 'bg-surface-paper text-body-3 w-full rounded-none border-2 px-3 py-2 focus:outline-none',
-    inputOk: 'border-surface-ink/40 focus:border-surface-ink',
-    inputBad: 'border-accent-red focus:border-accent-red',
-    fieldError: 'text-body-3 text-accent-red mt-1.5',
-    checkbox: 'accent-surface-ink size-4',
-    checkLabel: 'text-body-3',
-    submit:
-      'bg-surface-ink text-surface-paper ui-hover:bg-accent-red text-ui-button-15 h-13 w-full font-bold tracking-[--spacing(0.25)] transition-colors disabled:opacity-30',
-    error: 'border-accent-red text-accent-red text-body-3 border-2 p-4',
-  },
+// The 2027 DS look for /shows/[id]: CommitMono, tokens, square corners, no
+// shadows. (The old paper/VHS 'legacy' look went with Phase 3; the show page
+// was its last user.)
+const LOOK = {
+  panel: 'border-surface-ink flex flex-col border-2 p-4 sm:p-6',
+  title: 'text-header-4 mb-2 font-bold uppercase leading-[1.2]',
+  intro: 'text-body-3 mb-5 leading-normal',
+  success: 'border-surface-ink text-body-3 border-2 p-4 leading-normal',
+  upsell: 'bg-surface-ink text-surface-paper p-5',
+  upsellTitle: 'text-body-3 mb-1 font-bold uppercase',
+  upsellText: 'text-body-3 mb-4 leading-normal opacity-80',
+  upsellButton:
+    'bg-surface-paper text-surface-ink ui-hover:bg-accent-red ui-hover:text-surface-paper inline-flex h-9.5 items-center px-4.5 text-body-3 font-bold transition-colors',
+  label: 'text-data-overline-11 mb-1.5 block font-bold uppercase tracking-[--spacing(0.625)]',
+  input:
+    'bg-surface-paper border-surface-ink/40 focus:border-surface-ink text-body-3 w-full rounded-none border-2 px-3 py-2 focus:outline-none',
+  inputBase: 'bg-surface-paper text-body-3 w-full rounded-none border-2 px-3 py-2 focus:outline-none',
+  inputOk: 'border-surface-ink/40 focus:border-surface-ink',
+  inputBad: 'border-accent-red focus:border-accent-red',
+  fieldError: 'text-body-3 text-accent-red mt-1.5',
+  checkbox: 'accent-surface-ink size-4',
+  checkLabel: 'text-body-3',
+  submit:
+    'bg-surface-ink text-surface-paper ui-hover:bg-accent-red text-ui-button-15 h-13 w-full font-bold tracking-[--spacing(0.25)] transition-colors disabled:opacity-30',
+  // Plain red text, no box (same as the account and contact forms).
+  error: 'text-accent-red text-body-3 leading-normal',
 } as const;
 
-export default function RSVPForm({
-  showId,
-  ticketUrl,
-  variant = 'legacy',
-}: {
-  showId: number;
-  ticketUrl?: string;
-  variant?: keyof typeof LOOKS;
-}) {
-  const c = LOOKS[variant];
+export default function RSVPForm({ showId, ticketUrl }: { showId: number; ticketUrl?: string }) {
+  const c = LOOK;
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -226,10 +197,13 @@ export default function RSVPForm({
                 if (e.target.value.trim()) setEmailError(validateEmail(e.target.value));
               }}
               aria-invalid={emailError ? true : undefined}
+              aria-describedby={emailError ? 'rsvp-email-error' : undefined}
               className={`${c.inputBase} ${emailError ? c.inputBad : c.inputOk}`}
             />
             {emailError && (
-              <p className={c.fieldError}>{emailError}</p>
+              <p id="rsvp-email-error" className={c.fieldError} role="alert">
+                {emailError}
+              </p>
             )}
           </div>
 
@@ -273,9 +247,9 @@ export default function RSVPForm({
           </button>
 
           {status === 'error' && (
-            <div className={c.error}>
+            <p className={c.error} role="alert">
               Something went wrong. Please try again.
-            </div>
+            </p>
           )}
         </form>
       )}
