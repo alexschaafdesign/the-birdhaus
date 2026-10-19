@@ -22,7 +22,7 @@ When outbound isn't allowed:
 |---|---|---|
 | All Resend email (RSVP, blast, advance, tickets, timesheet, alerts, accounts) | `lib/email.ts` `getResendClient()` | Logged (`[staging] blocked email subject=… recipients=N`), not sent. With `BH_STAGING_EMAIL_TO` set, each message goes to that one address instead; cc, bcc and reply-to are dropped, and the subject is tagged. |
 | Inbound reply forwarding | same | Never forwarded, test address or not |
-| Square checkout | `app/shows/[id]/checkout/route.ts` | Redirects to `/shows/<id>/tickets?checkout=disabled`, which shows a "Checkout disabled on staging" banner. Neither a minted link nor the stored-link fallback. |
+| Square checkout | `app/shows/[id]/checkout/route.ts` | Redirects to `/shows/<id>/tickets?checkout=disabled`, which shows an "Online donations disabled on staging" banner. Neither a minted link nor the stored-link fallback. |
 | Stored ticket links | `lib/staging.ts` `guardTicketUrl` | A stored `square.link` (or other Square checkout URL) becomes the show's `/checkout` path; an absolute thebirdhaus.org link becomes the same path here. Applied in `lib/shows` and the admin show page. |
 | Square writes (catalog, links, flyers) | `lib/square.ts` | `isSquareSyncEnabled()` is false; `squareFetch` refuses anything but GET |
 | Mailchimp opt-in | `lib/mailchimp.ts` | Logged, not upserted |

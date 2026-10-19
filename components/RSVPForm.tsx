@@ -124,7 +124,7 @@ export default function RSVPForm({ showId, ticketUrl }: { showId: number; ticket
       <p className={c.intro}>
         RSVP below to get the venue address and show details emailed to you.
         {ticketUrl && (
-          <> After submitting, you&apos;ll have the option to <strong>buy an advance ticket</strong> to guarantee your spot.</>
+          <> After submitting, you&apos;ll have the option to <strong>donate online</strong> to guarantee your spot.</>
         )}
       </p>
 
@@ -137,7 +137,7 @@ export default function RSVPForm({ showId, ticketUrl }: { showId: number; ticket
             <div className={c.upsell}>
               <p className={c.upsellTitle}>🎟 Want to guarantee your spot?</p>
               <p className={c.upsellText}>
-                RSVPs are first-come, first-served and the venue is small. Buying an advance ticket means you&apos;re in — no matter how packed it gets.
+                RSVPs are first-come, first-served and the venue is small. Donating online in advance means you&apos;re in — no matter how packed it gets.
               </p>
               <a
                 href={ticketUrl}
@@ -145,7 +145,7 @@ export default function RSVPForm({ showId, ticketUrl }: { showId: number; ticket
                 rel="noopener noreferrer"
                 className={c.upsellButton}
               >
-                Buy a Ticket →
+                Donate →
               </a>
             </div>
           )}

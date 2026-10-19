@@ -271,9 +271,9 @@ async function ShowNight({
 function TicketPanel({ show, soldOut }: { show: Show; soldOut: boolean }) {
   if (soldOut) {
     return (
-      <Panel label="Sold out">
+      <Panel label="Donations full">
         <p className="text-body-3 leading-normal">
-          Enough people have bought advance tickets (not just a free RSVP) that we&apos;re at capacity. Thanks!
+          Enough people have donated online in advance (not just a free RSVP) that we&apos;re at capacity. Thanks!
         </p>
       </Panel>
     );

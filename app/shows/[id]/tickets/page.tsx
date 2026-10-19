@@ -87,7 +87,7 @@ export default async function TicketsPage({
         ← {show.catalogueId}
       </Link>
       <p className="text-data-overline-11 text-accent-red font-bold tracking-[--spacing(0.625)] uppercase">
-        Tickets
+        Donate
       </p>
       <h1 className="text-header-2 max-w-3xl leading-[1.1] font-bold break-words uppercase">{show.title}</h1>
       <p className="text-data-spec-12 uppercase">{broadcastDate(show.date)}</p>
@@ -152,53 +152,54 @@ export default async function TicketsPage({
 
       {checkoutDisabled && (
         <div role="status" className={`${FORM.notice} flex max-w-2xl flex-col gap-1`}>
-          <p className="font-bold uppercase">Checkout disabled on {isStaging(host) ? 'staging' : 'this deploy'}</p>
-          <p>Ticket sales only run on thebirdhaus.org. Nothing was charged and Square wasn&apos;t contacted.</p>
+          <p className="font-bold uppercase">Online donations disabled on {isStaging(host) ? 'staging' : 'this deploy'}</p>
+          <p>Donating online only works on thebirdhaus.org. Nothing was charged and Square wasn&apos;t contacted.</p>
         </div>
       )}
 
       {checkoutError && (
         <div role="alert" className={`${FORM.error} flex max-w-2xl flex-col gap-1`}>
-          <p className="font-bold">Sorry — we couldn&apos;t start checkout just now.</p>
+          <p className="font-bold">Sorry — we couldn&apos;t start your donation just now.</p>
           <p>
-            It&apos;s not you. Please try again in a minute, or just pay at the door — cash, Venmo, and card all
-            work. We&apos;ve been notified and are on it.
+            It&apos;s not you. Please try again in a minute, or pay what you can at the door — cash, Venmo, and
+            card all work. We&apos;ve been notified and are on it.
           </p>
         </div>
       )}
 
       {leftParam !== undefined && !soldOut && (
         <div role="alert" className={`${FORM.error} flex max-w-2xl flex-col gap-1`}>
-          <p className="font-bold">Almost sold out.</p>
+          <p className="font-bold">Almost full online.</p>
           <p>
-            Only {leftParam} ticket{leftParam === '1' ? '' : 's'} left online — please lower the quantity to{' '}
-            {leftParam} or fewer. There&apos;s always room to pay at the door too.
+            Only {leftParam} spot{leftParam === '1' ? '' : 's'} left to donate online — please lower the quantity
+            to {leftParam} or fewer. You can always pay what you can at the door.
           </p>
         </div>
       )}
 
       {soldOut ? (
-        <Panel label="Sold out">
+        <Panel label="Donations full">
           <p className="text-body-3 max-w-2xl leading-normal">
-            Online tickets are sold out. You can still pay what you can at the door — cash, Venmo, and card all
-            work. Come early; entry is first come, first served.
+            Online donations are full for this show. You can still pay what you can at the door — cash, Venmo, and
+            card all work. Come early; entry is first come, first served.
           </p>
         </Panel>
       ) : (
         <section className="flex max-w-2xl flex-col gap-4">
           <SectionHeader label="Choose your donation" rule="none" />
           <p className="text-body-3 leading-normal">
-            No ticket is required for entry — donations go straight to the artists and keeping the venue running.
-            Pick whatever works for you.
+            No ticket is required for entry: donate online now, or pay what you can at the door. Donations go
+            straight to the artists and keeping the venue running. Pick whatever works for you.
           </p>
           {capped && remaining !== null && (
             <p className="text-body-3 text-accent-red font-bold">
-              {remaining} ticket{remaining === 1 ? '' : 's'} left online.
+              {remaining} spot{remaining === 1 ? '' : 's'} left to donate online.
             </p>
           )}
           {tiers.length === 0 ? (
             <p className="text-body-3 leading-normal">
-              Donation links aren&apos;t available for this show yet — check back soon.
+              Online donations aren&apos;t open for this show yet — check back soon, or pay what you can at the
+              door.
             </p>
           ) : (
             <ul className="border-surface-ink/20 flex flex-col border-t">

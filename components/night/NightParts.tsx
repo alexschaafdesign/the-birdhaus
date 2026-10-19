@@ -161,10 +161,10 @@ export function StatusNotice({
             : 'This show is postponed. New date to be announced.'}
       </p>
       {ticketsClosed && (
-        <p className="text-body-3 font-bold">Tickets for this date are no longer on sale.</p>
+        <p className="text-body-3 font-bold">Online donations for this date are closed.</p>
       )}
       <p className="text-body-3 max-w-2xl leading-normal opacity-80">
-        Bought a ticket? We&apos;ll be in touch. Questions:{' '}
+        Donated online? We&apos;ll be in touch. Questions:{' '}
         <Link href="/contact" className="underline">
           contact us
         </Link>
@@ -184,7 +184,7 @@ export function StatusNotice({
               href={`/shows/${newDate.id}/tickets`}
               className={`${buttonClassName('secondary-on-ink')} w-fit`}
             >
-              Tickets for the new date
+              Donate for the new date
               <ButtonArrow />
             </Link>
           )}
