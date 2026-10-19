@@ -5,6 +5,7 @@
 import { getResendClient } from '../email';
 import { SITE_URL } from '../site';
 import { splitName } from '../name';
+import { emailButton, emailDocument, emailP, emailSmall, emailTextFooter } from '../email-layout';
 
 const NOTIFY_EMAIL = 'alex@thebirdhaus.org';
 
@@ -29,7 +30,7 @@ async function notifyAdminCopy(subject: string, line: string): Promise<void> {
       from,
       to: NOTIFY_EMAIL,
       subject,
-      text: line,
+      ...renderAdminCopyEmail(line),
     });
     if (error) console.error('[account-email] admin note failed:', error);
   } catch (err) {
@@ -37,8 +38,64 @@ async function notifyAdminCopy(subject: string, line: string): Promise<void> {
   }
 }
 
+// The admin heads-up's body: one line, in the minimal admin shell.
+export function renderAdminCopyEmail(line: string): { html: string; text: string } {
+  return {
+    html: emailDocument({ variant: 'admin', body: emailP(esc(line)) }),
+    text: line + emailTextFooter('admin'),
+  };
+}
+
 export function accountSetupLinkFor(token: string): string {
   return `${SITE_URL}/invite/${token}`;
+}
+
+// Invites someone to the Birdhaus crew: a login with full admin access, worded
+// for a collaborator (not a Song Club member). After they pick a password the
+// accept route drops them into /admin.
+// The crew invite (2027 email shell). Copy unchanged; the layout is new.
+export function renderCrewInviteEmail({
+  name,
+  token,
+  title,
+}: {
+  name: string;
+  token: string;
+  title?: string | null;
+}): { subject: string; html: string; text: string } {
+  const firstName = splitName(name).firstName;
+  const greeting = firstName ? `hi ${firstName}!` : 'hi there!';
+  const link = accountSetupLinkFor(token);
+  const roleLine = title
+    ? `You're being set up as ${title} on the Birdhaus admin.`
+    : `You're being set up with a login for the Birdhaus admin.`;
+  const dontForward = 'This link is just for you — please don’t forward it.';
+
+  const text =
+    [
+      greeting,
+      '',
+      roleLine,
+      'Pick a password to get in — your dashboard is waiting:',
+      link,
+      '',
+      dontForward,
+      '',
+      '— the BIRDHAUS',
+    ].join('\n') + emailTextFooter();
+
+  const html = emailDocument({
+    preheader: 'Pick a password to get into the Birdhaus admin.',
+    body:
+      emailP(esc(greeting)) +
+      emailP(esc(roleLine)) +
+      emailButton(link, 'Pick a password &amp; get in') +
+      emailSmall(`Or paste this link into your browser:<br>${esc(link)}`) +
+      emailSmall(esc(dontForward)) +
+      emailP('— the BIRDHAUS'),
+  });
+
+  return { subject: "You're on the Birdhaus crew", html, text };
 }
 
 // Invites someone to the Birdhaus crew: a login with full admin access, worded
@@ -56,37 +113,12 @@ export async function sendCrewInviteEmail({
   title?: string | null;
 }): Promise<void> {
   const from = requireFrom();
-
-  const firstName = splitName(name).firstName;
-  const greeting = firstName ? `hi ${firstName}!` : 'hi there!';
-  const link = accountSetupLinkFor(token);
-  const roleLine = title
-    ? `You're being set up as ${title} on the Birdhaus admin.`
-    : `You're being set up with a login for the Birdhaus admin.`;
-
-  const text = [
-    greeting,
-    '',
-    roleLine,
-    'Pick a password to get in — your dashboard is waiting:',
-    link,
-    '',
-    'This link is just for you — please don’t forward it.',
-    '',
-    '— the BIRDHAUS',
-  ].join('\n');
-
-  const html = `<p>${esc(greeting)}</p>
-<p>${esc(roleLine)}</p>
-<p><a href="${esc(link)}" style="display: inline-block; background: #2A2420; color: #E8E0D0; padding: 10px 18px; border-radius: 6px; text-decoration: none; font-weight: 600;">Pick a password &amp; get in</a></p>
-<p style="font-size: 13px; color: #777;">Or paste this link into your browser:<br>${esc(link)}</p>
-<p style="font-size: 13px; color: #777;">This link is just for you — please don't forward it.</p>
-<p>— the BIRDHAUS</p>`;
+  const { subject, html, text } = renderCrewInviteEmail({ name, token, title });
 
   const { error } = await getResendClient('crew-invite').emails.send({
     from,
     to: email,
-    subject: "You're on the Birdhaus crew",
+    subject,
     html,
     text,
   });
@@ -95,6 +127,36 @@ export async function sendCrewInviteEmail({
     'Crew invite sent',
     `Crew invite emailed to ${name} <${email}>${title ? ` (${title})` : ''}.`
   );
+}
+
+// The password reset (2027 email shell). Copy unchanged; the layout is new.
+export function renderPasswordResetEmail({ name, token }: { name: string; token: string }): {
+  subject: string;
+  html: string;
+  text: string;
+} {
+  const firstName = splitName(name).firstName;
+  const greeting = firstName ? `hi ${firstName}!` : 'hi there!';
+  const link = accountSetupLinkFor(token);
+  const asked = 'Someone (hopefully you) asked to reset your Birdhaus password.';
+  const ignore = "If you didn't ask for this, you can ignore this email.";
+
+  const text =
+    [greeting, '', asked, 'Set a new one here (link expires in 2 hours):', link, '', ignore, '', '— the BIRDHAUS'].join('\n') +
+    emailTextFooter();
+
+  const html = emailDocument({
+    preheader: 'Set a new Birdhaus password. The link expires in 2 hours.',
+    body:
+      emailP(esc(greeting)) +
+      emailP(esc(asked)) +
+      emailButton(link, 'Set a new password') +
+      emailSmall(`The link expires in 2 hours. Or paste it into your browser:<br>${esc(link)}`) +
+      emailSmall(esc(ignore)) +
+      emailP('— the BIRDHAUS'),
+  });
+
+  return { subject: 'Reset your Birdhaus password', html, text };
 }
 
 export async function sendAccountPasswordResetEmail({
@@ -107,34 +169,12 @@ export async function sendAccountPasswordResetEmail({
   token: string;
 }): Promise<void> {
   const from = requireFrom();
-
-  const firstName = splitName(name).firstName;
-  const greeting = firstName ? `hi ${firstName}!` : 'hi there!';
-  const link = accountSetupLinkFor(token);
-
-  const text = [
-    greeting,
-    '',
-    'Someone (hopefully you) asked to reset your Birdhaus password.',
-    'Set a new one here (link expires in 2 hours):',
-    link,
-    '',
-    "If you didn't ask for this, you can ignore this email.",
-    '',
-    '— the BIRDHAUS',
-  ].join('\n');
-
-  const html = `<p>${esc(greeting)}</p>
-<p>Someone (hopefully you) asked to reset your Birdhaus password.</p>
-<p><a href="${esc(link)}" style="display: inline-block; background: #2A2420; color: #E8E0D0; padding: 10px 18px; border-radius: 6px; text-decoration: none; font-weight: 600;">Set a new password</a></p>
-<p style="font-size: 13px; color: #777;">The link expires in 2 hours. Or paste it into your browser:<br>${esc(link)}</p>
-<p style="font-size: 13px; color: #777;">If you didn't ask for this, you can ignore this email.</p>
-<p>— the BIRDHAUS</p>`;
+  const { subject, html, text } = renderPasswordResetEmail({ name, token });
 
   const { error } = await getResendClient('password-reset').emails.send({
     from,
     to: email,
-    subject: 'Reset your Birdhaus password',
+    subject,
     html,
     text,
   });

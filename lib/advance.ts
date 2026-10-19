@@ -473,14 +473,13 @@ async function renderForShow(
   recipients: AdvanceRecipient[],
   saved: SavedAdvanceVars,
   hubUrl: string
-): Promise<{ subject: string; html: string }> {
+): Promise<{ subject: string; html: string; markdown: string }> {
   const template = await getDefaultAdvanceTemplate();
   const templateVars = buildTemplateVars(show, recipients, saved, hubUrl);
-  const { subject, html } = await renderAdvanceEmail(
+  return renderAdvanceEmail(
     { subject: template.subject, body: advanceBody(template.body, show) },
     templateVars
   );
-  return { subject, html };
 }
 
 // Upserts the show_advances row with the rendered subject/body + saved vars,
@@ -599,6 +598,7 @@ export async function sendShowAdvance(
     ccEmails: await getAdvanceWatchers(),
     subject: rendered.subject,
     html: rendered.html,
+    text: rendered.markdown,
     replyToken,
   });
 
@@ -835,6 +835,7 @@ export async function sendShowMessage(
     ccEmails: await getAdvanceWatchers(),
     subject,
     html,
+    text,
     replyToken: advance.reply_token,
   });
 

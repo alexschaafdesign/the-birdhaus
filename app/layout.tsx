@@ -53,10 +53,10 @@ export const metadata: Metadata = {
   },
 };
 
-// Paper, the 2027 page ground (the same colour as <html> below), so mobile
-// browser chrome blends into the page instead of showing the old ink band.
+// Paper, the 2027 page ground (surface/paper, the same colour as <html> below),
+// so mobile browser chrome blends into the page.
 export const viewport: Viewport = {
-  themeColor: "#F2EEE3",
+  themeColor: "#F0EDE4",
 };
 
 // Every page renders per request. This used to follow from the old header's
@@ -69,9 +69,12 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // <html> takes surface/paper and surface/ink (app/redesign/tokens.css), the
+  // ground SiteFrame paints, so overscroll and short pages match it. Literal,
+  // so it holds before any CSS loads.
   return (
-    <html lang="en" style={{ backgroundColor: "#F2EEE3", color: "#1A1712" }}>
-      <body className={`${instrumentSans.variable} ${plexMono.variable}`} style={{ color: "#1A1712" }}>
+    <html lang="en" style={{ backgroundColor: "#F0EDE4", color: "#16150F" }}>
+      <body className={`${instrumentSans.variable} ${plexMono.variable}`} style={{ color: "#16150F" }}>
         {children}
       </body>
     </html>
