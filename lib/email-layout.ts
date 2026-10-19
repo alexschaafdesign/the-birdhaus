@@ -33,11 +33,15 @@ const BARS = ['#FDC900', '#FF6500', '#FF002A', '#B200D8', '#4C00B9'];
 
 export const EMAIL_FONT = "CommitMono, ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', 'Courier New', monospace";
 
-// The 2027 wordmark, ink on a baked-in paper ground, at 2× (400×60, shown at
-// 200×30). Hosted with the site's images; see scripts/email-wordmark.mjs.
+// The 2027 wordmark in its medium (primary) weight, ink on a baked-in paper
+// ground, at 2× (480×79, shown at 240×40). Hosted with the site's images; see
+// scripts/email-wordmark.mjs.
 export const EMAIL_WORDMARK_URL = 'https://images.thebirdhaus.org/email/birdhaus-wordmark-2027@2x.png';
-const WORDMARK_W = 200;
-const WORDMARK_H = 30;
+const WORDMARK_W = 240;
+const WORDMARK_H = 40;
+// The admin shell's smaller mark.
+const ADMIN_WORDMARK_W = 180;
+const ADMIN_WORDMARK_H = 30;
 
 const C = EMAIL_COLORS;
 
@@ -150,8 +154,8 @@ export function emailDocument({ body, preheader, variant = 'public', wordmarkUrl
     : '';
   const wordmark =
     `<a href="${escapeEmail(SITE_URL)}" style="text-decoration:none;">` +
-    `<img src="${escapeEmail(wordmarkUrl)}" width="${admin ? 150 : WORDMARK_W}" height="${admin ? 23 : WORDMARK_H}" alt="the BIRDHAUS" ` +
-    `style="display:block;border:0;outline:none;text-decoration:none;width:${admin ? 150 : WORDMARK_W}px;height:auto;font-family:${EMAIL_FONT};font-size:18px;font-weight:700;color:${C.ink};"></a>`;
+    `<img src="${escapeEmail(wordmarkUrl)}" width="${admin ? ADMIN_WORDMARK_W : WORDMARK_W}" height="${admin ? ADMIN_WORDMARK_H : WORDMARK_H}" alt="the BIRDHAUS" ` +
+    `style="display:block;border:0;outline:none;text-decoration:none;width:${admin ? ADMIN_WORDMARK_W : WORDMARK_W}px;height:auto;font-family:${EMAIL_FONT};font-size:18px;font-weight:700;color:${C.ink};"></a>`;
   const footer = admin
     ? `<p style="margin:0;font-family:${EMAIL_FONT};font-size:11px;line-height:1.6;letter-spacing:1px;text-transform:uppercase;color:${C.meta};">the BIRDHAUS · admin notice</p>`
     : `<p style="margin:0 0 4px;font-family:${EMAIL_FONT};font-size:11px;line-height:1.6;letter-spacing:1px;text-transform:uppercase;color:${C.meta};">A humble DIY music empire in South Minneapolis</p>` +
