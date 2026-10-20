@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { FreshCutsContent } from '@/lib/page-content';
+import { hasFreshCutsCopy, isPlaceholderCopy } from '@/lib/placeholder-copy';
 
 // A draft mirrors FreshCutsContent but keeps the multi-line fields as raw
 // textarea strings while editing; we split them back into arrays on save.
@@ -145,30 +146,49 @@ export default function FreshCutsIntro({
     );
   }
 
+  const editButton = isAdmin && (
+    <button
+      type="button"
+      onClick={startEditing}
+      className="text-data-overline-11 border-surface-ink hover:bg-surface-ink hover:text-surface-paper focus-visible:outline-accent-red shrink-0 cursor-pointer border px-2 py-1 font-bold tracking-[--spacing(0.625)] uppercase focus-visible:outline-2 focus-visible:outline-offset-2"
+    >
+      Edit copy
+    </button>
+  );
+
+  // Until the copy has real words (not blank, not "tbd"), the view gets a plain
+  // heading over the filtered list; staff still get the edit button.
+  if (!hasFreshCutsCopy(current)) {
+    return (
+      <section aria-labelledby="fresh-cuts-title" className="flex max-w-3xl items-start justify-between gap-4">
+        <h1
+          id="fresh-cuts-title"
+          className="text-data-overline-11 text-accent-red font-bold leading-[1.3] tracking-[--spacing(0.625)] uppercase"
+        >
+          Fresh Cuts
+        </h1>
+        {editButton}
+      </section>
+    );
+  }
+
   // The Fresh Cuts view of the archive (/archive?series=fc) opens with this:
   // what the series is, from the editable copy. The values list is edit-only
-  // for now; the old /fresh-cuts page was its only reader.
+  // for now; the old /fresh-cuts page was its only reader. A placeholder
+  // tagline or paragraph is left out.
   return (
     <section aria-labelledby="fresh-cuts-title" className="flex max-w-3xl flex-col gap-3">
       <div className="flex items-start justify-between gap-4">
         <p className="text-data-overline-11 text-accent-red font-bold leading-[1.3] tracking-[--spacing(0.625)] uppercase">
           {current.eyebrow}
         </p>
-        {isAdmin && (
-          <button
-            type="button"
-            onClick={startEditing}
-            className="text-data-overline-11 border-surface-ink hover:bg-surface-ink hover:text-surface-paper focus-visible:outline-accent-red shrink-0 cursor-pointer border px-2 py-1 font-bold tracking-[--spacing(0.625)] uppercase focus-visible:outline-2 focus-visible:outline-offset-2"
-          >
-            Edit copy
-          </button>
-        )}
+        {editButton}
       </div>
       <h1 id="fresh-cuts-title" className="text-display-2 font-bold leading-none uppercase">
         {current.title}
       </h1>
-      <p className="text-body-1 leading-normal">{current.tagline}</p>
-      {current.body.map((paragraph, i) => (
+      {!isPlaceholderCopy(current.tagline) && <p className="text-body-1 leading-normal">{current.tagline}</p>}
+      {current.body.filter((p) => !isPlaceholderCopy(p)).map((paragraph, i) => (
         <p key={i} className="text-body-3 leading-normal">
           {paragraph}
         </p>
