@@ -7,8 +7,9 @@ import { SITE_URL } from '@/lib/site';
 export const dynamic = 'force-dynamic';
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  // Never lists /song-club, /w or the vanity paths: those 308 to Songhaus.
-  const staticPaths = ['', '/archive', '/bands', '/videos', '/contact'];
+  // Never lists /song-club, /w or the vanity paths (they 308 to Songhaus), or
+  // /videos (it redirects to /archive).
+  const staticPaths = ['', '/archive', '/bands', '/contact'];
   const staticEntries: MetadataRoute.Sitemap = staticPaths.map((path) => ({
     url: `${SITE_URL}${path}`,
     changeFrequency: 'weekly',
