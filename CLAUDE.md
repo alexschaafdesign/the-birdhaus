@@ -16,10 +16,12 @@ No select *, alias.* or returning * in app code; the build enforces it. A migrat
 
 ## Deploys and staging
 
-- `future-2027` deploys to **next.thebirdhaus.org**: staging, behind Vercel
-  Authentication, reading `staging-2027`, a Neon copy of prod (real people's
-  data). See [`docs/staging.md`](docs/staging.md). It's the 2027 release
-  branch: new 2027 work branches from it, not from `main`.
+- New work branches from `main`.
+- The long-lived `staging` branch deploys to **next.thebirdhaus.org**: staging,
+  behind Vercel Authentication, reading `staging-2027`, a Neon copy of prod
+  (real people's data). It's where work is tried before prod: merge a branch
+  into `staging` to stage it, then into `main` to ship it. See
+  [`docs/staging.md`](docs/staging.md).
 - Merging into `main` deploys **production** (and runs pending migrations on
   prod; see docs/db-safety.md).
 - Outbound (email, Square, Mailchimp, Twin Scene writes, the contact form) is
