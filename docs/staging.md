@@ -1,8 +1,22 @@
 # Staging: next.thebirdhaus.org
 
-The `future-2027` branch, deployed by Vercel as a Preview, on its own domain,
-reading **staging-2027**: a Neon branch copied from prod. It's for testing the
-2027 redesign against real shows, bands and archive before launch.
+The long-lived `staging` branch, deployed by Vercel as a Preview, on its own
+domain, reading **staging-2027**: a Neon branch copied from prod. It's where
+work is tried against real shows, bands and archive before it ships.
+
+## Workflow
+
+- Feature branches come off `main`.
+- To stage one, merge it into `staging` (a PR into `staging`, or
+  `git merge` locally and push). next.thebirdhaus.org redeploys.
+- Ship it by merging the feature branch into `main` as usual.
+- Now and then, bring `staging` back to `main` so it doesn't drift:
+  `git checkout staging && git merge origin/main && git push`, or, when
+  nothing staged is still pending, reset it (`git push --force-with-lease
+  origin origin/main:staging`).
+- Migrations: preview builds don't migrate. A branch with a new migration
+  needs it applied to staging-2027 with `scripts/staging-migrate.mjs` (below)
+  before its staged deploy reads it.
 
 It holds real people's data (RSVP emails, accounts, ticket buyers). Vercel
 Authentication stays on, and nothing on it may reach a real person or a real
@@ -11,7 +25,7 @@ payment.
 ## The staging switch (`lib/staging.ts`)
 
 - `isStaging(host?)` is true when `BH_STAGING=1`, or the deploy's branch is
-  `future-2027`, or the request host starts with `next.`.
+  `staging`, or the request host starts with `next.`.
 - `outboundAllowed(host?)` is true **only** on a production deploy
   (`VERCEL_ENV=production`) that isn't staging. Staging, every other preview and
   local dev all come out false. A missing flag blocks; it never permits.
@@ -43,7 +57,7 @@ and can't reach staging; Vercel runs crons on production deployments only, and
 It 404s anywhere that isn't staging (checked before the session) and is
 staff-only on staging.
 
-## Vercel env (Preview, branch `future-2027` only)
+## Vercel env (Preview, branch `staging` only)
 
 A branch-scoped Preview variable overrides the general Preview one of the same
 name for that branch only. Every other preview keeps the dev database and the
@@ -53,7 +67,7 @@ shared session secret.
 Until `DATABASE_URL` is set, the branch reads dev, so nothing real is at risk
 while the rest goes in.
 
-1. Set these (`vercel env add NAME preview future-2027`, value on stdin):
+1. Set these (`vercel env add NAME preview staging`, value on stdin):
 
    | Name | Value |
    |---|---|
@@ -65,58 +79,53 @@ while the rest goes in.
 
 2. Session secret: freshly generated, piped straight in, never printed or saved:
    ```bash
-   openssl rand -hex 32 | tr -d '\n' | vercel env add ADMIN_SESSION_SECRET preview future-2027 --sensitive
+   openssl rand -hex 32 | tr -d '\n' | vercel env add ADMIN_SESSION_SECRET preview staging --sensitive
    ```
    Staging then signs its own sessions: a prod cookie that reaches `next.` fails
    the signature check there, and staging's cookies are host-only
    `birdhaus_*_session_stg`, so they never reach www.
 
 3. Confirm: `vercel env ls preview` shows each name above scoped to
-   `future-2027`, and the general Preview `DATABASE_URL` and
+   `staging`, and the general Preview `DATABASE_URL` and
    `ADMIN_SESSION_SECRET` are still there for every other branch.
 
 4. **Last:** `DATABASE_URL`, staging-2027's **pooled** string, without printing it:
    ```bash
-   neon connection-string staging-2027 --project-id summer-forest-54623278 --org-id org-nameless-math-39737153 --pooled | tr -d '\n' | vercel env add DATABASE_URL preview future-2027 --sensitive
+   neon connection-string staging-2027 --project-id summer-forest-54623278 --org-id org-nameless-math-39737153 --pooled | tr -d '\n' | vercel env add DATABASE_URL preview staging --sensitive
    ```
-   Then redeploy `future-2027` so the build picks it up.
+   Then redeploy `staging` so the build picks it up.
 
 ## Refresh (re-copy prod)
 
 Run from the repo root. The shell's `DATABASE_URL` (dev) is never used.
+staging-2027 is a child of production, so a reset re-copies prod **and keeps
+the branch id and endpoint**: the connection string, `.env.staging.local` and
+the Vercel variable all stay as they are.
 
-1. Delete and re-create the branch from prod:
-   ```bash
-   neon branches delete staging-2027 --project-id summer-forest-54623278 --org-id org-nameless-math-39737153
-   neon branches create --project-id summer-forest-54623278 --org-id org-nameless-math-39737153 --name staging-2027 --parent production
-   ```
-2. Write the pooled string to `.env.staging.local` (gitignored) without printing it:
-   ```bash
-   printf 'DATABASE_URL=%s\n' "$(neon connection-string staging-2027 --project-id summer-forest-54623278 --org-id org-nameless-math-39737153 --pooled)" > .env.staging.local
-   ```
-3. Note the endpoint id (`ep-…`) for the branch:
-   ```bash
-   neon branches get staging-2027 --project-id summer-forest-54623278 --org-id org-nameless-math-39737153
-   ```
-4. Check prod's migration list, dry-run, apply, check prod again:
+1. Check prod's migration list, reset, and note the endpoint:
    ```bash
    node scripts/staging-migrate.mjs --prod-migrations
+   neon branches reset staging-2027 --parent --project-id summer-forest-54623278 --org-id org-nameless-math-39737153
+   neon branches get staging-2027 --project-id summer-forest-54623278 --org-id org-nameless-math-39737153
+   ```
+2. If `staging` carries migrations that aren't on prod yet, dry-run then apply
+   them, and check prod again:
+   ```bash
    node scripts/staging-migrate.mjs --expect-endpoint ep-…
    node scripts/staging-migrate.mjs --expect-endpoint ep-… --apply
    node scripts/staging-migrate.mjs --prod-migrations
    ```
    The two prod lines must match (count, last id, sha256).
-5. A re-created branch gets a new endpoint, so the connection string changes.
-   Replace the branch-scoped `DATABASE_URL` in Vercel (`vercel env rm DATABASE_URL
-   preview future-2027`, then step 4 of the env list above) and redeploy
-   `future-2027`.
 
-Once the 2027 migrations are on prod, the refresh is just steps 1–3 and 5:
-nothing will be pending.
+If the branch ever has to be deleted and re-created instead, it gets a new
+endpoint: rewrite `.env.staging.local`
+(`printf 'DATABASE_URL=%s\n' "$(neon connection-string staging-2027 --project-id summer-forest-54623278 --org-id org-nameless-math-39737153 --pooled)" > .env.staging.local`),
+replace the branch-scoped `DATABASE_URL` in Vercel (`vercel env rm DATABASE_URL
+preview staging`, then step 4 of the env list above) and redeploy `staging`.
 
-## Cleanup
+## Retiring staging (if it's ever shut down)
 
 - R2: delete objects whose key matches `*/staging-*`.
-- Neon: delete `staging-2027` after launch.
-- Vercel: remove the `future-2027` branch-scoped variables and the
+- Neon: delete `staging-2027`.
+- Vercel: remove the `staging` branch-scoped variables and the
   `next.thebirdhaus.org` domain.

@@ -1,4 +1,4 @@
-// The staging switch. next.thebirdhaus.org runs the future-2027 branch against a
+// The staging switch. next.thebirdhaus.org runs the `staging` branch against a
 // Neon branch copied from prod, so it holds real names and emails, real Square
 // links and real Twin Scene band ids. Everything that leaves the app asks this
 // file first.
@@ -13,7 +13,7 @@
 
 // The branch next.thebirdhaus.org deploys. Checked alongside BH_STAGING so the
 // staging domain is still recognised if the flag is ever left off.
-const STAGING_BRANCH = 'future-2027';
+const STAGING_BRANCH = 'staging';
 const STAGING_HOST_PREFIX = 'next.';
 
 // True on the staging site. `host`, when a caller has the request, adds the
