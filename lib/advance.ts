@@ -237,6 +237,8 @@ interface ShowForAdvanceRow {
   title: string;
   date: string | null;
   slug: string;
+  catalogue_id: string;
+  announced: boolean;
   sound_engineer_name: string | null;
 }
 
@@ -249,6 +251,8 @@ async function loadShowForAdvance(showId: number): Promise<ShowForAdvanceRow | n
       s.title,
       s.date::text as date,
       s.slug,
+      s.catalogue_id,
+      s.announced,
       coalesce(
         (select se.name
          from show_sound_engineers sse
@@ -297,7 +301,9 @@ function buildTemplateVars(
     // Editable, but defaults to the show's confirmed engineer.
     sound_engineer: saved.sound_engineer || (show.sound_engineer_name ?? ''),
     lineup: formatLineup(recipients.map((r) => r.name)),
-    show_url: showAdvanceUrl(show.slug),
+    // The public page only once announced: before that /shows/BH-… 404s for
+    // anyone but admins, so bands get the hub link alone (see advanceBody).
+    show_url: show.announced ? showAdvanceUrl(show.catalogue_id) : '',
     hub_url: hubUrl,
     show_date: show.date ? formatAdvanceDate(show.date) : '',
   };
@@ -322,6 +328,19 @@ const TLDR_BLOCK = /\*\*tl;dr[\s\S]*?(?:\n[ \t]*[-*] .*)+/i;
 // callout right below the tl;dr asks (or prepend at the top if there's no tl;dr
 // block to anchor to). Once an author adds {{hub_url}} themselves (in Settings),
 // their placement wins and nothing is inserted.
+// The template body as it's rendered for this show: the hub callout ensured,
+// and — while the show is unannounced — any line that uses {{show_url}}
+// dropped, so a template that links the public page never sends an empty
+// link (show_url is '' then; see buildTemplateVars).
+function advanceBody(body: string, show: ShowForAdvanceRow): string {
+  const withHub = ensureHubPlaceholder(body);
+  if (show.announced) return withHub;
+  return withHub
+    .split('\n')
+    .filter((line) => !/\{\{\s*show_url\s*\}\}/.test(line))
+    .join('\n');
+}
+
 function ensureHubPlaceholder(body: string): string {
   if (/\{\{\s*hub_url\s*\}\}/.test(body)) return body;
   const callout =
@@ -410,9 +429,11 @@ export async function getShowAdvanceState(showId: number): Promise<ShowAdvanceSt
     : { ...EMPTY_VARS };
   const hubUrl = await hubUrlFor(showId);
   const templateVars = buildTemplateVars(show, recipients, saved, hubUrl);
+  // Injected into the admin hub page (HubAdmin), so no dark-mode <style>.
   const preview = await renderAdvanceEmail(
-    { subject: template.subject, body: ensureHubPlaceholder(template.body) },
-    templateVars
+    { subject: template.subject, body: advanceBody(template.body, show) },
+    templateVars,
+    { preview: true }
   );
 
   return {
@@ -454,14 +475,13 @@ async function renderForShow(
   recipients: AdvanceRecipient[],
   saved: SavedAdvanceVars,
   hubUrl: string
-): Promise<{ subject: string; html: string }> {
+): Promise<{ subject: string; html: string; markdown: string }> {
   const template = await getDefaultAdvanceTemplate();
   const templateVars = buildTemplateVars(show, recipients, saved, hubUrl);
-  const { subject, html } = await renderAdvanceEmail(
-    { subject: template.subject, body: ensureHubPlaceholder(template.body) },
+  return renderAdvanceEmail(
+    { subject: template.subject, body: advanceBody(template.body, show) },
     templateVars
   );
-  return { subject, html };
 }
 
 // Upserts the show_advances row with the rendered subject/body + saved vars,
@@ -580,6 +600,7 @@ export async function sendShowAdvance(
     ccEmails: await getAdvanceWatchers(),
     subject: rendered.subject,
     html: rendered.html,
+    text: rendered.markdown,
     replyToken,
   });
 
@@ -816,6 +837,7 @@ export async function sendShowMessage(
     ccEmails: await getAdvanceWatchers(),
     subject,
     html,
+    text,
     replyToken: advance.reply_token,
   });
 

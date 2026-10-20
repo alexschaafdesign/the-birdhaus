@@ -1,12 +1,17 @@
 import type { Metadata, Viewport } from "next";
-import { Instrument_Sans } from "next/font/google";
+import { Instrument_Sans, IBM_Plex_Mono } from "next/font/google";
 import "./globals.css";
-import Header from "@/components/Header";
-import { isAdminSession } from "@/lib/admin-session";
 import { SITE_URL, SITE_NAME, SITE_DESCRIPTION } from "@/lib/site";
 
 const instrumentSans = Instrument_Sans({
   subsets: ["latin"],
+  variable: "--font-instrument-sans",
+});
+
+const plexMono = IBM_Plex_Mono({
+  subsets: ["latin"],
+  weight: ["400", "500", "700"],
+  variable: "--font-plex-mono",
 });
 
 export const metadata: Metadata = {
@@ -36,24 +41,40 @@ export const metadata: Metadata = {
     title: SITE_NAME,
     statusBarStyle: "black-translucent",
   },
+  // Disco-ball favicon set (public/). The web manifest stays app/manifest.ts
+  // (installed app opens /admin); it points at public/icon-192/512.png.
+  icons: {
+    icon: [
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/favicon-32x32.png", type: "image/png", sizes: "32x32" },
+      { url: "/favicon-16x16.png", type: "image/png", sizes: "16x16" },
+    ],
+    apple: "/apple-touch-icon.png",
+  },
 };
 
+// Paper, the 2027 page ground (surface/paper, the same colour as <html> below),
+// so mobile browser chrome blends into the page.
 export const viewport: Viewport = {
-  themeColor: "#2A2420",
+  themeColor: "#F0EDE4",
 };
 
-export default async function RootLayout({
+// Every page renders per request. This used to follow from the old header's
+// admin-cookie read here; that's gone, so it's stated outright. Caching the
+// pages that could be is a post-launch item.
+export const dynamic = 'force-dynamic';
+
+export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  // Every page renders per request (isAdminSession reads cookies).
-  const isAdmin = await isAdminSession();
-
+  // <html> takes surface/paper and surface/ink (app/redesign/tokens.css), the
+  // ground SiteFrame paints, so overscroll and short pages match it. Literal,
+  // so it holds before any CSS loads.
   return (
-    <html lang="en" style={{ backgroundColor: "#2A2420", color: "#E8E0D0" }}>
-      <body className={instrumentSans.className} style={{ backgroundColor: "#2A2420", color: "#E8E0D0" }}>
-        <Header isAdmin={isAdmin} />
+    <html lang="en" style={{ backgroundColor: "#F0EDE4", color: "#16150F" }}>
+      <body className={`${instrumentSans.variable} ${plexMono.variable}`} style={{ color: "#16150F" }}>
         {children}
       </body>
     </html>

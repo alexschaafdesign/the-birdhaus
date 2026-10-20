@@ -4,14 +4,11 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { UserAccount, ProfileLink } from '@/lib/accounts/members';
 import { downscaleImage } from '@/lib/downscale-image';
+import { FORM } from '@/components/night/form';
 
-const inputBase =
-  'w-full rounded-md border border-[#E8E0D0]/20 bg-[#E8E0D0]/[0.03] px-3 py-2 text-sm text-[#E8E0D0] placeholder:text-[#E8E0D0]/30 focus:border-[#E8E0D0]/50 focus:outline-none transition';
-// Same look as inputBase but without w-full, so the label/url pair can size
-// via flex instead of both fighting to be 100% wide.
-const linkInput =
-  'rounded-md border border-[#E8E0D0]/20 bg-[#E8E0D0]/[0.03] px-3 py-2 text-sm text-[#E8E0D0] placeholder:text-[#E8E0D0]/30 focus:border-[#E8E0D0]/50 focus:outline-none transition';
-const labelClass = 'mb-1 block text-xs font-medium uppercase tracking-wide text-[#E8E0D0]/55';
+// The label/url pair sizes via flex (w-28 / flex-1) instead of both fighting
+// to be 100% wide, so their field drops FORM.field's w-full.
+const linkInput = FORM.field.replace('w-full ', '');
 
 // Self-service profile, avatar, notification prefs, and password change.
 export default function AccountSettings({ member }: { member: UserAccount }) {
@@ -29,6 +26,10 @@ export default function AccountSettings({ member }: { member: UserAccount }) {
   const [savingPw, setSavingPw] = useState(false);
   const [pwNotice, setPwNotice] = useState<string | null>(null);
   const [pwError, setPwError] = useState<string | null>(null);
+  // "Current password is incorrect" is about the current-password field:
+  // shown under it with a red border. Other password errors sit above the
+  // button.
+  const [pwErrorOnCurrent, setPwErrorOnCurrent] = useState(false);
 
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
@@ -89,6 +90,7 @@ export default function AccountSettings({ member }: { member: UserAccount }) {
     e.preventDefault();
     setSavingPw(true);
     setPwError(null);
+    setPwErrorOnCurrent(false);
     setPwNotice(null);
     try {
       const res = await fetch('/api/account', {
@@ -97,7 +99,11 @@ export default function AccountSettings({ member }: { member: UserAccount }) {
         body: JSON.stringify({ currentPassword, newPassword }),
       });
       const data = await res.json().catch(() => null);
-      if (!res.ok) throw new Error(data?.error ?? `Couldn't change (${res.status})`);
+      if (!res.ok) {
+        const message: string = data?.error ?? `Couldn't change (${res.status})`;
+        setPwErrorOnCurrent(res.status === 400 && /current password/i.test(message));
+        throw new Error(message);
+      }
       setPwNotice('Password changed.');
       setCurrentPassword('');
       setNewPassword('');
@@ -109,25 +115,25 @@ export default function AccountSettings({ member }: { member: UserAccount }) {
   }
 
   return (
-    <div className="space-y-8">
-      <form onSubmit={saveProfile} className="space-y-4">
+    <div className="flex flex-col gap-10">
+      <form onSubmit={saveProfile} className="flex flex-col gap-5">
         <div className="flex items-center gap-4">
-          <div className="h-16 w-16 shrink-0 overflow-hidden rounded-full border border-[#E8E0D0]/20 bg-[#E8E0D0]/[0.05]">
+          <div className="border-surface-ink size-16 shrink-0 overflow-hidden rounded-full border">
             {avatarUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={avatarUrl} alt="" className="h-full w-full object-cover" />
             ) : (
-              <div className="flex h-full w-full items-center justify-center text-lg text-[#E8E0D0]/40">
+              <div className="text-header-4 flex h-full w-full items-center justify-center">
                 {member.name.slice(0, 1).toUpperCase()}
               </div>
             )}
           </div>
-          <label className="cursor-pointer text-sm text-[#E8E0D0]/70 underline-offset-2 hover:text-[#E8E0D0] hover:underline">
+          <label className={`${FORM.link} text-body-3 has-[:focus-visible]:outline-accent-red has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2`}>
             {uploadingAvatar ? 'Uploading…' : 'Change avatar'}
             <input
               type="file"
               accept="image/*"
-              className="hidden"
+              className="sr-only"
               disabled={uploadingAvatar}
               onChange={(e) => {
                 const f = e.target.files?.[0];
@@ -138,7 +144,7 @@ export default function AccountSettings({ member }: { member: UserAccount }) {
         </div>
 
         <div>
-          <label htmlFor="acct-name" className={labelClass}>
+          <label htmlFor="acct-name" className={FORM.label}>
             Name
           </label>
           <input
@@ -146,12 +152,12 @@ export default function AccountSettings({ member }: { member: UserAccount }) {
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className={inputBase}
+            className={FORM.field}
           />
         </div>
 
         <div>
-          <label htmlFor="acct-bio" className={labelClass}>
+          <label htmlFor="acct-bio" className={FORM.label}>
             Bio
           </label>
           <textarea
@@ -160,13 +166,13 @@ export default function AccountSettings({ member }: { member: UserAccount }) {
             placeholder="A line or two about you and your music."
             value={bio}
             onChange={(e) => setBio(e.target.value)}
-            className={`${inputBase} resize-y`}
+            className={`${FORM.field} resize-y`}
           />
         </div>
 
         <div>
-          <label className={labelClass}>Links</label>
-          <p className="mb-2 text-xs text-[#E8E0D0]/40">
+          <p className={FORM.label}>Links</p>
+          <p className={FORM.hint}>
             Bandcamp, Instagram, your site — shown on your attendee card.
           </p>
           <div className="space-y-2">
@@ -175,6 +181,7 @@ export default function AccountSettings({ member }: { member: UserAccount }) {
                 <input
                   type="text"
                   placeholder="Label"
+                  aria-label={`Link ${i + 1} label`}
                   value={l.label}
                   onChange={(e) =>
                     setLinks(links.map((x, j) => (j === i ? { ...x, label: e.target.value } : x)))
@@ -184,6 +191,7 @@ export default function AccountSettings({ member }: { member: UserAccount }) {
                 <input
                   type="text"
                   placeholder="https://…"
+                  aria-label={`Link ${i + 1} URL`}
                   value={l.url}
                   onChange={(e) =>
                     setLinks(links.map((x, j) => (j === i ? { ...x, url: e.target.value } : x)))
@@ -194,7 +202,7 @@ export default function AccountSettings({ member }: { member: UserAccount }) {
                   type="button"
                   onClick={() => setLinks(links.filter((_, j) => j !== i))}
                   aria-label="Remove link"
-                  className="shrink-0 px-2 text-lg text-[#E8E0D0]/40 transition hover:text-[#F5A3A3]"
+                  className="hover:text-accent-red focus-visible:outline-accent-red text-body-1 shrink-0 cursor-pointer px-2 focus-visible:outline-2"
                 >
                   ✕
                 </button>
@@ -205,7 +213,7 @@ export default function AccountSettings({ member }: { member: UserAccount }) {
             <button
               type="button"
               onClick={() => setLinks([...links, { label: '', url: '' }])}
-              className="mt-2 text-xs text-[#c8a26a]/80 underline-offset-2 transition hover:text-[#c8a26a] hover:underline"
+              className={`${FORM.link} text-body-3 mt-3`}
             >
               + Add a link
             </button>
@@ -213,12 +221,12 @@ export default function AccountSettings({ member }: { member: UserAccount }) {
         </div>
 
         {profileError && (
-          <div className="rounded-lg border border-[#F5A3A3]/40 bg-[#F5A3A3]/10 p-3 text-sm text-[#F5A3A3]">
+          <p className={FORM.error} role="alert">
             {profileError}
-          </div>
+          </p>
         )}
         {profileNotice && (
-          <div className="rounded-lg border border-[#7bb98a]/40 bg-[#7bb98a]/10 p-3 text-sm text-[#bfe6c8]">
+          <div className={FORM.notice} role="status">
             {profileNotice}
           </div>
         )}
@@ -226,16 +234,16 @@ export default function AccountSettings({ member }: { member: UserAccount }) {
         <button
           type="submit"
           disabled={savingProfile}
-          className="rounded-md bg-[#E8E0D0] px-5 py-2 text-sm font-semibold text-[#2A2420] transition hover:bg-white disabled:opacity-50"
+          className={FORM.primary}
         >
           {savingProfile ? 'Saving…' : 'Save profile'}
         </button>
       </form>
 
-      <form onSubmit={changePassword} className="space-y-3 border-t border-[#E8E0D0]/10 pt-6">
-        <h2 className="text-sm font-semibold text-[#E8E0D0]">Change password</h2>
+      <form onSubmit={changePassword} className="border-surface-ink/20 flex flex-col gap-4 border-t pt-8">
+        <h2 className={FORM.label}>Change password</h2>
         <div>
-          <label htmlFor="acct-current-pw" className={labelClass}>
+          <label htmlFor="acct-current-pw" className={FORM.label}>
             Current password
           </label>
           <input
@@ -244,11 +252,18 @@ export default function AccountSettings({ member }: { member: UserAccount }) {
             autoComplete="current-password"
             value={currentPassword}
             onChange={(e) => setCurrentPassword(e.target.value)}
-            className={inputBase}
+            aria-invalid={pwErrorOnCurrent ? true : undefined}
+            aria-describedby={pwErrorOnCurrent ? 'acct-pw-error' : undefined}
+            className={pwErrorOnCurrent ? FORM.fieldInvalid : FORM.field}
           />
+          {pwError && pwErrorOnCurrent && (
+            <p id="acct-pw-error" className={FORM.fieldError} role="alert">
+              {pwError}
+            </p>
+          )}
         </div>
         <div>
-          <label htmlFor="acct-new-pw" className={labelClass}>
+          <label htmlFor="acct-new-pw" className={FORM.label}>
             New password
           </label>
           <input
@@ -258,23 +273,23 @@ export default function AccountSettings({ member }: { member: UserAccount }) {
             minLength={8}
             value={newPassword}
             onChange={(e) => setNewPassword(e.target.value)}
-            className={inputBase}
+            className={FORM.field}
           />
         </div>
-        {pwError && (
-          <div className="rounded-lg border border-[#F5A3A3]/40 bg-[#F5A3A3]/10 p-3 text-sm text-[#F5A3A3]">
+        {pwError && !pwErrorOnCurrent && (
+          <p className={FORM.error} role="alert">
             {pwError}
-          </div>
+          </p>
         )}
         {pwNotice && (
-          <div className="rounded-lg border border-[#7bb98a]/40 bg-[#7bb98a]/10 p-3 text-sm text-[#bfe6c8]">
+          <div className={FORM.notice} role="status">
             {pwNotice}
           </div>
         )}
         <button
           type="submit"
           disabled={savingPw || !currentPassword || !newPassword}
-          className="rounded-md border border-[#E8E0D0]/40 px-5 py-2 text-sm text-[#E8E0D0]/80 transition hover:border-[#E8E0D0] hover:text-[#E8E0D0] disabled:opacity-40"
+          className={FORM.secondary}
         >
           {savingPw ? 'Changing…' : 'Change password'}
         </button>

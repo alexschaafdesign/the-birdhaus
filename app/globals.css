@@ -1,24 +1,89 @@
 @import "tailwindcss";
+/* Birdhaus 2027 design tokens (generated from Figma — see redesign/tokens.css).
+   Imported here so its @theme blocks join the Tailwind build. Additive and
+   inert for the live site: new token names, unconsumed; no data-theme/
+   data-context triggers wired yet. */
+@import "./redesign/tokens.css";
+/* CommitMono @font-face for --font-commit-mono (self-hosted, OFL). */
+@import "./redesign/commit-mono.css";
 
+/* DS interaction states (components/ui/Button). Real :hover / :active drive
+   them; [data-preview-state] on an ancestor forces one so /redesign/components
+   can show every state statically — states stay CSS, never component props. */
+@custom-variant ui-hover {
+  @media (hover: hover) { &:hover:not(:disabled) { @slot; } }
+  [data-preview-state="hover"] & { @slot; }
+}
+@custom-variant ui-pressed {
+  &:active:not(:disabled) { @slot; }
+  [data-preview-state="pressed"] & { @slot; }
+}
+
+/* 2027 light "lo-fi VHS" palette: warm paper + ink, straight corners, hard
+   shadows, primary-RGB accents. Back-of-house (admin, /hub, /door) still uses
+   the old dark shell colors, set locally on those routes. */
 :root {
-  --background: #2A2420;
-  --foreground: #E8E0D0;
+  --background: #F2EEE3;
+  --foreground: #1A1712;
+  --paper: #F2EEE3;
+  --paper-deep: #E8E2D1;
+  --ink: #1A1712;
+  --vhs-red: #E0342C;
+  --vhs-green: #0E9C4A;
+  --vhs-blue: #2140C7;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-paper: var(--paper);
+  --color-paper-deep: var(--paper-deep);
+  --color-ink: var(--ink);
+  --color-vhs-red: var(--vhs-red);
+  --color-vhs-green: var(--vhs-green);
+  --color-vhs-blue: var(--vhs-blue);
+  --font-sans: var(--font-instrument-sans);
+  --font-mono: var(--font-plex-mono);
 }
 
+@utility shadow-hard {
+  box-shadow: 4px 4px 0 0 var(--ink);
+}
+
+@utility shadow-hard-sm {
+  box-shadow: 3px 3px 0 0 var(--ink);
+}
+
+/* Stacked red/green/blue bands, à la blank-tape label stripes. Size the
+   element (h-1.5, h-2, ...) and the three bands split it evenly. */
+@utility vhs-stripes {
+  background: linear-gradient(
+    to bottom,
+    var(--vhs-red) 0% 33.33%,
+    var(--vhs-green) 33.33% 66.66%,
+    var(--vhs-blue) 66.66% 100%
+  );
+}
+
+/* Paper lives on <html> only: body must stay background-free so fixed
+   negative-z backdrops (the home page's full-page photo) can paint above the
+   canvas instead of being hidden behind body's background layer. */
+html {
+  background-color: var(--paper);
+}
 html, body {
-  background-color: #171412 !important;
-  color: #E8E0D0;
+  color: var(--ink);
 }
 
 body {
-  font-family: Arial, Helvetica, sans-serif;
+  /* Courier typewriter face site-wide, matching Twin Scene's paper theme.
+     Revert to the sans by restoring:
+     font-family: var(--font-instrument-sans), system-ui, sans-serif; */
+  font-family: "Courier New", Courier, var(--font-plex-mono), monospace;
+  /* Courier New is a thin face on this cream background; a hair of text-stroke
+     adds continuous weight back (same trick as Twin Scene). Tune this one
+     value: lower = lighter, higher = bolder. */
+  -webkit-text-stroke: 0.3px currentColor;
 }
 
 /* Restores basic prose formatting inside the admin advance-email preview,

@@ -1,6 +1,6 @@
 import postgres from 'postgres';
 import { sql } from './db';
-import type { Show } from './shows';
+import { normalizePhotosInput, type Show, type ShowPhoto } from './shows';
 import { isPaidMethod, type PaidMethod } from './settlements';
 import {
   getTwinSceneBands,
@@ -148,13 +148,15 @@ export async function getAllBandSlugs(): Promise<Map<number, string>> {
 export interface BandShow {
   id: number;
   slug: string;
+  catalogueId: string;
   title: string;
   date: string;
+  announced: boolean;
 }
 
 export async function getShowsForBand(bandId: number): Promise<BandShow[]> {
   return sql<BandShow[]>`
-    select s.id, s.slug, s.title, s.date::text as date
+    select s.id, s.slug, s.catalogue_id as "catalogueId", s.title, s.date::text as date, s.announced
     from show_bands sb
     join shows s on s.id = sb.show_id
     where sb.band_id = ${bandId}
@@ -353,6 +355,7 @@ export async function setBandPaymentMethod(
 
 export interface BandVideo {
   showSlug: string;
+  showCatalogueId: string;
   showTitle: string;
   youtube: string;
   title: string;
@@ -360,7 +363,7 @@ export interface BandVideo {
 
 export async function getVideosForBand(bandId: number): Promise<BandVideo[]> {
   return sql<BandVideo[]>`
-    select s.slug as "showSlug", s.title as "showTitle", v.youtube, v.title
+    select s.slug as "showSlug", s.catalogue_id as "showCatalogueId", s.title as "showTitle", v.youtube, v.title
     from band_videos bv
     join videos v on v.id = bv.video_id
     join show_videos sv on sv.video_id = v.id
@@ -695,15 +698,33 @@ export async function syncBandFromTwinScene(band: TwinSceneBand): Promise<Band> 
 export interface ShowBandPair {
   bandId: number;
   sortOrder: number;
+  // The set's note. undefined = the caller didn't send one, so the stored note
+  // is left alone; null clears it.
+  notes?: string | null;
 }
 
 // Derives the show_bands rows (bandId + array-position sort order) from a
 // resolveShowBandEntries() result — every entry is guaranteed a bandId by then.
 export function toShowBandPairs(resolved: Show['bands']): ShowBandPair[] {
-  return resolved.map((band, index) => ({
-    bandId: (band as { bandId?: number }).bandId as number,
-    sortOrder: index,
-  }));
+  return resolved.map((band, index) => {
+    const notes = typeof band === 'string' ? undefined : band.notes;
+    return {
+      bandId: (band as { bandId?: number }).bandId as number,
+      sortOrder: index,
+      ...(typeof notes === 'string' ? { notes: notes.trim() || null } : {}),
+    };
+  });
+}
+
+// The bands JSONB copy (the TEMPORARY dual-write) without set notes, which
+// live only on show_bands.
+export function stripSetNotes(bands: Show['bands']): Show['bands'] {
+  return bands.map((band) => {
+    if (typeof band === 'string') return band;
+    const { notes: _notes, ...rest } = band;
+    void _notes;
+    return rest;
+  }) as Show['bands'];
 }
 
 // Applies reordering/additions/removals from a full-array save. Upserts on
@@ -724,6 +745,12 @@ export async function setShowBands(showId: number, bands: ShowBandPair[], tx: Tx
     insert into show_bands ${tx(rows, 'show_id', 'band_id', 'sort_order')}
     on conflict (show_id, band_id) do update set sort_order = excluded.sort_order
   `;
+  // Notes only for entries that carried the key, so a caller that saves the
+  // lineup without notes never wipes them.
+  for (const b of bands) {
+    if (b.notes === undefined) continue;
+    await tx`update show_bands set notes = ${b.notes} where show_id = ${showId} and band_id = ${b.bandId}`;
+  }
 }
 
 // Maps each video's transient `bandIndexes` (positions within the *same
@@ -753,6 +780,27 @@ export function resolveVideoBandIds(
       ? { ...rest, bandIds: uniqueBandIds }
       : rest) as Show['videos'][number];
   });
+}
+
+// The photo-gallery counterpart of resolveVideoBandIds: each photo's transient
+// `bandIndex` (a position in the same request's bands array) becomes the real
+// `bandId` of the set it's from. One band per photo; no index = night-level.
+// An entry that arrives with a numeric bandId and no bandIndex keeps it, so a
+// caller that tags by id still round-trips through normalizePhotosInput.
+export function resolvePhotoBandIds(
+  photos: unknown,
+  resolvedBands: Show['bands'] | undefined
+): ShowPhoto[] {
+  if (!Array.isArray(photos)) return [];
+  return normalizePhotosInput(
+    photos.map((raw) => {
+      if (!raw || typeof raw !== 'object') return raw;
+      const { bandIndex, ...rest } = raw as Record<string, unknown>;
+      if (typeof bandIndex !== 'number') return rest;
+      const bandId = (resolvedBands?.[bandIndex] as { bandId?: number } | undefined)?.bandId;
+      return { ...rest, bandId: typeof bandId === 'number' && bandId > 0 ? bandId : undefined };
+    })
+  );
 }
 
 export interface TwinSceneSyncResult {

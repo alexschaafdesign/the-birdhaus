@@ -39,13 +39,36 @@ function validateEmail(email: string): string | null {
   return null;
 }
 
-export default function RSVPForm({
-  showId,
-  ticketUrl
-}: {
-  showId: number;
-  ticketUrl?: string;
-}) {
+// The 2027 DS look for /shows/[id]: CommitMono, tokens, square corners, no
+// shadows. (The old paper/VHS 'legacy' look went with Phase 3; the show page
+// was its last user.)
+const LOOK = {
+  panel: 'border-surface-ink flex flex-col border-2 p-4 sm:p-6',
+  title: 'text-header-4 mb-2 font-bold uppercase leading-[1.2]',
+  intro: 'text-body-3 mb-5 leading-normal',
+  success: 'border-surface-ink text-body-3 border-2 p-4 leading-normal',
+  upsell: 'bg-surface-ink text-surface-paper p-5',
+  upsellTitle: 'text-body-3 mb-1 font-bold uppercase',
+  upsellText: 'text-body-3 mb-4 leading-normal opacity-80',
+  upsellButton:
+    'bg-surface-paper text-surface-ink ui-hover:bg-accent-red ui-hover:text-surface-paper inline-flex h-9.5 items-center px-4.5 text-body-3 font-bold transition-colors',
+  label: 'text-data-overline-11 mb-1.5 block font-bold uppercase tracking-[--spacing(0.625)]',
+  input:
+    'bg-surface-paper border-surface-ink/40 focus:border-surface-ink text-body-3 w-full rounded-none border-2 px-3 py-2 focus:outline-none',
+  inputBase: 'bg-surface-paper text-body-3 w-full rounded-none border-2 px-3 py-2 focus:outline-none',
+  inputOk: 'border-surface-ink/40 focus:border-surface-ink',
+  inputBad: 'border-accent-red focus:border-accent-red',
+  fieldError: 'text-body-3 text-accent-red mt-1.5',
+  checkbox: 'accent-surface-ink size-4',
+  checkLabel: 'text-body-3',
+  submit:
+    'bg-surface-ink text-surface-paper ui-hover:bg-accent-red text-ui-button-15 h-13 w-full font-bold tracking-[--spacing(0.25)] transition-colors disabled:opacity-30',
+  // Plain red text, no box (same as the account and contact forms).
+  error: 'text-accent-red text-body-3 leading-normal',
+} as const;
+
+export default function RSVPForm({ showId, ticketUrl }: { showId: number; ticketUrl?: string }) {
+  const c = LOOK;
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -96,33 +119,33 @@ export default function RSVPForm({
   };
 
   return (
-    <div className="h-full overflow-y-auto border-2 border-[#E8E0D0]/20 rounded-lg p-4 bg-[#E8E0D0]/5">
-      <h2 className="text-lg font-bold mb-1.5">RSVP for this show</h2>
-      <p className="text-sm text-[#E8E0D0]/70 mb-4">
+    <div className={c.panel}>
+      <h2 className={c.title}>RSVP for this show</h2>
+      <p className={c.intro}>
         RSVP below to get the venue address and show details emailed to you.
         {ticketUrl && (
-          <> After submitting, you&apos;ll have the option to <strong>buy an advance ticket</strong> to guarantee your spot.</>
+          <> After submitting, you&apos;ll have the option to <strong>donate online</strong> to guarantee your spot.</>
         )}
       </p>
 
       {status === 'success' ? (
         <div className="space-y-4">
-          <div className="bg-green-900/30 border-2 border-green-500 rounded-lg p-4 text-green-300">
+          <div className={c.success}>
             Thanks for your RSVP! Check your email for the full details.
           </div>
           {ticketUrl && (
-            <div className="bg-[#E8E0D0] text-[#2A2420] rounded-lg p-5">
-              <p className="font-bold mb-1">🎟 Want to guarantee your spot?</p>
-              <p className="text-[#2A2420]/70 text-sm mb-4">
-                RSVPs are first-come, first-served and the venue is small. Buying an advance ticket means you&apos;re in — no matter how packed it gets.
+            <div className={c.upsell}>
+              <p className={c.upsellTitle}>🎟 Want to guarantee your spot?</p>
+              <p className={c.upsellText}>
+                RSVPs are first-come, first-served and the venue is small. Donating online in advance means you&apos;re in — no matter how packed it gets.
               </p>
               <a
                 href={ticketUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-block bg-[#2A2420] text-[#E8E0D0] font-bold py-2.5 px-5 rounded-lg hover:bg-[#2A2420]/80 transition-colors text-sm"
+                className={c.upsellButton}
               >
-                Buy a Ticket →
+                Donate →
               </a>
             </div>
           )}
@@ -144,7 +167,7 @@ export default function RSVPForm({
           </div>
 
           <div>
-            <label htmlFor="name" className="block text-sm font-medium mb-1 text-[#E8E0D0]/80">
+            <label htmlFor="name" className={c.label}>
               Name
             </label>
             <input
@@ -153,12 +176,12 @@ export default function RSVPForm({
               required
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              className="w-full bg-[#2A2420] border-2 border-[#E8E0D0]/30 rounded-lg px-3 py-1.5 text-[#E8E0D0] focus:border-[#E8E0D0] focus:outline-none transition-colors"
+              className={c.input}
             />
           </div>
 
           <div>
-            <label htmlFor="email" className="block text-sm font-medium mb-1 text-[#E8E0D0]/80">
+            <label htmlFor="email" className={c.label}>
               Email
             </label>
             <input
@@ -174,24 +197,25 @@ export default function RSVPForm({
                 if (e.target.value.trim()) setEmailError(validateEmail(e.target.value));
               }}
               aria-invalid={emailError ? true : undefined}
-              className={`w-full bg-[#2A2420] border-2 rounded-lg px-3 py-1.5 text-[#E8E0D0] focus:outline-none transition-colors ${
-                emailError ? 'border-red-500 focus:border-red-500' : 'border-[#E8E0D0]/30 focus:border-[#E8E0D0]'
-              }`}
+              aria-describedby={emailError ? 'rsvp-email-error' : undefined}
+              className={`${c.inputBase} ${emailError ? c.inputBad : c.inputOk}`}
             />
             {emailError && (
-              <p className="mt-1.5 text-sm text-red-400">{emailError}</p>
+              <p id="rsvp-email-error" className={c.fieldError} role="alert">
+                {emailError}
+              </p>
             )}
           </div>
 
           <div>
-            <label htmlFor="guests" className="block text-sm font-medium mb-1 text-[#E8E0D0]/80">
+            <label htmlFor="guests" className={c.label}>
               Number of guests (including you)
             </label>
             <select
               id="guests"
               value={formData.guests}
               onChange={(e) => setFormData({ ...formData, guests: e.target.value })}
-              className="w-full bg-[#2A2420] border-2 border-[#E8E0D0]/30 rounded-lg px-3 py-1.5 text-[#E8E0D0] focus:border-[#E8E0D0] focus:outline-none transition-colors"
+              className={c.input}
             >
               <option value="1">1</option>
               <option value="2">2</option>
@@ -207,9 +231,9 @@ export default function RSVPForm({
               id="emailList"
               checked={formData.emailList}
               onChange={(e) => setFormData({ ...formData, emailList: e.target.checked })}
-              className="w-4 h-4 rounded border-2 border-[#E8E0D0]/30 text-[#E8E0D0] focus:ring-[#E8E0D0]"
+              className={c.checkbox}
             />
-            <label htmlFor="emailList" className="text-sm text-[#E8E0D0]/80">
+            <label htmlFor="emailList" className={c.checkLabel}>
               Add me to the email list for future shows
             </label>
           </div>
@@ -217,15 +241,15 @@ export default function RSVPForm({
           <button
             type="submit"
             disabled={status === 'submitting'}
-            className="w-full bg-[#E8E0D0] text-[#2A2420] font-bold py-2.5 px-6 rounded-lg hover:bg-[#E8E0D0]/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className={c.submit}
           >
             {status === 'submitting' ? 'Submitting...' : 'Submit RSVP'}
           </button>
 
           {status === 'error' && (
-            <div className="bg-red-900/30 border-2 border-red-500 rounded-lg p-4 text-red-300">
+            <p className={c.error} role="alert">
               Something went wrong. Please try again.
-            </div>
+            </p>
           )}
         </form>
       )}

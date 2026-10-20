@@ -1,0 +1,12 @@
+-- Per-set notes: one optional free-text field on a set (a show_bands row),
+-- e.g. "played with a string section", or a setlist if a band ever sends one.
+-- Replaces the idea of structured setlists, which are rarely known.
+--
+-- Per-set audio and photos need no DDL: entries in the existing shows.audio
+-- and shows.photos JSONB arrays take an optional "bandId" key (the same shape
+-- shows.videos uses). Tagged entries belong to that band's set; untagged
+-- entries stay night-level, so every existing row keeps meaning what it means.
+--
+-- Additive + nullable, so safe to ship ahead of the reading code and of any
+-- writing UI (admin lineup rows get a notes box on a follow-up branch).
+alter table show_bands add column if not exists notes text;

@@ -3,7 +3,8 @@
 // Resend, same lazy-client pattern as lib/rsvp-email.ts so a missing key never
 // breaks `next build`.
 
-import { Resend } from 'resend';
+import { getResendClient } from './email';
+import { EMAIL_COLORS, EMAIL_FONT, emailDetails, emailDocument, emailLink, emailP, emailTextFooter } from './email-layout';
 import { SITE_URL } from './site';
 import type { TimesheetEntry } from './timesheet-shared';
 
@@ -11,12 +12,6 @@ import type { TimesheetEntry } from './timesheet-shared';
 // already used as the RSVP/advance BCC.
 function notifyTo(): string {
   return process.env.ADMIN_NOTIFY_EMAIL || 'alex@thebirdhaus.org';
-}
-
-function getResendClient(): Resend {
-  const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey) throw new Error('RESEND_API_KEY is not set');
-  return new Resend(apiKey);
 }
 
 function formatCurrency(value: number): string {
@@ -65,22 +60,25 @@ export async function sendNewTimesheetEntryEmail(entry: TimesheetEntry): Promise
   ];
   if (entry.note) lines.push(`Note: ${entry.note}`);
   lines.push('', `Review: ${TIMESHEET_URL}`);
-  const text = lines.join('\n');
+  const text = lines.join('\n') + emailTextFooter('admin');
 
-  const html = `
-<p><strong>${esc(entry.worker_name)}</strong> logged new hours:</p>
-<p style="margin:16px 0;">
-  <strong>Date:</strong> ${esc(formatDate(entry.work_date))}<br>
-  <strong>Time:</strong> ${esc(formatTime(entry.clock_in))} – ${esc(formatTime(entry.clock_out))}<br>
-  <strong>Hours:</strong> ${entry.hours.toFixed(2)}<br>
-  <strong>Payout:</strong> ${esc(formatCurrency(entry.payout))}${
-    entry.note ? `<br><strong>Note:</strong> ${esc(entry.note)}` : ''
-  }
-</p>
-<p><a href="${TIMESHEET_URL}">Review the timesheet →</a></p>
-`;
+  // Minimal admin shell (lib/email-layout).
+  const details: Array<[string, string]> = [
+    ['Date', esc(formatDate(entry.work_date))],
+    ['Time', `${esc(formatTime(entry.clock_in))} – ${esc(formatTime(entry.clock_out))}`],
+    ['Hours', entry.hours.toFixed(2)],
+    ['Payout', `<strong>${esc(formatCurrency(entry.payout))}</strong>`],
+  ];
+  if (entry.note) details.push(['Note', esc(entry.note)]);
+  const html = emailDocument({
+    variant: 'admin',
+    body:
+      emailP(`<strong>${esc(entry.worker_name)}</strong> logged new hours:`) +
+      emailDetails(details) +
+      emailP(emailLink(TIMESHEET_URL, 'Review the timesheet →')),
+  });
 
-  const { error } = await getResendClient().emails.send({ from, to: notifyTo(), subject, html, text });
+  const { error } = await getResendClient('timesheet-new-entry').emails.send({ from, to: notifyTo(), subject, html, text });
   if (error) throw new Error(`Resend send failed: ${JSON.stringify(error)}`);
 }
 
@@ -106,26 +104,30 @@ export async function sendUnpaidTimesheetReminderEmail(entries: TimesheetEntry[]
     `Total unpaid: ${formatCurrency(total)}`,
     '',
     `Mark them paid: ${TIMESHEET_URL}`,
-  ].join('\n');
+  ].join('\n') + emailTextFooter('admin');
 
+  // Minimal admin shell (lib/email-layout): one row per entry.
+  const cell = `padding:6px 12px 6px 0;font-family:${EMAIL_FONT};font-size:14px;line-height:1.4;color:${EMAIL_COLORS.ink};border-bottom:1px solid ${EMAIL_COLORS.rule};`;
   const rowHtml = entries
     .map(
       (e) =>
-        `<tr>
-          <td style="padding:4px 12px 4px 0;">${esc(formatDate(e.work_date))}</td>
-          <td style="padding:4px 12px 4px 0;">${esc(e.worker_name)}</td>
-          <td style="padding:4px 12px 4px 0;text-align:right;">${e.hours.toFixed(2)} hrs</td>
-          <td style="padding:4px 0;text-align:right;"><strong>${esc(formatCurrency(e.payout))}</strong></td>
-        </tr>`
+        `<tr>` +
+        `<td style="${cell}">${esc(formatDate(e.work_date))}</td>` +
+        `<td style="${cell}">${esc(e.worker_name)}</td>` +
+        `<td style="${cell}text-align:right;white-space:nowrap;">${e.hours.toFixed(2)} hrs</td>` +
+        `<td style="${cell}padding-right:0;text-align:right;"><strong>${esc(formatCurrency(e.payout))}</strong></td>` +
+        `</tr>`
     )
-    .join('\n');
-  const html = `
-<p>These timesheet entries are more than a week old and still unpaid:</p>
-<table style="border-collapse:collapse;margin:12px 0;">${rowHtml}</table>
-<p><strong>Total unpaid: ${esc(formatCurrency(total))}</strong></p>
-<p><a href="${TIMESHEET_URL}">Mark them paid →</a></p>
-`;
+    .join('');
+  const html = emailDocument({
+    variant: 'admin',
+    body:
+      emailP('These timesheet entries are more than a week old and still unpaid:') +
+      `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;margin:0 0 16px;">${rowHtml}</table>` +
+      emailP(`<strong>Total unpaid: ${esc(formatCurrency(total))}</strong>`) +
+      emailP(emailLink(TIMESHEET_URL, 'Mark them paid →')),
+  });
 
-  const { error } = await getResendClient().emails.send({ from, to: notifyTo(), subject, html, text });
+  const { error } = await getResendClient('timesheet-unpaid-reminder').emails.send({ from, to: notifyTo(), subject, html, text });
   if (error) throw new Error(`Resend send failed: ${JSON.stringify(error)}`);
 }

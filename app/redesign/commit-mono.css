@@ -1,0 +1,27 @@
+/* CommitMono — the 2027 DS typeface (Figma text styles, all 31). Self-hosted,
+   SIL OFL 1.1 (public/fonts/commit-mono/OFL.txt), so the binaries are
+   committed. Source: official release v1.143 (github.com/eigilnikolajsen/
+   commit-mono), ttfautohint TTFs converted to .woff2. Only the two weights the
+   Figma text styles use — Regular 400 and Bold 700; no italics.
+
+   Deliberately NO local() entry: commitmono.com hands out customised builds
+   (alternates, spacing) under the same family name, so a visitor's install
+   could silently diverge from the design. Always serve ours.
+
+   Consumed through --font-commit-mono (tokens.css) → the font-commit-mono
+   utility. Imported from app/globals.css next to tokens.css; @font-face only
+   downloads when something actually renders in the family. */
+@font-face {
+  font-family: "CommitMono";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/commit-mono/CommitMono-Regular.woff2") format("woff2");
+}
+@font-face {
+  font-family: "CommitMono";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("/fonts/commit-mono/CommitMono-Bold.woff2") format("woff2");
+}

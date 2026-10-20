@@ -3,17 +3,12 @@
 // Resend client pattern as lib/timesheet-email.ts so a missing key never breaks
 // `next build`.
 
-import { Resend } from 'resend';
+import { getResendClient } from './email';
+import { emailDocument, emailP, emailTextFooter } from './email-layout';
 import { sql } from './db';
 
 function notifyTo(): string {
   return process.env.ADMIN_NOTIFY_EMAIL || 'alex@thebirdhaus.org';
-}
-
-function getResendClient(): Resend {
-  const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey) throw new Error('RESEND_API_KEY is not set');
-  return new Resend(apiKey);
 }
 
 function esc(s: string): string {
@@ -41,12 +36,13 @@ export async function sendAdminAlertEmail(subject: string, lines: string[]): Pro
   const from = process.env.RESEND_FROM_EMAIL;
   if (!from) throw new Error('RESEND_FROM_EMAIL is not set');
 
-  const text = lines.join('\n');
-  const html = `
-<p><strong>${esc(subject)}</strong></p>
-<p style="margin:16px 0;">${lines.map((l) => esc(l)).join('<br>')}</p>
-`;
+  const text = lines.join('\n') + emailTextFooter('admin');
+  // Minimal admin shell (lib/email-layout): the subject, then the lines.
+  const html = emailDocument({
+    variant: 'admin',
+    body: emailP(`<strong>${esc(subject)}</strong>`) + emailP(lines.map((l) => esc(l)).join('<br>')),
+  });
 
-  const { error } = await getResendClient().emails.send({ from, to: notifyTo(), subject, html, text });
+  const { error } = await getResendClient('admin-alert').emails.send({ from, to: notifyTo(), subject, html, text });
   if (error) throw new Error(`Resend send failed: ${JSON.stringify(error)}`);
 }

@@ -12,6 +12,17 @@
 // Birdhaus itself exposes to Twin Scene at app/api/public/bands/route.ts:
 // x-api-key auth, full-list only, no per-id lookup.
 
+import { logBlocked, outboundAllowed } from './staging';
+
+// Twin Scene's directory is shared with Crawlspace: only a production deploy
+// writes to it (lib/staging.ts). Callers already treat a throw as "Twin Scene
+// unavailable" — show saves fall back to a Birdhaus-only band.
+function assertTwinSceneWritable(action: string): void {
+  if (outboundAllowed()) return;
+  logBlocked('twinscene write', { action });
+  throw new Error(`Twin Scene ${action} blocked: writes to Twin Scene are production-only`);
+}
+
 export interface TwinSceneSocials {
   instagram?: string;
   website?: string;
@@ -163,6 +174,7 @@ export interface TwinSceneBandInput {
 }
 
 async function postTwinSceneBand(body: Record<string, unknown>): Promise<CreatedTwinSceneBand> {
+  assertTwinSceneWritable('band create');
   const baseUrl = process.env.TWIN_SCENE_API_URL;
   const apiKey = process.env.TWIN_SCENE_API_KEY;
   if (!baseUrl || !apiKey) {
@@ -304,6 +316,7 @@ export async function updateTwinSceneBandFull(
   name: string,
   profile: TwinSceneBandInput
 ): Promise<CreatedTwinSceneBand> {
+  assertTwinSceneWritable('band update');
   const baseUrl = process.env.TWIN_SCENE_API_URL;
   const apiKey = process.env.TWIN_SCENE_API_KEY;
   if (!baseUrl || !apiKey) {

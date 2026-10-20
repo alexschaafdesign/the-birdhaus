@@ -63,7 +63,7 @@ export async function GET(request: Request) {
   };
 
   try {
-    // The exact buyer code path — same function /shows/[slug]/checkout calls.
+    // The exact buyer code path — same function /shows/[id]/checkout calls.
     const link = await createTierPaymentLink(target.variationId, 1);
     if (!link?.url) throw new Error('mint returned no url');
     paymentLinkId = link.paymentLinkId;

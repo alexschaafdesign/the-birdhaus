@@ -7,7 +7,6 @@ import {
   isValidBandsInput,
   isValidVideosInput,
   isValidAudioInput,
-  normalizePhotosInput,
   normalizePhotographerInput,
   normalizeBandIds,
   normalizeTargetBandCount,
@@ -19,8 +18,10 @@ import {
 import {
   attachTwinSceneLinks,
   resolveShowBandEntries,
+  resolvePhotoBandIds,
   resolveVideoBandIds,
   setShowBands,
+  stripSetNotes,
   toShowBandPairs,
 } from '@/lib/bands';
 import { resolveShowVideos, setShowVideos, setVideoBands } from '@/lib/videos';
@@ -84,8 +85,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Invalid audio' }, { status: 400 });
   }
 
-  const photos = normalizePhotosInput(body?.photos);
-
   const soundEngineers = body?.soundEngineers ?? [];
   if (!isValidSoundEngineersInput(soundEngineers)) {
     return NextResponse.json({ error: 'Invalid sound engineers' }, { status: 400 });
@@ -111,10 +110,11 @@ export async function POST(request: Request) {
       const resolvedBands = await resolveShowBandEntries(linkedBands, tx);
       const resolvedVideos = resolveVideoBandIds(videos, resolvedBands);
       const resolvedVideoRows = await resolveShowVideos(resolvedVideos, tx);
+      const photos = resolvePhotoBandIds(body?.photos, resolvedBands);
 
       // TEMPORARY: dual-write for migration safety. Remove once Part C in TODO.md is executed.
       // This JSONB write is superseded by show_bands — see resolveShowBandEntries/setShowBands.
-      const bandsJson = tx.json(resolvedBands);
+      const bandsJson = tx.json(stripSetNotes(resolvedBands));
       // TEMPORARY: dual-write for migration safety. Remove once Part C in TODO.md is executed.
       // This JSONB write is superseded by show_videos/band_videos — see resolveShowVideos/setShowVideos.
       const videosJson = tx.json(resolvedVideos);
@@ -146,9 +146,9 @@ export async function POST(request: Request) {
       await setShowSoundEngineers(Number(row.id), soundEngineers as ShowSoundEngineer[], tx);
       return row;
     });
-    revalidatePath('/shows/[slug]', 'page');
+    revalidatePath('/shows/[id]', 'page');
     revalidatePath('/bands/[slug]', 'page');
-    revalidatePath('/shows');
+    revalidatePath('/');
     revalidatePath('/bands');
     // A show dated today is tonight's TV program — drop the feed cache so the
     // next /api/tv poll re-reads. (Unconditional: a date edited to/from today

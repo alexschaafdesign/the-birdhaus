@@ -1,8 +1,12 @@
 import { notFound } from 'next/navigation';
-import Link from 'next/link';
 import Image from 'next/image';
 import type { Metadata } from 'next';
 import { getPhotographerProfileBySlug, getPhotographerGalleries } from '@/lib/photographers';
+import { broadcastDate } from '@/lib/catalogue';
+import { SiteFrame } from '@/components/night/SiteFrame';
+import { SectionHeader } from '@/components/ui/SectionHeader';
+import { FORM } from '@/components/night/form';
+import { imageSource } from '@/lib/image-source';
 import PhotoGallery from '@/components/PhotoGallery';
 
 // Rendered on demand so a photographer's page always reflects the latest shows
@@ -23,16 +27,6 @@ function instagramHandle(ig: string): string {
   return `@${handle}`;
 }
 
-// Local (not UTC) formatting so a YYYY-MM-DD date never shifts a day.
-function formatDate(iso: string): string {
-  const [y, m, d] = iso.split('-').map(Number);
-  return new Date(y, m - 1, d).toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  });
-}
-
 export async function generateMetadata(
   { params }: { params: Promise<{ slug: string }> }
 ): Promise<Metadata> {
@@ -40,11 +34,16 @@ export async function generateMetadata(
   const photographer = await getPhotographerProfileBySlug(slug);
   if (!photographer) return {};
   return {
-    title: `${photographer.name} · Photographer · The Birdhaus`,
+    // The root layout's template adds "· the BIRDHAUS".
+    title: `${photographer.name} · Photographer`,
     description: photographer.bio ?? `Photos by ${photographer.name} from The Birdhaus shows.`,
   };
 }
 
+// A photographer's public page (2027 frame): who they are, then every night
+// they shot, newest first, each with its photos in a lightbox. Only for
+// photographers with at least one photo on a show: a registry entry with none
+// is a 404, the same as an unknown slug. ARCHIVE is the lit nav item.
 export default async function PhotographerPage({
   params,
 }: {
@@ -56,77 +55,60 @@ export default async function PhotographerPage({
 
   const galleries = await getPhotographerGalleries(photographer.id, photographer.name);
   const totalPhotos = galleries.reduce((n, g) => n + g.photos.length, 0);
+  if (totalPhotos === 0) notFound();
 
   return (
-    <main className="min-h-screen p-8">
-      <div className="max-w-4xl mx-auto">
-        <Link href="/shows" className="text-sm text-[#E8E0D0]/50 hover:text-[#E8E0D0]">
-          ← Shows
-        </Link>
-
-        <header className="mt-6 mb-10 flex flex-col gap-6 sm:flex-row sm:items-center">
-          {photographer.photo && (
-            <Image
-              src={photographer.photo}
-              alt=""
-              width={96}
-              height={96}
-              unoptimized
-              className="h-24 w-24 rounded-full object-cover"
-            />
-          )}
-          <div>
-            <p className="text-xs uppercase tracking-wide text-[#E8E0D0]/50">Photographer</p>
-            <h1 className="text-4xl font-bold">{photographer.name}</h1>
-            {photographer.instagram && (
+    <SiteFrame stats={null} navPath="/photos">
+      <section className="flex flex-col gap-6 sm:flex-row sm:items-center sm:gap-8">
+        {photographer.photo && (
+          <Image
+            {...imageSource(photographer.photo, 192)}
+            alt=""
+            width={96}
+            height={96}
+            className="border-surface-ink size-24 shrink-0 rounded-full border object-cover"
+          />
+        )}
+        <div className="flex min-w-0 flex-col gap-2">
+          <p className="text-data-overline-11 text-accent-red font-bold tracking-[--spacing(0.625)] uppercase">
+            Photographer
+          </p>
+          <h1 className="text-header-1 leading-none font-bold break-words uppercase">{photographer.name}</h1>
+          <p className="text-data-spec-12 uppercase">
+            {totalPhotos} photo{totalPhotos === 1 ? '' : 's'} · {galleries.length} night
+            {galleries.length === 1 ? '' : 's'}
+          </p>
+          {photographer.instagram && (
+            <p className="text-body-3">
               <a
                 href={instagramUrl(photographer.instagram)}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="mt-3 inline-flex items-center gap-1.5 rounded-full border border-[#E8E0D0]/30 px-4 py-1.5 text-sm hover:bg-[#E8E0D0]/10"
+                className={FORM.link}
               >
                 {instagramHandle(photographer.instagram)} on Instagram ↗
               </a>
-            )}
-          </div>
-        </header>
-
-        {photographer.bio && (
-          <p className="mb-10 max-w-prose whitespace-pre-line text-[#E8E0D0]/80">{photographer.bio}</p>
-        )}
-
-        {galleries.length === 0 ? (
-          <p className="text-[#E8E0D0]/50">No photos yet — check back after the next show.</p>
-        ) : (
-          <>
-            <p className="mb-8 text-sm text-[#E8E0D0]/50">
-              {totalPhotos} photo{totalPhotos === 1 ? '' : 's'} across {galleries.length} show
-              {galleries.length === 1 ? '' : 's'}
             </p>
-            <div className="space-y-12">
-              {galleries.map((gallery) => (
-                <section key={gallery.showSlug}>
-                  <div className="mb-4 flex items-baseline justify-between gap-3">
-                    <Link
-                      href={`/shows/${gallery.showSlug}`}
-                      className="text-2xl font-bold hover:underline"
-                    >
-                      {gallery.showTitle}
-                    </Link>
-                    <span className="whitespace-nowrap text-sm text-[#E8E0D0]/50">
-                      {formatDate(gallery.date)}
-                    </span>
-                  </div>
-                  <PhotoGallery
-                    photos={gallery.photos.map((url) => ({ url }))}
-                    showTitle={gallery.showTitle}
-                  />
-                </section>
-              ))}
-            </div>
-          </>
-        )}
-      </div>
-    </main>
+          )}
+        </div>
+      </section>
+
+      {photographer.bio && (
+        <p className="text-body-3 max-w-2xl leading-normal whitespace-pre-line">{photographer.bio}</p>
+      )}
+
+      {galleries.map((gallery) => (
+        <section key={gallery.showSlug} aria-label={gallery.showTitle} className="flex flex-col gap-4">
+          <SectionHeader as="h2" label={broadcastDate(gallery.date)} count={gallery.photos.length} />
+          <p className="text-ui-nav-item-14 flex flex-wrap items-baseline gap-x-3 leading-[1.3] tracking-[--spacing(0.25)] uppercase">
+            <a href={`/shows/${gallery.showCatalogueId}`} className={FORM.link}>
+              <span className="text-data-caption-13-bold text-accent-red font-bold">{gallery.showCatalogueId}</span>
+            </a>
+            <span className="min-w-0">{gallery.showTitle}</span>
+          </p>
+          <PhotoGallery photos={gallery.photos.map((url) => ({ url }))} showTitle={gallery.showTitle} />
+        </section>
+      ))}
+    </SiteFrame>
   );
 }

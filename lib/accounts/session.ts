@@ -2,6 +2,7 @@ import type { NextResponse } from 'next/server';
 import { ACCOUNT_SESSION_COOKIE, ACCOUNT_SESSION_MAX_AGE_SECONDS, createAccountSessionToken } from './auth';
 import { SESSION_COOKIE, STAFF_SESSION_MAX_AGE_SECONDS, createStaffSessionToken } from '../auth';
 import type { AccountRole } from './members';
+import { isStaging } from '../staging';
 
 // Staff accounts also get the admin session cookie, so proxy.ts admits them to
 // /admin with zero middleware changes. Their token carries the user id and
@@ -14,10 +15,12 @@ import type { AccountRole } from './members';
 // undefined off production:
 // localhost has no dot-domain, and a preview *.vercel.app deploy would REJECT a
 // .thebirdhaus.org cookie. Gated on VERCEL_ENV, matching scripts/predeploy-migrate.mjs.
+// Never on staging, whatever VERCEL_ENV says: next.thebirdhaus.org keeps its
+// cookies host-only so they can't reach www (lib/staging.ts).
 const APEX_COOKIE_DOMAIN = '.thebirdhaus.org';
 
 function sessionCookieDomain(): string | undefined {
-  return process.env.VERCEL_ENV === 'production' ? APEX_COOKIE_DOMAIN : undefined;
+  return process.env.VERCEL_ENV === 'production' && !isStaging() ? APEX_COOKIE_DOMAIN : undefined;
 }
 
 // Appends a raw Set-Cookie that expires `name` for `domain` (undefined = the

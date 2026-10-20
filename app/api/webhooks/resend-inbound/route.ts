@@ -1,10 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { Resend } from 'resend';
-import {
-  getResendClient,
-  parseReplyToken,
-  extractEmailAddress,
-} from '@/lib/advance-email';
+import { getResendClient } from '@/lib/email';
+import { parseReplyToken, extractEmailAddress } from '@/lib/advance-email';
 import { recordInboundReply, type InboundAttachmentInput } from '@/lib/advance';
 import { getAdvanceWatchers } from '@/lib/advance-watchers';
 
@@ -149,7 +146,7 @@ export async function POST(request: Request) {
     signature: request.headers.get('svix-signature') ?? '',
   };
 
-  const resend = getResendClient();
+  const resend = getResendClient('advance-inbound');
   let event: InboundEvent;
   try {
     event = resend.webhooks.verify({

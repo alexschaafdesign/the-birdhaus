@@ -2,12 +2,9 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { FORM } from '@/components/night/form';
 
 const MIN_LENGTH = 8; // mirrors MIN_PASSWORD_LENGTH in lib/accounts/auth.ts
-
-const inputBase =
-  'w-full rounded-md border border-[#E8E0D0]/20 bg-[#E8E0D0]/[0.03] px-3 py-2 text-sm text-[#E8E0D0] placeholder:text-[#E8E0D0]/30 focus:border-[#E8E0D0]/50 focus:outline-none transition';
-const labelClass = 'mb-1 block text-xs font-medium uppercase tracking-wide text-[#E8E0D0]/55';
 
 // Sets the password for a crew invite or reset token; the API logs them in
 // on success and they land in /admin.
@@ -17,19 +14,25 @@ export default function SetPasswordForm({ token }: { token: string }) {
   const [confirm, setConfirm] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // The field the error is about: shown under it, with a red border. null =
+  // a server error, shown above the button.
+  const [errorField, setErrorField] = useState<'password' | 'confirm' | null>(null);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (password.length < MIN_LENGTH) {
       setError(`Password must be at least ${MIN_LENGTH} characters.`);
+      setErrorField('password');
       return;
     }
     if (password !== confirm) {
       setError("Those passwords don't match.");
+      setErrorField('confirm');
       return;
     }
     setBusy(true);
     setError(null);
+    setErrorField(null);
     try {
       const res = await fetch(`/api/account/invite/${token}`, {
         method: 'POST',
@@ -48,9 +51,9 @@ export default function SetPasswordForm({ token }: { token: string }) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-3">
+    <form onSubmit={handleSubmit} className="flex flex-col gap-4">
       <div>
-        <label htmlFor="account-new-password" className={labelClass}>
+        <label htmlFor="account-new-password" className={FORM.label}>
           Password
         </label>
         <input
@@ -61,11 +64,18 @@ export default function SetPasswordForm({ token }: { token: string }) {
           autoComplete="new-password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          className={inputBase}
+          aria-invalid={errorField === 'password' ? true : undefined}
+          aria-describedby={errorField === 'password' ? 'set-password-error' : undefined}
+          className={errorField === 'password' ? FORM.fieldInvalid : FORM.field}
         />
+        {error && errorField === 'password' && (
+          <p id="set-password-error" className={FORM.fieldError} role="alert">
+            {error}
+          </p>
+        )}
       </div>
       <div>
-        <label htmlFor="account-confirm-password" className={labelClass}>
+        <label htmlFor="account-confirm-password" className={FORM.label}>
           Confirm password
         </label>
         <input
@@ -75,20 +85,27 @@ export default function SetPasswordForm({ token }: { token: string }) {
           autoComplete="new-password"
           value={confirm}
           onChange={(e) => setConfirm(e.target.value)}
-          className={inputBase}
+          aria-invalid={errorField === 'confirm' ? true : undefined}
+          aria-describedby={errorField === 'confirm' ? 'set-password-error' : undefined}
+          className={errorField === 'confirm' ? FORM.fieldInvalid : FORM.field}
         />
+        {error && errorField === 'confirm' && (
+          <p id="set-password-error" className={FORM.fieldError} role="alert">
+            {error}
+          </p>
+        )}
       </div>
 
-      {error && (
-        <div className="rounded-lg border border-[#F5A3A3]/40 bg-[#F5A3A3]/10 p-3 text-sm text-[#F5A3A3]">
+      {error && !errorField && (
+        <p className={FORM.error} role="alert">
           {error}
-        </div>
+        </p>
       )}
 
       <button
         type="submit"
         disabled={busy}
-        className="w-full rounded-md bg-[#E8E0D0] px-6 py-2.5 text-sm font-semibold text-[#2A2420] transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
+        className={FORM.primary}
       >
         {busy ? 'Joining…' : 'Set password & enter'}
       </button>

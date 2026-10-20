@@ -2,10 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-
-const inputBase =
-  'w-full rounded-md border border-[#E8E0D0]/20 bg-[#E8E0D0]/[0.03] px-3 py-2 text-sm text-[#E8E0D0] placeholder:text-[#E8E0D0]/30 focus:border-[#E8E0D0]/50 focus:outline-none transition';
-const labelClass = 'mb-1 block text-xs font-medium uppercase tracking-wide text-[#E8E0D0]/55';
+import { FORM } from '@/components/night/form';
 
 // Birdhaus login (crew, staff, photographers), with an inline "forgot
 // password" mode that swaps the password field for a send-reset-email action.
@@ -18,6 +15,9 @@ export default function LoginForm() {
   const [mode, setMode] = useState<'login' | 'forgot'>('login');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Wrong credentials mark both fields (the server doesn't say which was
+  // wrong); other errors (rate limit, network) are about the whole form.
+  const [invalid, setInvalid] = useState<'credentials' | null>(null);
   const [movedTo, setMovedTo] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -25,6 +25,7 @@ export default function LoginForm() {
     e.preventDefault();
     setBusy(true);
     setError(null);
+    setInvalid(null);
     setMovedTo(null);
     setNotice(null);
     try {
@@ -45,6 +46,7 @@ export default function LoginForm() {
         });
         const data = await res.json().catch(() => null);
         if (typeof data?.movedTo === 'string') setMovedTo(data.movedTo);
+        else if (res.status === 401) setInvalid('credentials');
         if (!res.ok) throw new Error(data?.error ?? `Something went wrong (${res.status})`);
         router.push(typeof data?.dest === 'string' ? data.dest : '/admin');
         router.refresh();
@@ -57,9 +59,9 @@ export default function LoginForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-3">
+    <form onSubmit={handleSubmit} className="flex flex-col gap-4">
       <div>
-        <label htmlFor="login-email" className={labelClass}>
+        <label htmlFor="login-email" className={FORM.label}>
           Email
         </label>
         <input
@@ -69,13 +71,15 @@ export default function LoginForm() {
           autoComplete="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          className={inputBase}
+          aria-invalid={invalid === 'credentials' ? true : undefined}
+          aria-describedby={invalid === 'credentials' ? 'login-error' : undefined}
+          className={invalid === 'credentials' ? FORM.fieldInvalid : FORM.field}
         />
       </div>
 
       {mode === 'login' && (
         <div>
-          <label htmlFor="login-password" className={labelClass}>
+          <label htmlFor="login-password" className={FORM.label}>
             Password
           </label>
           <input
@@ -85,26 +89,28 @@ export default function LoginForm() {
             autoComplete="current-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className={inputBase}
+            aria-invalid={invalid === 'credentials' ? true : undefined}
+            aria-describedby={invalid === 'credentials' ? 'login-error' : undefined}
+            className={invalid === 'credentials' ? FORM.fieldInvalid : FORM.field}
           />
         </div>
       )}
 
       {error && (
-        <div className="rounded-lg border border-[#F5A3A3]/40 bg-[#F5A3A3]/10 p-3 text-sm text-[#F5A3A3]">
+        <p id="login-error" className={FORM.error} role="alert">
           {error}
           {movedTo && (
             <>
               {' '}
-              <a href={movedTo} className="font-semibold underline underline-offset-2">
+              <a href={movedTo} className={`${FORM.link} font-bold`}>
                 Log in on Songhaus →
               </a>
             </>
           )}
-        </div>
+        </p>
       )}
       {notice && (
-        <div className="rounded-lg border border-[#7bb98a]/40 bg-[#7bb98a]/10 p-3 text-sm text-[#bfe6c8]">
+        <div className={FORM.notice} role="status">
           {notice}
         </div>
       )}
@@ -112,7 +118,7 @@ export default function LoginForm() {
       <button
         type="submit"
         disabled={busy}
-        className="w-full rounded-md bg-[#E8E0D0] px-6 py-2.5 text-sm font-semibold text-[#2A2420] transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
+        className={FORM.primary}
       >
         {busy ? 'One sec…' : mode === 'forgot' ? 'Email me a reset link' : 'Log in'}
       </button>
@@ -122,9 +128,10 @@ export default function LoginForm() {
         onClick={() => {
           setMode(mode === 'login' ? 'forgot' : 'login');
           setError(null);
+          setInvalid(null);
           setNotice(null);
         }}
-        className="block text-xs text-[#E8E0D0]/50 underline-offset-2 transition hover:text-[#E8E0D0] hover:underline"
+        className={`${FORM.link} text-body-3 w-fit`}
       >
         {mode === 'login' ? 'Forgot password?' : '← Back to log in'}
       </button>

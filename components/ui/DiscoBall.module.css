@@ -1,0 +1,75 @@
+/* DiscoBall motion (components/ui/DiscoBall.tsx). CSS only, transform
+   only: nothing here touches filter or blur, so the grain filters rasterize
+   once and the compositor just moves the layers. All motion is gated on
+   prefers-reduced-motion: no-preference, so reduced motion gets the static
+   ball. */
+
+/* The ball body: the intersection of the two rims. Two nested ellipse clips
+   (rim-blue, then rim-red) in the rims' own geometry, as percentages of the
+   477 × 467 ball box. The spots live inside, so wherever they drift they
+   never spill onto the rims. Screened as a group onto the rims below. */
+.bodyBack {
+  clip-path: ellipse(47.552% 48.537% at 47.552% 51.462%);
+}
+.bodyFront {
+  clip-path: ellipse(47.552% 48.537% at 52.453% 48.604%);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  /* Sway: the whole ball + wire swings ±2° around the mount (top centre,
+     raised by --disco-lift when the wire starts above the root's box). */
+  .sway {
+    transform-origin: 50% calc(var(--disco-lift, 0rem) * -1);
+    animation: disco-sway 4s ease-in-out infinite alternate;
+  }
+
+  /* Scroll-turn: a slow turn, not a slide. Each spot's horizontal position
+     follows page scroll by a small, different distance (% of the ball's
+     width). Browsers without scroll timelines skip this block and show the
+     static ball. */
+  @supports (animation-timeline: scroll()) {
+    .spotBlue,
+    .spotRed,
+    .spotAmber {
+      animation-timing-function: linear;
+      animation-fill-mode: both;
+      animation-timeline: scroll(root block);
+    }
+    .spotBlue {
+      animation-name: disco-drift-blue;
+    }
+    .spotRed {
+      animation-name: disco-drift-red;
+    }
+    .spotAmber {
+      animation-name: disco-drift-amber;
+    }
+  }
+}
+
+@keyframes disco-sway {
+  from {
+    transform: rotate(-2deg);
+  }
+  to {
+    transform: rotate(2deg);
+  }
+}
+
+@keyframes disco-drift-blue {
+  to {
+    transform: translateX(-3%);
+  }
+}
+
+@keyframes disco-drift-red {
+  to {
+    transform: translateX(-5%);
+  }
+}
+
+@keyframes disco-drift-amber {
+  to {
+    transform: translateX(-7%);
+  }
+}

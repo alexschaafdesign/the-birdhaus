@@ -257,6 +257,7 @@ export async function getPhotographerProfileBySlug(slug: string): Promise<Photog
 // Built by getPhotographerGalleries (below).
 export interface PhotographerGallery {
   showSlug: string;
+  showCatalogueId: string;
   showTitle: string;
   date: string;
   photos: string[];
@@ -299,9 +300,9 @@ export async function getPhotographerGalleries(
   name: string
 ): Promise<PhotographerGallery[]> {
   const rows = await sql<
-    Array<{ slug: string; title: string; date: string; photos: unknown; photographer: unknown }>
+    Array<{ slug: string; catalogue_id: string; title: string; date: string; photos: unknown; photographer: unknown }>
   >`
-    select slug, title, date::text as date, photos, photographer
+    select slug, catalogue_id, title, date::text as date, photos, photographer
     from shows
     where photos @> ${sql.json([{ photographerId }])}
        or lower(photographer->>'name') = lower(${name})
@@ -324,7 +325,7 @@ export async function getPhotographerGalleries(
       }
     }
     if (photos.length > 0) {
-      galleries.push({ showSlug: row.slug, showTitle: row.title, date: row.date, photos });
+      galleries.push({ showSlug: row.slug, showCatalogueId: row.catalogue_id, showTitle: row.title, date: row.date, photos });
     }
   }
   return galleries;

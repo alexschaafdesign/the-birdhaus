@@ -5,6 +5,7 @@ import ShowCrewPanel, {
   type CrewEngineer,
   type CrewRegistryEntry,
 } from '@/components/admin/ShowCrewPanel';
+import { getShowRecording, listCrewAccountOptions } from '@/lib/show-rig';
 
 export const dynamic = 'force-dynamic';
 
@@ -27,7 +28,7 @@ export default async function ShowCrewPage({ params }: { params: Promise<{ id: s
   // photographer id to a number so it matches the (also-numeric) roster ids below.
   const assignedPhotographerId = show.photographer_id != null ? Number(show.photographer_id) : null;
 
-  const [bandRows, engineerRows, doorRoster, photographerRoster] = await Promise.all([
+  const [bandRows, engineerRows, doorRoster, photographerRoster, recording, crewAccounts] = await Promise.all([
     sql<
       { band_id: number; name: string; contact_email: string | null; payment_method: string | null; photo: string | null; excluded: boolean }[]
     >`
@@ -54,6 +55,8 @@ export default async function ShowCrewPage({ params }: { params: Promise<{ id: s
     sql<{ id: number; name: string; contact_email: string | null; payment_method: string | null; photo: string | null }[]>`
       select id, name, contact_email, payment_method, photo from photographers order by name asc
     `,
+    getShowRecording(showId),
+    listCrewAccountOptions(),
   ]);
 
   const bands: CrewBand[] = bandRows.map((r) => ({
@@ -99,6 +102,8 @@ export default async function ShowCrewPage({ params }: { params: Promise<{ id: s
       assignedDoorName={assignedDoorName}
       photographers={photographers}
       assignedPhotographerId={assignedPhotographerId}
+      recording={recording}
+      crewAccounts={crewAccounts}
     />
   );
 }

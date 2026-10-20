@@ -1,9 +1,16 @@
-import Link from 'next/link';
 import Image from 'next/image';
 import { notFound } from 'next/navigation';
 import { getAllBands, getBandBySlug, getShowsForBand, getVideosForBand } from '@/lib/bands';
 import AdminEditFAB from '@/components/admin/AdminEditFAB';
 import { isAdminSession } from '@/lib/admin-session';
+import { isPrivateBooking } from '@/lib/nights';
+import { broadcastDate } from '@/lib/catalogue';
+import { SiteFrame, NightBand } from '@/components/night/SiteFrame';
+import { SectionHeader } from '@/components/ui/SectionHeader';
+import { ShowRow } from '@/components/ui/ShowRow';
+import { RecordingCard } from '@/components/ui/RecordingCard';
+import { FORM } from '@/components/night/form';
+import { imageSource } from '@/lib/image-source';
 import type { Metadata } from 'next';
 
 export async function generateStaticParams() {
@@ -41,121 +48,108 @@ export async function generateMetadata(
   };
 }
 
+// One band (2027 frame): photo, name, where they're from, links, bio, every
+// night they played (archive rows), and their recorded sets as cards on an
+// ink band, each opening the night's page. ARCHIVE is the lit nav item.
 export default async function BandPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const band = await getBandBySlug(slug);
   if (!band) notFound();
 
-  const shows = await getShowsForBand(band.id);
-  const videos = await getVideosForBand(band.id);
   const isAdmin = await isAdminSession();
+  // Unannounced upcoming shows are private bookings (their /shows/ page 404s
+  // for the public), so they stay off the public band page too.
+  const shows = (await getShowsForBand(band.id)).filter((s) => isAdmin || !isPrivateBooking(s));
+  const videos = await getVideosForBand(band.id);
+  const origin = band.isTouring ? (band.hometown ? `Touring · ${band.hometown}` : 'Touring') : 'Local';
 
   return (
-    <main className="min-h-screen">
+    <SiteFrame stats={null} navPath="/bands">
       {isAdmin && <AdminEditFAB href={`/admin/bands/${band.id}`} label="Edit Band" />}
-      <div className="max-w-3xl mx-auto px-6 py-12">
-        <Link
-          href="/"
-          className="text-[#E8E0D0]/70 hover:text-[#E8E0D0] mb-8 inline-block text-sm uppercase tracking-wide"
-        >
-          ← Back to home
-        </Link>
 
+      <section className="flex flex-col gap-6 sm:flex-row sm:items-start sm:gap-10">
         {band.photo && (
-          <div className="relative w-full max-w-md aspect-square rounded-lg shadow-lg mb-6 overflow-hidden">
+          <div className="border-surface-ink relative aspect-square w-full max-w-xs shrink-0 overflow-hidden border">
             <Image
-              src={band.photo}
+              {...imageSource(band.photo, 640)}
               alt={band.name}
               fill
-              sizes="(max-width: 768px) 100vw, 448px"
+              // Full width below sm (minus the 16px gutters), 320px beside the text.
+              sizes="(max-width: 640px) calc(100vw - 32px), 320px"
               priority
-              unoptimized
               className="object-cover"
             />
           </div>
         )}
-
-        <div className="mb-6">
-          <h1 className="text-4xl font-bold leading-tight">{band.name}</h1>
-          <p className="text-[#E8E0D0]/50 text-sm mt-1">
-            {band.isTouring ? (band.hometown ? `Touring · ${band.hometown}` : 'Touring') : 'Local'}
-          </p>
-          {band.instagram && (
-            <a
-              href={band.instagram}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-[#E8E0D0]/60 hover:text-[#E8E0D0] underline text-sm"
-            >
-              Instagram ↗
-            </a>
-          )}
-          {band.twinsceneSlug && (
-            <a
-              href={`https://www.twinscene.org/bands/${band.twinsceneSlug}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-[#E8E0D0]/60 hover:text-[#E8E0D0] underline text-sm ml-3"
-            >
-              Twin Scene ↗
-            </a>
-          )}
-        </div>
-
-        {band.bio && (
-          <p className="text-lg text-[#E8E0D0]/80 mb-10 max-w-2xl leading-relaxed whitespace-pre-line">
-            {band.bio}
-          </p>
-        )}
-
-        <div className="border-t border-[#E8E0D0]/15 pt-8">
-          <h2 className="text-2xl font-bold mb-4">Played at the Birdhaus</h2>
-          {shows.length === 0 ? (
-            <p className="text-[#E8E0D0]/50">Hasn&rsquo;t played a Birdhaus show yet.</p>
-          ) : (
-            <div className="space-y-3">
-              {shows.map((show) => (
-                <Link
-                  key={show.id}
-                  href={`/shows/${show.slug}`}
-                  className="block border border-[#E8E0D0]/20 rounded p-4 hover:border-[#E8E0D0]/50 transition-colors"
+        <div className="flex max-w-2xl min-w-0 flex-col gap-4">
+          <div className="flex flex-col gap-2">
+            <p className="text-data-overline-11 text-accent-red font-bold tracking-[--spacing(0.625)] uppercase">
+              Band
+            </p>
+            <h1 className="text-header-1 leading-none font-bold break-words uppercase">{band.name}</h1>
+            <p className="text-data-spec-12 uppercase">{origin}</p>
+          </div>
+          {(band.instagram || band.twinsceneSlug) && (
+            <p className="text-body-3 flex flex-wrap gap-x-5 gap-y-1">
+              {band.instagram && (
+                <a href={band.instagram} target="_blank" rel="noopener noreferrer" className={FORM.link}>
+                  Instagram ↗
+                </a>
+              )}
+              {band.twinsceneSlug && (
+                <a
+                  href={`https://www.twinscene.org/bands/${band.twinsceneSlug}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={FORM.link}
                 >
-                  <p className="text-[#E8E0D0]/50 text-sm mb-0.5">{show.date}</p>
-                  <p className="font-semibold">{show.title}</p>
-                </Link>
-              ))}
-            </div>
+                  Twin Scene ↗
+                </a>
+              )}
+            </p>
           )}
+          {band.bio && <p className="text-body-3 leading-normal whitespace-pre-line">{band.bio}</p>}
         </div>
+      </section>
 
-        {videos.length > 0 && (
-          <div className="border-t border-[#E8E0D0]/15 pt-8 mt-8">
-            <h2 className="text-2xl font-bold mb-4">Videos</h2>
-            <div className="space-y-8">
-              {videos.map((video, index) => (
-                <div key={index}>
-                  <Link
-                    href={`/shows/${video.showSlug}`}
-                    className="text-sm text-[#E8E0D0]/50 hover:text-[#E8E0D0] mb-2 inline-block"
-                  >
-                    {video.showTitle}
-                  </Link>
-                  <div className="aspect-video rounded-lg overflow-hidden shadow-lg">
-                    <iframe
-                      width="100%"
-                      height="100%"
-                      src={`https://www.youtube.com/embed/${video.youtube}`}
-                      title={video.title}
-                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                      allowFullScreen
-                    ></iframe>
-                  </div>
-                </div>
-              ))}
-            </div>
+      <section className="flex flex-col gap-2">
+        <SectionHeader label="Played at the Birdhaus" count={shows.length || undefined} rule="none" />
+        {shows.length === 0 ? (
+          <p className="text-body-3 leading-normal">Hasn&rsquo;t played a Birdhaus show yet.</p>
+        ) : (
+          <div className="flex flex-col">
+            {shows.map((show) => (
+              <ShowRow
+                key={show.id}
+                href={`/shows/${show.catalogueId}`}
+                catalogueId={show.catalogueId}
+                date={broadcastDate(show.date)}
+                lineup={show.title}
+              />
+            ))}
           </div>
         )}
-      </div>
-    </main>
+      </section>
+
+      {videos.length > 0 && (
+        <NightBand label="Recordings">
+          <SectionHeader label="Recordings" count={videos.length} ground="ink" rule="none" />
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+            {videos.map((video, index) => (
+              <RecordingCard
+                key={`${video.youtube}-${index}`}
+                ground="ink"
+                href={`/shows/${video.showCatalogueId}`}
+                catalogueId={video.showCatalogueId}
+                // The night, not the stored video title: those repeat the
+                // date and band name ("06.12.2026 - Yellow Ostrich…").
+                title={video.showTitle}
+                thumbnail={`https://i.ytimg.com/vi/${video.youtube}/mqdefault.jpg`}
+              />
+            ))}
+          </div>
+        </NightBand>
+      )}
+    </SiteFrame>
   );
 }

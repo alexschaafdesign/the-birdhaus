@@ -1,122 +1,187 @@
-import { getAllShows, getTodayCentral } from '@/lib/shows';
-import { getAllBandSlugs } from '@/lib/bands';
+import type { Metadata } from 'next';
 import Link from 'next/link';
-import VideoArchive, { type ArchiveShowGroup } from '@/components/VideoArchive';
+import { SONGHAUS_URL } from '@/lib/site';
+import { getFreshCutsContent } from '@/lib/page-content';
+import { isAdminSession } from '@/lib/admin-session';
+import {
+  archiveHref,
+  archiveTotals,
+  byMonth,
+  getNights,
+  ledgerDate,
+  latestRecordings,
+  lineup,
+  monthLabel,
+  nightSummary,
+  seriesOf,
+  tickOf,
+  timecode,
+  type SeriesFilter,
+} from '@/lib/archive';
+import { SectionHeader } from '@/components/ui/SectionHeader';
+import { ShowRow } from '@/components/ui/ShowRow';
+import { RecordingCard } from '@/components/ui/RecordingCard';
+import { SiteFrame, NightBand } from '@/components/night/SiteFrame';
+import { Filters } from '@/components/night/Filters';
+import { FRESH_CUTS_NAV_PATH } from '@/components/night/nav';
+import FreshCutsIntro from '@/components/FreshCutsIntro';
 
-// Evaluate the upcoming/past split per request so it reflects the current date,
-// not the date the site was last built/deployed.
+// The archive: every night, newest first (Figma bones: 259:15993). Each row
+// opens the night's one page, /shows/BH-…. ?sample renders the
+// fixture nights (lib/archive/fixtures.ts) to check the layout.
+// ?series=fc is the Fresh Cuts view (/fresh-cuts 308s here): it opens with the
+// series' editable intro instead of the archive's, and lights FRESH CUTS in
+// the nav.
+
+type SearchParams = Promise<Record<string, string | string[] | undefined>>;
+
+export async function generateMetadata({
+  searchParams,
+}: {
+  searchParams: SearchParams;
+}): Promise<Metadata> {
+  if (one((await searchParams).series) === 'fc') {
+    return {
+      title: 'Fresh Cuts',
+      description:
+        'Fresh Cuts is the Birdhaus series for brand-new material from Twin Cities artists, every set recorded.',
+      alternates: { canonical: '/archive?series=fc' },
+    };
+  }
+  return {
+    title: 'Archive',
+    description:
+      'Every night at the Birdhaus, newest first — recorded on 18 channels and more than one camera.',
+    alternates: { canonical: '/archive' },
+  };
+}
+
 export const dynamic = 'force-dynamic';
 
-export default async function ArchivePage() {
-  const shows = await getAllShows();
-  const bandSlugs = await getAllBandSlugs();
+const RECORDING_COUNT = 5;
 
-  const today = getTodayCentral();
-  const pastShows = shows.filter((show) => show.date < today);
-  pastShows.sort((a, b) => b.date.localeCompare(a.date));
+const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) || null;
+const isSeries = (v: string | null): v is SeriesFilter => v === 'bh' || v === 'fc';
 
-  const showCount = pastShows.length;
+export default async function ArchiveIndexPage({
+  searchParams,
+}: {
+  searchParams: SearchParams;
+}) {
+  const params = await searchParams;
+  const sample = params.sample !== undefined;
+  const nights = await getNights(sample);
+  const recordings = latestRecordings(nights, RECORDING_COUNT);
 
-  const bandNames = (show: (typeof pastShows)[number]) =>
-    (Array.isArray(show.bands) ? show.bands : [])
-      .map((band) => (typeof band === 'string' ? band : band.name))
-      .filter(Boolean);
-
-  // Every past show stays in the timeline in date order (newest first); shows
-  // with videos lead with their sets, shows without render as a lighter row.
-  const timeline: ArchiveShowGroup[] = pastShows.map((show) => ({
-    slug: show.slug,
-    title: show.title,
-    date: show.date,
-    bands: bandNames(show),
-    flyer: show.flyer,
-    videos: (show.videos ?? []).map((v) => ({ youtube: v.youtube, title: v.title })),
-    photos: (show.photos ?? []).map((p) => p.url),
-  }));
-
-  const videoCount = timeline.reduce((sum, g) => sum + g.videos.length, 0);
-
-  // Build band frequency map
-  const bandCounts = new Map<string, { count: number; bandId: number | null }>();
-  for (const show of pastShows) {
-    for (const band of show.bands) {
-      const name = typeof band === 'string' ? band : band.name;
-      const bandId = typeof band === 'string' ? null : band.bandId ?? null;
-      const existing = bandCounts.get(name);
-      bandCounts.set(name, {
-        count: (existing?.count ?? 0) + 1,
-        bandId: existing?.bandId ?? bandId,
-      });
-    }
-  }
-  const bandCount = bandCounts.size;
-
-  // Sort: most appearances first, then alphabetical
-  const sortedBands = Array.from(bandCounts.entries()).sort((a, b) =>
-    b[1].count - a[1].count || a[0].localeCompare(b[0])
+  // Filters narrow the ledger only; totals and Latest recordings stay whole.
+  // Unknown values are ignored rather than emptying the list.
+  const years = [...new Set(nights.map((n) => n.date.slice(0, 4)))];
+  const yearParam = one(params.year);
+  const year = yearParam && years.includes(yearParam) ? yearParam : null;
+  const seriesParam = one(params.series);
+  const series = isSeries(seriesParam) ? seriesParam : null;
+  const shown = nights.filter(
+    (n) => (!year || n.date.startsWith(year)) && (!series || seriesOf(n) === series)
   );
+  const months = byMonth(shown);
+  const freshCuts = series === 'fc';
+  const [fcContent, isAdmin] = freshCuts
+    ? await Promise.all([getFreshCutsContent(), isAdminSession()])
+    : [null, false];
 
   return (
-    <main className="min-h-screen p-8">
-      <div className="max-w-4xl mx-auto">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-8">
-          <h1 className="text-5xl font-bold">ARCHIVE</h1>
-          <div className="font-mono text-sm border border-yellow-500/40 rounded-lg p-4 bg-yellow-500/5">
-            <div className="flex gap-4 sm:gap-8">
-              <div>
-                <span className="text-yellow-500/60 uppercase tracking-widest text-xs block mb-1">Shows</span>
-                <span className="text-yellow-400 text-2xl">{String(showCount).padStart(3, '0')}</span>
-              </div>
-              <div className="border-l border-yellow-500/20 pl-4 sm:pl-8">
-                <span className="text-yellow-500/60 uppercase tracking-widest text-xs block mb-1">Bands</span>
-                <span className="text-yellow-400 text-2xl">{String(bandCount).padStart(3, '0')}</span>
-              </div>
-              <div className="border-l border-yellow-500/20 pl-4 sm:pl-8">
-                <span className="text-yellow-500/60 uppercase tracking-widest text-xs block mb-1">Videos</span>
-                <span className="text-yellow-400 text-2xl">{String(videoCount).padStart(3, '0')}</span>
-              </div>
-            </div>
-          </div>
-        </div>
+    <SiteFrame
+      stats={nights.length ? archiveTotals(nights) : null}
+      navPath={freshCuts ? FRESH_CUTS_NAV_PATH : undefined}
+    >
+      {fcContent ? (
+        <FreshCutsIntro content={fcContent} isAdmin={isAdmin} />
+      ) : (
+        <section className="flex max-w-3xl flex-col gap-3">
+          <h1 className="sr-only">Birdhaus archive</h1>
+          <SectionHeader label="Archive" rule="none" />
+          <p className="text-body-3 leading-normal">
+            We record every set we can — 18 channels and more than one camera — and staff
+            photographers shoot select nights. Choose a night to see whatever survives from it:
+            video, audio, photos, notes.
+          </p>
+        </section>
+      )}
 
-        <p className="text-[#E8E0D0]/70 mb-10 max-w-2xl leading-relaxed">
-          We pride ourselves on recording every band&apos;s full set, check em all out below!
-        </p>
-
-        {/* Band roster */}
-        <details className="mb-12 border border-[#E8E0D0]/20 rounded-lg group">
-          <summary className="px-4 py-3 cursor-pointer text-sm text-[#E8E0D0]/60 hover:text-[#E8E0D0] uppercase tracking-widest select-none list-none flex justify-between items-center">
-            <span>Birdhaus alums - click to expand</span>
-            <span className="text-xs text-[#E8E0D0]/40 group-open:hidden">▸ expand</span>
-            <span className="text-xs text-[#E8E0D0]/40 hidden group-open:inline">▾ collapse</span>
-          </summary>
-          <div className="px-4 pb-4 pt-2 columns-2 sm:columns-3 gap-x-6">
-            {sortedBands.map(([name, { count, bandId }]) => {
-              const slug = bandId ? bandSlugs.get(bandId) : undefined;
+      {/* ---- latest recordings: an ink night band, newest sets with video. */}
+      {recordings.length > 0 && (
+        <NightBand label="Latest recordings">
+          <SectionHeader label="Latest recordings" ground="ink" rule="none" />
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+            {recordings.map(({ night, set }) => {
+              const sec = set.durationSec ?? set.media.video?.durationSec;
+              const youtube = set.media.video?.youtube;
               return (
-                <div key={name} className="flex justify-between items-baseline gap-2 py-1 border-b border-[#E8E0D0]/10 break-inside-avoid">
-                  {slug ? (
-                    <Link href={`/bands/${slug}`} className="text-sm text-[#E8E0D0]/90 truncate hover:text-[#E8E0D0] hover:underline">
-                      {name}
-                    </Link>
-                  ) : (
-                    <span className="text-sm text-[#E8E0D0]/90 truncate">{name}</span>
-                  )}
-                  {count > 1 && (
-                    <span className="text-xs text-yellow-500/70 font-mono flex-shrink-0">×{count}</span>
-                  )}
-                </div>
+                <RecordingCard
+                  key={set.id}
+                  ground="ink"
+                  href={archiveHref(`/shows/${night.id}#${set.id}`, sample)}
+                  catalogueId={night.id}
+                  title={set.band}
+                  duration={sec ? timecode(sec) : undefined}
+                  thumbnail={youtube ? `https://i.ytimg.com/vi/${youtube}/mqdefault.jpg` : undefined}
+                />
               );
             })}
           </div>
-        </details>
+        </NightBand>
+      )}
 
-        {pastShows.length === 0 ? (
-          <p className="text-[#E8E0D0]/60">No past shows yet.</p>
-        ) : (
-          <VideoArchive groups={timeline} />
+      <section className="flex flex-col gap-6">
+        <SectionHeader label="Past shows" count={shown.length} rule="none" />
+        {nights.length > 0 && (
+          <Filters years={years} year={year} series={series} sample={sample} />
         )}
-      </div>
-    </main>
+        {/* Song-a-day editions (SAD-###) are minted and listed by Songhaus.
+            /bands has no nav item, so the archive is where it's linked. */}
+        <p className="text-body-3 flex flex-wrap gap-x-6 gap-y-1">
+          <Link href="/bands" className="hover:text-accent-brick underline underline-offset-4">
+            All bands →
+          </Link>
+          <a
+            href={SONGHAUS_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hover:text-accent-brick underline underline-offset-4"
+          >
+            Song-a-day editions live on Songhaus →
+          </a>
+        </p>
+        {months.length === 0 ? (
+          <p className="text-body-1">
+            {nights.length === 0 ? 'Nothing in the archive yet.' : 'No nights match those filters.'}
+          </p>
+        ) : (
+          <div className="flex flex-col gap-8">
+            {months.map(({ key, nights: monthNights }) => (
+              <section key={key} aria-label={monthLabel(key)} className="flex flex-col">
+                {/* Sticky month label: stays pinned while its rows scroll. */}
+                <SectionHeader
+                  as="h3"
+                  label={monthLabel(key)}
+                  className="bg-surface-paper sticky top-0 z-10 pt-3 pb-1"
+                />
+                {monthNights.map((night) => (
+                  <ShowRow
+                    key={night.id}
+                    href={archiveHref(`/shows/${night.id}`, sample)}
+                    catalogueId={night.id}
+                    series={tickOf(night)}
+                    date={ledgerDate(night)}
+                    lineup={lineup(night)}
+                    meta={nightSummary(night)}
+                  />
+                ))}
+              </section>
+            ))}
+          </div>
+        )}
+      </section>
+    </SiteFrame>
   );
 }

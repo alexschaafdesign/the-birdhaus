@@ -1,6 +1,7 @@
 import { remark } from 'remark';
 import html from 'remark-html';
 import { sql } from './db';
+import { guardTicketUrl } from './staging';
 
 // One entry in a show's photo gallery. `photographerId` references the
 // photographers registry (050_photographers.sql); null means uncredited.
@@ -12,17 +13,30 @@ import { sql } from './db';
 export type ShowPhoto = {
   url: string;
   photographerId: number | null;
+  // Optional (096-era archive): the band whose set this photo is from. Absent
+  // = a night-level photo. Same shape as videos' bandIds, one band per photo.
+  bandId?: number;
 };
+
+export type ShowStatus = 'scheduled' | 'cancelled' | 'postponed';
 
 export interface Show {
   id: number;
   slug: string;
+  // The night's catalogue id, BH-YYMMDD (097) — the public URL, /shows/BH-…
+  // Minted by the DB; frozen once the show is announced or past.
+  catalogueId: string;
+  status: ShowStatus;
+  // A postponed show's replacement (status = 'postponed' only).
+  rescheduledTo?: number;
   title: string;
   date: string;
   doorsTime?: string;
   showTime?: string;
   flyer?: string;
-  bands: Array<{ name: string; instagram?: string; bio?: string; photo?: string; bandId?: number; setStart?: string; setEnd?: string }> | string[];
+  // notes: the set's free-text note (show_bands.notes), sent by the admin form;
+  // never stored in the bands JSONB.
+  bands: Array<{ name: string; instagram?: string; bio?: string; photo?: string; bandId?: number; setStart?: string; setEnd?: string; notes?: string }> | string[];
   description?: string;
   photographer?: string | { name: string; instagram?: string };
   rsvpUrl?: string;
@@ -30,7 +44,8 @@ export interface Show {
   externalTicketUrl?: string;
   rsvpForm?: boolean;
   videos: Array<{ youtube: string; title: string; bandIds?: number[] }>;
-  audio?: Array<{ bandcamp: string; title: string }>;
+  // bandId (optional): the set this recording belongs to; absent = the night.
+  audio?: Array<{ bandcamp: string; title: string; bandId?: number }>;
   photos?: ShowPhoto[];
   photoFolder?: string;
   photoCredit?: string;
@@ -49,6 +64,9 @@ export interface Show {
 interface ShowRow {
   id: number;
   slug: string;
+  catalogue_id: string;
+  status: ShowStatus;
+  rescheduled_to: number | string | null;
   title: string;
   date: string;
   doors_time: string | null;
@@ -89,6 +107,9 @@ async function rowToShow(row: ShowRow, renderContent = false): Promise<Show> {
   return {
     id: row.id,
     slug: row.slug,
+    catalogueId: row.catalogue_id,
+    status: row.status,
+    rescheduledTo: row.rescheduled_to != null ? Number(row.rescheduled_to) : undefined,
     title: row.title,
     date: row.date,
     doorsTime: row.doors_time ?? undefined,
@@ -98,8 +119,11 @@ async function rowToShow(row: ShowRow, renderContent = false): Promise<Show> {
     description: row.description ?? undefined,
     photographer: (row.photographer as Show['photographer']) ?? undefined,
     rsvpUrl: row.rsvp_url ?? undefined,
-    ticketUrl: row.ticket_url ?? undefined,
-    externalTicketUrl: row.external_ticket_url ?? undefined,
+    // Public-facing, so passed through the staging guard: off production a
+    // stored Square link becomes the show's /checkout (disabled) path. The
+    // admin form reads the raw columns itself and saves those, never these.
+    ticketUrl: guardTicketUrl(row.ticket_url ?? undefined, row.catalogue_id ?? row.slug),
+    externalTicketUrl: guardTicketUrl(row.external_ticket_url ?? undefined, row.catalogue_id ?? row.slug),
     rsvpForm: row.rsvp_form,
     videos: (row.videos as Show['videos']) ?? [],
     audio: (row.audio as Show['audio']) ?? [],
@@ -193,6 +217,7 @@ export const SHOW_COLUMNS = [
   'photo_credit', 'content_markdown', 'announced', 'created_at', 'updated_at', 'sound_engineer_name',
   'target_band_count', 'ignored_health_checks', 'advance_sent', 'square_item_id', 'square_image_id',
   'share_token', 'walkin_count', 'door_token', 'door_person_name', 'ticket_limit', 'photographer_id',
+  'catalogue_id', 'status', 'rescheduled_to',
 ];
 
 // A fresh fragment per call site, per postgres.js's dynamic composition pattern.
@@ -267,6 +292,55 @@ export async function getShowBySlug(slug: string): Promise<Show | null> {
   return rowToShow(row, true); // detail page reads `content`
 }
 
+// The show page's own read (/shows/BH-…): the stored catalogue id, exactly.
+export async function getShowByCatalogueId(catalogueId: string): Promise<Show | null> {
+  const [row] = await sql<ShowRow[]>`
+    select ${sql(SHOW_COLUMNS)}, date::text as date, ${bandsJoinFragment()}, ${videosJoinFragment()}
+    from shows
+    where catalogue_id = ${catalogueId}
+    limit 1
+  `;
+  if (!row) return null;
+  return rowToShow(row, true); // detail page reads `content`
+}
+
+// An old slug URL (flyers, emails, links from before /shows/BH-…) → the
+// show's catalogue id, so the caller can 308 there. Exact match first, then
+// case-insensitive when exactly one show matches (same rule as
+// findShowSlugIgnoringCase). Also returns `announced`/`date` so the caller can
+// keep an unannounced upcoming show hidden.
+export async function findShowBySlugIgnoringCase(
+  slug: string
+): Promise<{ catalogueId: string; announced: boolean; date: string } | null> {
+  const rows = await sql<Array<{ catalogue_id: string; announced: boolean; date: string; exact: boolean }>>`
+    select catalogue_id, announced, date::text as date, slug = ${slug} as exact
+    from shows
+    where lower(slug) = lower(${slug})
+    order by (slug = ${slug}) desc
+    limit 2
+  `;
+  const hit = rows[0]?.exact ? rows[0] : rows.length === 1 ? rows[0] : null;
+  return hit ? { catalogueId: hit.catalogue_id, announced: hit.announced, date: hit.date } : null;
+}
+
+// /shows/[id]/tickets and /shows/[id]/checkout take either a catalogue id
+// (BH-…, any casing) or an old slug in their segment. The ticket code keys on
+// the slug, so this hands it the slug and leaves the rest untouched: an id
+// resolves to its show's stored slug; anything else passes through as given
+// (the existing case-insensitive slug handling then applies).
+export async function slugForShowParam(param: string): Promise<string> {
+  let value = param;
+  try {
+    value = decodeURIComponent(param);
+  } catch {}
+  const bh = value.match(/^bh-(\d{6})([a-z]?)$/i);
+  if (!bh) return value;
+  const [row] = await sql<Array<{ slug: string }>>`
+    select slug from shows where catalogue_id = ${`BH-${bh[1]}${bh[2].toLowerCase()}`} limit 1
+  `;
+  return row?.slug ?? value;
+}
+
 export async function getShowById(id: number): Promise<Show | null> {
   const [row] = await sql<ShowRow[]>`
     select ${sql(SHOW_COLUMNS)}, date::text as date, ${bandsJoinFragment()}, ${videosJoinFragment()}
@@ -284,6 +358,19 @@ export async function getShowById(id: number): Promise<Show | null> {
 // after 11:59pm on the day of the show).
 export function getTodayCentral(): string {
   return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Chicago' });
+}
+
+// The night it is right now, as "YYYY-MM-DD": today in Central Time, except
+// that a night lasts until 5am the morning after, so a late show stays
+// "tonight" past midnight instead of flipping to the archive mid-set. Compare
+// to show.date the same way as getTodayCentral: date > night is upcoming,
+// date === night is tonight, date < night is past. (Off by an hour on the two
+// DST-change nights, at 2am — harmless at a 5am cutoff.)
+export const NIGHT_ENDS_AT_HOUR = 5;
+export function getNightDateCentral(now: Date = new Date()): string {
+  return new Date(now.getTime() - NIGHT_ENDS_AT_HOUR * 3_600_000).toLocaleDateString('en-CA', {
+    timeZone: 'America/Chicago',
+  });
 }
 
 // Derives a URL slug from a show's date and title, e.g. "2026-08-15" + "Hairless
@@ -341,6 +428,7 @@ export function isValidBandsInput(input: unknown): input is Show['bands'] {
         (b.instagram === undefined || typeof b.instagram === 'string') &&
         (b.bio === undefined || typeof b.bio === 'string') &&
         (b.photo === undefined || typeof b.photo === 'string') &&
+        (b.notes === undefined || typeof b.notes === 'string') &&
         (b.bandId === undefined || (typeof b.bandId === 'number' && Number.isInteger(b.bandId)))
       );
     })
@@ -402,7 +490,11 @@ export function normalizePhotosInput(input: unknown): ShowPhoto[] {
       const pid = obj.photographerId;
       const photographerId =
         typeof pid === 'number' && Number.isFinite(pid) ? pid : null;
-      out.push({ url, photographerId });
+      // Keep a set tag through every read and admin save; only a real number
+      // counts, and the key is omitted (not null) when untagged.
+      const bid = obj.bandId;
+      const bandId = typeof bid === 'number' && Number.isFinite(bid) ? bid : undefined;
+      out.push(bandId === undefined ? { url, photographerId } : { url, photographerId, bandId });
     }
   }
   return out;

@@ -69,7 +69,7 @@ export default function CloudinaryGallery({
             key={photo.publicId}
             type="button"
             onClick={() => setOpenIndex(idx)}
-            className="block w-full cursor-pointer rounded-lg overflow-hidden hover:opacity-80 transition-opacity focus:outline-none focus:ring-2 focus:ring-[#E8E0D0]"
+            className="block w-full cursor-pointer overflow-hidden border-2 border-ink hover:opacity-80 transition-opacity focus:outline-none focus:ring-2 focus:ring-vhs-red"
             aria-label={`Open photo ${idx + 1} of ${photos.length}`}
           >
             <Image
@@ -79,7 +79,7 @@ export default function CloudinaryGallery({
               height={photo.height}
               sizes="(min-width: 1024px) 25vw, (min-width: 640px) 33vw, 50vw"
               unoptimized
-              className="w-full h-auto shadow-lg"
+              className="w-full h-auto"
             />
           </button>
         ))}

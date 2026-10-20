@@ -1,9 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import SoundEngineerNameInput, { type SoundEngineerMatch } from './SoundEngineerNameInput';
+import type { CrewAccountOption, ShowRecording } from '@/lib/show-rig';
 
 const inputClass =
   'bg-transparent border border-[#E8E0D0]/30 rounded px-3 py-1.5 text-sm focus:outline-none focus:border-[#E8E0D0] placeholder:text-[#E8E0D0]/30';
@@ -341,6 +342,213 @@ function CrewEngineers({
   );
 }
 
+// The Recording section: rig counts + ordered camera operators, saved together
+// by its own button (PUT /api/admin/shows/[id]/rig). While the show has no
+// show_rig row yet, channels are prefilled with the usual 18 — a suggestion
+// only; nothing is written until Save.
+function ShowRecordingSection({
+  showId,
+  recording,
+  crewAccounts,
+}: {
+  showId: number;
+  recording: ShowRecording;
+  crewAccounts: CrewAccountOption[];
+}) {
+  const router = useRouter();
+  const [hasRig, setHasRig] = useState(recording.rig !== null);
+  const [cameraCount, setCameraCount] = useState(
+    recording.rig?.cameraCount != null ? String(recording.rig.cameraCount) : ''
+  );
+  const [channelCount, setChannelCount] = useState(
+    recording.rig ? (recording.rig.channelCount != null ? String(recording.rig.channelCount) : '') : '18'
+  );
+  // `key` is a stable React key; rows reorder and names change freely.
+  const nextKey = useRef(0);
+  const [operators, setOperators] = useState(() =>
+    recording.cameraOperators.map((o) => ({ key: nextKey.current++, name: o.name, userId: o.userId }))
+  );
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  function updateOperator(index: number, patch: Partial<{ name: string; userId: number | null }>) {
+    setOperators((prev) => prev.map((o, i) => (i === index ? { ...o, ...patch } : o)));
+  }
+  function moveOperator(index: number, delta: -1 | 1) {
+    setOperators((prev) => {
+      const target = index + delta;
+      if (target < 0 || target >= prev.length) return prev;
+      const next = [...prev];
+      [next[index], next[target]] = [next[target], next[index]];
+      return next;
+    });
+  }
+
+  async function save() {
+    setSaving(true);
+    setError(null);
+    setSaved(false);
+    try {
+      const toCount = (v: string) => (v.trim() === '' ? null : Number(v));
+      const res = await fetch(`/api/admin/shows/${showId}/rig`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          cameraCount: toCount(cameraCount),
+          channelCount: toCount(channelCount),
+          cameraOperators: operators.map((o) => ({ name: o.name, userId: o.userId })),
+        }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(data?.error || `Save failed (${res.status})`);
+      // Mirror what was stored (blank rows dropped, names trimmed).
+      const stored = data as ShowRecording;
+      setHasRig(true);
+      setOperators(stored.cameraOperators.map((o) => ({ key: nextKey.current++, name: o.name, userId: o.userId })));
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+      router.refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Save failed');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Section
+      title="Recording"
+      subtitle="Rig and camera crew for the archive's night credits. Saves with the button below."
+    >
+      <div className="space-y-4">
+        <div className="flex flex-wrap items-end gap-4">
+          <label className="text-xs text-[#E8E0D0]/60">
+            <span className="mb-1 block uppercase tracking-wide text-[#E8E0D0]/40">Cameras</span>
+            <input
+              type="number"
+              min={0}
+              inputMode="numeric"
+              placeholder="—"
+              value={cameraCount}
+              onChange={(e) => setCameraCount(e.target.value.replace(/[^0-9]/g, ''))}
+              className={`${inputClass} w-20`}
+            />
+          </label>
+          <label className="text-xs text-[#E8E0D0]/60">
+            <span className="mb-1 block uppercase tracking-wide text-[#E8E0D0]/40">Channels</span>
+            <input
+              type="number"
+              min={0}
+              inputMode="numeric"
+              placeholder="—"
+              value={channelCount}
+              onChange={(e) => setChannelCount(e.target.value.replace(/[^0-9]/g, ''))}
+              className={`${inputClass} w-20`}
+            />
+          </label>
+          {!hasRig && (
+            <p className="pb-2 text-xs text-[#E8E0D0]/40">Not saved yet — 18 channels is the usual rig.</p>
+          )}
+        </div>
+
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-xs uppercase tracking-wide text-[#E8E0D0]/40">Camera operators</span>
+            <button
+              type="button"
+              onClick={() =>
+                setOperators((prev) => [...prev, { key: nextKey.current++, name: '', userId: null }])
+              }
+              className={buttonClass}
+            >
+              + add operator
+            </button>
+          </div>
+          {operators.length === 0 ? (
+            <p className="text-xs text-[#E8E0D0]/30">No camera operators listed.</p>
+          ) : (
+            <ol className="space-y-2">
+              {operators.map((op, i) => (
+                <li key={op.key} className="flex flex-wrap items-center gap-2">
+                  <span className="w-5 text-right text-xs tabular-nums text-[#E8E0D0]/40">{i + 1}</span>
+                  <input
+                    placeholder="Name"
+                    value={op.name}
+                    onChange={(e) => updateOperator(i, { name: e.target.value })}
+                    className={`${inputClass} min-w-0 flex-1 sm:max-w-xs`}
+                    aria-label={`Camera operator ${i + 1} name`}
+                  />
+                  <select
+                    value={op.userId ?? ''}
+                    onChange={(e) => {
+                      const userId = e.target.value ? Number(e.target.value) : null;
+                      const account = crewAccounts.find((a) => a.id === userId);
+                      // Linking a blank row fills in the account's name.
+                      updateOperator(i, op.name.trim() || !account ? { userId } : { userId, name: account.name });
+                    }}
+                    className={`${inputClass} w-full sm:w-56`}
+                    aria-label={`Camera operator ${i + 1} account`}
+                  >
+                    <option value="" className="text-[#2A2420]">
+                      No linked account
+                    </option>
+                    {crewAccounts.map((a) => (
+                      <option key={a.id} value={a.id} className="text-[#2A2420]">
+                        {a.name} ({a.email})
+                      </option>
+                    ))}
+                  </select>
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => moveOperator(i, -1)}
+                      disabled={i === 0}
+                      aria-label="Move up"
+                      className={buttonClass}
+                    >
+                      ↑
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => moveOperator(i, 1)}
+                      disabled={i === operators.length - 1}
+                      aria-label="Move down"
+                      className={buttonClass}
+                    >
+                      ↓
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setOperators((prev) => prev.filter((_, j) => j !== i))}
+                      className="px-2 text-sm text-red-400/70 hover:text-red-400"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ol>
+          )}
+        </div>
+
+        <div className="flex items-center gap-3 border-t border-[#E8E0D0]/10 pt-3">
+          <button
+            type="button"
+            onClick={save}
+            disabled={saving}
+            className="rounded border border-[#E8E0D0] bg-[#E8E0D0] px-4 py-1.5 text-xs font-medium text-[#2A2420] hover:bg-[#E8E0D0]/90 disabled:opacity-50"
+          >
+            {saving ? 'Saving…' : 'Save recording'}
+          </button>
+          {saved && <span className="text-xs text-emerald-300">Saved ✓</span>}
+          {error && <span className="text-xs text-red-300">{error}</span>}
+        </div>
+      </div>
+    </Section>
+  );
+}
+
 export default function ShowCrewPanel({
   showId,
   bands,
@@ -349,6 +557,8 @@ export default function ShowCrewPanel({
   assignedDoorName,
   photographers,
   assignedPhotographerId,
+  recording,
+  crewAccounts,
 }: {
   showId: number;
   bands: CrewBand[];
@@ -357,6 +567,8 @@ export default function ShowCrewPanel({
   assignedDoorName: string;
   photographers: CrewRegistryEntry[];
   assignedPhotographerId: number | null;
+  recording: ShowRecording;
+  crewAccounts: CrewAccountOption[];
 }) {
   const router = useRouter();
 
@@ -578,6 +790,8 @@ export default function ShowCrewPanel({
           )}
         </div>
       </Section>
+
+      <ShowRecordingSection showId={showId} recording={recording} crewAccounts={crewAccounts} />
     </div>
   );
 }

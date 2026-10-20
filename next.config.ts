@@ -1,5 +1,6 @@
 import type { NextConfig } from "next";
 import { SONGHAUS_URL } from "./lib/site";
+import { isStaging, outboundAllowed } from "./lib/staging";
 
 // Song Club became Songhaus (phase 3 cutover): every portal path on this app,
 // on any host, 308s to the same path on Songhaus. Permanent, because these
@@ -16,11 +17,50 @@ function songhausRedirects() {
   ];
 }
 
+// Staging and every other non-production deploy: noindex on every response,
+// pages and API alike (lib/staging.ts). Decided at build time, which is the
+// same env the deploy runs with.
+const noindex = isStaging() || !outboundAllowed();
+
 const nextConfig: NextConfig = {
+  async headers() {
+    if (!noindex) return [];
+    return [{ source: '/:path*', headers: [{ key: 'X-Robots-Tag', value: 'noindex, nofollow' }] }];
+  },
   async redirects() {
-    return songhausRedirects();
+    return [
+      ...songhausRedirects(),
+      // Song-a-day editions (SAD-###, any casing) are Songhaus's. It has no
+      // public per-edition URL yet (edition pages are members-only, by slug),
+      // so these go to its home — 307, not 308, so browsers don't cache a
+      // permanent hop to the home page. Switch to a per-edition 308 once
+      // Songhaus has public edition pages.
+      { source: '/:section(archive|shows)/:id([sS][aA][dD]-[0-9]+)', destination: SONGHAUS_URL, permanent: false },
+      // One page per night is /shows/BH-…; /archive is the index. Any casing
+      // here — the show page itself 308s to the canonical spelling. Old slug
+      // URLs (/shows/2025-03-29-caley-conway) redirect in the page, since that
+      // needs the DB.
+      { source: '/archive/:id([bB][hH]-[0-9][0-9a-zA-Z]*)', destination: '/shows/:id', permanent: true },
+      // The 2027 archive preview's old home.
+      { source: '/redesign/archive', destination: '/archive', permanent: true },
+      { source: '/redesign/archive/:id', destination: '/shows/:id', permanent: true },
+      // 2027 Phase 2: the home page took over the show listings, and Fresh
+      // Cuts became a view of the archive. Query strings carry through.
+      { source: '/upcoming', destination: '/', permanent: true },
+      { source: '/shows', destination: '/', permanent: true },
+      { source: '/redesign/home', destination: '/', permanent: true },
+      { source: '/fresh-cuts', destination: '/archive?series=fc', permanent: true },
+    ];
   },
   images: {
+    // Band photos and gallery uploads go through the optimizer
+    // (lib/image-source.ts); Cloudinary images resize on Cloudinary instead.
+    // Vercel bills per transformation (one per source × width × format), so:
+    // WebP only, a short list of widths, and a 31-day cache.
+    formats: ['image/webp'],
+    deviceSizes: [640, 828, 1080, 1920],
+    imageSizes: [96, 192, 256, 384],
+    minimumCacheTTL: 2678400,
     remotePatterns: [
       {
         protocol: "https",

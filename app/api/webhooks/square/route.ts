@@ -83,7 +83,7 @@ export async function POST(request: Request) {
       `;
       // A refund can drop a show back below its cap — regenerate show pages so a
       // sold-out notice clears (and the tickets count updates).
-      revalidatePath('/shows/[slug]', 'page');
+      revalidatePath('/shows/[id]', 'page');
     }
     return NextResponse.json({ ok: true });
   }
@@ -161,7 +161,7 @@ export async function POST(request: Request) {
 
   // A new sale may have crossed the show's ticket cap — regenerate the (static)
   // show pages so the RSVP form flips to the sold-out notice without a redeploy.
-  revalidatePath('/shows/[slug]', 'page');
+  revalidatePath('/shows/[id]', 'page');
 
   // Confirmation emails, idempotent via claim-first: mark rows before sending
   // so a webhook redelivery can never double-email. Backfilled rows are excluded

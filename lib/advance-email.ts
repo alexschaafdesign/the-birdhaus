@@ -1,7 +1,8 @@
-import { Resend } from 'resend';
+import { getResendClient } from './email';
 import { remark } from 'remark';
 import html from 'remark-html';
 import { SITE_URL } from './site';
+import { EMAIL_COLORS, EMAIL_FONT, emailBox, emailDocument, emailLink, emailOverline, emailP, emailTextFooter } from './email-layout';
 import { normalizeScheduleTime } from './schedule-time';
 
 // Seed for the editable watcher list (lib/advance-watchers.ts). Watchers are
@@ -11,16 +12,6 @@ import { normalizeScheduleTime } from './schedule-time';
 // webhook gap-forwards that reply to the watchers (never the engineer or bands —
 // a private reply shouldn't be fanned out).
 export const DEFAULT_ADVANCE_WATCHER = 'alex@thebirdhaus.org';
-
-// Instantiate lazily rather than at module load: Resend's constructor throws
-// when the API key is missing, and Next imports this module during `next build`,
-// so a build-time absence of the key would crash the build. Same reasoning as
-// lib/rsvp-email.ts.
-export function getResendClient(): Resend {
-  const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey) throw new Error('RESEND_API_KEY is not set');
-  return new Resend(apiKey);
-}
 
 // Per-show values substituted into the boilerplate template's {{placeholders}}.
 // Everything else in the template body is static across shows.
@@ -84,9 +75,9 @@ export function normalizeEmailList(input: unknown): string[] {
   return out;
 }
 
-// Build the public show URL bands are pointed at for RSVPs, from the slug.
-export function showAdvanceUrl(slug: string): string {
-  return `${SITE_URL}/shows/${slug}`;
+// Build the public show URL bands are pointed at for RSVPs: /shows/BH-….
+export function showAdvanceUrl(catalogueId: string): string {
+  return `${SITE_URL}/shows/${catalogueId}`;
 }
 
 // Matches lib/rsvp-email.ts's formatShowDate: weekday + month + day, no year,
@@ -223,22 +214,34 @@ async function mdToHtml(markdown: string, allowHtml = false): Promise<string> {
 // every rule has to ride on the element itself. Applied by string substitution
 // because remark's output is small and predictable; text content is already
 // HTML-escaped, so a naked "<h2>" only ever appears as a real tag.
+const T = `font-family:${EMAIL_FONT};color:${EMAIL_COLORS.ink};`;
 const EMAIL_ELEMENT_STYLES: Record<string, string> = {
   h2:
-    'margin:34px 0 4px;padding-bottom:8px;border-bottom:2px solid #d8cdb5;' +
-    'font-size:16px;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;color:#2A2420;',
+    `margin:32px 0 10px;padding-bottom:8px;border-bottom:2px solid ${EMAIL_COLORS.ink};` +
+    `${T}font-size:15px;line-height:1.3;font-weight:700;letter-spacing:1px;text-transform:uppercase;`,
   h3:
-    'margin:22px 0 4px;font-size:12.5px;font-weight:700;letter-spacing:0.09em;' +
-    'text-transform:uppercase;color:#a05a26;',
-  p: 'margin:10px 0;',
-  ul: 'margin:10px 0;padding-left:22px;',
-  ol: 'margin:10px 0;padding-left:22px;',
-  li: 'margin:4px 0;',
+    `margin:22px 0 6px;${T}color:${EMAIL_COLORS.red};font-size:11px;line-height:1.3;font-weight:700;` +
+    'letter-spacing:2.5px;text-transform:uppercase;',
+  p: `margin:0 0 14px;${T}font-size:15px;line-height:1.6;`,
+  ul: `margin:0 0 14px;padding-left:22px;${T}font-size:15px;line-height:1.6;`,
+  ol: `margin:0 0 14px;padding-left:22px;${T}font-size:15px;line-height:1.6;`,
+  li: 'margin:0 0 6px;',
   strong: 'font-weight:700;',
-  hr: 'border:none;border-top:1px solid #e0d7c3;margin:24px 0;',
+  hr: `border:none;border-top:1px solid ${EMAIL_COLORS.rule};margin:24px 0;`,
   blockquote:
-    'margin:14px 0;padding:12px 16px;background:#eef4fb;border-left:4px solid #3b82f6;' +
-    'border-radius:4px;color:#1e3a5f;',
+    `margin:16px 0;padding:12px 16px;background:${EMAIL_COLORS.paperShade};border-left:4px solid ${EMAIL_COLORS.ink};` +
+    `${T}`,
+};
+
+// The email shell's dark-mode class hooks (lib/email-layout), per tag.
+const EMAIL_ELEMENT_CLASSES: Record<string, string> = {
+  h2: 'bh-t bh-h2',
+  h3: 'bh-ov',
+  p: 'bh-t',
+  ul: 'bh-t',
+  ol: 'bh-t',
+  li: 'bh-t',
+  blockquote: 'bh-box bh-t',
 };
 
 function applyInlineStyles(fragment: string): string {
@@ -246,18 +249,16 @@ function applyInlineStyles(fragment: string): string {
   for (const [tag, style] of Object.entries(EMAIL_ELEMENT_STYLES)) {
     // Only bare tags (no attributes) — our injected schedule box uses <b> and
     // pre-styled <table>/<td> so it's untouched here.
-    out = out.replaceAll(`<${tag}>`, `<${tag} style="${style}">`);
+    const cls = EMAIL_ELEMENT_CLASSES[tag];
+    out = out.replaceAll(`<${tag}>`, `<${tag}${cls ? ` class="${cls}"` : ''} style="${style}">`);
   }
   // Links carry an href, so match/insert around it.
-  out = out.replace(
-    /<a href=/g,
-    '<a style="color:#1d4ed8;text-decoration:underline;" href='
-  );
+  out = out.replace(/<a href=/g, `<a class="bh-a" style="color:${EMAIL_COLORS.red};text-decoration:underline;" href=`);
   return out;
 }
 
 // Wrap the "tl;dr — asks" block (its intro paragraph + the bullet list that
-// follows) in a yellow "action required" highlight, so the specific things Alex
+// follows) in a boxed "action required" highlight (ink border, paper-shade), so the specific things Alex
 // needs back don't get lost in the wall of text. Keyed off the literal "tl;dr"
 // that opens the block in the boilerplate — a lightweight convention rather than
 // a placeholder, since the asks live in the static template body. If a template
@@ -267,54 +268,41 @@ function applyInlineStyles(fragment: string): string {
 function boxAsks(fragment: string): string {
   return fragment.replace(
     /<p[^>]*><strong[^>]*>tl;dr[\s\S]*?<\/ul>/i,
-    (block) =>
-      `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" ` +
-      `style="width:100%;margin:16px 0;background:#fff6d6;border:1px solid #f0d98a;` +
-      `border-left:4px solid #e0a800;border-radius:5px;"><tr><td ` +
-      `style="padding:6px 18px 10px;">${block}</td></tr></table>`
+    (block) => emailBox(block)
   );
 }
 
-// Wrap the styled body in a centered "card" using the bulletproof nested-table
-// pattern (Outlook ignores max-width on a div). Adds the small BIRDHAUS kicker.
-function wrapEmailShell(styledBody: string): string {
-  const font =
-    "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif";
-  const kicker =
-    `<div style="font-size:11px;letter-spacing:0.14em;text-transform:uppercase;` +
-    `font-weight:700;color:#a05a26;">the birdhaus</div>` +
-    `<div style="font-size:11px;letter-spacing:0.12em;text-transform:uppercase;` +
-    `color:#9a917f;margin-bottom:18px;">show advance</div>`;
-  const shell =
-    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" ` +
-    `style="width:100%;background:transparent;"><tr><td align="center" style="padding:0;">` +
-    `<table role="presentation" width="600" cellpadding="0" cellspacing="0" ` +
-    `style="width:100%;max-width:600px;margin:0 auto;"><tr><td ` +
-    `style="background:#fffdf8;border:1px solid #e7dfce;border-radius:8px;padding:28px 30px;` +
-    `font-family:${font};color:#2A2420;font-size:15px;line-height:1.6;">` +
-    `${kicker}${styledBody}</td></tr></table></td></tr></table>`;
-  // Wrap in a real document so the color-scheme meta tags ride along in the sent
-  // mail. This is a light-only design (light card, dark text) with no dark
-  // variant, so we tell clients that honor these hints — Apple Mail, iOS Mail,
-  // and Outlook to a degree — NOT to auto-invert it into a broken half-dark
-  // rendering; they keep it as authored. Gmail strips <head> and applies its own
-  // transforms regardless (unavoidable), so this is a best-effort improvement,
-  // not a guarantee. The meta tags are inert when this same HTML is injected into
-  // the admin preview <div> (the browser ignores <head>/<meta> in that context),
-  // so no <style> block — which WOULD leak into the admin page — is used.
-  return (
-    `<!doctype html><html lang="en"><head><meta charset="utf-8">` +
-    `<meta name="viewport" content="width=device-width,initial-scale=1">` +
-    `<meta name="color-scheme" content="light">` +
-    `<meta name="supported-color-schemes" content="light">` +
-    `</head><body style="margin:0;padding:0;background:#ece7db;">${shell}</body></html>`
-  );
+// Wrap the styled body in the 2027 email shell (lib/email-layout) with a SHOW
+// ADVANCE overline. The admin hub preview injects this HTML into the page, so
+// that render leaves out the dark-mode <style> (`preview: true`).
+function wrapEmailShell(styledBody: string, preview = false): string {
+  return emailDocument({ body: emailOverline('Show advance') + styledBody, darkMode: !preview });
+}
+
+// The plain-text part of an advance or reply: its Markdown, minus the HTML
+// blocks the schedule and callout inject (tags out, rows and breaks to
+// newlines), with [label](url) links spelled out as "label: url", and
+// **bold** and "> " quote markers dropped.
+export function advanceText(markdown: string): string {
+  return markdown
+    .replace(/<br\s*\/?>|<\/(p|div|tr|li|h[1-6])>/gi, '\n')
+    .replace(/<\/t[dh]>/gi, '  ')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, '$1: $2')
+    .replace(/\*\*([^*]+)\*\*/g, '$1')
+    .replace(/^>\s?/gm, '')
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
 }
 
 // Renders a plain reply body (Markdown) to email HTML — used for admin replies
-// on an existing advance thread, which aren't template-based.
+// on an existing advance thread, which aren't template-based. Same shell and
+// element styles as the advance itself, without the overline.
 export async function renderReplyHtml(markdown: string): Promise<string> {
-  return mdToHtml(markdown);
+  return emailDocument({ body: applyInlineStyles(await mdToHtml(markdown)) });
 }
 
 // Pulls a bare email address out of a From header value, which may be
@@ -335,12 +323,13 @@ export function extractEmailAddress(from: string): string {
 // <style>/<head>, so styling must be inline).
 export async function renderAdvanceEmail(
   template: { subject: string; body: string },
-  vars: AdvanceTemplateVars
+  vars: AdvanceTemplateVars,
+  { preview = false }: { preview?: boolean } = {}
 ): Promise<{ subject: string; html: string; markdown: string }> {
   const subject = substitutePlaceholders(template.subject, vars);
   const markdown = substitutePlaceholders(template.body, vars);
   const body = await mdToHtml(markdown, true);
-  const html = wrapEmailShell(boxAsks(applyInlineStyles(body)));
+  const html = wrapEmailShell(boxAsks(applyInlineStyles(body)), preview);
   return { subject, html, markdown };
 }
 
@@ -394,6 +383,7 @@ export async function sendAdvanceEmail({
   ccEmails,
   subject,
   html,
+  text,
   replyToken,
 }: {
   toEmails: string[];
@@ -403,6 +393,8 @@ export async function sendAdvanceEmail({
   ccEmails: string[];
   subject: string;
   html: string;
+  /** The plain-text part: the Markdown the HTML was rendered from. */
+  text: string;
   replyToken: string;
 }): Promise<{ id: string }> {
   const from = process.env.RESEND_ADVANCE_FROM_EMAIL;
@@ -412,16 +404,46 @@ export async function sendAdvanceEmail({
   const toSet = new Set(toEmails.map((e) => e.toLowerCase()));
   const cc = ccEmails.filter((e) => !toSet.has(e.toLowerCase()));
 
-  const { data, error } = await getResendClient().emails.send({
+  const { data, error } = await getResendClient('advance').emails.send({
     from,
     to: toEmails,
     ...(cc.length > 0 ? { cc } : {}),
     replyTo: replyToAddress(replyToken),
     subject,
     html,
+    text: advanceText(text) + emailTextFooter(),
   });
   if (error) throw new Error(`Resend send failed: ${JSON.stringify(error)}`);
   return { id: data?.id ?? '' };
+}
+
+// The portal-activity notice for the watchers (crew), in the minimal admin
+// shell. Copy unchanged.
+export function renderAdvanceActivityEmail({
+  showId,
+  showTitle,
+  summary,
+  detail,
+}: {
+  showId: number;
+  showTitle: string;
+  summary: string;
+  detail?: string;
+}): { subject: string; html: string; text: string } {
+  const adminUrl = `${SITE_URL}/admin/shows/${showId}/portal`;
+  return {
+    subject: `[Portal] ${summary} — ${showTitle}`,
+    html: emailDocument({
+      variant: 'admin',
+      body:
+        emailP(`${escapeHtml(summary)} for <strong>${escapeHtml(showTitle)}</strong>.`) +
+        (detail ? emailP(escapeHtml(detail)) : '') +
+        emailP(emailLink(adminUrl, 'Open the show portal in the admin →')),
+    }),
+    text:
+      [`${summary} for ${showTitle}.`, ...(detail ? ['', detail] : []), '', `Open the show portal in the admin: ${adminUrl}`].join('\n') +
+      emailTextFooter('admin'),
+  };
 }
 
 // Pings the watchers when a band does something in the /hub advance portal
@@ -446,16 +468,10 @@ export async function notifyAdvanceActivity({
   const from = process.env.RESEND_ADVANCE_FROM_EMAIL;
   if (!from) return; // Not configured (e.g. local) — silently skip.
   if (to.length === 0) return; // No watchers — nothing to notify.
-  const adminUrl = `${SITE_URL}/admin/shows/${showId}/portal`;
-  const detailLine = detail ? `<p>${escapeHtml(detail)}</p>` : '';
-  await getResendClient().emails.send({
+  await getResendClient('advance-activity').emails.send({
     from,
     to,
-    subject: `[Portal] ${summary} — ${showTitle}`,
-    html:
-      `<p>${escapeHtml(summary)} for <strong>${escapeHtml(showTitle)}</strong>.</p>` +
-      detailLine +
-      `<p><a href="${adminUrl}">Open the show portal in the admin →</a></p>`,
+    ...renderAdvanceActivityEmail({ showId, showTitle, summary, detail }),
   });
 }
 
