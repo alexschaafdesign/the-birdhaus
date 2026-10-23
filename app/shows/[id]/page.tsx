@@ -16,7 +16,6 @@ import {
   getNights,
   lineup as nightLineup,
   neighbours,
-  openSetSlug,
   otherSets,
   photoCount,
   seriesTag,
@@ -42,7 +41,6 @@ import { buttonClassName, ButtonArrow } from '@/components/ui/Button';
 import { SiteFrame, NightBand } from '@/components/night/SiteFrame';
 import { AudioLink, PhotoStrip, VideoPlayer } from '@/components/night/Media';
 import { SetBlock } from '@/components/night/SetBlock';
-import { OpenOnHash } from '@/components/night/OpenOnHash';
 import {
   countLine,
   DoorDetails,
@@ -337,7 +335,6 @@ async function ArchivedNight({
   const nightAudio = night.media.audio ?? [];
   const hasNightMedia = nightPhotos.length > 0 || nightVideos.length > 0 || nightAudio.length > 0;
 
-  const open = openSetSlug(night);
   const { prev, next } = neighbours(nights, night.id);
   const counts = countLine(night, show ? gallery.photos.length + folderPhotos.length : photoCount(night));
   const adminHref = night.adminHref;
@@ -345,7 +342,6 @@ async function ArchivedNight({
   return (
     <SiteFrame stats={archiveTotals(nights)} navPath="/archive">
       {isAdmin && adminHref && <AdminEditFAB href={adminHref} label="Edit Show" />}
-      <OpenOnHash />
       <NightHeader
         id={night.id}
         tick={tickOf(night)}
@@ -370,7 +366,6 @@ async function ArchivedNight({
                   key={set.slug}
                   night={night}
                   set={set}
-                  open={set.slug === open}
                   others={otherSets(nights, night, set)}
                   sample={sample}
                 />
