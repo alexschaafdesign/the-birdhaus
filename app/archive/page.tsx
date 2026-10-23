@@ -108,8 +108,10 @@ export default async function ArchiveIndexPage({
         </section>
       )}
 
-      {/* ---- latest recordings: an ink night band, newest sets with video. */}
-      {recordings.length > 0 && (
+      {/* ---- latest recordings: an ink night band, newest sets with video.
+          Not on Fresh Cuts: these sets mostly aren't Fresh Cuts, and the strip
+          would read as if they were. */}
+      {!freshCuts && recordings.length > 0 && (
         <NightBand label="Latest recordings">
           <SectionHeader label="Latest recordings" ground="ink" rule="none" />
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
