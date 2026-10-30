@@ -127,12 +127,17 @@ export default function BookingCalendar({
           const hasNotepad = Boolean(info?.plan?.notepad.trim());
           const isToday = dateStr === today;
           const isSelected = dateStr === selectedDate;
+          const unavailable = Boolean(info?.plan?.unavailable);
+          // Paint mode only toggles open days; shows and conflicts open the panel.
+          const paintable = paintMode && !titled && !unavailable;
 
           const base = show
             ? 'border border-[#E8E0D0]/40 bg-[#E8E0D0]/10'
             : draft
               ? 'border border-dashed border-yellow-500/50 bg-yellow-500/10'
-              : info?.available
+              : unavailable
+                ? 'border border-red-400/30 bg-[repeating-linear-gradient(135deg,rgba(248,113,113,0.12)_0_4px,transparent_4px_9px)]'
+                : info?.available
                 ? 'border border-dotted border-green-500/40'
                 : 'border border-transparent';
 
@@ -141,13 +146,13 @@ export default function BookingCalendar({
               key={day}
               onClick={() => {
                 // Paint mode toggles availability directly; days already
-                // carrying a show still open the panel instead.
-                if (paintMode && !titled) onPaintDay(dateStr);
+                // carrying a show (or marked not available) open the panel.
+                if (paintable) onPaintDay(dateStr);
                 else onSelectDate(dateStr);
               }}
-              title={titled ? `${titled.title}${draft && !show ? ' (draft)' : ''}` : dayTitle ?? dateStr}
+              title={`${titled ? `${titled.title}${draft && !show ? ' (draft)' : ''}` : dayTitle ?? dateStr}${unavailable ? ' — not available' : ''}`}
               className={`relative flex aspect-square flex-col items-center justify-center overflow-hidden rounded text-sm transition-all ${
-                paintMode && !titled ? 'hover:border-green-400' : 'hover:border-[#E8E0D0]/60'
+                paintable ? 'hover:border-green-400' : 'hover:border-[#E8E0D0]/60'
               } ${base} ${
                 isSelected ? 'ring-2 ring-yellow-400' : ''
               } ${titled ? 'text-[#E8E0D0]/80' : isToday ? 'text-[#E8E0D0]' : 'text-[#E8E0D0]/40'}`}
@@ -167,6 +172,11 @@ export default function BookingCalendar({
                   {dayTitle}
                 </span>
               )}
+              {unavailable && !titled && !dayTitle && (
+                <span className="mt-3 px-1 text-center text-[9px] font-medium uppercase leading-tight text-red-300/80 sm:text-[10px]">
+                  Not avail.
+                </span>
+              )}
 
               <span className="absolute bottom-0.5 left-1 flex items-center gap-0.5">
                 {hasNotepad && <span className="h-1.5 w-1.5 rounded-full bg-[#E8E0D0]/50" title="Has notes" />}
@@ -180,6 +190,11 @@ export default function BookingCalendar({
                 ))}
               </span>
 
+              {unavailable && (
+                <span className="absolute right-1 top-0.5 text-[10px] font-bold leading-none text-red-300" aria-hidden>
+                  ✕
+                </span>
+              )}
               {info?.available && !titled && (
                 <span className="absolute bottom-0.5 right-1 h-1.5 w-1.5 rounded-full bg-green-500" />
               )}
@@ -197,6 +212,9 @@ export default function BookingCalendar({
         </span>
         <span className="flex items-center gap-1.5">
           <span className="inline-block h-3 w-3 rounded border border-dotted border-green-500/40" /> available
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="inline-block h-3 w-3 rounded border border-red-400/30 bg-red-400/15" /> not available
         </span>
         <span className="flex items-center gap-1.5">
           <span className="inline-block h-1.5 w-1.5 rounded-full bg-[#E8E0D0]/50" /> notes

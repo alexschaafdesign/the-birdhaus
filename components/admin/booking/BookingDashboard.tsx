@@ -77,7 +77,7 @@ export default function BookingDashboard({
   feedUrl: string;
 }) {
   const [prospects, setProspects] = useState(() => initialProspects.map(normalizeProspect));
-  const [days, setDays] = useState(() => new Map(initialDays.map((d) => [d.date, d])));
+  const [days, setDays] = useState(() => new Map(initialDays.map((d) => [d.date, { ...d, unavailable: Boolean(d.unavailable) }])));
   const [availableDates, setAvailableDates] = useState(() =>
     initialAvailableDates.map((d) => ({ ...d, id: Number(d.id) }))
   );
@@ -209,17 +209,20 @@ export default function BookingDashboard({
 
   // Optimistic: the calendar label follows the title as you type; the day
   // panel debounces the actual save. Returns whether the save landed.
-  const saveDay = useCallback(async (date: string, title: string, notepad: string) => {
+  // Not available wins over available — the server drops the available_dates
+  // row too, so mirror that here.
+  const saveDay = useCallback(async (date: string, title: string, notepad: string, unavailable: boolean) => {
     setDays((prev) => {
       const next = new Map(prev);
-      if (!title.trim() && !notepad.trim()) next.delete(date);
-      else next.set(date, { date, title, notepad });
+      if (!title.trim() && !notepad.trim() && !unavailable) next.delete(date);
+      else next.set(date, { date, title, notepad, unavailable });
       return next;
     });
+    if (unavailable) setAvailableDates((prev) => prev.filter((d) => d.date !== date));
     const res = await fetch('/api/admin/booking/days', {
       method: 'PUT',
       headers: JSON_HEADERS,
-      body: JSON.stringify({ date, title, notepad }),
+      body: JSON.stringify({ date, title, notepad, unavailable }),
     }).catch(() => null);
     if (!res?.ok) setErrorMessage('Failed to save that day — copy your text somewhere before reloading.');
     return Boolean(res?.ok);

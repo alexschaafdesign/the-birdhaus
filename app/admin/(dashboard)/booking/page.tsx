@@ -21,7 +21,7 @@ export default async function BookingPage() {
       order by priority desc, updated_at desc
     `,
     sql<BookingDay[]>`
-      select date::text as date, title, notepad
+      select date::text as date, title, notepad, unavailable
       from booking_days
       order by date asc
     `,
