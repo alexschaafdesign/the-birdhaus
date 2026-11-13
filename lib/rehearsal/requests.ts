@@ -51,10 +51,11 @@ export async function listBandBookings(bandId: number): Promise<BandBooking[]> {
   );
 }
 
-export type Skipped = { start: Date; why: 'unavailable' | 'too_far' };
+export type Skipped = { start: Date; why: 'unavailable' };
 
 export type RequestOutcome =
-  | { ok: true; requestKey: string; catalogueIds: string[]; skipped: Skipped[] }
+  // later: dates past the window, booked automatically once the series is approved.
+  | { ok: true; requestKey: string; catalogueIds: string[]; skipped: Skipped[]; later: number; ongoing: boolean }
   | { ok: false; error: string; status: number };
 
 export async function createRequest(bandId: number, req: ParsedRequest, now = new Date()): Promise<RequestOutcome> {
@@ -91,10 +92,12 @@ export async function createRequest(bandId: number, req: ParsedRequest, now = ne
         const rule = req.items[i].repeat!;
         const [row] = await tx<{ id: number }[]>`
           insert into rehearsal_series
-            (band_id, freq, until_date, occurrences, payment_method, note, gear_needed, gear_notes)
+            (band_id, freq, until_date, occurrences, payment_method, note, gear_needed, gear_notes,
+             anchor_starts_at, block_minutes, price_cents, request_key)
           values
             (${bandId}, ${rule.freq}, ${rule.until ?? null}, ${rule.count ?? null},
-             ${req.paymentMethod}, ${req.note}, ${req.gearNeeded}::text[], ${req.gearNotes})
+             ${req.paymentMethod}, ${req.note}, ${req.gearNeeded}::text[], ${req.gearNotes},
+             ${req.items[i].start}, ${settings.blockMinutes}, ${repeatPrice}, ${requestKey})
           returning id::int as id
         `;
         seriesOf.set(i, row.id);
@@ -126,6 +129,8 @@ export async function createRequest(bandId: number, req: ParsedRequest, now = ne
       requestKey,
       catalogueIds,
       skipped: plan.skipped.map((x) => ({ start: x.start, why: x.why })),
+      later: plan.later.reduce((a, b) => a + b, 0),
+      ongoing: req.items.some((i) => i.repeat && !i.repeat.until && !i.repeat.count),
     };
   } catch (e) {
     // 23P01 = exclusion_violation: another request took a block between our

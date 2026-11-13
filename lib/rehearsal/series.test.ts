@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { describeRule, nthOfMonth, occurrenceDates, occurrenceStarts, MAX_OCCURRENCES } from './series.ts';
+import { describeEnd, describeRule, isOngoing, nthOfMonth, occurrenceDates, occurrenceStarts, MAX_OCCURRENCES } from './series.ts';
 
 test('weekly by count includes the anchor', () => {
   assert.deepEqual(occurrenceDates('2026-11-18', { freq: 'weekly', count: 4 }), [
@@ -57,4 +57,23 @@ test('6pm Chicago stays 6pm across the DST change', () => {
     starts.map((d) => d.toISOString()),
     ['2027-03-02T00:00:00.000Z', '2027-03-09T00:00:00.000Z', '2027-03-15T23:00:00.000Z'], // 15 Mar is CDT
   );
+});
+
+test('open-ended series run to the date asked for, past the usual caps', () => {
+  const rule = { freq: 'weekly' as const };
+  assert.equal(isOngoing(rule), true);
+  assert.equal(describeEnd(rule), 'until ended');
+  const dates = occurrenceDates('2026-11-18', rule, '2028-01-01');
+  assert.equal(dates[0], '2026-11-18');
+  assert.equal(dates.at(-1), '2027-12-29');
+  assert.ok(dates.length > MAX_OCCURRENCES);
+  // Without a date, previews stay capped.
+  assert.equal(occurrenceDates('2026-11-18', rule).length, MAX_OCCURRENCES);
+});
+
+test('a count or end date still applies when extending', () => {
+  assert.equal(occurrenceDates('2026-11-18', { freq: 'weekly', count: 10 }, '2030-01-01').length, 10);
+  assert.equal(occurrenceDates('2026-11-18', { freq: 'weekly', until: '2026-12-09' }, '2030-01-01').at(-1), '2026-12-09');
+  assert.equal(describeEnd({ freq: 'weekly', count: 6 }), '6 sessions');
+  assert.equal(describeEnd({ freq: 'weekly', until: '2027-03-01' }), 'until 1 Mar');
 });

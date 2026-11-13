@@ -54,7 +54,7 @@ test('repeat needs a frequency and exactly one of until/count', () => {
   const ok = (repeat: unknown) => parseRequestBody({ items: [{ start: A, repeat }] }, S).ok;
   assert.equal(ok({ freq: 'monthly_nth', until: '2027-02-01' }), true);
   assert.equal(ok({ freq: 'daily', count: 3 }), false);
-  assert.equal(ok({ freq: 'weekly' }), false);
+  assert.equal(ok({ freq: 'weekly' }), true); // open-ended
   assert.equal(ok({ freq: 'weekly', count: 3, until: '2027-01-01' }), false);
   assert.equal(ok({ freq: 'weekly', count: 1 }), false);
   assert.equal(ok({ freq: 'weekly', until: '2026-11-01' }), false);
@@ -90,11 +90,9 @@ test('planRequest: repeats skip what is not open, shared dates book once, closed
   );
   assert.deepEqual(
     plan.skipped.map((x) => [x.start.toISOString(), x.why]),
-    [
-      ['2026-12-03T00:00:00.000Z', 'unavailable'],
-      ['2026-12-17T00:00:00.000Z', 'too_far'],
-    ],
+    [['2026-12-03T00:00:00.000Z', 'unavailable']],
   );
+  assert.deepEqual(plan.later, [1, 0, 0, 0]); // 16 Dec is past the window: booked later, after approval
   assert.deepEqual(plan.closed, [3]);
 });
 

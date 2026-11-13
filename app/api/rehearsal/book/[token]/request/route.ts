@@ -31,5 +31,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
     ok: true,
     catalogueIds: outcome.catalogueIds,
     skipped: outcome.skipped.map((x) => ({ start: x.start.toISOString(), why: x.why })),
+    later: outcome.later,
+    ongoing: outcome.ongoing,
   });
 }
