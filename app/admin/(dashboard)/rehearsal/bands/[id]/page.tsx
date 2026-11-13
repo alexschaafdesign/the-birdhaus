@@ -4,6 +4,10 @@ import { bookingUrl, getBand } from '@/lib/rehearsal/bands';
 import { bandHistory, bandTotals, displayStatus, repeatLabel } from '@/lib/rehearsal/decisions';
 import { getRehearsalSettings } from '@/lib/rehearsal/settings';
 import GearEdit from '@/components/admin/rehearsal/GearEdit';
+import SeriesList from '@/components/rehearsal/SeriesList';
+import { listBandSeries } from '@/lib/rehearsal/series-extend';
+import { describeEnd, describeRule } from '@/lib/rehearsal/series';
+import { chicagoDate } from '@/lib/rehearsal/availability';
 import { money, sessionLabel } from '@/lib/rehearsal/format';
 import RehearsalBandEditor from '@/components/admin/rehearsal/RehearsalBandEditor';
 import PaymentButtons from '@/components/rehearsal/PaymentButtons';
@@ -20,7 +24,12 @@ export default async function RehearsalBandPage({ params }: { params: Promise<{ 
   if (!Number.isInteger(id) || id <= 0) notFound();
   const band = await getBand(id);
   if (!band) notFound();
-  const [history, totals, settings] = await Promise.all([bandHistory(id), bandTotals(id), getRehearsalSettings()]);
+  const [history, totals, settings, series] = await Promise.all([
+    bandHistory(id),
+    bandTotals(id),
+    getRehearsalSettings(),
+    listBandSeries(id),
+  ]);
   const now = new Date();
 
   return (
@@ -58,6 +67,26 @@ export default async function RehearsalBandPage({ params }: { params: Promise<{ 
           gear: [band.defaultGearNeeded.join(', '), band.defaultGearNotes].filter(Boolean).join(' — '),
         }}
       />
+
+      {series.length > 0 && (
+        <section className="space-y-3">
+          <h2 className="text-xl font-bold">Repeating bookings</h2>
+          <div className="rounded-lg border border-[#E8E0D0]/15">
+            <SeriesList
+              series={series.map((s) => ({
+                id: s.id,
+                label: `${describeRule(chicagoDate(s.anchor), s.freq)} · ${describeEnd(s.rule)}`,
+                status: s.status,
+                endsOn: s.endsOn,
+                upcoming: s.upcoming.map((d) => d.toISOString()),
+              }))}
+              endpoint="/api/admin/rehearsal/series/{id}/end"
+              cutoffHours={null}
+              look="admin"
+            />
+          </div>
+        </section>
+      )}
 
       <section className="space-y-3">
         <h2 className="text-xl font-bold">History</h2>

@@ -8,6 +8,8 @@ import { loadAvailability } from '@/lib/rehearsal/availability-data';
 import { addDays, chicagoDate, forBand, weekdayOf } from '@/lib/rehearsal/availability';
 import { listBandBookings } from '@/lib/rehearsal/requests';
 import { canBandCancel, paymentMethodsOffered } from '@/lib/rehearsal/request-rules';
+import { listBandSeries } from '@/lib/rehearsal/series-extend';
+import { describeEnd, describeRule } from '@/lib/rehearsal/series';
 
 export const dynamic = 'force-dynamic';
 
@@ -46,10 +48,11 @@ export default async function RehearsalBookingPage({ params }: { params: Promise
   const now = new Date();
   const today = chicagoDate(now);
   const monday = addDays(today, -((weekdayOf(today) + 6) % 7)); // weeks run Monday–Sunday
-  const [settings, { availability }, bookings] = await Promise.all([
+  const [settings, { availability }, bookings, series] = await Promise.all([
     getRehearsalSettings(),
     loadAvailability({ viewerBandId: band.id, fromDate: monday, now }),
     listBandBookings(band.id),
+    listBandSeries(band.id, now),
   ]);
   const view = forBand(availability);
 
@@ -92,6 +95,13 @@ export default async function RehearsalBookingPage({ params }: { params: Promise
     paymentMethods: paymentMethodsOffered(settings),
     defaultGearNeeded: band.defaultGearNeeded.filter((g) => settings.gearOptions.includes(g)),
     defaultGearNotes: band.defaultGearNotes,
+    series: series.map((s) => ({
+      id: s.id,
+      label: `${describeRule(chicagoDate(s.anchor), s.freq)} · ${describeEnd(s.rule)}`,
+      status: s.status,
+      endsOn: s.endsOn,
+      upcoming: s.upcoming.map((d) => d.toISOString()),
+    })),
   };
 
   return (
