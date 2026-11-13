@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { FeedEdit, RehearsalSettingsForAdmin } from '@/lib/rehearsal/settings';
+import FeedCheck from './FeedCheck';
 
 // Rehearsal settings. Prices are typed in dollars and sent as cents. Calendar
 // feeds arrive masked; a stored feed is kept by its index, a new one is sent
@@ -253,6 +254,7 @@ export default function RehearsalSettingsForm({ initial }: { initial: RehearsalS
               Add
             </button>
           </div>
+          <FeedCheck />
         </Group>
 
         <Group title="Payments">
