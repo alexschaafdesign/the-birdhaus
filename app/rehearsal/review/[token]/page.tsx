@@ -3,6 +3,8 @@ import Link from 'next/link';
 import { SiteFrame } from '@/components/night/SiteFrame';
 import { SectionHeader } from '@/components/ui/SectionHeader';
 import ReviewActions from '@/components/rehearsal/ReviewActions';
+import PaymentButtons from '@/components/rehearsal/PaymentButtons';
+import { isAdminSession } from '@/lib/admin-session';
 import { linkSecret, verifyLink } from '@/lib/rehearsal/signed-links';
 import { bookingsByIds, bookingsByRequest, displayStatus, isLivePending } from '@/lib/rehearsal/decisions';
 import { clashesFor } from '@/lib/rehearsal/availability-data';
@@ -27,8 +29,8 @@ const REASON: Record<string, string> = {
 };
 
 const STATUS: Record<string, string> = {
-  pending: 'Waiting',
-  confirmed: 'Approved',
+  pending: 'Waiting for you',
+  confirmed: 'Approved ✓',
   declined: 'Declined',
   cancelled: 'Cancelled',
   expired: 'Expired',
@@ -56,9 +58,10 @@ export default async function ReviewPage({ params }: { params: Promise<{ token: 
 
   const p = v.payload;
   const list = p.k ? await bookingsByRequest(p.k) : await bookingsByIds([p.b!]);
-  const [settings, { reasons, calendarChecked }] = await Promise.all([
+  const [settings, { reasons, calendarChecked }, isAdmin] = await Promise.all([
     getRehearsalSettings(),
     clashesFor(list.filter((b) => isLivePending(b))),
+    isAdminSession(),
   ]);
   const actionable = list.filter((b) => (p.a === 'approve' ? isLivePending(b) : b.status === 'pending'));
   const band = list[0];
@@ -76,16 +79,46 @@ export default async function ReviewPage({ params }: { params: Promise<{ token: 
               {list.map((b) => {
                 const clash = reasons.get(b.id);
                 const status = displayStatus(b);
+                const decided = status === 'confirmed' || status === 'declined';
                 return (
                   <li key={b.id} className="flex flex-col gap-1 py-3">
                     <span className="flex flex-wrap items-baseline gap-x-4">
                       <strong>{sessionLabel(b.startsAt, b.endsAt)}</strong>
                       <span className="text-text-meta">{b.catalogueId}</span>
                       <span>{money(b.priceCents)}</span>
-                      <span className="text-data-overline-11 ml-auto font-bold tracking-[--spacing(0.625)] uppercase">
+                      <span
+                        className={`text-data-overline-11 ml-auto font-bold tracking-[--spacing(0.625)] uppercase ${
+                          status === 'confirmed' ? 'text-accent-red' : ''
+                        }`}
+                      >
                         {STATUS[status]}
                       </span>
                     </span>
+                    {decided && (
+                      <span className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                        <span className="opacity-70">
+                          {b.bandEmailedAt ? 'Band emailed' : 'Band not emailed yet — resend from Requests in admin'}
+                          {status === 'declined' && b.declineReason ? ` · “${b.declineReason}”` : ''}
+                        </span>
+                        {status === 'confirmed' &&
+                          (isAdmin ? (
+                            <span className="ml-auto">
+                              <PaymentButtons id={b.id} status={b.paymentStatus} method={b.paymentMethod} look="paper" />
+                            </span>
+                          ) : (
+                            <span className="ml-auto opacity-70">
+                              {b.paymentStatus === 'unpaid' ? 'Unpaid' : b.paymentStatus === 'paid' ? 'Paid ✓' : b.paymentStatus}
+                              {' · '}
+                              <Link
+                                href={`/admin/rehearsal/bands/${b.bandId}`}
+                                className="hover:text-accent-red underline underline-offset-4"
+                              >
+                                log in to mark paid
+                              </Link>
+                            </span>
+                          ))}
+                      </span>
+                    )}
                     {clash && (
                       <span className="text-accent-red">Heads up: {clash.map((r) => REASON[r] ?? r).join('; ')}.</span>
                     )}
@@ -105,19 +138,15 @@ export default async function ReviewPage({ params }: { params: Promise<{ token: 
               <dt className="opacity-70">Pays by</dt>
               <dd className="capitalize">{band.paymentMethod}</dd>
             </dl>
-            {(!calendarChecked || list.some((b) => b.calendarUnchecked)) && (
+            {actionable.length > 0 && (!calendarChecked || list.some((b) => b.calendarUnchecked)) && (
               <p className="text-accent-red">Couldn&apos;t check your calendar for this request — check it before approving.</p>
             )}
-            {p.a === 'approve' && !settings.address && (
+            {p.a === 'approve' && actionable.length > 0 && !settings.address && (
               <p className="text-accent-red">
                 No address is set in Rehearsal Settings, so the confirmation will go out without one.
               </p>
             )}
-            {actionable.length === 0 ? (
-              <p className="border-surface-ink border-2 p-3">Nothing left to do here — it was already decided, expired or started.</p>
-            ) : (
-              <ReviewActions token={token} action={p.a} count={actionable.length} />
-            )}
+            {actionable.length > 0 && <ReviewActions token={token} action={p.a} count={actionable.length} />}
           </>
         )}
         <p>

@@ -4,6 +4,7 @@ import { bookingUrl, getBand } from '@/lib/rehearsal/bands';
 import { bandHistory, bandTotals, displayStatus } from '@/lib/rehearsal/decisions';
 import { money, sessionLabel } from '@/lib/rehearsal/format';
 import RehearsalBandEditor from '@/components/admin/rehearsal/RehearsalBandEditor';
+import PaymentButtons from '@/components/rehearsal/PaymentButtons';
 
 export const dynamic = 'force-dynamic';
 
@@ -70,13 +71,15 @@ export default async function RehearsalBandPage({ params }: { params: Promise<{ 
                   <span className="min-w-56 font-medium">{sessionLabel(b.startsAt, b.endsAt)}</span>
                   <span className={`w-20 uppercase text-xs tracking-wide ${STATUS_STYLE[status] ?? 'text-[#E8E0D0]/50'}`}>{status}</span>
                   <span>{money(b.priceCents)}</span>
-                  {status === 'confirmed' && (
-                    <span className="text-[#E8E0D0]/60">
-                      {b.paymentStatus}
-                      {b.paymentProvider ? ` (${b.paymentProvider})` : ''}
-                    </span>
+                  {status === 'confirmed' && b.paymentProvider && b.paymentStatus === 'paid' && (
+                    <span className="text-[#E8E0D0]/60">via {b.paymentProvider}</span>
                   )}
                   {b.declineReason && <span className="text-[#E8E0D0]/50">“{b.declineReason}”</span>}
+                  {status === 'confirmed' && (
+                    <span className="ml-auto">
+                      <PaymentButtons id={b.id} status={b.paymentStatus} method={b.paymentMethod} />
+                    </span>
+                  )}
                 </li>
               );
             })}
