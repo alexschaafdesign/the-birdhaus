@@ -5,7 +5,9 @@
 // the weekday; monthly keeps "the nth weekday" (3rd Tuesday), and an anchor
 // on a 5th weekday becomes "the last <weekday>". Every occurrence keeps the
 // anchor's Chicago wall time (6pm stays 6pm across DST). A series ends on a
-// date or after a count, both including the anchor.
+// date, after a count (both including the anchor), or never: an open-ended
+// series ("until we end it") has neither, and is generated up to whatever
+// date the caller asks for (the booking window, for the daily run).
 
 import { wallTimeToUtc } from '../local-time.ts';
 import { TIME_ZONE, addDays, chicagoDate, chicagoTime, weekdayOf } from './availability.ts';
@@ -16,6 +18,11 @@ export interface SeriesRule {
   freq: Freq;
   until?: string; // "YYYY-MM-DD", inclusive
   count?: number;
+  // neither until nor count = open-ended
+}
+
+export function isOngoing(rule: SeriesRule): boolean {
+  return !rule.until && !rule.count;
 }
 
 export const MAX_OCCURRENCES = 52;
@@ -57,10 +64,12 @@ export function describeRule(anchorDate: string, freq: Freq): string {
   return `Monthly on the ${n >= 5 ? 'last' : ORDINAL[n]} ${wd}`;
 }
 
-// Chicago dates of every occurrence, anchor first.
-export function occurrenceDates(anchorDate: string, rule: SeriesRule): string[] {
-  const limitCount = Math.min(rule.count ?? MAX_OCCURRENCES, MAX_OCCURRENCES);
-  const hardEnd = addDays(anchorDate, MAX_SPAN_DAYS);
+// Chicago dates of every occurrence, anchor first. With `toDate` (inclusive)
+// the list runs to that date (the daily run extending a series); without it,
+// it's capped at 52 dates / a year (previews, requests).
+export function occurrenceDates(anchorDate: string, rule: SeriesRule, toDate?: string): string[] {
+  const limitCount = toDate ? (rule.count ?? Infinity) : Math.min(rule.count ?? MAX_OCCURRENCES, MAX_OCCURRENCES);
+  const hardEnd = toDate ?? addDays(anchorDate, MAX_SPAN_DAYS);
   const until = rule.until && rule.until < hardEnd ? rule.until : hardEnd;
   const out: string[] = [];
 
@@ -88,8 +97,18 @@ export function occurrenceDates(anchorDate: string, rule: SeriesRule): string[] 
 }
 
 // Occurrence start instants at the anchor's Chicago wall time.
-export function occurrenceStarts(anchorStart: Date, rule: SeriesRule): Date[] {
+export function occurrenceStarts(anchorStart: Date, rule: SeriesRule, toDate?: string): Date[] {
   const date = chicagoDate(anchorStart);
   const [h, m] = chicagoTime(anchorStart).split(':').map(Number);
-  return occurrenceDates(date, rule).map((d) => wallTimeToUtc(d, h, m, TIME_ZONE));
+  return occurrenceDates(date, rule, toDate).map((d) => wallTimeToUtc(d, h, m, TIME_ZONE));
+}
+
+// "6 sessions", "until 1 Mar", "until ended".
+export function describeEnd(rule: SeriesRule): string {
+  if (rule.count) return `${rule.count} sessions`;
+  if (rule.until) {
+    const [y, mo, d] = rule.until.split('-').map(Number);
+    return `until ${new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' }).format(new Date(Date.UTC(y, mo - 1, d)))}`;
+  }
+  return 'until ended';
 }

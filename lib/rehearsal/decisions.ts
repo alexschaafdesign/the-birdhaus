@@ -38,11 +38,13 @@ export interface AdminBooking {
   seriesId: number | null;
   seriesFreq: Freq | null;
   seriesStart: Date | null; // first occurrence, for the "3rd Tuesday" label
+  seriesOngoing: boolean;
 }
 
 // "Weekly on Wednesdays" for a series booking, else null.
-export function repeatLabel(b: Pick<AdminBooking, 'seriesFreq' | 'seriesStart'>): string | null {
-  return b.seriesFreq && b.seriesStart ? describeRule(chicagoDate(b.seriesStart), b.seriesFreq) : null;
+export function repeatLabel(b: Pick<AdminBooking, 'seriesFreq' | 'seriesStart' | 'seriesOngoing'>): string | null {
+  if (!b.seriesFreq || !b.seriesStart) return null;
+  return `${describeRule(chicagoDate(b.seriesStart), b.seriesFreq)}${b.seriesOngoing ? ', until ended' : ''}`;
 }
 
 // A fresh fragment per call (postgres.js composition).
@@ -59,7 +61,8 @@ function select() {
            b.admin_emailed_at as "adminEmailedAt", b.band_emailed_at as "bandEmailedAt",
            b.created_at as "createdAt",
            b.series_id::int as "seriesId", s.freq as "seriesFreq",
-           (select min(f.starts_at) from rehearsal_bookings f where f.series_id = b.series_id) as "seriesStart"
+           (select min(f.starts_at) from rehearsal_bookings f where f.series_id = b.series_id) as "seriesStart",
+           (s.id is not null and s.until_date is null and s.occurrences is null) as "seriesOngoing"
     from rehearsal_bookings b
     join rehearsal_bands r on r.id = b.band_id
     left join rehearsal_series s on s.id = b.series_id

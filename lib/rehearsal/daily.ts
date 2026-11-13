@@ -2,7 +2,8 @@ import { sql } from '../db';
 import { addDays, chicagoDate, startOfChicagoDay, type Reason } from './availability.ts';
 import { clashesFor } from './availability-data';
 import { bookingsByIds, syncSeriesStatus, type AdminBooking } from './decisions';
-import { sendExpiredEmail, sendMorningEmail, sendReminderEmail } from './emails';
+import { sendExpiredEmail, sendMorningEmail, sendReminderEmail, sendSeriesSkipEmail } from './emails';
+import { extendSeries } from './series-extend';
 
 // The rehearsal daily job (Vercel Cron ~7am Chicago, production only; admin
 // "Run now" anywhere). Every step is safe to repeat: each email records when
@@ -11,6 +12,8 @@ import { sendExpiredEmail, sendMorningEmail, sendReminderEmail } from './emails'
 //
 //  1. Expire pending requests past their expiry (or whose session started)
 //     and tell each band once.
+//  1b. Keep approved series going: book their dates that came into the
+//     window (confirmed), skip ones that aren't open, tell those bands once.
 //  2. Remind bands the day before a confirmed session.
 //  3. Flag confirmed bookings a show / Not-available day / blackout / busy time
 //     now lands on (never cancel); clear flags that no longer apply.
@@ -25,6 +28,8 @@ export interface DailySummary {
   clearedConflicts: number;
   morningEmail: 'sent' | 'already sent today' | 'nothing to say' | 'failed';
   calendarChecked: boolean;
+  seriesBooked: number;
+  seriesSkipped: number;
 }
 
 function group<T>(list: T[], key: (t: T) => string): T[][] {
@@ -56,6 +61,34 @@ export async function runDaily(opts: { now?: Date; force?: boolean } = {}): Prom
   for (const g of group(toTell, (r) => `${r.bandId}:${r.requestKey ?? r.id}`)) {
     if (await sendExpiredEmail(g.map((r) => r.id))) expiryEmails += 1;
   }
+
+  // 1b. Extend approved series, then tell bands about any skipped dates
+  // (including ones skipped when a series was approved) once.
+  const ext = await extendSeries({ now });
+  const unnotified = await sql<{ seriesId: number; bandId: number; bandName: string; start: Date; minutes: number }[]>`
+    select k.series_id::int as "seriesId", s.band_id::int as "bandId", b.name as "bandName",
+           k.starts_at as start, coalesce(s.block_minutes, 180) as minutes
+    from rehearsal_series_skips k
+    join rehearsal_series s on s.id = k.series_id
+    join rehearsal_bands b on b.id = s.band_id
+    where k.notified_at is null and k.starts_at > ${now}
+    order by k.starts_at
+  `;
+  for (const g of group(unnotified, (r) => String(r.bandId))) {
+    const sessions = g.map((r) => ({ start: r.start, end: new Date(r.start.getTime() + r.minutes * 60_000) }));
+    if (await sendSeriesSkipEmail(g[0].bandId, sessions)) {
+      for (const r of g) {
+        await sql`update rehearsal_series_skips set notified_at = now() where series_id = ${r.seriesId} and starts_at = ${r.start}`;
+      }
+    }
+  }
+  const bookedRows = await bookingsByIds(
+    (
+      await sql<{ id: number }[]>`
+        select id::int as id from rehearsal_bookings where catalogue_id in ${sql(ext.booked.map((b) => b.catalogueId).concat(['-']))}
+      `
+    ).map((r) => r.id),
+  );
 
   // 2. Day-before reminders, one email per band.
   const due = await sql<{ id: number; bandId: number }[]>`
@@ -132,7 +165,15 @@ export async function runDaily(opts: { now?: Date; force?: boolean } = {}): Prom
 
   let morningEmail: DailySummary['morningEmail'];
   if (!claimed && !opts.force) morningEmail = 'already sent today';
-  else if (!todayAll.length && !tomorrow.length && !newConflicts.length && !expiredRows.length) morningEmail = 'nothing to say';
+  else if (
+    !todayAll.length &&
+    !tomorrow.length &&
+    !newConflicts.length &&
+    !expiredRows.length &&
+    !bookedRows.length &&
+    !unnotified.length
+  )
+    morningEmail = 'nothing to say';
   else {
     const ok = await sendMorningEmail({
       today: todayAll,
@@ -141,6 +182,12 @@ export async function runDaily(opts: { now?: Date; force?: boolean } = {}): Prom
       expired: expiredRows.length,
       outstandingCents: outstanding,
       calendarChecked,
+      seriesBooked: bookedRows.map((b) => ({ bandName: b.bandName, start: b.startsAt, end: b.endsAt, catalogueId: b.catalogueId })),
+      seriesSkipped: unnotified.map((r) => ({
+        bandName: r.bandName,
+        start: r.start,
+        end: new Date(r.start.getTime() + r.minutes * 60_000),
+      })),
     });
     morningEmail = ok ? 'sent' : 'failed';
     // Let the next run try again.
@@ -156,6 +203,8 @@ export async function runDaily(opts: { now?: Date; force?: boolean } = {}): Prom
     clearedConflicts,
     morningEmail,
     calendarChecked,
+    seriesBooked: ext.booked.length,
+    seriesSkipped: unnotified.length,
   };
   if (morningEmail !== 'failed') await sql`update rehearsal_daily_runs set summary = ${sql.json(summary as unknown as Record<string, string>)} where day = ${day}::date`;
   return summary;

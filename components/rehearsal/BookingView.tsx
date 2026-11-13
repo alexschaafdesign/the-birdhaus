@@ -6,6 +6,7 @@ import { SectionHeader } from '@/components/ui/SectionHeader';
 import { FORM } from '@/components/night/form';
 import { describeRule, occurrenceStarts, type Freq, type SeriesRule } from '@/lib/rehearsal/series';
 import { planRequest } from '@/lib/rehearsal/request-rules';
+import SeriesList, { type SeriesView } from './SeriesList';
 
 // The band's private booking page. Their bookings, then a calendar of blocks
 // (Open / Requested / Confirmed / Unavailable — never why). Clicking an open
@@ -61,6 +62,7 @@ export interface BookingViewProps {
   paymentMethods: PaymentMethod[];
   defaultGearNeeded: string[];
   defaultGearNotes: string;
+  series: SeriesView[];
 }
 
 // One pick: a single block, or a block that repeats.
@@ -258,7 +260,9 @@ function PickPanel({
   onClose: () => void;
 }) {
   const [choice, setChoice] = useState<Choice>(existing?.repeat?.freq ?? 'once');
-  const [endBy, setEndBy] = useState<'count' | 'until'>(existing?.repeat?.until ? 'until' : 'count');
+  const [endBy, setEndBy] = useState<'count' | 'until' | 'ongoing'>(
+    existing?.repeat ? (existing.repeat.until ? 'until' : existing.repeat.count ? 'count' : 'ongoing') : 'count',
+  );
   const [count, setCount] = useState(existing?.repeat?.count ?? 6);
   const [until, setUntil] = useState(existing?.repeat?.until ?? '');
   const first = useRef<HTMLInputElement>(null);
@@ -271,13 +275,25 @@ function PickPanel({
   }, [onClose]);
 
   const rule: SeriesRule | null =
-    choice === 'once' ? null : endBy === 'count' ? { freq: choice, count } : until ? { freq: choice, until } : null;
-  const preview = rule
+    choice === 'once'
+      ? null
+      : endBy === 'ongoing'
+        ? { freq: choice }
+        : endBy === 'count'
+          ? { freq: choice, count }
+          : until
+            ? { freq: choice, until }
+            : null;
+  const all = rule
     ? occurrenceStarts(new Date(block.start), rule).map((d) => ({
         d,
-        state: openSet.has(d.getTime()) ? 'open' : d >= windowEnd ? 'too_far' : 'unavailable',
+        state: openSet.has(d.getTime()) ? 'open' : d >= windowEnd ? 'later' : 'unavailable',
       }))
     : [];
+  // Dates inside the booking window are listed; later ones are booked
+  // automatically once Alex approves, as they come into range.
+  const preview = all.filter((p) => p.state !== 'later');
+  const later = all.length - preview.length;
   const open = preview.filter((p) => p.state === 'open').length;
   const date = block.date;
   const label = `${dayLabel(block.start)} · ${timeRange(block.start, block.end)}`;
@@ -375,14 +391,22 @@ function PickPanel({
                 className={`${FORM.field.replace('w-full', '')} w-auto`}
               />
             </label>
+            <label className="flex cursor-pointer items-center gap-2">
+              <input
+                type="radio"
+                name="endBy"
+                checked={endBy === 'ongoing'}
+                onChange={() => setEndBy('ongoing')}
+                className="accent-accent-red size-4"
+              />
+              Until we end it
+            </label>
             {preview.length > 0 && (
               <ul className="text-data-caption-13 flex max-h-40 flex-col gap-0.5 overflow-y-auto" aria-label="Dates">
                 {preview.map((p) => (
                   <li key={p.d.getTime()} className={`flex justify-between gap-4 ${p.state === 'open' ? '' : 'opacity-50'}`}>
                     <span className={p.state === 'open' ? '' : 'line-through decoration-1'}>{dayLabel(p.d.toISOString())}</span>
-                    <span className="uppercase">
-                      {p.state === 'open' ? 'Open' : p.state === 'too_far' ? 'Too far ahead' : 'Unavailable'}
-                    </span>
+                    <span className="uppercase">{p.state === 'open' ? 'Open' : 'Unavailable'}</span>
                   </li>
                 ))}
               </ul>
@@ -394,8 +418,14 @@ function PickPanel({
           {choice === 'once'
             ? money(priceCents)
             : rule
-              ? `${open} session${open === 1 ? '' : 's'} · ${money(open * repeatPriceCents)}${
+              ? `${open} session${open === 1 ? '' : 's'} now · ${money(open * repeatPriceCents)}${
                   open < preview.length ? ' — dates that aren’t open are skipped' : ''
+                }. ${
+                  endBy === 'ongoing'
+                    ? 'After that it keeps going, booked automatically once Alex approves, until you end it.'
+                    : later
+                      ? `${later} more ${later === 1 ? 'is' : 'are'} booked automatically as ${later === 1 ? 'it comes' : 'they come'} into the booking window, once Alex approves.`
+                      : ''
                 }`
               : 'Pick an end date.'}
         </p>
@@ -557,7 +587,8 @@ export default function BookingView(props: BookingViewProps) {
     const time = b ? timeRange(b.start, b.end) : '';
     if (!i.repeat) return `${dayLabel(i.start)} ${time}`;
     const rule = describeRule(chicagoDateOf(i.start), i.repeat.freq);
-    return `↻ ${rule} ${time} ×${n} from ${dayLabel(i.start)}`;
+    const ongoing = !i.repeat.until && !i.repeat.count;
+    return `↻ ${rule} ${time} from ${dayLabel(i.start)} · ${n} now${ongoing ? ', ongoing' : plan.later[index] ? ` + ${plan.later[index]} later` : ''}`;
   }
 
   async function send(e: React.FormEvent) {
@@ -581,11 +612,15 @@ export default function BookingView(props: BookingViewProps) {
       const skipped: Array<{ start: string; why: string }> = data.skipped ?? [];
       const list = (why: string) => skipped.filter((x) => x.why === why).map((x) => dayLabel(x.start));
       const taken = list('unavailable');
-      const far = list('too_far');
+      const later: number = data.later ?? 0;
       setSent(
         `Request sent for ${n} session${n === 1 ? '' : 's'} (${data.catalogueIds.join(', ')}). ` +
           (taken.length ? `Skipped (not available): ${taken.join(', ')}. ` : '') +
-          (far.length ? `Not requested yet, too far ahead: ${far.join(', ')} — ask again nearer the time. ` : '') +
+          (data.ongoing
+            ? 'Once approved, your repeating booking keeps going until you end it. '
+            : later
+              ? `${later} later date${later === 1 ? '' : 's'} will be booked automatically once approved. `
+              : '') +
           `Alex will confirm by email; if there's no answer in ${props.pendingExpiryDays} days the request lapses and the time frees up.`,
       );
       setItems([]);
@@ -686,6 +721,17 @@ export default function BookingView(props: BookingViewProps) {
           </ul>
         )}
         <p className="text-body-3 opacity-70">You can cancel here up to {props.cancelCutoffHours} hours before a session.</p>
+        {props.series.length > 0 && (
+          <div className="flex flex-col gap-1">
+            <h3 className="text-data-overline-11 font-bold tracking-[--spacing(0.625)] uppercase">Repeating</h3>
+            <SeriesList
+              series={props.series}
+              endpoint={`/api/rehearsal/book/${props.token}/end-series`}
+              cutoffHours={props.cancelCutoffHours}
+              look="paper"
+            />
+          </div>
+        )}
       </section>
 
       {/* Calendar */}

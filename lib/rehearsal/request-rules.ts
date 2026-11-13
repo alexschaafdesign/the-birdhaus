@@ -47,7 +47,9 @@ function parseRepeat(raw: unknown, start: Date): Result<SeriesRule | null> {
   }
   const hasUntil = typeof r.until === 'string' && r.until !== '';
   const hasCount = r.count !== undefined && r.count !== null && r.count !== '';
-  if (hasUntil === hasCount) return { ok: false, error: 'Say when the repeat ends: a date or a number of sessions.' };
+  if (hasUntil && hasCount) return { ok: false, error: 'Say when the repeat ends: a date or a number of sessions.' };
+  // Neither: open-ended, until the band or Alex ends it.
+  if (!hasUntil && !hasCount) return { ok: true, value: { freq: r.freq } };
   if (hasUntil) {
     const until = r.until as string;
     if (!/^\d{4}-\d{2}-\d{2}$/.test(until) || Number.isNaN(Date.parse(until))) {
@@ -125,17 +127,22 @@ export interface PlannedSession {
 
 export interface Plan {
   sessions: PlannedSession[];
-  skipped: Array<{ start: Date; item: number; why: 'unavailable' | 'too_far' }>;
+  // Dates inside the window that aren't open: never booked.
+  skipped: Array<{ start: Date; item: number; why: 'unavailable' }>;
+  // Per item: dates past the booking window. Not requested now; once the
+  // series is approved, the daily run books them as they come into range.
+  later: number[];
   closed: number[]; // items whose own block isn't open (refused)
 }
 
-// Expands items into the sessions to book. A single block, or a repeat's first
-// session, must be open; a repeat's later dates are booked when open and
-// otherwise skipped (unavailable, or past the booking window). A date two items
+// Expands items into the sessions to book now. A single block, or a repeat's
+// first session, must be open; a repeat's other dates inside the window are
+// booked when open and otherwise skipped; dates past the window are counted
+// as `later` (the daily run books them after approval). A date two items
 // share is booked once. PURE: the booking page previews with it, the server
 // books with it, so the band's total matches.
 export function planRequest(items: RequestItem[], isOpen: (start: Date) => boolean, windowEnd: Date): Plan {
-  const plan: Plan = { sessions: [], skipped: [], closed: [] };
+  const plan: Plan = { sessions: [], skipped: [], later: items.map(() => 0), closed: [] };
   const claimed = new Set<number>();
   items.forEach((it, i) => {
     if (!isOpen(it.start)) {
@@ -145,11 +152,15 @@ export function planRequest(items: RequestItem[], isOpen: (start: Date) => boole
     const starts = it.repeat ? occurrenceStarts(it.start, it.repeat) : [it.start];
     for (const s of starts) {
       if (claimed.has(s.getTime())) continue;
+      if (s.getTime() >= windowEnd.getTime()) {
+        plan.later[i] += 1;
+        continue;
+      }
       if (isOpen(s)) {
         claimed.add(s.getTime());
         plan.sessions.push({ start: s, item: i, repeat: Boolean(it.repeat) });
       } else {
-        plan.skipped.push({ start: s, item: i, why: s.getTime() >= windowEnd.getTime() ? 'too_far' : 'unavailable' });
+        plan.skipped.push({ start: s, item: i, why: 'unavailable' });
       }
     }
   });
