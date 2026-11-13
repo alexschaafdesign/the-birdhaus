@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useState } from 'react';
 
 interface BandRow {
@@ -110,7 +111,10 @@ export default function RehearsalBands({ initial }: { initial: BandRow[] }) {
             <li key={b.id} className="flex flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3">
               <div className="min-w-48 flex-1">
                 <p className="font-semibold">
-                  {b.name} {b.archived && <span className="text-xs text-[#E8E0D0]/40">(archived)</span>}
+                  <Link href={`/admin/rehearsal/bands/${b.id}`} className="hover:underline">
+                    {b.name}
+                  </Link>{' '}
+                  {b.archived && <span className="text-xs text-[#E8E0D0]/40">(archived)</span>}
                 </p>
                 <p className="text-sm text-[#E8E0D0]/55">
                   {[b.contactName, b.email, b.phone].filter(Boolean).join(' · ')}

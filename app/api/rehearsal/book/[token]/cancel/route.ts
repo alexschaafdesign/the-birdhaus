@@ -1,7 +1,8 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, after } from 'next/server';
 import { getBandByToken } from '@/lib/rehearsal/bands';
 import { cancelBandBooking } from '@/lib/rehearsal/requests';
 import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
+import { sendBandCancelledEmail } from '@/lib/rehearsal/emails';
 
 // A band cancels one of its own bookings, up to the cutoff. Token-authorised;
 // the booking must belong to the token's band.
@@ -22,5 +23,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
   }
   const outcome = await cancelBandBooking(band.id, bookingId);
   if (!outcome.ok) return NextResponse.json({ error: outcome.error }, { status: outcome.status });
+  after(() => sendBandCancelledEmail(bookingId));
   return NextResponse.json({ ok: true });
 }

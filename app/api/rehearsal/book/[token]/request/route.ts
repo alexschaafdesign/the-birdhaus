@@ -1,9 +1,10 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, after } from 'next/server';
 import { getBandByToken } from '@/lib/rehearsal/bands';
 import { getRehearsalSettings } from '@/lib/rehearsal/settings';
 import { parseRequestBody } from '@/lib/rehearsal/request-rules';
 import { createRequest } from '@/lib/rehearsal/requests';
 import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
+import { sendRequestEmail } from '@/lib/rehearsal/emails';
 
 // A band sends a request from its private booking page. Authorised by
 // possession of the live link token (no login), like /hub and /door.
@@ -23,5 +24,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
 
   const outcome = await createRequest(band.id, parsed.value);
   if (!outcome.ok) return NextResponse.json({ error: outcome.error }, { status: outcome.status });
+  // Email Alex after responding; a failed send shows as "not emailed" in admin.
+  const { requestKey } = outcome;
+  after(() => sendRequestEmail(requestKey));
   return NextResponse.json({ ok: true, catalogueIds: outcome.catalogueIds });
 }
