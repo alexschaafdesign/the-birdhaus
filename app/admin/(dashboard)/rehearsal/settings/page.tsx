@@ -1,6 +1,7 @@
 import { forAdmin, getRehearsalSettings, getStandingHours } from '@/lib/rehearsal/settings';
 import RehearsalSettingsForm from '@/components/admin/rehearsal/RehearsalSettingsForm';
 import StandingHoursEditor from '@/components/admin/rehearsal/StandingHoursEditor';
+import RehearsalFeedLink from '@/components/admin/rehearsal/RehearsalFeedLink';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,6 +19,17 @@ export default async function RehearsalSettingsPage() {
           </p>
         </div>
         <StandingHoursEditor initial={hours} blockMinutes={settings.blockMinutes} />
+      </section>
+
+      <section className="space-y-3">
+        <div className="space-y-1">
+          <h2 className="text-xl font-bold">Your rehearsal calendar</h2>
+          <p className="text-sm text-[#E8E0D0]/55">
+            A private feed of confirmed rehearsals (band, gear, payment) to subscribe to in Apple Calendar. Keep the
+            link to yourself.
+          </p>
+        </div>
+        <RehearsalFeedLink />
       </section>
 
       <section className="space-y-4">

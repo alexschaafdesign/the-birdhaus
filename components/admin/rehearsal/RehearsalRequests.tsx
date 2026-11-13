@@ -25,6 +25,7 @@ export interface RowView {
   bandEmailed: boolean;
   expires: string;
   requested: string;
+  repeat: string | null;
 }
 
 const btn = 'rounded border px-3 py-1 text-xs disabled:opacity-40';
@@ -120,6 +121,7 @@ export default function RehearsalRequests({
                 <span className="text-sm text-[#E8E0D0]/50">
                   requested {first.requested} · expires {first.expires} · {sum(group)} · pays by {first.paymentMethod}
                 </span>
+                {first.repeat && <span className={`${tag} bg-sky-400/15 text-sky-200`}>↻ {first.repeat}</span>}
                 {first.calendarUnchecked && <span className={`${tag} bg-amber-400/15 text-amber-200`}>calendar not checked</span>}
                 {!first.adminEmailed && <span className={`${tag} bg-[#E8E0D0]/10 text-[#E8E0D0]/60`}>no email to you</span>}
               </header>
@@ -160,7 +162,13 @@ export default function RehearsalRequests({
                     onClick={() => approve(live.map((r) => r.id), key)}
                     className={primary}
                   >
-                    {busy === key ? 'Working…' : live.length === 1 ? 'Approve' : `Approve all ${live.length}`}
+                    {busy === key
+                      ? 'Working…'
+                      : first.repeat
+                        ? `Approve the series (${live.length})`
+                        : live.length === 1
+                          ? 'Approve'
+                          : `Approve all ${live.length}`}
                   </button>
                 )}
                 <button

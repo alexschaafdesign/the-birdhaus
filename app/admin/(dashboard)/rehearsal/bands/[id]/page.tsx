@@ -1,7 +1,9 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { bookingUrl, getBand } from '@/lib/rehearsal/bands';
-import { bandHistory, bandTotals, displayStatus } from '@/lib/rehearsal/decisions';
+import { bandHistory, bandTotals, displayStatus, repeatLabel } from '@/lib/rehearsal/decisions';
+import { getRehearsalSettings } from '@/lib/rehearsal/settings';
+import GearEdit from '@/components/admin/rehearsal/GearEdit';
 import { money, sessionLabel } from '@/lib/rehearsal/format';
 import RehearsalBandEditor from '@/components/admin/rehearsal/RehearsalBandEditor';
 import PaymentButtons from '@/components/rehearsal/PaymentButtons';
@@ -18,7 +20,7 @@ export default async function RehearsalBandPage({ params }: { params: Promise<{ 
   if (!Number.isInteger(id) || id <= 0) notFound();
   const band = await getBand(id);
   if (!band) notFound();
-  const [history, totals] = await Promise.all([bandHistory(id), bandTotals(id)]);
+  const [history, totals, settings] = await Promise.all([bandHistory(id), bandTotals(id), getRehearsalSettings()]);
   const now = new Date();
 
   return (
@@ -74,7 +76,11 @@ export default async function RehearsalBandPage({ params }: { params: Promise<{ 
                   {status === 'confirmed' && b.paymentProvider && b.paymentStatus === 'paid' && (
                     <span className="text-[#E8E0D0]/60">via {b.paymentProvider}</span>
                   )}
+                  {repeatLabel(b) && <span className="text-xs text-sky-200/80">↻ {repeatLabel(b)}</span>}
                   {b.declineReason && <span className="text-[#E8E0D0]/50">“{b.declineReason}”</span>}
+                  {(status === 'confirmed' || status === 'pending') && (
+                    <GearEdit id={b.id} options={settings.gearOptions} gearNeeded={b.gearNeeded} gearNotes={b.gearNotes} />
+                  )}
                   {status === 'confirmed' && (
                     <span className="ml-auto">
                       <PaymentButtons id={b.id} status={b.paymentStatus} method={b.paymentMethod} />

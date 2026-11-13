@@ -1,10 +1,12 @@
 import RehearsalRequests, { type RowView } from '@/components/admin/rehearsal/RehearsalRequests';
+import RunDailyButton from '@/components/admin/rehearsal/RunDailyButton';
 import {
   displayStatus,
   groupByRequest,
   isLivePending,
   outstandingBookings,
   pendingBookings,
+  repeatLabel,
   upcomingConfirmed,
   type AdminBooking,
 } from '@/lib/rehearsal/decisions';
@@ -52,10 +54,12 @@ export default async function RehearsalRequestsPage() {
     bandEmailed: Boolean(b.bandEmailedAt),
     expires: shortDay(b.expiresAt),
     requested: shortDay(b.createdAt),
+    repeat: repeatLabel(b),
   });
 
   return (
     <main className="max-w-6xl mx-auto px-6 pb-16 pt-6 space-y-10">
+      <RunDailyButton />
       {!settings.address && (
         <p className="rounded border border-amber-400/40 bg-amber-400/10 px-4 py-2 text-sm text-amber-200">
           No address in Rehearsal Settings yet — confirmations will go out without one.

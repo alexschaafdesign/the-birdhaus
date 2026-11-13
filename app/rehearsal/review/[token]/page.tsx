@@ -6,7 +6,7 @@ import ReviewActions from '@/components/rehearsal/ReviewActions';
 import PaymentButtons from '@/components/rehearsal/PaymentButtons';
 import { isAdminSession } from '@/lib/admin-session';
 import { linkSecret, verifyLink } from '@/lib/rehearsal/signed-links';
-import { bookingsByIds, bookingsByRequest, displayStatus, isLivePending } from '@/lib/rehearsal/decisions';
+import { bookingsByIds, bookingsByRequest, displayStatus, isLivePending, repeatLabel } from '@/lib/rehearsal/decisions';
 import { clashesFor } from '@/lib/rehearsal/availability-data';
 import { getRehearsalSettings } from '@/lib/rehearsal/settings';
 import { money, sessionLabel } from '@/lib/rehearsal/format';
@@ -127,6 +127,12 @@ export default async function ReviewPage({ params }: { params: Promise<{ token: 
               })}
             </ul>
             <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-1">
+              {repeatLabel(band) && (
+                <>
+                  <dt className="opacity-70">Repeats</dt>
+                  <dd>{repeatLabel(band)}</dd>
+                </>
+              )}
               <dt className="opacity-70">Gear</dt>
               <dd>{gear || 'nothing from the house'}</dd>
               {band.note && (

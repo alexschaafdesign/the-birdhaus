@@ -27,5 +27,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
   // Email Alex after responding; a failed send shows as "not emailed" in admin.
   const { requestKey } = outcome;
   after(() => sendRequestEmail(requestKey));
-  return NextResponse.json({ ok: true, catalogueIds: outcome.catalogueIds });
+  return NextResponse.json({
+    ok: true,
+    catalogueIds: outcome.catalogueIds,
+    skipped: outcome.skipped.map((x) => ({ start: x.start.toISOString(), why: x.why })),
+  });
 }

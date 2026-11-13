@@ -54,3 +54,19 @@ test('cancel allowed until the cutoff, only for pending/confirmed', () => {
   assert.equal(canBandCancel({ status: 'declined', startsAt }, now, 0), false);
   assert.equal(canBandCancel({ status: 'cancelled', startsAt }, now, 0), false);
 });
+
+test('repeat: one anchor block, a frequency, and exactly one of until/count', () => {
+  const ok = parseRequestBody({ starts: [A], repeat: { freq: 'weekly', count: 6 } }, S);
+  assert.ok(ok.ok);
+  assert.deepEqual(ok.value.repeat, { freq: 'weekly', count: 6 });
+  const until = parseRequestBody({ starts: [A], repeat: { freq: 'monthly_nth', until: '2027-02-01' } }, S);
+  assert.ok(until.ok && until.value.repeat?.until === '2027-02-01');
+  const once = parseRequestBody({ starts: [A] }, S);
+  assert.ok(once.ok && once.value.repeat === null);
+  assert.equal(parseRequestBody({ starts: [A, B], repeat: { freq: 'weekly', count: 3 } }, S).ok, false);
+  assert.equal(parseRequestBody({ starts: [A], repeat: { freq: 'daily', count: 3 } }, S).ok, false);
+  assert.equal(parseRequestBody({ starts: [A], repeat: { freq: 'weekly' } }, S).ok, false);
+  assert.equal(parseRequestBody({ starts: [A], repeat: { freq: 'weekly', count: 3, until: '2027-01-01' } }, S).ok, false);
+  assert.equal(parseRequestBody({ starts: [A], repeat: { freq: 'weekly', count: 1 } }, S).ok, false);
+  assert.equal(parseRequestBody({ starts: [A], repeat: { freq: 'weekly', until: '2026-11-01' } }, S).ok, false);
+});

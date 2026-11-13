@@ -16,7 +16,7 @@ import {
 import { getRehearsalSettings } from './settings';
 import { bookingUrl } from './bands';
 import { clashesFor } from './availability-data';
-import { bookingsByIds, bookingsByRequest, markEmailed, type AdminBooking } from './decisions';
+import { bookingsByIds, bookingsByRequest, markEmailed, repeatLabel, type AdminBooking } from './decisions';
 import { linkSecret, signLink } from './signed-links.ts';
 import { venmoAmount, venmoMemo, venmoPayUrl } from './venmo.ts';
 import { buildIcs } from './ics-out.ts';
@@ -118,7 +118,8 @@ export async function sendRequestEmail(requestKey: string): Promise<boolean> {
   const calendarUnchecked = list.some((b) => b.calendarUnchecked) || !calendarChecked;
   const total = list.reduce((s, b) => s + b.priceCents, 0);
   const n = list.length;
-  const what = n === 1 ? sessionLabel(list[0].startsAt, list[0].endsAt) : `${n} blocks`;
+  const repeats = repeatLabel(list[0]);
+  const what = repeats ? `${repeats}, ${n} sessions` : n === 1 ? sessionLabel(list[0].startsAt, list[0].endsAt) : `${n} blocks`;
 
   const rows = list.map((b) => {
     const clash = reasons.get(b.id);
@@ -145,7 +146,11 @@ export async function sendRequestEmail(requestKey: string): Promise<boolean> {
     variant: 'admin',
     preheader: `${band.name} asked for ${what}.`,
     body:
-      emailP(`<strong>${esc(band.name)}</strong> asked for ${n === 1 ? 'a block' : `${n} blocks`}:`) +
+      emailP(
+        repeats
+          ? `<strong>${esc(band.name)}</strong> asked for a repeating booking — <strong>${esc(repeats)}</strong>, ${n} session${n === 1 ? '' : 's'}. Approve the series as a whole, or decline single dates:`
+          : `<strong>${esc(band.name)}</strong> asked for ${n === 1 ? 'a block' : `${n} blocks`}:`,
+      ) +
       emailP(rows.join('<br><br>')) +
       (calendarUnchecked
         ? emailP(
@@ -154,7 +159,7 @@ export async function sendRequestEmail(requestKey: string): Promise<boolean> {
         : '') +
       (list[0].note ? emailOverline('Their note') + paragraphs(list[0].note) : '') +
       emailDetails(details) +
-      emailButton(approveAll, n === 1 ? 'Approve' : `Approve all ${n}`) +
+      emailButton(approveAll, repeats ? `Approve the series (${n})` : n === 1 ? 'Approve' : `Approve all ${n}`) +
       emailP(emailLink(declineAll, n === 1 ? 'Decline' : `Decline all ${n}`)) +
       emailSmall(
         `Both links open a confirm page first and work for 7 days. Or use ${emailLink(`${SITE_URL}/admin/rehearsal/requests`, 'Requests in admin')}.`,
@@ -163,7 +168,9 @@ export async function sendRequestEmail(requestKey: string): Promise<boolean> {
 
   const text =
     [
-      `${band.name} asked for ${n === 1 ? 'a block' : `${n} blocks`}:`,
+      repeats
+        ? `${band.name} asked for a repeating booking — ${repeats}, ${n} sessions. Approve the series, or decline single dates:`
+        : `${band.name} asked for ${n === 1 ? 'a block' : `${n} blocks`}:`,
       '',
       ...list.map((b) => {
         const clash = reasons.get(b.id);
@@ -380,4 +387,190 @@ export async function sendBandCancelledEmail(id: number): Promise<boolean> {
     text,
     replyTo: b.bandEmail,
   });
+}
+
+// --- 5. Request lapsed -> band (daily job) ----------------------------------------
+
+export async function sendExpiredEmail(ids: number[]): Promise<boolean> {
+  const list = (await bookingsByIds(ids)).filter((b) => b.status === 'expired');
+  if (list.length === 0) return false;
+  const band = await bandContact(list[0].bandId);
+  const link = await liveLink(list[0].bandId);
+  const hello = band.contactName ? `Hi ${band.contactName.split(' ')[0]},` : 'Hi!';
+  const sessions = list.map((b) => sessionLabel(b.startsAt, b.endsAt));
+  const intro = `Sorry — I didn't get to your rehearsal request in time, so it lapsed and those times are open again:`;
+  const html = emailDocument({
+    preheader: 'Your rehearsal request lapsed',
+    body:
+      emailP(esc(hello)) +
+      emailP(esc(intro)) +
+      emailP(sessions.map((x) => `<strong>${esc(x)}</strong>`).join('<br>')) +
+      (link
+        ? emailP(`If you still want them, ${emailLink(link, 'send the request again')} and I'll answer quicker.`)
+        : emailP('If you still want them, just reply.')) +
+      emailP('alex / the BIRDHAUS'),
+  });
+  const text =
+    [
+      hello,
+      '',
+      intro,
+      ...sessions.map((x) => `- ${x}`),
+      '',
+      link ? `Send it again: ${link}` : 'Just reply if you still want them.',
+      '',
+      'alex / the BIRDHAUS',
+    ].join('\n') + emailTextFooter();
+  const ok = await send({
+    template: 'rehearsal-expired',
+    to: band.email,
+    subject: 'Your rehearsal request lapsed',
+    html,
+    text,
+    replyTo: REPLY_TO,
+  });
+  if (ok) await sql`update rehearsal_bookings set expiry_notified_at = now() where id in ${sql(list.map((b) => b.id))}`;
+  return ok;
+}
+
+// --- 6. Day-before reminder -> band (daily job) -------------------------------------
+
+export async function sendReminderEmail(ids: number[]): Promise<boolean> {
+  const list = (await bookingsByIds(ids)).filter((b) => b.status === 'confirmed');
+  if (list.length === 0) return false;
+  const s = await getRehearsalSettings();
+  const band = await bandContact(list[0].bandId);
+  const link = await liveLink(list[0].bandId);
+  const hello = band.contactName ? `Hi ${band.contactName.split(' ')[0]},` : 'Hi!';
+  const intro = s.emailReminderIntro || 'See you tomorrow at the BIRDHAUS rehearsal space!';
+  const blocks = list.map((b) => {
+    const memo = venmoMemo(b.catalogueId, band.name);
+    const g = gearLine(b);
+    const unpaid = b.paymentStatus === 'unpaid';
+    return {
+      html:
+        emailP(
+          `<strong>${esc(sessionLabel(b.startsAt, b.endsAt))}</strong><br>${esc(b.catalogueId)}${
+            g ? `<br>Gear set up for you: ${esc(g)}` : ''
+          }`,
+        ) +
+        (unpaid
+          ? emailButton(venmoPayUrl(s.venmoHandle, b.priceCents, memo), `Pay ${money(b.priceCents)} on Venmo`) +
+            emailSmall(`Venmo <strong>@${esc(s.venmoHandle)}</strong> · $${venmoAmount(b.priceCents)} · memo “${esc(memo)}”`)
+          : ''),
+      text: [
+        `${sessionLabel(b.startsAt, b.endsAt)} · ${b.catalogueId}`,
+        ...(g ? [`Gear set up for you: ${g}`] : []),
+        ...(unpaid ? [`Pay on Venmo: ${venmoPayUrl(s.venmoHandle, b.priceCents, memo)}`] : []),
+        '',
+      ],
+    };
+  });
+  const html = emailDocument({
+    preheader: `Tomorrow: ${list.map((b) => timeRange(b.startsAt, b.endsAt)).join(', ')}`,
+    body:
+      emailP(esc(hello)) +
+      paragraphs(intro) +
+      blocks.map((x) => x.html).join('') +
+      (s.address ? emailOverline('Where') + paragraphs(s.address) : '') +
+      (s.arrivalNotes ? emailOverline('Getting in') + paragraphs(s.arrivalNotes) : '') +
+      (link ? emailP(`Can't make it? Use ${emailLink(link, 'your booking page')}, or just reply.`) : '') +
+      emailP('alex / the BIRDHAUS'),
+  });
+  const text =
+    [
+      hello,
+      '',
+      intro,
+      '',
+      ...blocks.flatMap((x) => x.text),
+      ...(s.address ? ['WHERE', s.address, ''] : []),
+      ...(s.arrivalNotes ? ['GETTING IN', s.arrivalNotes, ''] : []),
+      ...(link ? [`Your booking page: ${link}`, ''] : []),
+      'alex / the BIRDHAUS',
+    ].join('\n') + emailTextFooter();
+  const ok = await send({
+    template: 'rehearsal-reminder',
+    to: band.email,
+    subject: `Tomorrow: rehearsal ${timeRange(list[0].startsAt, list[0].endsAt)} at the BIRDHAUS`,
+    html,
+    text,
+    replyTo: REPLY_TO,
+  });
+  if (ok) await sql`update rehearsal_bookings set reminder_sent_at = now() where id in ${sql(list.map((b) => b.id))}`;
+  return ok;
+}
+
+// --- 7. Alex's morning email (daily job) ----------------------------------------------
+
+export interface MorningData {
+  today: AdminBooking[];
+  tomorrow: AdminBooking[];
+  newConflicts: Array<{ booking: AdminBooking; reasons: Reason[] }>;
+  expired: number;
+  outstandingCents: number;
+  calendarChecked: boolean;
+}
+
+function sessionLine(b: AdminBooking): string {
+  const g = gearLine(b);
+  const pay = b.paymentStatus === 'unpaid' ? `unpaid (${b.paymentMethod})` : b.paymentStatus;
+  return `${timeRange(b.startsAt, b.endsAt)} · ${b.bandName} · ${b.catalogueId} · gear: ${g || 'none'} · ${pay}${
+    b.conflict ? ' · CONFLICT' : ''
+  }`;
+}
+
+export async function sendMorningEmail(d: MorningData): Promise<boolean> {
+  const sec = (title: string, rows: string[]) =>
+    rows.length ? emailOverline(title) + emailP(rows.map((r) => esc(r)).join('<br>')) : '';
+  const conflictRows = d.newConflicts.map(
+    (c) =>
+      `${sessionLabel(c.booking.startsAt, c.booking.endsAt)} · ${c.booking.bandName} (${c.booking.catalogueId}): ${c.reasons
+        .map((r) => REASON_TEXT[r])
+        .join('; ')}`,
+  );
+  const html = emailDocument({
+    variant: 'admin',
+    preheader: `${d.today.length} today · ${d.tomorrow.length} tomorrow${d.newConflicts.length ? ` · ${d.newConflicts.length} conflict` : ''}`,
+    body:
+      (d.newConflicts.length
+        ? emailOverline('New conflicts — nothing was cancelled') +
+          emailP(conflictRows.map((r) => `<span style="color:${EMAIL_COLORS.red};">${esc(r)}</span>`).join('<br>')) +
+          emailSmall('Get in touch with the band, then keep or cancel it in admin.')
+        : '') +
+      sec('Today', d.today.map(sessionLine)) +
+      (d.today.length ? '' : emailP('No rehearsals today.')) +
+      sec('Tomorrow', d.tomorrow.map(sessionLine)) +
+      (d.expired ? emailP(`${d.expired} request${d.expired === 1 ? '' : 's'} lapsed; the bands were told.`) : '') +
+      (d.outstandingCents ? emailP(`Outstanding: ${money(d.outstandingCents)}.`) : '') +
+      (d.calendarChecked
+        ? ''
+        : emailP(`<strong>Couldn't read your calendar this morning</strong> — busy-time conflicts weren't checked.`)) +
+      emailP(emailLink(`${SITE_URL}/admin/rehearsal/calendar`, 'Rehearsal calendar')),
+  });
+  const text =
+    [
+      ...(d.newConflicts.length ? ['NEW CONFLICTS — nothing was cancelled', ...conflictRows, ''] : []),
+      'TODAY',
+      ...(d.today.length ? d.today.map(sessionLine) : ['No rehearsals today.']),
+      '',
+      ...(d.tomorrow.length ? ['TOMORROW', ...d.tomorrow.map(sessionLine), ''] : []),
+      ...(d.expired ? [`${d.expired} request(s) lapsed; the bands were told.`] : []),
+      ...(d.outstandingCents ? [`Outstanding: ${money(d.outstandingCents)}`] : []),
+      ...(d.calendarChecked ? [] : ["Couldn't read your calendar this morning."]),
+      '',
+      `${SITE_URL}/admin/rehearsal/calendar`,
+    ].join('\n') + emailTextFooter('admin');
+  const n = d.newConflicts.length;
+  const ok = await send({
+    template: 'rehearsal-morning',
+    to: ADMIN_TO(),
+    subject: `Rehearsals: ${d.today.length} today, ${d.tomorrow.length} tomorrow${n ? ` · ${n} conflict${n === 1 ? '' : 's'}` : ''}`,
+    html,
+    text,
+  });
+  if (ok && n) {
+    await sql`update rehearsal_bookings set conflict_notified_at = now() where id in ${sql(d.newConflicts.map((c) => c.booking.id))}`;
+  }
+  return ok;
 }
