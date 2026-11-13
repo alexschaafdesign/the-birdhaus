@@ -58,6 +58,7 @@ export default async function RehearsalBookingPage({ params }: { params: Promise
     bandName: band.name,
     contactEmail: CONTACT_EMAIL,
     firstMonday: monday,
+    today,
     blocks: view.blocks.map((b) => ({
       date: b.date,
       startTime: b.startTime,

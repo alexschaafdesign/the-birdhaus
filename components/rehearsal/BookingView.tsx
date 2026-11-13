@@ -41,6 +41,7 @@ export interface BookingViewProps {
   bandName: string;
   contactEmail: string;
   firstMonday: string;
+  today: string; // Chicago date, for the calendar's today mark
   blocks: ViewBlock[];
   bookings: ViewBooking[];
   priceCents: number;
@@ -160,6 +161,62 @@ function BlockCell({
   );
 }
 
+// A block inside a desktop calendar cell: just the time, state by style.
+const STATE_WORD: Record<State, string> = {
+  open: 'open',
+  requested: 'requested, waiting for Alex',
+  confirmed: 'confirmed, yours',
+  unavailable: 'unavailable',
+};
+
+function Chip({ block, selected, onToggle }: { block: ViewBlock; selected: boolean; onToggle: () => void }) {
+  const label = timeRange(block.start, block.end);
+  const aria = `${dayLabel(block.start)} ${label}, ${selected ? 'picked' : STATE_WORD[block.state]}`;
+  const base = 'text-data-caption-13 block w-full border px-1.5 py-1 text-left leading-tight';
+  if (block.state === 'open') {
+    return (
+      <button
+        type="button"
+        aria-pressed={selected}
+        aria-label={aria}
+        onClick={onToggle}
+        className={`${base} cursor-pointer font-bold focus-visible:outline-accent-red focus-visible:outline-2 focus-visible:outline-offset-1 ${
+          selected ? 'bg-surface-ink text-surface-paper border-surface-ink' : 'border-surface-ink ui-hover:bg-surface-paper-shade'
+        }`}
+      >
+        {label}
+      </button>
+    );
+  }
+  const look =
+    block.state === 'requested'
+      ? 'border-surface-ink border-dashed font-bold'
+      : block.state === 'confirmed'
+        ? 'bg-accent-red text-surface-paper border-accent-red font-bold'
+        : 'border-transparent text-surface-ink/35 line-through decoration-1';
+  return (
+    <span aria-label={aria} className={`${base} ${look}`}>
+      {label}
+    </span>
+  );
+}
+
+// A block on the phone calendar: a small square, state by style.
+function Mark({ block, selected }: { block: ViewBlock; selected: boolean }) {
+  const look = selected
+    ? 'bg-surface-ink border-surface-ink'
+    : block.state === 'open'
+      ? 'border-surface-ink'
+      : block.state === 'requested'
+        ? 'border-surface-ink border-dashed'
+        : block.state === 'confirmed'
+          ? 'bg-accent-red border-accent-red'
+          : 'border-surface-ink/20';
+  return <span aria-hidden className={`inline-block size-2 border ${look}`} />;
+}
+
+const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
 // --- main -------------------------------------------------------------------
 
 export default function BookingView(props: BookingViewProps) {
@@ -175,28 +232,26 @@ export default function BookingView(props: BookingViewProps) {
   const [cancelling, setCancelling] = useState<number | null>(null);
   const [cancelError, setCancelError] = useState<{ id: number; message: string } | null>(null);
 
-  // Weeks from the Monday of this week through the last block.
+  // Calendar rows: Monday-start weeks from this week through the last block.
   const weeks = useMemo(() => {
     const last = props.blocks.length ? props.blocks[props.blocks.length - 1].date : props.firstMonday;
-    const out: Array<{ monday: string; days: string[]; open: number }> = [];
+    const out: string[][] = [];
     for (let m = props.firstMonday; m <= last; m = addDays(m, 7)) {
-      const days = Array.from({ length: 7 }, (_, i) => addDays(m, i));
-      const open = props.blocks.filter((b) => b.state === 'open' && b.date >= m && b.date <= days[6]).length;
-      out.push({ monday: m, days, open });
+      out.push(Array.from({ length: 7 }, (_, i) => addDays(m, i)));
     }
     return out;
   }, [props.blocks, props.firstMonday]);
-  const [weekIndex, setWeekIndex] = useState(() => {
-    const i = weeks.findIndex((w) => w.open > 0);
-    return i < 0 ? 0 : i;
-  });
-  const week = weeks[Math.min(weekIndex, weeks.length - 1)];
 
   const blocksByDay = useMemo(() => {
     const map = new Map<string, ViewBlock[]>();
     for (const b of props.blocks) map.set(b.date, [...(map.get(b.date) ?? []), b]);
     return map;
   }, [props.blocks]);
+
+  // Phone: the day whose blocks are listed under the calendar.
+  const [openDay, setOpenDay] = useState<string | null>(
+    () => props.blocks.find((b) => b.state === 'open')?.date ?? null,
+  );
 
   // Only blocks still open count (a refresh may have taken one).
   const picked = props.blocks.filter((b) => b.state === 'open' && selected.includes(b.start));
@@ -340,56 +395,114 @@ export default function BookingView(props: BookingViewProps) {
         </p>
       </section>
 
-      {/* Week view */}
+      {/* Calendar */}
       <section aria-labelledby="pick" className="flex flex-col gap-4">
         <SectionHeader id="pick" label="Pick blocks" />
-        {weeks.length === 0 || props.blocks.length === 0 ? (
+        {props.blocks.length === 0 ? (
           <p className="text-body-3 opacity-70">No blocks are on the calendar right now — check back soon.</p>
         ) : (
           <>
-            <nav aria-label="Weeks" className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:thin]">
-              {weeks.map((w, i) => {
-                const p = dateParts(w.monday);
-                const active = i === weekIndex;
-                return (
-                  <button
-                    key={w.monday}
-                    type="button"
-                    aria-current={active ? 'true' : undefined}
-                    onClick={() => setWeekIndex(i)}
-                    className={`text-data-caption-13 shrink-0 cursor-pointer border px-3 py-2 text-left focus-visible:outline-accent-red focus-visible:outline-2 focus-visible:outline-offset-2 ${
-                      active ? 'bg-surface-ink text-surface-paper border-surface-ink' : 'border-surface-ink/40 ui-hover:border-surface-ink'
-                    }`}
-                  >
-                    <span className="block font-bold uppercase">
-                      {p.day} {p.month}
-                    </span>
-                    <span className="block opacity-70">{w.open ? `${w.open} open` : 'full'}</span>
-                  </button>
-                );
-              })}
-            </nav>
+            <ul className="text-data-caption-13 flex flex-wrap gap-x-5 gap-y-1 opacity-80" aria-label="Key">
+              <li className="flex items-center gap-1.5"><span className="border-surface-ink inline-block size-3 border" />Open</li>
+              <li className="flex items-center gap-1.5"><span className="bg-surface-ink inline-block size-3" />Picked</li>
+              <li className="flex items-center gap-1.5"><span className="border-surface-ink inline-block size-3 border border-dashed" />Requested</li>
+              <li className="flex items-center gap-1.5"><span className="bg-accent-red inline-block size-3" />Confirmed</li>
+              <li className="flex items-center gap-1.5"><span className="border-surface-ink/20 inline-block size-3 border" />Unavailable</li>
+            </ul>
 
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-7 lg:gap-2">
-              {week.days.map((d) => {
-                const p = dateParts(d);
-                const list = blocksByDay.get(d) ?? [];
-                return (
-                  <div key={d} className="flex flex-col gap-2">
-                    <h3 className="text-data-overline-11 border-surface-ink border-b pb-1 font-bold tracking-[--spacing(0.625)] uppercase">
-                      {p.weekday} {p.day} {p.month}
-                    </h3>
-                    {list.length === 0 ? (
-                      <p className="text-data-caption-13 opacity-40">—</p>
-                    ) : (
-                      list.map((b) => (
-                        <BlockCell key={b.start} block={b} selected={selected.includes(b.start)} onToggle={() => toggle(b.start)} />
-                      ))
-                    )}
+            <div role="grid" aria-label="Rehearsal calendar" className="border-surface-ink border-t">
+              <div role="row" className="border-surface-ink grid grid-cols-7 border-b">
+                {WEEKDAYS.map((w) => (
+                  <div
+                    key={w}
+                    role="columnheader"
+                    className="text-data-overline-11 py-2 text-center font-bold tracking-[--spacing(0.625)] uppercase lg:text-left lg:pl-1.5"
+                  >
+                    {w}
                   </div>
-                );
-              })}
+                ))}
+              </div>
+              {weeks.map((days) => (
+                <div key={days[0]} role="row" className="border-surface-ink/20 grid grid-cols-7 border-b">
+                  {days.map((d) => {
+                    const p = dateParts(d);
+                    const list = blocksByDay.get(d) ?? [];
+                    const past = d < props.today;
+                    const isToday = d === props.today;
+                    const firstOfMonth = p.day === '1' || d === days[0] && d === props.firstMonday;
+                    const dateLabel = (
+                      <span className="flex items-baseline gap-1">
+                        <span
+                          className={`text-data-caption-13 inline-flex min-w-6 justify-center font-bold ${
+                            isToday ? 'bg-accent-red text-surface-paper px-1' : ''
+                          }`}
+                        >
+                          {p.day}
+                        </span>
+                        {firstOfMonth && (
+                          <span className="text-data-label-10-small text-accent-red font-bold uppercase">{p.month}</span>
+                        )}
+                      </span>
+                    );
+                    return (
+                      <div
+                        key={d}
+                        role="gridcell"
+                        className={`border-surface-ink/20 min-h-14 border-r p-1 last:border-r-0 lg:min-h-24 lg:p-1.5 ${
+                          past ? 'opacity-40' : ''
+                        }`}
+                      >
+                        {/* Phone: the whole cell picks the day */}
+                        <button
+                          type="button"
+                          onClick={() => setOpenDay(d)}
+                          disabled={list.length === 0}
+                          aria-label={`${dayLabel(`${d}T18:00:00Z`)}: ${list.filter((b) => b.state === 'open').length} open`}
+                          aria-pressed={openDay === d}
+                          className={`flex h-full w-full flex-col items-center gap-1 lg:hidden ${
+                            openDay === d ? 'outline-surface-ink outline-2 -outline-offset-2' : ''
+                          } disabled:cursor-default`}
+                        >
+                          {dateLabel}
+                          <span className="flex flex-wrap justify-center gap-0.5">
+                            {list.map((b) => (
+                              <Mark key={b.start} block={b} selected={selected.includes(b.start)} />
+                            ))}
+                          </span>
+                        </button>
+                        {/* Desktop: blocks right in the cell */}
+                        <div className="hidden flex-col gap-1 lg:flex">
+                          {dateLabel}
+                          {list.map((b) => (
+                            <Chip
+                              key={b.start}
+                              block={b}
+                              selected={selected.includes(b.start)}
+                              onToggle={() => toggle(b.start)}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ))}
             </div>
+
+            {/* Phone: the chosen day's blocks */}
+            {openDay && (
+              <div className="flex flex-col gap-2 lg:hidden">
+                <h3 className="text-data-overline-11 font-bold tracking-[--spacing(0.625)] uppercase">
+                  {(() => {
+                    const p = dateParts(openDay);
+                    return `${p.weekday} ${p.day} ${p.month}`;
+                  })()}
+                </h3>
+                {(blocksByDay.get(openDay) ?? []).map((b) => (
+                  <BlockCell key={b.start} block={b} selected={selected.includes(b.start)} onToggle={() => toggle(b.start)} />
+                ))}
+              </div>
+            )}
             <p className="text-body-3 opacity-70">All times are Minneapolis time.</p>
           </>
         )}
