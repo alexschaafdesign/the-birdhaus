@@ -280,7 +280,9 @@ export async function sendApprovedEmail(ids: number[]): Promise<boolean> {
       end: b.endsAt,
       summary: `Rehearsal at the BIRDHAUS (${b.catalogueId})`,
       location: s.address.replace(/\s*\n\s*/g, ', ') || undefined,
-      description: [s.arrivalNotes, link ? `Booking page: ${link}` : ''].filter(Boolean).join('\n\n') || undefined,
+      // Arrival notes only: calendar events get shared more casually than email,
+      // so the private booking link stays in the email body.
+      description: s.arrivalNotes || undefined,
     })),
     { name: 'the BIRDHAUS rehearsal' },
   );
