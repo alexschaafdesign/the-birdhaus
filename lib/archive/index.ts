@@ -85,11 +85,6 @@ export function hasSetMedia(set: ArchiveSet): boolean {
   return setSummary(set) !== null;
 }
 
-// The night that renders open: the first set (running order) with video.
-export function openSetSlug(night: Night): string | null {
-  return night.sets.find((s) => s.media.video)?.slug ?? null;
-}
-
 // Older / newer neighbours in the newest-first list.
 export function neighbours(nights: Night[], id: string): { prev: Night | null; next: Night | null } {
   const i = nights.findIndex((n) => n.id === id);

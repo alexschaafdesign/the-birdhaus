@@ -5,22 +5,20 @@ import { SeriesTick } from '@/components/ui/SeriesTick';
 import { AudioLink, Duration, MoreVideos, Notes, PhotoStrip, VideoPlayer } from './Media';
 
 // One set in the night band (the archived /shows/[id] page), anchored at its catalogue id (#BH-260904-2), with
-// the band-name anchor (#joe-kaplow) kept as an alias. A set with media is a native
-// <details> (no client JS): the night's first set with video renders open,
-// the rest collapse to one line that says what exists ("photos only"). A set
-// with nothing of its own is a plain line — no disclosure, no empty player.
+// the band-name anchor (#joe-kaplow) kept as an alias. Every set renders open —
+// a night has only a few, so there's nothing to collapse. A set with nothing of
+// its own is a plain line, no empty player.
 
 const ROW =
   'flex flex-wrap items-baseline gap-x-4 gap-y-1 py-4 sm:flex-nowrap';
 
-// The #band-slug alias: an empty marker just before the set. OpenOnHash follows
-// data-set to the set it stands for, and `:target+` styles light the set up the
-// same as targeting its id directly.
+// The #band-slug alias: an empty marker just before the set. `:target+` styles
+// light the set up the same as targeting its id directly.
 function SlugAlias({ set }: { set: ArchiveSet }) {
   return <span id={set.slug} data-set={set.id} aria-hidden className="block scroll-mt-6" />;
 }
 
-function Heading({ set, summary, linkBand = false }: { set: ArchiveSet; summary: string | null; linkBand?: boolean }) {
+function Heading({ set, summary }: { set: ArchiveSet; summary: string | null }) {
   return (
     <>
       <span className="text-timecode text-text-meta w-6 shrink-0 tabular-nums">
@@ -32,9 +30,7 @@ function Heading({ set, summary, linkBand = false }: { set: ArchiveSet; summary:
         {set.start}
       </span>
       <h3 className="text-header-4 text-text-inverse min-w-0 flex-1 leading-[1.2] uppercase">
-        {/* Only a set with no media links its name: inside a <summary> the
-            name is the toggle, and the band link sits in the opened set. */}
-        {linkBand && set.bandSlug ? (
+        {set.bandSlug ? (
           <Link
             href={`/bands/${set.bandSlug}`}
             className="hover:text-accent-brick focus-visible:outline-accent-brick focus-visible:outline-2 focus-visible:outline-offset-2"
@@ -58,13 +54,11 @@ function Heading({ set, summary, linkBand = false }: { set: ArchiveSet; summary:
 export function SetBlock({
   night,
   set,
-  open,
   others,
   sample,
 }: {
   night: Night;
   set: ArchiveSet;
-  open: boolean;
   others: Array<{ night: Night; set: ArchiveSet }>;
   sample: boolean;
 }) {
@@ -81,7 +75,7 @@ export function SetBlock({
           id={set.id}
           className={`${anchor} ${ROW} target:bg-surface-ink-raised [:target+&]:bg-surface-ink-raised`}
         >
-          <Heading set={set} summary={null} linkBand />
+          <Heading set={set} summary={null} />
         </div>
       </>
     );
@@ -94,23 +88,13 @@ export function SetBlock({
   return (
     <>
       <SlugAlias set={set} />
-      <details
+      <div
         id={set.id}
-        open={open}
-        className={`group ${anchor} [&:target>summary]:bg-surface-ink-raised [:target+&>summary]:bg-surface-ink-raised`}
+        className={`${anchor} [&:target>:first-child]:bg-surface-ink-raised [:target+&>:first-child]:bg-surface-ink-raised`}
       >
-        <summary
-          className={`${ROW} focus-visible:outline-accent-brick cursor-pointer list-none focus-visible:outline-2 focus-visible:-outline-offset-2 [&::-webkit-details-marker]:hidden`}
-        >
+        <div className={ROW}>
           <Heading set={set} summary={summary} />
-          <span
-            aria-hidden
-            className="text-text-muted text-body-2 shrink-0"
-          >
-            <span className="group-open:hidden">+</span>
-            <span className="hidden group-open:inline">−</span>
-          </span>
-        </summary>
+        </div>
 
         <div className="flex max-w-6xl flex-col gap-6 pb-8 sm:pl-24">
           {(video || notes || audio) && (
@@ -175,7 +159,7 @@ export function SetBlock({
             )}
           </p>
         </div>
-      </details>
+      </div>
     </>
   );
 }

@@ -32,9 +32,11 @@ export interface BookingProspect {
 }
 
 // One calendar day's plan: the title shows on the calendar cell, the notepad
-// holds everything else ("Ghosting Merit? Fend - asked").
+// holds everything else ("Ghosting Merit? Fend - asked"). `unavailable` marks
+// a known conflict (107_booking_days_unavailable.sql); the title is the reason.
 export interface BookingDay {
   date: string;
   title: string;
   notepad: string;
+  unavailable: boolean;
 }

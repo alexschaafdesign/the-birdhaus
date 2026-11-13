@@ -21,6 +21,7 @@ export async function getOpenDates(fromDate: string): Promise<string[]> {
     from available_dates a
     where a.date >= ${fromDate}::date
       and not exists (select 1 from shows s where s.date = a.date)
+      and not exists (select 1 from booking_days b where b.date = a.date and b.unavailable)
     order by a.date asc
   `;
   return rows.map((r) => r.date);

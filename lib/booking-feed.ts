@@ -107,6 +107,7 @@ interface FeedDay {
   date: string;
   title: string;
   notepad: string;
+  unavailable: boolean;
 }
 
 function showEvent(show: FeedShow, stamp: string): string[] {
@@ -136,8 +137,11 @@ function dayEvent(day: FeedDay, stamp: string): string[] {
     `DTSTAMP:${stamp}`,
     `DTSTART;VALUE=DATE:${dateValue(day.date)}`,
     `DTEND;VALUE=DATE:${dateValue(nextDay(day.date))}`,
-    `SUMMARY:${escapeText(day.title || 'Booking notes')}`,
-    'TRANSP:TRANSPARENT', // all-day notes shouldn't mark the day busy
+    // A conflict marks the day busy; plain notes don't.
+    day.unavailable
+      ? `SUMMARY:${escapeText(day.title ? `Not available: ${day.title}` : 'Not available')}`
+      : `SUMMARY:${escapeText(day.title || 'Booking notes')}`,
+    day.unavailable ? 'TRANSP:OPAQUE' : 'TRANSP:TRANSPARENT',
   ];
   if (day.notepad.trim()) lines.push(`DESCRIPTION:${escapeText(day.notepad)}`);
   lines.push(`URL:${SITE_URL}/admin/booking`, 'END:VEVENT');
@@ -156,7 +160,7 @@ export async function buildBookingFeed(today: string): Promise<string> {
       order by date asc
     `,
     sql<FeedDay[]>`
-      select date::text as date, title, notepad
+      select date::text as date, title, notepad, unavailable
       from booking_days
       where date >= ${since}
       order by date asc

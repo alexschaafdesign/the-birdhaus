@@ -25,35 +25,46 @@ export default function DayPanel({
   info: DayInfo;
   onClose: () => void;
   onToggleAvailable: (date: string) => void;
-  onSave: (date: string, title: string, notepad: string) => Promise<boolean>;
+  onSave: (date: string, title: string, notepad: string, unavailable: boolean) => Promise<boolean>;
 }) {
   const { date } = info;
   const [title, setTitle] = useState(info.plan?.title ?? '');
   const [notepad, setNotepad] = useState(info.plan?.notepad ?? '');
+  const [unavailable, setUnavailable] = useState(info.plan?.unavailable ?? false);
   const [saveState, setSaveState] = useState<'idle' | 'pending' | 'saved' | 'failed'>('idle');
 
   // Autosave: debounce while typing, flush on close/unmount (switching days
   // unmounts too, via the key) so nothing typed is dropped.
-  const saved = useRef({ title, notepad });
-  const latest = useRef({ title, notepad });
+  // The not-available toggle saves right away (with whatever's typed) rather
+  // than waiting on the debounce.
+  const saved = useRef({ title, notepad, unavailable });
+  const latest = useRef({ title, notepad, unavailable });
   useEffect(() => {
-    latest.current = { title, notepad };
-  }, [title, notepad]);
+    latest.current = { title, notepad, unavailable };
+  }, [title, notepad, unavailable]);
 
   useEffect(() => {
     if (title === saved.current.title && notepad === saved.current.notepad) return;
     setSaveState('pending');
     const timer = setTimeout(async () => {
-      saved.current = { title, notepad };
-      setSaveState((await onSave(date, title, notepad)) ? 'saved' : 'failed');
+      saved.current = { title, notepad, unavailable };
+      setSaveState((await onSave(date, title, notepad, unavailable)) ? 'saved' : 'failed');
     }, SAVE_DELAY_MS);
     return () => clearTimeout(timer);
-  }, [title, notepad, date, onSave]);
+  }, [title, notepad, unavailable, date, onSave]);
+
+  async function toggleUnavailable() {
+    const next = !unavailable;
+    setUnavailable(next);
+    saved.current = { title, notepad, unavailable: next };
+    setSaveState('pending');
+    setSaveState((await onSave(date, title, notepad, next)) ? 'saved' : 'failed');
+  }
 
   useEffect(
     () => () => {
-      const { title: t, notepad: n } = latest.current;
-      if (t !== saved.current.title || n !== saved.current.notepad) void onSave(date, t, n);
+      const { title: t, notepad: n, unavailable: u } = latest.current;
+      if (t !== saved.current.title || n !== saved.current.notepad) void onSave(date, t, n, u);
     },
     // Unmount-only flush; latest/saved are refs.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -95,8 +106,10 @@ export default function DayPanel({
       </div>
 
       <div className="space-y-4">
-        {!showOnDate && (
-          <div className="flex items-center gap-3">
+        {/* A show can still land on a not-available day (someone else runs
+            it), so the conflict toggle stays even when there's a show. */}
+        <div className="flex flex-wrap items-center gap-2">
+          {!showOnDate && !unavailable && (
             <button
               onClick={() => onToggleAvailable(date)}
               className={`rounded border px-3 py-1.5 text-sm transition-colors ${
@@ -107,7 +120,20 @@ export default function DayPanel({
             >
               {info.available ? '✓ Available — click to unmark' : 'Mark available'}
             </button>
-          </div>
+          )}
+          <button
+            onClick={toggleUnavailable}
+            className={`rounded border px-3 py-1.5 text-sm transition-colors ${
+              unavailable
+                ? 'border-red-400/60 bg-red-400/10 text-red-300 hover:bg-red-400/20'
+                : 'border-[#E8E0D0]/30 text-[#E8E0D0]/70 hover:bg-[#E8E0D0]/10'
+            }`}
+          >
+            {unavailable ? '✕ Not available — click to clear' : 'Not available'}
+          </button>
+        </div>
+        {unavailable && (
+          <p className="-mt-2 text-xs text-[#E8E0D0]/40">Use the title for the reason, e.g. “Out of town”.</p>
         )}
 
         <div className="space-y-2">

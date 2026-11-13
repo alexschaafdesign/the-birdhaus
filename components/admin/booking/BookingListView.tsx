@@ -77,6 +77,9 @@ export default function BookingListView({
                         {info.plan?.title && !info.show && !info.draftShow && (
                           <span className="block truncate text-sm font-medium">{info.plan.title}</span>
                         )}
+                        {info.plan?.unavailable && (
+                          <span className="block text-xs text-red-300/90">Not available</span>
+                        )}
                         {info.available && !info.show && !info.draftShow && (
                           <span className="block text-xs text-green-400/90">Available</span>
                         )}
