@@ -1,5 +1,6 @@
 import { sql } from '../db';
-import type { BookingStatus } from './availability.ts';
+import { chicagoDate, type BookingStatus } from './availability.ts';
+import { describeRule, type Freq } from './series.ts';
 
 // Admin-side reads and writes on rehearsal bookings: approve, decline, payment
 // status, and the lists the Requests and Bands screens show. Emails are sent
@@ -34,6 +35,14 @@ export interface AdminBooking {
   adminEmailedAt: Date | null;
   bandEmailedAt: Date | null;
   createdAt: Date;
+  seriesId: number | null;
+  seriesFreq: Freq | null;
+  seriesStart: Date | null; // first occurrence, for the "3rd Tuesday" label
+}
+
+// "Weekly on Wednesdays" for a series booking, else null.
+export function repeatLabel(b: Pick<AdminBooking, 'seriesFreq' | 'seriesStart'>): string | null {
+  return b.seriesFreq && b.seriesStart ? describeRule(chicagoDate(b.seriesStart), b.seriesFreq) : null;
 }
 
 // A fresh fragment per call (postgres.js composition).
@@ -48,9 +57,12 @@ function select() {
            b.decline_reason as "declineReason", b.request_key as "requestKey",
            b.calendar_unchecked as "calendarUnchecked", b.conflict, b.cancelled_by as "cancelledBy",
            b.admin_emailed_at as "adminEmailedAt", b.band_emailed_at as "bandEmailedAt",
-           b.created_at as "createdAt"
+           b.created_at as "createdAt",
+           b.series_id::int as "seriesId", s.freq as "seriesFreq",
+           (select min(f.starts_at) from rehearsal_bookings f where f.series_id = b.series_id) as "seriesStart"
     from rehearsal_bookings b
     join rehearsal_bands r on r.id = b.band_id
+    left join rehearsal_series s on s.id = b.series_id
   `;
 }
 
@@ -191,4 +203,30 @@ export async function bandTotals(bandId: number): Promise<BandTotals> {
     where band_id = ${bandId}
   `;
   return t;
+}
+
+// A series is confirmed once any of its sessions is, declined once none are
+// pending or confirmed. Called after approve/decline.
+export async function syncSeriesStatus(bookingIds: number[]): Promise<void> {
+  if (bookingIds.length === 0) return;
+  await sql`
+    update rehearsal_series s set
+      status = case
+        when exists (select 1 from rehearsal_bookings b where b.series_id = s.id and b.status = 'confirmed') then 'confirmed'
+        when exists (select 1 from rehearsal_bookings b where b.series_id = s.id and b.status = 'pending') then 'pending'
+        else 'declined'
+      end,
+      updated_at = now()
+    where s.id in (select series_id from rehearsal_bookings where id in ${sql(bookingIds)} and series_id is not null)
+  `;
+}
+
+// Admin edits one session's gear (a series' gear was copied onto each).
+export async function setBookingGear(id: number, gearNeeded: string[], gearNotes: string): Promise<boolean> {
+  const rows = await sql`
+    update rehearsal_bookings set gear_needed = ${gearNeeded}::text[], gear_notes = ${gearNotes}, updated_at = now()
+    where id = ${id}
+    returning id
+  `;
+  return rows.length > 0;
 }

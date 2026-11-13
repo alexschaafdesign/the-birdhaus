@@ -16,7 +16,7 @@ import {
 import { getRehearsalSettings } from './settings';
 import { bookingUrl } from './bands';
 import { clashesFor } from './availability-data';
-import { bookingsByIds, bookingsByRequest, markEmailed, type AdminBooking } from './decisions';
+import { bookingsByIds, bookingsByRequest, markEmailed, repeatLabel, type AdminBooking } from './decisions';
 import { linkSecret, signLink } from './signed-links.ts';
 import { venmoAmount, venmoMemo, venmoPayUrl } from './venmo.ts';
 import { buildIcs } from './ics-out.ts';
@@ -118,7 +118,8 @@ export async function sendRequestEmail(requestKey: string): Promise<boolean> {
   const calendarUnchecked = list.some((b) => b.calendarUnchecked) || !calendarChecked;
   const total = list.reduce((s, b) => s + b.priceCents, 0);
   const n = list.length;
-  const what = n === 1 ? sessionLabel(list[0].startsAt, list[0].endsAt) : `${n} blocks`;
+  const repeats = repeatLabel(list[0]);
+  const what = repeats ? `${repeats}, ${n} sessions` : n === 1 ? sessionLabel(list[0].startsAt, list[0].endsAt) : `${n} blocks`;
 
   const rows = list.map((b) => {
     const clash = reasons.get(b.id);
@@ -145,7 +146,11 @@ export async function sendRequestEmail(requestKey: string): Promise<boolean> {
     variant: 'admin',
     preheader: `${band.name} asked for ${what}.`,
     body:
-      emailP(`<strong>${esc(band.name)}</strong> asked for ${n === 1 ? 'a block' : `${n} blocks`}:`) +
+      emailP(
+        repeats
+          ? `<strong>${esc(band.name)}</strong> asked for a repeating booking — <strong>${esc(repeats)}</strong>, ${n} session${n === 1 ? '' : 's'}. Approve the series as a whole, or decline single dates:`
+          : `<strong>${esc(band.name)}</strong> asked for ${n === 1 ? 'a block' : `${n} blocks`}:`,
+      ) +
       emailP(rows.join('<br><br>')) +
       (calendarUnchecked
         ? emailP(
@@ -154,7 +159,7 @@ export async function sendRequestEmail(requestKey: string): Promise<boolean> {
         : '') +
       (list[0].note ? emailOverline('Their note') + paragraphs(list[0].note) : '') +
       emailDetails(details) +
-      emailButton(approveAll, n === 1 ? 'Approve' : `Approve all ${n}`) +
+      emailButton(approveAll, repeats ? `Approve the series (${n})` : n === 1 ? 'Approve' : `Approve all ${n}`) +
       emailP(emailLink(declineAll, n === 1 ? 'Decline' : `Decline all ${n}`)) +
       emailSmall(
         `Both links open a confirm page first and work for 7 days. Or use ${emailLink(`${SITE_URL}/admin/rehearsal/requests`, 'Requests in admin')}.`,
@@ -163,7 +168,9 @@ export async function sendRequestEmail(requestKey: string): Promise<boolean> {
 
   const text =
     [
-      `${band.name} asked for ${n === 1 ? 'a block' : `${n} blocks`}:`,
+      repeats
+        ? `${band.name} asked for a repeating booking — ${repeats}, ${n} sessions. Approve the series, or decline single dates:`
+        : `${band.name} asked for ${n === 1 ? 'a block' : `${n} blocks`}:`,
       '',
       ...list.map((b) => {
         const clash = reasons.get(b.id);

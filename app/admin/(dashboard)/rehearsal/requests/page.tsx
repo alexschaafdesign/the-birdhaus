@@ -5,6 +5,7 @@ import {
   isLivePending,
   outstandingBookings,
   pendingBookings,
+  repeatLabel,
   upcomingConfirmed,
   type AdminBooking,
 } from '@/lib/rehearsal/decisions';
@@ -52,6 +53,7 @@ export default async function RehearsalRequestsPage() {
     bandEmailed: Boolean(b.bandEmailedAt),
     expires: shortDay(b.expiresAt),
     requested: shortDay(b.createdAt),
+    repeat: repeatLabel(b),
   });
 
   return (
