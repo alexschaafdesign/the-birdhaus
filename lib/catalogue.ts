@@ -5,6 +5,12 @@
 // in the Fresh Cuts series carries an FC tag alongside its BH id, never merged:
 // "BH-260725 · FC 010". Song-a-day editions (SAD-###) are minted and owned by
 // Songhaus, not this site (spec Rev. C, amended 2026-10-11). SC-### is retired.
+//
+// RH-YYMMDD (sanctioned 2026-11-13): a rehearsal-space booking, by the Chicago
+// date it starts. Same suffix rule as BH: the second, third… booking on a date
+// is RH-YYMMDDb, RH-YYMMDDc (never "-2", which means a set number). Unlike BH,
+// RH ids are minted and stored by the database (rehearsal_bookings trigger,
+// migration 109) and never change. Also used as the Venmo memo prefix.
 
 import type { Show } from './shows';
 
