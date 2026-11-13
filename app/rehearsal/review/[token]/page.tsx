@@ -85,7 +85,7 @@ export default async function ReviewPage({ params }: { params: Promise<{ token: 
                     <span className="flex flex-wrap items-baseline gap-x-4">
                       <strong>{sessionLabel(b.startsAt, b.endsAt)}</strong>
                       <span className="text-text-meta">{b.catalogueId}</span>
-                      <span>{money(b.priceCents)}</span>
+                      {settings.paymentsEnabled && <span>{money(b.priceCents)}</span>}
                       <span
                         className={`text-data-overline-11 ml-auto font-bold tracking-[--spacing(0.625)] uppercase ${
                           status === 'confirmed' ? 'text-accent-red' : ''
@@ -101,6 +101,7 @@ export default async function ReviewPage({ params }: { params: Promise<{ token: 
                           {status === 'declined' && b.declineReason ? ` · “${b.declineReason}”` : ''}
                         </span>
                         {status === 'confirmed' &&
+                          settings.paymentsEnabled &&
                           (isAdmin ? (
                             <span className="ml-auto">
                               <PaymentButtons id={b.id} status={b.paymentStatus} method={b.paymentMethod} look="paper" />
@@ -136,8 +137,18 @@ export default async function ReviewPage({ params }: { params: Promise<{ token: 
                   <dd className="whitespace-pre-line">{band.note}</dd>
                 </>
               )}
-              <dt className="opacity-70">Pays by</dt>
-              <dd className="capitalize">{band.paymentMethod}</dd>
+              {band.rateNotes && (
+                <>
+                  <dt className="opacity-70">Rate notes</dt>
+                  <dd>{band.rateNotes}</dd>
+                </>
+              )}
+              {settings.paymentsEnabled && (
+                <>
+                  <dt className="opacity-70">Pays by</dt>
+                  <dd className="capitalize">{band.paymentMethod}</dd>
+                </>
+              )}
             </dl>
             {actionable.length > 0 && (!calendarChecked || list.some((b) => b.calendarUnchecked)) && (
               <p className="text-accent-red">Couldn&apos;t check your calendar for this request — check it before approving.</p>

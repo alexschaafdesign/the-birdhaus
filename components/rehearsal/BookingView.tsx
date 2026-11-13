@@ -52,6 +52,7 @@ export interface BookingViewProps {
   today: string; // Chicago date, for the calendar's today mark
   blocks: ViewBlock[];
   bookings: ViewBooking[];
+  paymentsEnabled: boolean; // off = no prices or payment choice anywhere on the page
   priceCents: number;
   repeatPriceCents: number; // per session in a repeating booking
   windowEnd: string; // ISO; repeats past it are skipped
@@ -244,6 +245,7 @@ function PickPanel({
   windowEnd,
   priceCents,
   repeatPriceCents,
+  paymentsEnabled,
   onSave,
   onRemove,
   onClose,
@@ -255,6 +257,7 @@ function PickPanel({
   windowEnd: Date;
   priceCents: number;
   repeatPriceCents: number;
+  paymentsEnabled: boolean;
   onSave: (item: Item) => void;
   onRemove: () => void;
   onClose: () => void;
@@ -416,9 +419,11 @@ function PickPanel({
 
         <p className="opacity-70">
           {choice === 'once'
-            ? money(priceCents)
+            ? paymentsEnabled
+              ? money(priceCents)
+              : 'Just this one.'
             : rule
-              ? `${open} session${open === 1 ? '' : 's'} now · ${money(open * repeatPriceCents)}${
+              ? `${open} session${open === 1 ? '' : 's'} now${paymentsEnabled ? ` · ${money(open * repeatPriceCents)}` : ''}${
                   open < preview.length ? ' — dates that aren’t open are skipped' : ''
                 }. ${
                   endBy === 'ongoing'
@@ -661,9 +666,12 @@ export default function BookingView(props: BookingViewProps) {
       <section aria-labelledby="hello" className="text-body-3 flex flex-col gap-3 leading-normal">
         <SectionHeader id="hello" label={`Rehearsal space · ${props.bandName}`} rule="m" />
         <p className="max-w-2xl">
-          Tap an open {hours} block to book it once or make it repeat, then send your request. Alex confirms by email with
-          the address and payment details. {money(props.priceCents)} per block
-          {props.repeatPriceCents !== props.priceCents ? `, ${money(props.repeatPriceCents)} per session when it repeats` : ''}.
+          Tap an open {hours} block to book it once or make it repeat, then send your request. I&apos;ll confirm by email
+          with the address.
+          {props.paymentsEnabled &&
+            ` ${money(props.priceCents)} per block${
+              props.repeatPriceCents !== props.priceCents ? `, ${money(props.repeatPriceCents)} per session when it repeats` : ''
+            }.`}
         </p>
       </section>
 
@@ -860,6 +868,7 @@ export default function BookingView(props: BookingViewProps) {
                   openSet={openSet}
                   windowEnd={windowEnd}
                   priceCents={props.priceCents}
+                  paymentsEnabled={props.paymentsEnabled}
                   repeatPriceCents={props.repeatPriceCents}
                   onSave={savePanel}
                   onRemove={() => removeItem(panel.block.start)}
@@ -918,7 +927,8 @@ export default function BookingView(props: BookingViewProps) {
                 {items.map((i, n) => itemSummary(i, n)).join(' · ')}
                 {' · '}
                 <span className="font-bold">
-                  {plan.sessions.length} session{plan.sessions.length === 1 ? '' : 's'} · {money(total)}
+                  {plan.sessions.length} session{plan.sessions.length === 1 ? '' : 's'}
+                  {props.paymentsEnabled && ` · ${money(total)}`}
                 </span>
               </p>
               <button type="button" onClick={() => setReviewing(true)} className={`${FORM.primary} w-auto`}>
@@ -943,7 +953,8 @@ export default function BookingView(props: BookingViewProps) {
           >
             <div className="flex items-baseline justify-between gap-4">
               <p className={FORM.label}>
-                Your request · {plan.sessions.length} session{plan.sessions.length === 1 ? '' : 's'} · {money(total)}
+                Your request · {plan.sessions.length} session{plan.sessions.length === 1 ? '' : 's'}
+                {props.paymentsEnabled && ` · ${money(total)}`}
               </p>
               <button type="button" onClick={() => setReviewing(false)} className={`${FORM.link} text-data-caption-13`}>
                 Back
@@ -1023,7 +1034,7 @@ export default function BookingView(props: BookingViewProps) {
               </label>
               <textarea id="note" value={note} onChange={(e) => setNote(e.target.value)} maxLength={2000} rows={3} className={FORM.field} />
             </div>
-            {props.paymentMethods.length > 1 ? (
+            {!props.paymentsEnabled ? null : props.paymentMethods.length > 1 ? (
               <fieldset>
                 <legend className={FORM.label}>How you&apos;ll pay</legend>
                 <div className="flex flex-wrap gap-x-6 gap-y-2">

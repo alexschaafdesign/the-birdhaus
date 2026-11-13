@@ -85,6 +85,7 @@ export default async function RehearsalBookingPage({ params }: { params: Promise
       expiresAt: b.expiresAt.toISOString(),
       canCancel: canBandCancel(b, now, settings.cancelCutoffHours),
     })),
+    paymentsEnabled: settings.paymentsEnabled,
     priceCents: settings.priceCents,
     repeatPriceCents: settings.repeatPriceCents ?? settings.priceCents,
     windowEnd: view.windowEnd.toISOString(),

@@ -40,12 +40,16 @@ export default async function RehearsalBandPage({ params }: { params: Promise<{ 
         </Link>
       </p>
 
-      <section className="grid gap-4 sm:grid-cols-4">
+      <section className={`grid gap-4 ${settings.paymentsEnabled ? 'sm:grid-cols-4' : 'sm:grid-cols-2'}`}>
         {[
           ['Sessions played', String(totals.sessions)],
           ['Coming up', String(totals.upcoming)],
-          ['Paid', money(totals.paidCents)],
-          ['Outstanding', money(totals.outstandingCents)],
+          ...(settings.paymentsEnabled
+            ? [
+                ['Paid', money(totals.paidCents)],
+                ['Outstanding', money(totals.outstandingCents)],
+              ]
+            : []),
         ].map(([label, value]) => (
           <div key={label} className="rounded-lg border border-[#E8E0D0]/15 px-4 py-3">
             <p className="text-xs uppercase tracking-wide text-[#E8E0D0]/50">{label}</p>
@@ -62,6 +66,7 @@ export default async function RehearsalBandPage({ params }: { params: Promise<{ 
           email: band.email,
           phone: band.phone,
           notes: band.notes,
+          rateNotes: band.rateNotes,
           archived: band.archived,
           url: band.token ? bookingUrl(band.token) : null,
           gear: [band.defaultGearNeeded.join(', '), band.defaultGearNotes].filter(Boolean).join(' — '),
@@ -101,8 +106,8 @@ export default async function RehearsalBandPage({ params }: { params: Promise<{ 
                   <span className="w-24 text-[#E8E0D0]/50">{b.catalogueId}</span>
                   <span className="min-w-56 font-medium">{sessionLabel(b.startsAt, b.endsAt)}</span>
                   <span className={`w-20 uppercase text-xs tracking-wide ${STATUS_STYLE[status] ?? 'text-[#E8E0D0]/50'}`}>{status}</span>
-                  <span>{money(b.priceCents)}</span>
-                  {status === 'confirmed' && b.paymentProvider && b.paymentStatus === 'paid' && (
+                  {settings.paymentsEnabled && <span>{money(b.priceCents)}</span>}
+                  {settings.paymentsEnabled && status === 'confirmed' && b.paymentProvider && b.paymentStatus === 'paid' && (
                     <span className="text-[#E8E0D0]/60">via {b.paymentProvider}</span>
                   )}
                   {repeatLabel(b) && <span className="text-xs text-sky-200/80">↻ {repeatLabel(b)}</span>}
@@ -110,7 +115,7 @@ export default async function RehearsalBandPage({ params }: { params: Promise<{ 
                   {(status === 'confirmed' || status === 'pending') && (
                     <GearEdit id={b.id} options={settings.gearOptions} gearNeeded={b.gearNeeded} gearNotes={b.gearNotes} />
                   )}
-                  {status === 'confirmed' && (
+                  {settings.paymentsEnabled && status === 'confirmed' && (
                     <span className="ml-auto">
                       <PaymentButtons id={b.id} status={b.paymentStatus} method={b.paymentMethod} />
                     </span>
