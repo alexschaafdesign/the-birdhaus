@@ -326,11 +326,15 @@ export default function BookingView(props: BookingViewProps) {
       const skipped: Array<{ start: string; why: string }> = data.skipped ?? [];
       setSent(
         `Request sent for ${n} session${n === 1 ? '' : 's'} (${data.catalogueIds.join(', ')}). ` +
-          (skipped.length
-            ? `Skipped ${skipped.length} date${skipped.length === 1 ? '' : 's'} that ${skipped.length === 1 ? "isn't" : "aren't"} open: ${skipped
-                .map((x) => dayLabel(x.start))
-                .join(', ')}. `
-            : '') +
+          (() => {
+            const list = (why: string) => skipped.filter((x) => x.why === why).map((x) => dayLabel(x.start));
+            const taken = list('unavailable');
+            const far = list('too_far');
+            return (
+              (taken.length ? `Skipped (not available): ${taken.join(', ')}. ` : '') +
+              (far.length ? `Not requested yet, too far ahead: ${far.join(', ')} — ask again nearer the time. ` : '')
+            );
+          })() +
           `Alex will confirm by email; if there's no answer in ${props.pendingExpiryDays} days the request lapses and the time frees up.`,
       );
       setMode('once');
@@ -646,7 +650,7 @@ export default function BookingView(props: BookingViewProps) {
                           setCount(Math.max(2, Math.min(52, Number(e.target.value) || 2)));
                         }}
                         aria-label="Number of sessions"
-                        className={`${FORM.field} w-20`}
+                        className={`${FORM.field.replace('w-full', '')} w-20`}
                       />
                       sessions
                     </label>
@@ -668,7 +672,7 @@ export default function BookingView(props: BookingViewProps) {
                           setUntil(e.target.value);
                         }}
                         aria-label="Last date"
-                        className={`${FORM.field} w-auto`}
+                        className={`${FORM.field.replace('w-full', '')} w-auto`}
                       />
                     </label>
                   </div>
