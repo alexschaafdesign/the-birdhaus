@@ -119,6 +119,7 @@ export default async function ReviewPage({ params }: { params: Promise<{ token: 
                           ))}
                       </span>
                     )}
+                    {repeatLabel(b) && <span className="opacity-70">↻ {repeatLabel(b)}</span>}
                     {clash && (
                       <span className="text-accent-red">Heads up: {clash.map((r) => REASON[r] ?? r).join('; ')}.</span>
                     )}
@@ -127,12 +128,6 @@ export default async function ReviewPage({ params }: { params: Promise<{ token: 
               })}
             </ul>
             <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-1">
-              {repeatLabel(band) && (
-                <>
-                  <dt className="opacity-70">Repeats</dt>
-                  <dd>{repeatLabel(band)}</dd>
-                </>
-              )}
               <dt className="opacity-70">Gear</dt>
               <dd>{gear || 'nothing from the house'}</dd>
               {band.note && (

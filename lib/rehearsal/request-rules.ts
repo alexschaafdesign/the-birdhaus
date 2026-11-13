@@ -2,11 +2,13 @@
 // they run under `npm test`; lib/rehearsal/requests.ts does the writes.
 
 import type { SeriesRule } from './series.ts';
-import { MAX_OCCURRENCES } from './series.ts';
+import { MAX_OCCURRENCES, occurrenceStarts } from './series.ts';
 
 export type PaymentMethod = 'venmo' | 'square' | 'cash';
 
-export const MAX_BLOCKS_PER_REQUEST = 12;
+// A request is a list of items: a single block, or a block that repeats.
+export const MAX_ITEMS_PER_REQUEST = 12;
+export const MAX_SESSIONS_PER_REQUEST = 60;
 const MAX_NOTE = 2000;
 const MAX_GEAR_NOTES = 500;
 
@@ -16,14 +18,17 @@ export interface RequestRulesSettings {
   cashEnabled: boolean;
 }
 
+export interface RequestItem {
+  start: Date; // the block picked; a repeat's first session
+  repeat: SeriesRule | null;
+}
+
 export interface ParsedRequest {
-  starts: Date[];
+  items: RequestItem[];
   note: string;
   gearNeeded: string[];
   gearNotes: string;
   paymentMethod: PaymentMethod;
-  // A repeating request: starts holds exactly one block, the anchor.
-  repeat: SeriesRule | null;
 }
 
 type Result<T> = { ok: true; value: T } | { ok: false; error: string };
@@ -34,26 +39,56 @@ export function paymentMethodsOffered(s: Pick<RequestRulesSettings, 'squareEnabl
   return ['venmo', ...(s.squareEnabled ? (['square'] as const) : []), ...(s.cashEnabled ? (['cash'] as const) : [])];
 }
 
-// Shape-checks a request body. Whether each block is actually open is a
-// separate check against a fresh availability computation.
+function parseRepeat(raw: unknown, start: Date): Result<SeriesRule | null> {
+  if (raw === undefined || raw === null) return { ok: true, value: null };
+  const r = raw as Record<string, unknown>;
+  if (r.freq !== 'weekly' && r.freq !== 'biweekly' && r.freq !== 'monthly_nth') {
+    return { ok: false, error: 'Pick how often to repeat.' };
+  }
+  const hasUntil = typeof r.until === 'string' && r.until !== '';
+  const hasCount = r.count !== undefined && r.count !== null && r.count !== '';
+  if (hasUntil === hasCount) return { ok: false, error: 'Say when the repeat ends: a date or a number of sessions.' };
+  if (hasUntil) {
+    const until = r.until as string;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(until) || Number.isNaN(Date.parse(until))) {
+      return { ok: false, error: 'That end date isn’t valid.' };
+    }
+    if (new Date(`${until}T23:59:59Z`).getTime() < start.getTime()) {
+      return { ok: false, error: 'The end date is before the first session.' };
+    }
+    return { ok: true, value: { freq: r.freq, until } };
+  }
+  const count = Number(r.count);
+  if (!Number.isInteger(count) || count < 2 || count > MAX_OCCURRENCES) {
+    return { ok: false, error: `Repeat between 2 and ${MAX_OCCURRENCES} sessions.` };
+  }
+  return { ok: true, value: { freq: r.freq, count } };
+}
+
+// Shape-checks a request body: { items: [{ start, repeat? }], note, gearNeeded,
+// gearNotes, paymentMethod }. Whether blocks are open is checked separately
+// (planRequest against a fresh availability computation).
 export function parseRequestBody(body: unknown, s: RequestRulesSettings): Result<ParsedRequest> {
   if (!body || typeof body !== 'object') return { ok: false, error: 'Something went wrong — reload and try again.' };
   const b = body as Record<string, unknown>;
 
-  if (!Array.isArray(b.starts) || b.starts.length === 0) return { ok: false, error: 'Pick at least one open block.' };
-  if (b.starts.length > MAX_BLOCKS_PER_REQUEST) {
-    return { ok: false, error: `That's a lot of blocks — send at most ${MAX_BLOCKS_PER_REQUEST} at a time.` };
+  if (!Array.isArray(b.items) || b.items.length === 0) return { ok: false, error: 'Pick at least one open block.' };
+  if (b.items.length > MAX_ITEMS_PER_REQUEST) {
+    return { ok: false, error: `That's a lot — send at most ${MAX_ITEMS_PER_REQUEST} picks at a time.` };
   }
+  const items: RequestItem[] = [];
   const seen = new Set<number>();
-  const starts: Date[] = [];
-  for (const raw of b.starts) {
-    const d = typeof raw === 'string' ? new Date(raw) : null;
+  for (const raw of b.items as unknown[]) {
+    const it = (raw ?? {}) as Record<string, unknown>;
+    const d = typeof it.start === 'string' ? new Date(it.start) : null;
     if (!d || Number.isNaN(d.getTime())) return { ok: false, error: 'One of those blocks isn’t valid — reload and try again.' };
     if (seen.has(d.getTime())) continue;
     seen.add(d.getTime());
-    starts.push(d);
+    const repeat = parseRepeat(it.repeat, d);
+    if (!repeat.ok) return repeat;
+    items.push({ start: d, repeat: repeat.value });
   }
-  starts.sort((x, y) => x.getTime() - y.getTime());
+  items.sort((x, y) => x.start.getTime() - y.start.getTime());
 
   const note = typeof b.note === 'string' ? b.note.trim() : '';
   if (note.length > MAX_NOTE) return { ok: false, error: `Your note is too long (max ${MAX_NOTE} characters).` };
@@ -77,35 +112,49 @@ export function parseRequestBody(body: unknown, s: RequestRulesSettings): Result
     return { ok: false, error: 'Pick a payment method.' };
   }
 
-  let repeat: SeriesRule | null = null;
-  if (b.repeat !== undefined && b.repeat !== null) {
-    const r = b.repeat as Record<string, unknown>;
-    if (starts.length !== 1) return { ok: false, error: 'To repeat, pick just one block — the first session.' };
-    if (r.freq !== 'weekly' && r.freq !== 'biweekly' && r.freq !== 'monthly_nth') {
-      return { ok: false, error: 'Pick how often to repeat.' };
-    }
-    const hasUntil = typeof r.until === 'string' && r.until !== '';
-    const hasCount = r.count !== undefined && r.count !== null && r.count !== '';
-    if (hasUntil === hasCount) return { ok: false, error: 'Say when the repeat ends: a date or a number of sessions.' };
-    if (hasUntil) {
-      const until = r.until as string;
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(until) || Number.isNaN(Date.parse(until))) {
-        return { ok: false, error: 'That end date isn’t valid.' };
-      }
-      if (new Date(`${until}T23:59:59Z`).getTime() < starts[0].getTime()) {
-        return { ok: false, error: 'The end date is before the first session.' };
-      }
-      repeat = { freq: r.freq, until };
-    } else {
-      const count = Number(r.count);
-      if (!Number.isInteger(count) || count < 2 || count > MAX_OCCURRENCES) {
-        return { ok: false, error: `Repeat between 2 and ${MAX_OCCURRENCES} sessions.` };
-      }
-      repeat = { freq: r.freq, count };
-    }
-  }
+  return { ok: true, value: { items, note, gearNeeded, gearNotes, paymentMethod: method as PaymentMethod } };
+}
 
-  return { ok: true, value: { starts, note, gearNeeded, gearNotes, paymentMethod: method as PaymentMethod, repeat } };
+// --- planning: items -> sessions --------------------------------------------
+
+export interface PlannedSession {
+  start: Date;
+  item: number; // index into items
+  repeat: boolean;
+}
+
+export interface Plan {
+  sessions: PlannedSession[];
+  skipped: Array<{ start: Date; item: number; why: 'unavailable' | 'too_far' }>;
+  closed: number[]; // items whose own block isn't open (refused)
+}
+
+// Expands items into the sessions to book. A single block, or a repeat's first
+// session, must be open; a repeat's later dates are booked when open and
+// otherwise skipped (unavailable, or past the booking window). A date two items
+// share is booked once. PURE: the booking page previews with it, the server
+// books with it, so the band's total matches.
+export function planRequest(items: RequestItem[], isOpen: (start: Date) => boolean, windowEnd: Date): Plan {
+  const plan: Plan = { sessions: [], skipped: [], closed: [] };
+  const claimed = new Set<number>();
+  items.forEach((it, i) => {
+    if (!isOpen(it.start)) {
+      plan.closed.push(i);
+      return;
+    }
+    const starts = it.repeat ? occurrenceStarts(it.start, it.repeat) : [it.start];
+    for (const s of starts) {
+      if (claimed.has(s.getTime())) continue;
+      if (isOpen(s)) {
+        claimed.add(s.getTime());
+        plan.sessions.push({ start: s, item: i, repeat: Boolean(it.repeat) });
+      } else {
+        plan.skipped.push({ start: s, item: i, why: s.getTime() >= windowEnd.getTime() ? 'too_far' : 'unavailable' });
+      }
+    }
+  });
+  plan.sessions.sort((a, b) => a.start.getTime() - b.start.getTime());
+  return plan;
 }
 
 // A band can cancel its own pending or confirmed booking until
