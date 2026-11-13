@@ -38,6 +38,23 @@ function blockLabel(start: string, blockMinutes: number) {
 
 const key = (h: StandingHour) => `${h.weekday} ${h.startTime}`;
 
+// Start times offered, every 30 minutes: daytime and evening first, then the
+// small hours (a late block) at the end.
+const pad = (n: number) => String(n).padStart(2, '0');
+const HALF_HOURS = Array.from({ length: 48 }, (_, i) => `${pad(Math.floor(i / 2))}:${i % 2 ? '30' : '00'}`);
+const START_GROUPS: Array<{ label: string; times: string[] }> = [
+  { label: 'Morning', times: HALF_HOURS.slice(12, 24) }, // 6:00–11:30
+  { label: 'Afternoon', times: HALF_HOURS.slice(24, 34) }, // 12:00–4:30
+  { label: 'Evening', times: HALF_HOURS.slice(34, 48) }, // 5:00–11:30
+  { label: 'Late night', times: HALF_HOURS.slice(0, 12) }, // 12:00–5:30am
+];
+
+// Would a block starting at `start` overlap one already on this day?
+function clashes(start: string, existing: string[], blockMinutes: number) {
+  const s = toMinutes(start);
+  return existing.some((e) => Math.abs(toMinutes(e) - s) < blockMinutes);
+}
+
 export default function StandingHoursEditor({
   initial,
   blockMinutes,
@@ -47,20 +64,17 @@ export default function StandingHoursEditor({
 }) {
   const [saved, setSaved] = useState(initial);
   const [hours, setHours] = useState(initial);
-  const [drafts, setDrafts] = useState<Record<number, string>>({});
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [savedAt, setSavedAt] = useState<string | null>(null);
 
   const dirty = hours.map(key).sort().join('|') !== saved.map(key).sort().join('|');
 
-  function add(weekday: number) {
-    const startTime = drafts[weekday];
+  function add(weekday: number, startTime: string) {
     if (!startTime) return;
     if (!hours.some((h) => h.weekday === weekday && h.startTime === startTime)) {
       setHours([...hours, { weekday, startTime }]);
     }
-    setDrafts({ ...drafts, [weekday]: '' });
   }
 
   function remove(target: StandingHour) {
@@ -122,28 +136,26 @@ export default function StandingHoursEditor({
                 </span>
               ))}
               <span className="ml-auto flex items-center gap-2">
-                <input
-                  type="time"
-                  step={900}
-                  value={drafts[weekday] ?? ''}
-                  onChange={(e) => setDrafts({ ...drafts, [weekday]: e.target.value })}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      add(weekday);
-                    }
-                  }}
-                  aria-label={`New ${label} start time`}
+                <select
+                  value=""
+                  onChange={(e) => add(weekday, e.target.value)}
+                  aria-label={`Add a ${label} block`}
                   className="rounded border border-[#E8E0D0]/30 bg-[#171412] px-2 py-1 text-sm [color-scheme:dark]"
-                />
-                <button
-                  type="button"
-                  onClick={() => add(weekday)}
-                  disabled={!drafts[weekday]}
-                  className="rounded border border-[#E8E0D0]/30 px-3 py-1 text-sm hover:border-[#E8E0D0]/60 disabled:opacity-40"
                 >
-                  Add
-                </button>
+                  <option value="">+ Add a block…</option>
+                  {START_GROUPS.map((g) => (
+                    <optgroup key={g.label} label={g.label}>
+                      {g.times.map((t) => {
+                        const taken = clashes(t, starts.map((h) => h.startTime), blockMinutes);
+                        return (
+                          <option key={t} value={t} disabled={taken}>
+                            {blockLabel(t, blockMinutes)}
+                          </option>
+                        );
+                      })}
+                    </optgroup>
+                  ))}
+                </select>
                 {starts.length > 0 && (
                   <button
                     type="button"
