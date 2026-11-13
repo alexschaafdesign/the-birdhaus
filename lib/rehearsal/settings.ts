@@ -34,6 +34,10 @@ export interface RehearsalSettings {
   publicIntro: string;
   houseRules: string;
   photoUrls: string[];
+  paymentsEnabled: boolean; // off = no prices, totals, Venmo or paid/outstanding anywhere
+  publicFactsLine: string;
+  reminderEmailsEnabled: boolean;
+  lapsedEmailsEnabled: boolean;
   updatedAt: string;
 }
 
@@ -85,6 +89,10 @@ export async function getRehearsalSettings(): Promise<RehearsalSettings> {
       public_intro as "publicIntro",
       house_rules as "houseRules",
       photo_urls as "photoUrls",
+      payments_enabled as "paymentsEnabled",
+      public_facts_line as "publicFactsLine",
+      reminder_emails_enabled as "reminderEmailsEnabled",
+      lapsed_emails_enabled as "lapsedEmailsEnabled",
       updated_at::text as "updatedAt"
     from rehearsal_settings
     where id
@@ -226,6 +234,11 @@ export function validateSettingsInput(
   if (typeof intro !== 'string') return { ok: false, error: intro.error };
   const rules = text(b.houseRules, 'House rules', 5000);
   if (typeof rules !== 'string') return { ok: false, error: rules.error };
+  for (const k of ['paymentsEnabled', 'reminderEmailsEnabled', 'lapsedEmailsEnabled'] as const) {
+    if (typeof b[k] !== 'boolean') return { ok: false, error: `${k} must be true or false.` };
+  }
+  const facts = text(b.publicFactsLine, 'Facts line', 300);
+  if (typeof facts !== 'string') return { ok: false, error: facts.error };
   if (!Array.isArray(b.photoUrls) || b.photoUrls.length > 12) return { ok: false, error: 'Up to 12 photos.' };
   const photoUrls: string[] = [];
   for (const u of b.photoUrls as unknown[]) {
@@ -264,6 +277,10 @@ export function validateSettingsInput(
       publicIntro: intro,
       houseRules: rules,
       photoUrls,
+      paymentsEnabled: b.paymentsEnabled as boolean,
+      publicFactsLine: facts,
+      reminderEmailsEnabled: b.reminderEmailsEnabled as boolean,
+      lapsedEmailsEnabled: b.lapsedEmailsEnabled as boolean,
     },
   };
 }
@@ -352,6 +369,10 @@ export async function updateRehearsalSettings(v: Omit<RehearsalSettings, 'update
       public_intro = ${v.publicIntro},
       house_rules = ${v.houseRules},
       photo_urls = ${v.photoUrls}::text[],
+      payments_enabled = ${v.paymentsEnabled},
+      public_facts_line = ${v.publicFactsLine},
+      reminder_emails_enabled = ${v.reminderEmailsEnabled},
+      lapsed_emails_enabled = ${v.lapsedEmailsEnabled},
       updated_at = now()
     where id
   `;

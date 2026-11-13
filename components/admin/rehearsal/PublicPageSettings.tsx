@@ -13,6 +13,7 @@ const area =
 export interface PublicPageValue {
   publicPageEnabled: boolean;
   publicIntro: string;
+  publicFactsLine: string;
   houseRules: string;
   photoUrls: string[];
 }
@@ -74,6 +75,17 @@ export default function PublicPageSettings({
           Intro <span className={hint}>(the pitch at the top; blank lines make paragraphs)</span>
         </span>
         <textarea value={value.publicIntro} onChange={(e) => onChange({ publicIntro: e.target.value })} className={area} />
+      </label>
+      <label className="block space-y-1.5">
+        <span className={label}>
+          Facts line <span className={hint}>(the short red line under the intro)</span>
+        </span>
+        <input
+          value={value.publicFactsLine}
+          maxLength={300}
+          onChange={(e) => onChange({ publicFactsLine: e.target.value })}
+          className="w-full rounded border border-[#E8E0D0]/30 bg-[#171412] px-3 py-2 text-sm focus:outline-none focus:border-[#E8E0D0]/60"
+        />
       </label>
       <label className="block space-y-1.5">
         <span className={label}>
