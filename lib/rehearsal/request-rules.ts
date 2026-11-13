@@ -1,6 +1,9 @@
 // Request and cancellation rules for the band booking page. PURE (no DB) so
 // they run under `npm test`; lib/rehearsal/requests.ts does the writes.
 
+import type { SeriesRule } from './series.ts';
+import { MAX_OCCURRENCES } from './series.ts';
+
 export type PaymentMethod = 'venmo' | 'square' | 'cash';
 
 export const MAX_BLOCKS_PER_REQUEST = 12;
@@ -19,6 +22,8 @@ export interface ParsedRequest {
   gearNeeded: string[];
   gearNotes: string;
   paymentMethod: PaymentMethod;
+  // A repeating request: starts holds exactly one block, the anchor.
+  repeat: SeriesRule | null;
 }
 
 type Result<T> = { ok: true; value: T } | { ok: false; error: string };
@@ -72,7 +77,35 @@ export function parseRequestBody(body: unknown, s: RequestRulesSettings): Result
     return { ok: false, error: 'Pick a payment method.' };
   }
 
-  return { ok: true, value: { starts, note, gearNeeded, gearNotes, paymentMethod: method as PaymentMethod } };
+  let repeat: SeriesRule | null = null;
+  if (b.repeat !== undefined && b.repeat !== null) {
+    const r = b.repeat as Record<string, unknown>;
+    if (starts.length !== 1) return { ok: false, error: 'To repeat, pick just one block — the first session.' };
+    if (r.freq !== 'weekly' && r.freq !== 'biweekly' && r.freq !== 'monthly_nth') {
+      return { ok: false, error: 'Pick how often to repeat.' };
+    }
+    const hasUntil = typeof r.until === 'string' && r.until !== '';
+    const hasCount = r.count !== undefined && r.count !== null && r.count !== '';
+    if (hasUntil === hasCount) return { ok: false, error: 'Say when the repeat ends: a date or a number of sessions.' };
+    if (hasUntil) {
+      const until = r.until as string;
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(until) || Number.isNaN(Date.parse(until))) {
+        return { ok: false, error: 'That end date isn’t valid.' };
+      }
+      if (new Date(`${until}T23:59:59Z`).getTime() < starts[0].getTime()) {
+        return { ok: false, error: 'The end date is before the first session.' };
+      }
+      repeat = { freq: r.freq, until };
+    } else {
+      const count = Number(r.count);
+      if (!Number.isInteger(count) || count < 2 || count > MAX_OCCURRENCES) {
+        return { ok: false, error: `Repeat between 2 and ${MAX_OCCURRENCES} sessions.` };
+      }
+      repeat = { freq: r.freq, count };
+    }
+  }
+
+  return { ok: true, value: { starts, note, gearNeeded, gearNotes, paymentMethod: method as PaymentMethod, repeat } };
 }
 
 // A band can cancel its own pending or confirmed booking until

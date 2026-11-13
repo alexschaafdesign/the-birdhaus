@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { SectionHeader } from '@/components/ui/SectionHeader';
 import { FORM } from '@/components/night/form';
+import { describeRule, occurrenceStarts, type Freq, type SeriesRule } from '@/lib/rehearsal/series';
 
 // The band's private booking page: their bookings, then an 8-ish-week grid of
 // blocks (Open / Requested / Confirmed / Unavailable — never why), then the
@@ -34,6 +35,7 @@ export interface ViewBooking {
   declineReason: string;
   expiresAt: string;
   canCancel: boolean;
+  repeatLabel: string | null;
 }
 
 export interface BookingViewProps {
@@ -45,6 +47,8 @@ export interface BookingViewProps {
   blocks: ViewBlock[];
   bookings: ViewBooking[];
   priceCents: number;
+  repeatPriceCents: number; // per session in a repeating booking
+  windowEnd: string; // ISO; repeats past it are skipped
   blockMinutes: number;
   cancelCutoffHours: number;
   pendingExpiryDays: number;
@@ -226,6 +230,11 @@ export default function BookingView(props: BookingViewProps) {
   const [gearNotes, setGearNotes] = useState(props.defaultGearNotes);
   const [note, setNote] = useState('');
   const [method, setMethod] = useState<PaymentMethod>(props.paymentMethods[0] ?? 'venmo');
+  const [mode, setMode] = useState<'once' | 'repeat'>('once');
+  const [freq, setFreq] = useState<Freq>('weekly');
+  const [endBy, setEndBy] = useState<'count' | 'until'>('count');
+  const [count, setCount] = useState(4);
+  const [until, setUntil] = useState('');
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState<string | null>(null);
@@ -256,6 +265,30 @@ export default function BookingView(props: BookingViewProps) {
   // Only blocks still open count (a refresh may have taken one).
   const picked = props.blocks.filter((b) => b.state === 'open' && selected.includes(b.start));
 
+  // Repeat preview: every occurrence, and whether it's open right now. The
+  // server re-checks; anything not open is skipped, not requested.
+  const repeating = mode === 'repeat' && picked.length === 1;
+  const rule: SeriesRule | null = repeating
+    ? endBy === 'count'
+      ? { freq, count }
+      : until
+        ? { freq, until }
+        : null
+    : null;
+  const openStarts = useMemo(
+    () => new Set(props.blocks.filter((b) => b.state === 'open').map((b) => new Date(b.start).getTime())),
+    [props.blocks],
+  );
+  const preview =
+    repeating && rule
+      ? occurrenceStarts(new Date(picked[0].start), rule).map((d) => ({
+          start: d,
+          end: new Date(d.getTime() + props.blockMinutes * 60_000),
+          state: openStarts.has(d.getTime()) ? 'open' : d.getTime() >= new Date(props.windowEnd).getTime() ? 'too_far' : 'unavailable',
+        }))
+      : [];
+  const bookable = preview.filter((p) => p.state === 'open').length;
+
   function toggle(start: string) {
     setSent(null);
     setError(null);
@@ -273,6 +306,7 @@ export default function BookingView(props: BookingViewProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           starts: picked.map((b) => b.start),
+          repeat: repeating ? rule : null,
           note,
           gearNeeded: gear,
           gearNotes,
@@ -288,10 +322,18 @@ export default function BookingView(props: BookingViewProps) {
         }
         return;
       }
+      const n = data.catalogueIds.length;
+      const skipped: Array<{ start: string; why: string }> = data.skipped ?? [];
       setSent(
-        `Request sent for ${picked.length} block${picked.length === 1 ? '' : 's'} (${data.catalogueIds.join(', ')}). ` +
+        `Request sent for ${n} session${n === 1 ? '' : 's'} (${data.catalogueIds.join(', ')}). ` +
+          (skipped.length
+            ? `Skipped ${skipped.length} date${skipped.length === 1 ? '' : 's'} that ${skipped.length === 1 ? "isn't" : "aren't"} open: ${skipped
+                .map((x) => dayLabel(x.start))
+                .join(', ')}. `
+            : '') +
           `Alex will confirm by email; if there's no answer in ${props.pendingExpiryDays} days the request lapses and the time frees up.`,
       );
+      setMode('once');
       setSelected([]);
       setNote('');
       router.refresh();
@@ -358,6 +400,7 @@ export default function BookingView(props: BookingViewProps) {
                 >
                   {STATUS_TEXT[b.status]}
                 </span>
+                {b.repeatLabel && <span className="opacity-70">↻ {b.repeatLabel}</span>}
                 {b.gearNeeded.length > 0 || b.gearNotes ? (
                   <span className="opacity-70">Gear: {[b.gearNeeded.join(', '), b.gearNotes].filter(Boolean).join(' — ')}</span>
                 ) : null}
@@ -522,7 +565,9 @@ export default function BookingView(props: BookingViewProps) {
           <form onSubmit={send} className="flex flex-col gap-5">
             <div>
               <p className={FORM.label}>
-                {picked.length} block{picked.length === 1 ? '' : 's'} · {money(props.priceCents * picked.length)}
+                {repeating
+                  ? `${bookable} session${bookable === 1 ? '' : 's'} · ${money(props.repeatPriceCents * bookable)}`
+                  : `${picked.length} block${picked.length === 1 ? '' : 's'} · ${money(props.priceCents * picked.length)}`}
               </p>
               <ul className="text-body-3 flex flex-col gap-1">
                 {picked.map((b) => (
@@ -537,6 +582,118 @@ export default function BookingView(props: BookingViewProps) {
                 ))}
               </ul>
             </div>
+
+            <fieldset>
+              <legend className={FORM.label}>Once or repeating?</legend>
+              <div className="text-body-3 flex flex-wrap gap-x-6 gap-y-2">
+                <label className="flex cursor-pointer items-center gap-2">
+                  <input
+                    type="radio"
+                    name="mode"
+                    checked={mode === 'once'}
+                    onChange={() => setMode('once')}
+                    className="accent-accent-red size-4"
+                  />
+                  Just {picked.length === 1 ? 'this one' : 'these'}
+                </label>
+                <label className={`flex items-center gap-2 ${picked.length === 1 ? 'cursor-pointer' : 'opacity-40'}`}>
+                  <input
+                    type="radio"
+                    name="mode"
+                    checked={mode === 'repeat'}
+                    disabled={picked.length !== 1}
+                    onChange={() => setMode('repeat')}
+                    className="accent-accent-red size-4"
+                  />
+                  Repeat {picked.length !== 1 && <span className="opacity-70">(pick one block to repeat)</span>}
+                </label>
+              </div>
+            </fieldset>
+
+            {repeating && (
+              <div className="flex flex-col gap-4">
+                <div>
+                  <label htmlFor="freq" className={FORM.label}>
+                    How often
+                  </label>
+                  <select id="freq" value={freq} onChange={(e) => setFreq(e.target.value as Freq)} className={FORM.field}>
+                    {(['weekly', 'biweekly', 'monthly_nth'] as const).map((f) => (
+                      <option key={f} value={f}>
+                        {describeRule(picked[0].date, f)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <fieldset>
+                  <legend className={FORM.label}>Ends</legend>
+                  <div className="text-body-3 flex flex-col gap-2">
+                    <label className="flex cursor-pointer flex-wrap items-center gap-2">
+                      <input
+                        type="radio"
+                        name="endBy"
+                        checked={endBy === 'count'}
+                        onChange={() => setEndBy('count')}
+                        className="accent-accent-red size-4"
+                      />
+                      After
+                      <input
+                        type="number"
+                        min={2}
+                        max={52}
+                        value={count}
+                        onChange={(e) => {
+                          setEndBy('count');
+                          setCount(Math.max(2, Math.min(52, Number(e.target.value) || 2)));
+                        }}
+                        aria-label="Number of sessions"
+                        className={`${FORM.field} w-20`}
+                      />
+                      sessions
+                    </label>
+                    <label className="flex cursor-pointer flex-wrap items-center gap-2">
+                      <input
+                        type="radio"
+                        name="endBy"
+                        checked={endBy === 'until'}
+                        onChange={() => setEndBy('until')}
+                        className="accent-accent-red size-4"
+                      />
+                      On
+                      <input
+                        type="date"
+                        value={until}
+                        min={picked[0].date}
+                        onChange={(e) => {
+                          setEndBy('until');
+                          setUntil(e.target.value);
+                        }}
+                        aria-label="Last date"
+                        className={`${FORM.field} w-auto`}
+                      />
+                    </label>
+                  </div>
+                </fieldset>
+                {preview.length > 0 && (
+                  <ul className="text-body-3 flex flex-col gap-1" aria-label="Dates in this repeat">
+                    {preview.map((o) => (
+                      <li key={o.start.getTime()} className={`flex justify-between gap-4 ${o.state === 'open' ? '' : 'opacity-50'}`}>
+                        <span className={o.state === 'open' ? '' : 'line-through decoration-1'}>
+                          {dayLabel(o.start.toISOString())} · {timeRange(o.start.toISOString(), o.end.toISOString())}
+                        </span>
+                        <span className="text-data-label-10-small uppercase">
+                          {o.state === 'open' ? 'Open' : o.state === 'too_far' ? 'Too far ahead' : 'Unavailable'}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {preview.some((o) => o.state !== 'open') && (
+                  <p className="text-body-3 opacity-70">
+                    Dates that aren&apos;t open are skipped. Dates past the booking window can be requested later.
+                  </p>
+                )}
+              </div>
+            )}
 
             {props.gearOptions.length > 0 && (
               <fieldset>
@@ -612,8 +769,12 @@ export default function BookingView(props: BookingViewProps) {
                 {error}
               </p>
             )}
-            <button type="submit" disabled={sending} className={FORM.primary}>
-              {sending ? 'Sending…' : `Request ${picked.length} block${picked.length === 1 ? '' : 's'}`}
+            <button type="submit" disabled={sending || (repeating && (!rule || bookable === 0))} className={FORM.primary}>
+              {sending
+                ? 'Sending…'
+                : repeating
+                  ? `Request ${bookable} session${bookable === 1 ? '' : 's'}`
+                  : `Request ${picked.length} block${picked.length === 1 ? '' : 's'}`}
             </button>
           </form>
         )}
