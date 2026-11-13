@@ -230,3 +230,11 @@ export async function setBookingGear(id: number, gearNeeded: string[], gearNotes
   `;
   return rows.length > 0;
 }
+
+// Pending and confirmed bookings in a span (admin Calendar).
+export async function bookingsBetween(from: Date, to: Date): Promise<AdminBooking[]> {
+  return sql<AdminBooking[]>`
+    ${select()} where b.status in ('pending', 'confirmed') and b.ends_at > ${from} and b.starts_at < ${to}
+    order by b.starts_at
+  `;
+}
