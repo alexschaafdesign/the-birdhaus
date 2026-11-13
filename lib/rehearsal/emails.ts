@@ -19,6 +19,8 @@ import { clashesFor } from './availability-data';
 import { bookingsByIds, bookingsByRequest, markEmailed, repeatLabel, type AdminBooking } from './decisions';
 import { linkSecret, signLink } from './signed-links.ts';
 import { venmoAmount, venmoMemo, venmoPayUrl } from './venmo.ts';
+import { describeRule, type Freq } from './series.ts';
+import { chicagoDate } from './availability.ts';
 import { buildIcs } from './ics-out.ts';
 import { longDay, money, sessionLabel, shortDay, timeRange } from './format.ts';
 import type { Reason } from './availability.ts';
@@ -519,6 +521,9 @@ export interface MorningData {
   newConflicts: Array<{ booking: AdminBooking; reasons: Reason[] }>;
   expired: number;
   outstandingCents: number;
+  // Repeating bookings extended this morning.
+  seriesBooked: Array<{ bandName: string; start: Date; end: Date; catalogueId: string }>;
+  seriesSkipped: Array<{ bandName: string; start: Date; end: Date }>;
   calendarChecked: boolean;
 }
 
@@ -551,6 +556,14 @@ export async function sendMorningEmail(d: MorningData): Promise<boolean> {
       sec('Today', d.today.map(sessionLine)) +
       (d.today.length ? '' : emailP('No rehearsals today.')) +
       sec('Tomorrow', d.tomorrow.map(sessionLine)) +
+      sec(
+        'Added to repeating bookings',
+        d.seriesBooked.map((x) => `${sessionLabel(x.start, x.end)} · ${x.bandName} · ${x.catalogueId}`),
+      ) +
+      sec(
+        'Skipped in repeating bookings (band told)',
+        d.seriesSkipped.map((x) => `${sessionLabel(x.start, x.end)} · ${x.bandName}`),
+      ) +
       (d.expired ? emailP(`${d.expired} request${d.expired === 1 ? '' : 's'} lapsed; the bands were told.`) : '') +
       (d.outstandingCents ? emailP(`Outstanding: ${money(d.outstandingCents)}.`) : '') +
       (d.calendarChecked
@@ -565,6 +578,12 @@ export async function sendMorningEmail(d: MorningData): Promise<boolean> {
       ...(d.today.length ? d.today.map(sessionLine) : ['No rehearsals today.']),
       '',
       ...(d.tomorrow.length ? ['TOMORROW', ...d.tomorrow.map(sessionLine), ''] : []),
+      ...(d.seriesBooked.length
+        ? ['ADDED TO REPEATING BOOKINGS', ...d.seriesBooked.map((x) => `${sessionLabel(x.start, x.end)} · ${x.bandName} · ${x.catalogueId}`), '']
+        : []),
+      ...(d.seriesSkipped.length
+        ? ['SKIPPED IN REPEATING BOOKINGS (band told)', ...d.seriesSkipped.map((x) => `${sessionLabel(x.start, x.end)} · ${x.bandName}`), '']
+        : []),
       ...(d.expired ? [`${d.expired} request(s) lapsed; the bands were told.`] : []),
       ...(d.outstandingCents ? [`Outstanding: ${money(d.outstandingCents)}`] : []),
       ...(d.calendarChecked ? [] : ["Couldn't read your calendar this morning."]),
@@ -583,4 +602,78 @@ export async function sendMorningEmail(d: MorningData): Promise<boolean> {
     await sql`update rehearsal_bookings set conflict_notified_at = now() where id in ${sql(d.newConflicts.map((c) => c.booking.id))}`;
   }
   return ok;
+}
+
+// --- 8. Series dates skipped -> band (daily job) -------------------------------------
+
+export async function sendSeriesSkipEmail(bandId: number, sessions: Array<{ start: Date; end: Date }>): Promise<boolean> {
+  if (sessions.length === 0) return false;
+  const band = await bandContact(bandId);
+  const link = await liveLink(bandId);
+  const hello = band.contactName ? `Hi ${band.contactName.split(' ')[0]},` : 'Hi!';
+  const lines = sessions.map((x) => sessionLabel(x.start, x.end));
+  const intro = `Heads up — the rehearsal space isn't free for ${lines.length === 1 ? 'this date' : 'these dates'} in your repeating booking, so ${lines.length === 1 ? "it's" : "they're"} skipped:`;
+  const rest = 'The rest of your repeating booking is unchanged.';
+  const html = emailDocument({
+    preheader: 'A date in your repeating booking is skipped',
+    body:
+      emailP(esc(hello)) +
+      emailP(esc(intro)) +
+      emailP(lines.map((x) => `<strong>${esc(x)}</strong>`).join('<br>')) +
+      emailP(esc(rest)) +
+      (link ? emailP(`Want another time that week? ${emailLink(link, 'Pick one here')}.`) : '') +
+      emailP('alex / the BIRDHAUS'),
+  });
+  const text =
+    [hello, '', intro, ...lines.map((x) => `- ${x}`), '', rest, ...(link ? ['', `Pick another time: ${link}`] : []), '', 'alex / the BIRDHAUS'].join('\n') +
+    emailTextFooter();
+  return send({
+    template: 'rehearsal-series-skipped',
+    to: band.email,
+    subject: lines.length === 1 ? `Skipped: rehearsal ${lines[0]}` : `${lines.length} rehearsal dates skipped`,
+    html,
+    text,
+    replyTo: REPLY_TO,
+  });
+}
+
+// --- 9. Series ended -> the other side ---------------------------------------------------
+
+export async function sendSeriesEndedEmail(seriesId: number, by: 'band' | 'admin', cancelled: number): Promise<boolean> {
+  const [s] = await sql<{ bandId: number; freq: string; endsOn: string; anchor: Date | null }[]>`
+    select band_id::int as "bandId", freq, ends_on::text as "endsOn", anchor_starts_at as anchor
+    from rehearsal_series where id = ${seriesId}
+  `;
+  if (!s) return false;
+  const band = await bandContact(s.bandId);
+  const [ey, em, ed] = s.endsOn.split('-').map(Number);
+  const from = new Intl.DateTimeFormat('en-GB', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' }).format(
+    new Date(Date.UTC(ey, em - 1, ed, 12)),
+  );
+  const what = s.anchor ? describeRule(chicagoDate(s.anchor), s.freq as Freq) : 'repeating booking';
+  if (by === 'band') {
+    const body = `${band.name} ended their repeating booking (${what}) from ${from}: ${cancelled} session${cancelled === 1 ? '' : 's'} cancelled, the blocks are open again.`;
+    return send({
+      template: 'rehearsal-series-ended-by-band',
+      to: ADMIN_TO(),
+      subject: `Repeating booking ended: ${band.name}`,
+      html: emailDocument({ variant: 'admin', preheader: body, body: emailP(esc(body)) + emailP(emailLink(`${SITE_URL}/admin/rehearsal/bands/${s.bandId}`, 'Band page')) }),
+      text: `${body}\n\n${SITE_URL}/admin/rehearsal/bands/${s.bandId}` + emailTextFooter('admin'),
+      replyTo: band.email,
+    });
+  }
+  const hello = band.contactName ? `Hi ${band.contactName.split(' ')[0]},` : 'Hi!';
+  const body = `I've ended your repeating booking (${what}) from ${from}${cancelled ? ` — ${cancelled} session${cancelled === 1 ? '' : 's'} from then on ${cancelled === 1 ? 'is' : 'are'} cancelled` : ''}. Sessions before that stay as they are. Reply if anything's unclear.`;
+  const link = await liveLink(s.bandId);
+  return send({
+    template: 'rehearsal-series-ended-by-admin',
+    to: band.email,
+    subject: 'Your repeating rehearsal booking has ended',
+    html: emailDocument({
+      preheader: 'Your repeating booking has ended',
+      body: emailP(esc(hello)) + emailP(esc(body)) + (link ? emailP(emailLink(link, 'Your booking page')) : '') + emailP('alex / the BIRDHAUS'),
+    }),
+    text: [hello, '', body, ...(link ? ['', link] : []), '', 'alex / the BIRDHAUS'].join('\n') + emailTextFooter(),
+    replyTo: REPLY_TO,
+  });
 }

@@ -19,7 +19,8 @@ export default function RunDailyButton() {
       const d = await res.json().catch(() => null);
       if (!res.ok || !d) return setResult(`Failed (${res.status})`);
       setResult(
-        `Expired ${d.expired} (emails ${d.expiryEmails}) · reminders ${d.reminders} · new conflicts ${d.newConflicts}` +
+        `Expired ${d.expired} (emails ${d.expiryEmails}) · series dates added ${d.seriesBooked}, skipped ${d.seriesSkipped}` +
+          ` · reminders ${d.reminders} · new conflicts ${d.newConflicts}` +
           ` · cleared ${d.clearedConflicts} · morning email: ${d.morningEmail}` +
           (d.calendarChecked ? '' : ' · calendar NOT checked'),
       );
