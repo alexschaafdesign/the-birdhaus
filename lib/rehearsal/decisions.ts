@@ -1,0 +1,194 @@
+import { sql } from '../db';
+import type { BookingStatus } from './availability.ts';
+
+// Admin-side reads and writes on rehearsal bookings: approve, decline, payment
+// status, and the lists the Requests and Bands screens show. Emails are sent
+// by the callers (lib/rehearsal/emails.ts) after a write commits.
+
+export type PaymentStatus = 'unpaid' | 'paid' | 'comped' | 'refunded';
+export type PaymentMethod = 'venmo' | 'square' | 'cash';
+
+export interface AdminBooking {
+  id: number;
+  catalogueId: string;
+  bandId: number;
+  bandName: string;
+  bandEmail: string;
+  startsAt: Date;
+  endsAt: Date;
+  status: BookingStatus;
+  expiresAt: Date;
+  priceCents: number;
+  paymentMethod: PaymentMethod;
+  paymentStatus: PaymentStatus;
+  paymentProvider: PaymentMethod | null;
+  paidAt: Date | null;
+  note: string;
+  gearNeeded: string[];
+  gearNotes: string;
+  declineReason: string;
+  requestKey: string | null;
+  calendarUnchecked: boolean;
+  conflict: boolean;
+  cancelledBy: 'band' | 'admin' | null;
+  adminEmailedAt: Date | null;
+  bandEmailedAt: Date | null;
+  createdAt: Date;
+}
+
+// A fresh fragment per call (postgres.js composition).
+function select() {
+  return sql`
+    select b.id::int as id, b.catalogue_id as "catalogueId", b.band_id::int as "bandId",
+           r.name as "bandName", r.email as "bandEmail",
+           b.starts_at as "startsAt", b.ends_at as "endsAt", b.status, b.expires_at as "expiresAt",
+           b.price_cents as "priceCents", b.payment_method as "paymentMethod",
+           b.payment_status as "paymentStatus", b.payment_provider as "paymentProvider", b.paid_at as "paidAt",
+           b.note, b.gear_needed as "gearNeeded", b.gear_notes as "gearNotes",
+           b.decline_reason as "declineReason", b.request_key as "requestKey",
+           b.calendar_unchecked as "calendarUnchecked", b.conflict, b.cancelled_by as "cancelledBy",
+           b.admin_emailed_at as "adminEmailedAt", b.band_emailed_at as "bandEmailedAt",
+           b.created_at as "createdAt"
+    from rehearsal_bookings b
+    join rehearsal_bands r on r.id = b.band_id
+  `;
+}
+
+// Pending is only "live" until it expires or its session starts; after that
+// it's shown (and treated) as expired, whatever the stored status says.
+export function isLivePending(b: Pick<AdminBooking, 'status' | 'expiresAt' | 'startsAt'>, now = new Date()): boolean {
+  return b.status === 'pending' && b.expiresAt > now && b.startsAt > now;
+}
+
+export function displayStatus(b: Pick<AdminBooking, 'status' | 'expiresAt' | 'startsAt'>, now = new Date()): BookingStatus {
+  return b.status === 'pending' && !isLivePending(b, now) ? 'expired' : b.status;
+}
+
+export async function bookingsByRequest(requestKey: string): Promise<AdminBooking[]> {
+  return sql<AdminBooking[]>`${select()} where b.request_key = ${requestKey} order by b.starts_at`;
+}
+
+export async function bookingsByIds(ids: number[]): Promise<AdminBooking[]> {
+  if (ids.length === 0) return [];
+  return sql<AdminBooking[]>`${select()} where b.id in ${sql(ids)} order by b.starts_at`;
+}
+
+export async function pendingBookings(): Promise<AdminBooking[]> {
+  return sql<AdminBooking[]>`${select()} where b.status = 'pending' order by b.created_at, b.starts_at`;
+}
+
+export async function upcomingConfirmed(): Promise<AdminBooking[]> {
+  return sql<AdminBooking[]>`
+    ${select()} where b.status = 'confirmed' and b.ends_at > now() order by b.starts_at
+  `;
+}
+
+// Sessions that have started and aren't paid or comped.
+export async function outstandingBookings(): Promise<AdminBooking[]> {
+  return sql<AdminBooking[]>`
+    ${select()} where b.status = 'confirmed' and b.payment_status = 'unpaid' and b.starts_at <= now()
+    order by b.starts_at
+  `;
+}
+
+export async function bandHistory(bandId: number): Promise<AdminBooking[]> {
+  return sql<AdminBooking[]>`${select()} where b.band_id = ${bandId} order by b.starts_at desc`;
+}
+
+// Group a list into requests (blocks sent together), oldest request first.
+export function groupByRequest(list: AdminBooking[]): AdminBooking[][] {
+  const map = new Map<string, AdminBooking[]>();
+  for (const b of list) {
+    const k = b.requestKey ?? `booking-${b.id}`;
+    map.set(k, [...(map.get(k) ?? []), b]);
+  }
+  return [...map.values()];
+}
+
+// --- writes ------------------------------------------------------------------
+
+// Confirms live pending bookings. Returns what was approved; anything else
+// (already decided, expired, already started) is left alone.
+export async function approveBookings(ids: number[], now = new Date()): Promise<number[]> {
+  if (ids.length === 0) return [];
+  const rows = await sql<{ id: number }[]>`
+    update rehearsal_bookings
+    set status = 'confirmed', decided_at = ${now}, updated_at = now()
+    where id in ${sql(ids)} and status = 'pending' and expires_at > ${now} and starts_at > ${now}
+    returning id::int as id
+  `;
+  return rows.map((r) => r.id);
+}
+
+// Declines pending bookings (expired-but-unmarked ones too, so Alex can tidy).
+export async function declineBookings(ids: number[], reason: string, now = new Date()): Promise<number[]> {
+  if (ids.length === 0) return [];
+  const rows = await sql<{ id: number }[]>`
+    update rehearsal_bookings
+    set status = 'declined', decline_reason = ${reason.trim().slice(0, 2000)}, decided_at = ${now}, updated_at = now()
+    where id in ${sql(ids)} and status = 'pending'
+    returning id::int as id
+  `;
+  return rows.map((r) => r.id);
+}
+
+// One-click payment status. Paid records how (the method the band chose,
+// unless told otherwise) and when; unpaid/comped clear both.
+export async function setPaymentStatus(
+  id: number,
+  status: PaymentStatus,
+  provider?: PaymentMethod,
+  now = new Date(),
+): Promise<boolean> {
+  const rows =
+    status === 'paid'
+      ? await sql`
+          update rehearsal_bookings
+          set payment_status = 'paid', paid_at = ${now},
+              payment_provider = coalesce(${provider ?? null}, payment_method), updated_at = now()
+          where id = ${id} and status = 'confirmed'
+          returning id
+        `
+      : status === 'refunded'
+        ? await sql`
+            update rehearsal_bookings set payment_status = 'refunded', updated_at = now()
+            where id = ${id} and payment_status = 'paid'
+            returning id
+          `
+        : await sql`
+            update rehearsal_bookings
+            set payment_status = ${status}, paid_at = null, payment_provider = null, updated_at = now()
+            where id = ${id} and status = 'confirmed'
+            returning id
+          `;
+  return rows.length > 0;
+}
+
+export async function markEmailed(ids: number[], who: 'admin' | 'band', at = new Date()): Promise<void> {
+  if (ids.length === 0) return;
+  if (who === 'admin') await sql`update rehearsal_bookings set admin_emailed_at = ${at} where id in ${sql(ids)}`;
+  else await sql`update rehearsal_bookings set band_emailed_at = ${at} where id in ${sql(ids)}`;
+}
+
+// --- band totals -------------------------------------------------------------
+
+export interface BandTotals {
+  sessions: number; // confirmed sessions that have started
+  upcoming: number;
+  paidCents: number;
+  outstandingCents: number;
+}
+
+export async function bandTotals(bandId: number): Promise<BandTotals> {
+  const [t] = await sql<BandTotals[]>`
+    select
+      count(*) filter (where status = 'confirmed' and starts_at <= now())::int as sessions,
+      count(*) filter (where status = 'confirmed' and starts_at > now())::int as upcoming,
+      coalesce(sum(price_cents) filter (where payment_status = 'paid'), 0)::int as "paidCents",
+      coalesce(sum(price_cents) filter (where status = 'confirmed' and payment_status = 'unpaid' and starts_at <= now()), 0)::int
+        as "outstandingCents"
+    from rehearsal_bookings
+    where band_id = ${bandId}
+  `;
+  return t;
+}
