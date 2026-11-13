@@ -118,14 +118,22 @@ export async function sendRequestEmail(requestKey: string): Promise<boolean> {
   const calendarUnchecked = list.some((b) => b.calendarUnchecked) || !calendarChecked;
   const total = list.reduce((s, b) => s + b.priceCents, 0);
   const n = list.length;
-  const repeats = repeatLabel(list[0]);
-  const what = repeats ? `${repeats}, ${n} sessions` : n === 1 ? sessionLabel(list[0].startsAt, list[0].endsAt) : `${n} blocks`;
+  // A request can mix single blocks and repeats; each series is labelled.
+  const seriesLabels = [...new Set(list.map((b) => repeatLabel(b)).filter((x): x is string => Boolean(x)))];
+  const allOneSeries = seriesLabels.length === 1 && list.every((b) => b.seriesId && b.seriesId === list[0].seriesId);
+  const repeats = allOneSeries ? seriesLabels[0] : null;
+  const what = repeats
+    ? `${repeats}, ${n} sessions`
+    : n === 1
+      ? sessionLabel(list[0].startsAt, list[0].endsAt)
+      : `${n} sessions${seriesLabels.length ? ' (incl. repeats)' : ''}`;
 
   const rows = list.map((b) => {
     const clash = reasons.get(b.id);
     const decline =
       n > 1 ? ` · ${emailLink(reviewUrl(signLink({ a: 'decline', b: b.id }, secret)), 'decline just this one')}` : '';
-    return `<strong>${esc(sessionLabel(b.startsAt, b.endsAt))}</strong> · ${esc(b.catalogueId)} · ${money(b.priceCents)}${decline}${
+    const rep = !allOneSeries && repeatLabel(b) ? ` · ↻ ${esc(repeatLabel(b)!)}` : '';
+    return `<strong>${esc(sessionLabel(b.startsAt, b.endsAt))}</strong> · ${esc(b.catalogueId)} · ${money(b.priceCents)}${rep}${decline}${
       clash ? `<br><span style="color:${EMAIL_COLORS.red};">Heads up: ${esc(clash.map((r) => REASON_TEXT[r]).join('; '))}.</span>` : ''
     }`;
   });
@@ -149,7 +157,9 @@ export async function sendRequestEmail(requestKey: string): Promise<boolean> {
       emailP(
         repeats
           ? `<strong>${esc(band.name)}</strong> asked for a repeating booking — <strong>${esc(repeats)}</strong>, ${n} session${n === 1 ? '' : 's'}. Approve the series as a whole, or decline single dates:`
-          : `<strong>${esc(band.name)}</strong> asked for ${n === 1 ? 'a block' : `${n} blocks`}:`,
+          : `<strong>${esc(band.name)}</strong> asked for ${n === 1 ? 'a block' : `${n} sessions`}${
+              seriesLabels.length ? ` (${seriesLabels.map((l) => esc(l)).join('; ')} — approving approves each series as a whole)` : ''
+            }:`,
       ) +
       emailP(rows.join('<br><br>')) +
       (calendarUnchecked
@@ -170,7 +180,7 @@ export async function sendRequestEmail(requestKey: string): Promise<boolean> {
     [
       repeats
         ? `${band.name} asked for a repeating booking — ${repeats}, ${n} sessions. Approve the series, or decline single dates:`
-        : `${band.name} asked for ${n === 1 ? 'a block' : `${n} blocks`}:`,
+        : `${band.name} asked for ${n === 1 ? 'a block' : `${n} sessions`}${seriesLabels.length ? ` (${seriesLabels.join('; ')})` : ''}:`,
       '',
       ...list.map((b) => {
         const clash = reasons.get(b.id);

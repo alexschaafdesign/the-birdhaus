@@ -121,7 +121,11 @@ export default function RehearsalRequests({
                 <span className="text-sm text-[#E8E0D0]/50">
                   requested {first.requested} · expires {first.expires} · {sum(group)} · pays by {first.paymentMethod}
                 </span>
-                {first.repeat && <span className={`${tag} bg-sky-400/15 text-sky-200`}>↻ {first.repeat}</span>}
+                {[...new Set(group.map((r) => r.repeat).filter(Boolean))].map((label) => (
+                  <span key={label} className={`${tag} bg-sky-400/15 text-sky-200`}>
+                    ↻ {label}
+                  </span>
+                ))}
                 {first.calendarUnchecked && <span className={`${tag} bg-amber-400/15 text-amber-200`}>calendar not checked</span>}
                 {!first.adminEmailed && <span className={`${tag} bg-[#E8E0D0]/10 text-[#E8E0D0]/60`}>no email to you</span>}
               </header>
@@ -131,6 +135,9 @@ export default function RehearsalRequests({
                     <span className="w-24 text-[#E8E0D0]/50">{r.catalogueId}</span>
                     <span className="min-w-56 font-medium">{r.when}</span>
                     <span>{r.price}</span>
+                    {r.repeat && group.some((x) => x.repeat !== r.repeat) && (
+                      <span className="text-xs text-sky-200/80">↻ {r.repeat}</span>
+                    )}
                     {!r.live && <span className={`${tag} bg-[#E8E0D0]/10 text-[#E8E0D0]/60`}>expired</span>}
                     {r.clash.length > 0 && (
                       <span className={`${tag} bg-red-400/15 text-red-300`}>{r.clash.join(', ')}</span>
@@ -164,7 +171,7 @@ export default function RehearsalRequests({
                   >
                     {busy === key
                       ? 'Working…'
-                      : first.repeat
+                      : group.every((r) => r.repeat && r.repeat === first.repeat)
                         ? `Approve the series (${live.length})`
                         : live.length === 1
                           ? 'Approve'
