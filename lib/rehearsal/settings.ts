@@ -1,4 +1,5 @@
 import { sql } from '../db';
+import { R2_PUBLIC_BASE } from '../r2-public';
 
 // Rehearsal settings (one row, seeded by migration 109) and the standing-hours
 // template. Validation mirrors the table's check constraints so a bad value
@@ -29,6 +30,10 @@ export interface RehearsalSettings {
   emailReminderIntro: string;
   emailLeadAutoreply: string;
   gearOptions: string[]; // house gear list; the public page reads it too
+  publicPageEnabled: boolean; // /rehearsal is a 404 until on
+  publicIntro: string;
+  houseRules: string;
+  photoUrls: string[];
   updatedAt: string;
 }
 
@@ -76,6 +81,10 @@ export async function getRehearsalSettings(): Promise<RehearsalSettings> {
       email_reminder_intro as "emailReminderIntro",
       email_lead_autoreply as "emailLeadAutoreply",
       gear_options as "gearOptions",
+      public_page_enabled as "publicPageEnabled",
+      public_intro as "publicIntro",
+      house_rules as "houseRules",
+      photo_urls as "photoUrls",
       updated_at::text as "updatedAt"
     from rehearsal_settings
     where id
@@ -212,6 +221,20 @@ export function validateSettingsInput(
   const gear = validateGearOptions(b.gearOptions);
   if (!gear.ok) return gear;
 
+  if (typeof b.publicPageEnabled !== 'boolean') return { ok: false, error: 'publicPageEnabled must be true or false.' };
+  const intro = text(b.publicIntro, 'Public page intro', 5000);
+  if (typeof intro !== 'string') return { ok: false, error: intro.error };
+  const rules = text(b.houseRules, 'House rules', 5000);
+  if (typeof rules !== 'string') return { ok: false, error: rules.error };
+  if (!Array.isArray(b.photoUrls) || b.photoUrls.length > 12) return { ok: false, error: 'Up to 12 photos.' };
+  const photoUrls: string[] = [];
+  for (const u of b.photoUrls as unknown[]) {
+    if (typeof u !== 'string' || !u.startsWith(`${R2_PUBLIC_BASE}/`)) {
+      return { ok: false, error: 'Photos must be uploaded here.' };
+    }
+    if (!photoUrls.includes(u)) photoUrls.push(u);
+  }
+
   return {
     ok: true,
     value: {
@@ -237,6 +260,10 @@ export function validateSettingsInput(
       emailReminderIntro: strs.emailReminderIntro,
       emailLeadAutoreply: strs.emailLeadAutoreply,
       gearOptions: gear.value,
+      publicPageEnabled: b.publicPageEnabled,
+      publicIntro: intro,
+      houseRules: rules,
+      photoUrls,
     },
   };
 }
@@ -321,6 +348,10 @@ export async function updateRehearsalSettings(v: Omit<RehearsalSettings, 'update
       email_reminder_intro = ${v.emailReminderIntro},
       email_lead_autoreply = ${v.emailLeadAutoreply},
       gear_options = ${v.gearOptions}::text[],
+      public_page_enabled = ${v.publicPageEnabled},
+      public_intro = ${v.publicIntro},
+      house_rules = ${v.houseRules},
+      photo_urls = ${v.photoUrls}::text[],
       updated_at = now()
     where id
   `;

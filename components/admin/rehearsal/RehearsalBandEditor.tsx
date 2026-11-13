@@ -56,6 +56,18 @@ export default function RehearsalBandEditor({ band }: { band: Band }) {
             </a>
             <button
               type="button"
+              disabled={busy !== null}
+              onClick={() => {
+                if (confirm(`Email ${band.name} their booking link?`)) {
+                  call('invite', `/api/admin/rehearsal/bands/${band.id}/invite`, { method: 'POST' }, 'Booking link emailed.');
+                }
+              }}
+              className={small}
+            >
+              Email booking link
+            </button>
+            <button
+              type="button"
               onClick={async () => {
                 await navigator.clipboard.writeText(band.url!);
                 setCopied(true);

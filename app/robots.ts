@@ -12,7 +12,8 @@ export default function robots(): MetadataRoute.Robots {
     rules: {
       userAgent: '*',
       allow: '/',
-      disallow: ['/admin', '/api'],
+      // Private rehearsal links (also noindex on the pages themselves).
+      disallow: ['/admin', '/api', '/rehearsal/book/', '/rehearsal/review/'],
     },
     sitemap: `${SITE_URL}/sitemap.xml`,
   };

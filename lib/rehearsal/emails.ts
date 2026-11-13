@@ -20,6 +20,8 @@ import { bookingsByIds, bookingsByRequest, markEmailed, repeatLabel, type AdminB
 import { linkSecret, signLink } from './signed-links.ts';
 import { venmoAmount, venmoMemo, venmoPayUrl } from './venmo.ts';
 import { describeRule, type Freq } from './series.ts';
+import { getLead, leadSummary } from './leads';
+import { FREQUENCY_LABEL } from './lead-rules.ts';
 import { chicagoDate } from './availability.ts';
 import { buildIcs } from './ics-out.ts';
 import { longDay, money, sessionLabel, shortDay, timeRange } from './format.ts';
@@ -676,4 +678,94 @@ export async function sendSeriesEndedEmail(seriesId: number, by: 'band' | 'admin
     text: [hello, '', body, ...(link ? ['', link] : []), '', 'alex / the BIRDHAUS'].join('\n') + emailTextFooter(),
     replyTo: REPLY_TO,
   });
+}
+
+// --- 10. New lead -> Alex; auto-reply -> them --------------------------------------
+
+export async function sendLeadEmails(leadId: number): Promise<void> {
+  const l = await getLead(leadId);
+  if (!l) return;
+  const s = await getRehearsalSettings();
+  const who = l.project ? `${l.project} (${l.name})` : l.name;
+  const rows: Array<[string, string]> = [
+    ['Name', esc(l.name)],
+    ...(l.project ? [['Band', esc(l.project)] as [string, string]] : []),
+    ['Email', esc(l.email)],
+    ...(l.phone ? [['Phone', esc(l.phone)] as [string, string]] : []),
+    ...(l.people ? [['People', String(l.people)] as [string, string]] : []),
+    ['How often', esc(FREQUENCY_LABEL[l.frequency] ?? l.frequency)],
+    ...(l.preferredTimes ? [['Prefers', esc(l.preferredTimes)] as [string, string]] : []),
+    ...(l.genreLinks ? [['Genre / links', esc(l.genreLinks)] as [string, string]] : []),
+  ];
+  await send({
+    template: 'rehearsal-lead',
+    to: ADMIN_TO(),
+    subject: `Rehearsal interest: ${who}`,
+    html: emailDocument({
+      variant: 'admin',
+      preheader: `${who} wants to rehearse`,
+      body:
+        emailP(`<strong>${esc(who)}</strong> filled in the rehearsal interest form.`) +
+        emailDetails(rows) +
+        (l.notes ? emailOverline('Notes') + paragraphs(l.notes) : '') +
+        emailButton(`${SITE_URL}/admin/rehearsal/leads`, 'Invite or archive in Leads'),
+    }),
+    text:
+      [`${who} filled in the rehearsal interest form.`, '', `Email: ${l.email}`, leadSummary(l), '', `${SITE_URL}/admin/rehearsal/leads`].join('\n') +
+      emailTextFooter('admin'),
+    replyTo: l.email,
+  });
+
+  const hello = `Hi ${l.name.split(' ')[0]},`;
+  const body =
+    s.emailLeadAutoreply ||
+    "Thanks for your interest in the BIRDHAUS rehearsal space! I read every one of these myself. If it's a fit, I'll send you a private link where you can see open times and book. Usually within a few days.";
+  await send({
+    template: 'rehearsal-lead-autoreply',
+    to: l.email,
+    subject: 'Thanks — the BIRDHAUS rehearsal space',
+    html: emailDocument({
+      preheader: 'Got your note about the rehearsal space',
+      body: emailP(esc(hello)) + paragraphs(body) + emailP('alex / the BIRDHAUS'),
+    }),
+    text: [hello, '', body, '', 'alex / the BIRDHAUS'].join('\n') + emailTextFooter(),
+    replyTo: REPLY_TO,
+  });
+}
+
+// --- 11. Invite -> band: their private booking link ------------------------------------
+
+export async function sendInviteEmail(bandId: number): Promise<boolean> {
+  const band = await bandContact(bandId);
+  const link = await liveLink(bandId);
+  if (!band || !link) return false;
+  const s = await getRehearsalSettings();
+  const hello = band.contactName ? `Hi ${band.contactName.split(' ')[0]},` : 'Hi!';
+  const how = [
+    'Tap an open block to book it once, or make it repeat.',
+    'Send the request. I confirm by email with the address and how to pay.',
+    `Pay per session by Venmo (${money(s.priceCents)} a block${
+      s.repeatPriceCents !== null && s.repeatPriceCents !== s.priceCents ? `, ${money(s.repeatPriceCents)} when it repeats` : ''
+    }).`,
+  ];
+  const ok = await send({
+    template: 'rehearsal-invite',
+    to: band.email,
+    subject: 'Your link to book the BIRDHAUS rehearsal space',
+    html: emailDocument({
+      preheader: 'Your private booking link',
+      body:
+        emailP(esc(hello)) +
+        emailP(`Here's your private link for booking the BIRDHAUS rehearsal space${band.name ? ` as <strong>${esc(band.name)}</strong>` : ''}:`) +
+        emailButton(link, 'Book the rehearsal space') +
+        emailP(how.map((x, i) => `${i + 1}. ${esc(x)}`).join('<br>')) +
+        emailSmall('The link is just for you: please don’t share it. Lost it? Reply and I’ll send a new one.') +
+        emailP('alex / the BIRDHAUS'),
+    }),
+    text:
+      [hello, '', "Here's your private link for booking the BIRDHAUS rehearsal space:", link, '', ...how.map((x, i) => `${i + 1}. ${x}`), '', 'The link is just for you: please don’t share it.', '', 'alex / the BIRDHAUS'].join('\n') +
+      emailTextFooter(),
+    replyTo: REPLY_TO,
+  });
+  return ok;
 }

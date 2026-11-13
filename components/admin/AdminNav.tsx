@@ -28,12 +28,13 @@ const GROUPS: NavGroup[] = [
     links: [{ href: '/admin/bands', label: 'Bands' }],
   },
   {
-    // Leads and Money join as their phases land.
+    // Money joins with its phase.
     label: 'Rehearsal',
     links: [
       { href: '/admin/rehearsal/requests', label: 'Requests' },
       { href: '/admin/rehearsal/calendar', label: 'Calendar' },
       { href: '/admin/rehearsal/bands', label: 'Bands' },
+      { href: '/admin/rehearsal/leads', label: 'Leads' },
       { href: '/admin/rehearsal/settings', label: 'Settings' },
     ],
   },
