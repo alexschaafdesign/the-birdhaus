@@ -28,6 +28,7 @@ export interface RehearsalSettings {
   emailDeclinedIntro: string;
   emailReminderIntro: string;
   emailLeadAutoreply: string;
+  gearOptions: string[]; // house gear list; the public page reads it too
   updatedAt: string;
 }
 
@@ -74,6 +75,7 @@ export async function getRehearsalSettings(): Promise<RehearsalSettings> {
       email_declined_intro as "emailDeclinedIntro",
       email_reminder_intro as "emailReminderIntro",
       email_lead_autoreply as "emailLeadAutoreply",
+      gear_options as "gearOptions",
       updated_at::text as "updatedAt"
     from rehearsal_settings
     where id
@@ -207,6 +209,9 @@ export function validateSettingsInput(
   }
   if (feeds.length > MAX_FEEDS) return { ok: false, error: `At most ${MAX_FEEDS} calendar feeds.` };
 
+  const gear = validateGearOptions(b.gearOptions);
+  if (!gear.ok) return gear;
+
   return {
     ok: true,
     value: {
@@ -231,8 +236,64 @@ export function validateSettingsInput(
       emailDeclinedIntro: strs.emailDeclinedIntro,
       emailReminderIntro: strs.emailReminderIntro,
       emailLeadAutoreply: strs.emailLeadAutoreply,
+      gearOptions: gear.value,
     },
   };
+}
+
+// --- gear --------------------------------------------------------------------
+
+const MAX_GEAR = 30;
+const MAX_GEAR_LABEL = 60;
+const MAX_GEAR_NOTES = 500;
+
+// The house gear list: trimmed, non-empty, de-duplicated (case-insensitively,
+// first spelling wins), order kept.
+export function validateGearOptions(raw: unknown): Result<string[]> {
+  if (!Array.isArray(raw)) return { ok: false, error: 'Gear list must be a list.' };
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const item of raw) {
+    if (typeof item !== 'string') return { ok: false, error: 'Gear items must be text.' };
+    const label = item.trim().replace(/\s+/g, ' ');
+    if (!label) continue;
+    if (label.length > MAX_GEAR_LABEL) {
+      return { ok: false, error: `Gear item "${label.slice(0, 20)}…" is too long (max ${MAX_GEAR_LABEL}).` };
+    }
+    const k = label.toLowerCase();
+    if (seen.has(k)) continue;
+    seen.add(k);
+    out.push(label);
+  }
+  if (out.length > MAX_GEAR) return { ok: false, error: `At most ${MAX_GEAR} gear items.` };
+  return { ok: true, value: out };
+}
+
+// A gear pick on a request or an edit. Labels must be on the current house
+// list (stored in the list's spelling) or already on the booking being edited
+// (`existing`), so an option removed from settings survives on old bookings.
+export function validateGearNeeded(
+  raw: unknown,
+  notesRaw: unknown,
+  options: string[],
+  existing: string[] = [],
+): Result<{ gearNeeded: string[]; gearNotes: string }> {
+  const picked = raw === undefined || raw === null ? [] : raw;
+  if (!Array.isArray(picked)) return { ok: false, error: 'Gear needed must be a list.' };
+  const byKey = new Map([...existing, ...options].map((o) => [o.toLowerCase(), o]));
+  const gearNeeded: string[] = [];
+  for (const item of picked) {
+    const label = typeof item === 'string' ? byKey.get(item.trim().toLowerCase()) : undefined;
+    if (!label) return { ok: false, error: 'That gear option isn’t on the list any more — refresh and try again.' };
+    if (!gearNeeded.includes(label)) gearNeeded.push(label);
+  }
+  const notes = notesRaw === undefined || notesRaw === null ? '' : notesRaw;
+  if (typeof notes !== 'string') return { ok: false, error: 'Gear notes must be text.' };
+  const gearNotes = notes.trim();
+  if (gearNotes.length > MAX_GEAR_NOTES) {
+    return { ok: false, error: `Gear notes are too long (max ${MAX_GEAR_NOTES} characters).` };
+  }
+  return { ok: true, value: { gearNeeded, gearNotes } };
 }
 
 export async function updateRehearsalSettings(v: Omit<RehearsalSettings, 'updatedAt'>): Promise<RehearsalSettings> {
@@ -259,6 +320,7 @@ export async function updateRehearsalSettings(v: Omit<RehearsalSettings, 'update
       email_declined_intro = ${v.emailDeclinedIntro},
       email_reminder_intro = ${v.emailReminderIntro},
       email_lead_autoreply = ${v.emailLeadAutoreply},
+      gear_options = ${v.gearOptions}::text[],
       updated_at = now()
     where id
   `;

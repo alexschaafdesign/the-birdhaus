@@ -56,6 +56,7 @@ export default function RehearsalSettingsForm({ initial }: { initial: RehearsalS
     initial.icsFeeds.map((masked, index) => ({ kind: 'stored', index, masked })),
   );
   const [newFeed, setNewFeed] = useState('');
+  const [newGear, setNewGear] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [savedAt, setSavedAt] = useState<string | null>(null);
@@ -90,6 +91,15 @@ export default function RehearsalSettingsForm({ initial }: { initial: RehearsalS
     setSavedAt(null);
   }
 
+  function addGear() {
+    const label = newGear.trim().replace(/\s+/g, ' ');
+    if (!label) return;
+    if (!s.gearOptions.some((g) => g.toLowerCase() === label.toLowerCase())) {
+      set('gearOptions', [...s.gearOptions, label]);
+    }
+    setNewGear('');
+  }
+
   async function save() {
     setError(null);
     setSavedAt(null);
@@ -109,7 +119,14 @@ export default function RehearsalSettingsForm({ initial }: { initial: RehearsalS
       const res = await fetch('/api/admin/rehearsal/settings', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...rest, priceCents, repeatPriceCents, icsFeeds }),
+        body: JSON.stringify({
+          ...rest,
+          priceCents,
+          repeatPriceCents,
+          icsFeeds,
+          // A typed-but-not-added item still counts (the server de-duplicates).
+          gearOptions: newGear.trim() ? [...rest.gearOptions, newGear.trim()] : rest.gearOptions,
+        }),
       });
       const data = (await res.json().catch(() => null)) as (RehearsalSettingsForAdmin & { error?: string }) | null;
       if (!res.ok || !data) throw new Error(data?.error ?? `Save failed (${res.status})`);
@@ -118,6 +135,7 @@ export default function RehearsalSettingsForm({ initial }: { initial: RehearsalS
       setRepeatPrice(dollars(data.repeatPriceCents));
       setFeeds(data.icsFeeds.map((masked, index) => ({ kind: 'stored', index, masked })));
       setNewFeed('');
+      setNewGear('');
       setSavedAt(new Date().toLocaleTimeString());
       router.refresh(); // standing-hours labels follow the block length
     } catch (e) {
@@ -252,6 +270,68 @@ export default function RehearsalSettingsForm({ initial }: { initial: RehearsalS
             <input type="checkbox" checked={s.squareEnabled} disabled readOnly />
             Offer card (Square) <span className={hint}>(arrives in Phase 6b)</span>
           </label>
+        </Group>
+
+        <Group title="House gear">
+          <p className="text-xs text-[#E8E0D0]/40">
+            The gear list on the public page and the &ldquo;gear needed&rdquo; checkboxes bands see when they request.
+            Removing an item keeps it on bookings that already asked for it.
+          </p>
+          <ul className="flex flex-wrap gap-2">
+            {s.gearOptions.map((g, i) => (
+              <li
+                key={g}
+                className="inline-flex items-center gap-1.5 rounded border border-[#E8E0D0]/30 px-2 py-1 text-sm"
+              >
+                {g}
+                {i > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const next = [...s.gearOptions];
+                      [next[i - 1], next[i]] = [next[i], next[i - 1]];
+                      set('gearOptions', next);
+                    }}
+                    aria-label={`Move ${g} earlier`}
+                    className="text-[#E8E0D0]/50 hover:text-[#E8E0D0]"
+                  >
+                    ←
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => set('gearOptions', s.gearOptions.filter((_, j) => j !== i))}
+                  aria-label={`Remove ${g}`}
+                  className="text-[#E8E0D0]/50 hover:text-red-300"
+                >
+                  ×
+                </button>
+              </li>
+            ))}
+          </ul>
+          <div className="flex gap-2">
+            <input
+              value={newGear}
+              onChange={(e) => setNewGear(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  addGear();
+                }
+              }}
+              placeholder="e.g. Second guitar amp"
+              maxLength={60}
+              className={input}
+            />
+            <button
+              type="button"
+              onClick={addGear}
+              disabled={!newGear.trim()}
+              className="rounded border border-[#E8E0D0]/30 px-3 text-sm hover:border-[#E8E0D0]/60 disabled:opacity-40"
+            >
+              Add
+            </button>
+          </div>
         </Group>
 
         <Group title="Arrival (sent only to approved bands)">
