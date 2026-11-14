@@ -10,6 +10,7 @@ interface Band {
   email: string;
   phone: string;
   notes: string;
+  rateNotes: string;
   archived: boolean;
   url: string | null;
   gear: string;
@@ -126,6 +127,16 @@ export default function RehearsalBandEditor({ band }: { band: Band }) {
         <label className="space-y-1.5">
           <span className={label}>Phone</span>
           <input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className={input} />
+        </label>
+        <label className="space-y-1.5 sm:col-span-2">
+          <span className={label}>Rate &amp; payment notes (only you see these; shown with their requests)</span>
+          <input
+            value={form.rateNotes}
+            maxLength={2000}
+            onChange={(e) => setForm({ ...form, rateNotes: e.target.value })}
+            placeholder="$20 a session, pays cash · trading for a mix · free this month"
+            className={input}
+          />
         </label>
         <label className="space-y-1.5 sm:col-span-2">
           <span className={label}>Notes (only you see these)</span>

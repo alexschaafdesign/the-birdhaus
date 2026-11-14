@@ -125,6 +125,7 @@ export async function revokeBandLink(bandId: number): Promise<boolean> {
 }
 
 export interface BandDetail extends BandListRow {
+  rateNotes: string; // private: how this band pays (sliding scale, by hand)
   defaultGearNeeded: string[];
   defaultGearNotes: string;
 }
@@ -133,7 +134,8 @@ export async function getBand(id: number): Promise<BandDetail | null> {
   const [row] = await sql<BandDetail[]>`
     select b.id::int as id, b.name, b.contact_name as "contactName", b.email, b.phone, b.notes,
            l.token, b.archived_at is not null as archived, b.created_at::text as "createdAt",
-           b.default_gear_needed as "defaultGearNeeded", b.default_gear_notes as "defaultGearNotes"
+           b.default_gear_needed as "defaultGearNeeded", b.default_gear_notes as "defaultGearNotes",
+           b.rate_notes as "rateNotes"
     from rehearsal_bands b
     left join rehearsal_band_links l on l.band_id = b.id and l.revoked_at is null
     where b.id = ${id}
@@ -143,10 +145,11 @@ export async function getBand(id: number): Promise<BandDetail | null> {
 
 // Edit contact details and notes; archiving hides the band and turns its
 // link off (getBandByToken ignores archived bands) without losing history.
-export async function updateBand(id: number, v: NewBand & { archived: boolean }): Promise<boolean> {
+export async function updateBand(id: number, v: NewBand & { archived: boolean; rateNotes: string }): Promise<boolean> {
   const rows = await sql`
     update rehearsal_bands set
       name = ${v.name}, contact_name = ${v.contactName}, email = ${v.email}, phone = ${v.phone}, notes = ${v.notes},
+      rate_notes = ${v.rateNotes.trim().slice(0, 2000)},
       archived_at = case when ${v.archived} then coalesce(archived_at, now()) else null end,
       updated_at = now()
     where id = ${id}

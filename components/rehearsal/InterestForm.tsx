@@ -77,7 +77,7 @@ export default function InterestForm() {
   if (done) {
     return (
       <p role="status" className={FORM.notice}>
-        Thanks! We got it, and a copy is on its way to your inbox. If it’s a fit, your booking link will follow.
+        Thanks! Got it — there’s a copy in your inbox. If it’s a fit, I’ll send you a link to book.
       </p>
     );
   }

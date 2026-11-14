@@ -4,6 +4,7 @@ import { SITE_URL } from '../site';
 import { buildIcs } from './ics-out.ts';
 import { repeatLabel, type AdminBooking } from './decisions';
 import { bookingsByIds } from './decisions';
+import { getRehearsalSettings } from './settings';
 
 // Alex's private feed of confirmed rehearsals (Apple Calendar subscribe).
 // Calendar apps can't log in, so the URL's secret token is the credential;
@@ -45,12 +46,13 @@ export async function isLiveRehearsalFeedToken(token: string): Promise<boolean> 
   return Boolean(row);
 }
 
-function describe(b: AdminBooking): string {
+function describe(b: AdminBooking, paymentsEnabled: boolean): string {
   const gear = [b.gearNeeded.join(', '), b.gearNotes].filter(Boolean).join(' — ');
   return [
     `${b.catalogueId} · ${b.bandName}`,
+    ...(b.rateNotes ? [`Rate: ${b.rateNotes}`] : []),
     `Gear: ${gear || 'none'}`,
-    `Payment: ${b.paymentStatus === 'unpaid' ? `unpaid (${b.paymentMethod})` : b.paymentStatus}`,
+    ...(paymentsEnabled ? [`Payment: ${b.paymentStatus === 'unpaid' ? `unpaid (${b.paymentMethod})` : b.paymentStatus}`] : []),
     ...(repeatLabel(b) ? [`Repeats: ${repeatLabel(b)}`] : []),
     ...(b.conflict ? ['CONFLICT: something now overlaps this — check admin'] : []),
     ...(b.note ? [`Note: ${b.note}`] : []),
@@ -64,13 +66,14 @@ export async function buildRehearsalFeed(now = new Date()): Promise<string> {
     where status = 'confirmed' and ends_at > ${new Date(now.getTime() - PAST_DAYS * 86_400_000)}
   `;
   const list = await bookingsByIds(ids.map((r) => r.id));
+  const { paymentsEnabled } = await getRehearsalSettings();
   return buildIcs(
     list.map((b) => ({
       uid: `${b.catalogueId.toLowerCase()}-admin@thebirdhaus.org`,
       start: b.startsAt,
       end: b.endsAt,
       summary: `${b.conflict ? '⚠ ' : ''}Rehearsal: ${b.bandName}`,
-      description: describe(b),
+      description: describe(b, paymentsEnabled),
       url: `${SITE_URL}/admin/rehearsal/bands/${b.bandId}`,
     })),
     { name: 'BIRDHAUS rehearsals', now },

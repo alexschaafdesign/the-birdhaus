@@ -38,6 +38,7 @@ export default async function RehearsalRequestsPage() {
     catalogueId: b.catalogueId,
     bandId: b.bandId,
     bandName: b.bandName,
+    rateNotes: b.rateNotes,
     when: sessionLabel(b.startsAt, b.endsAt),
     shortWhen: shortDay(b.startsAt),
     price: money(b.priceCents),
@@ -69,6 +70,7 @@ export default async function RehearsalRequestsPage() {
         requests={groupByRequest(pending).map((g) => g.map(view))}
         outstanding={outstanding.map(view)}
         upcoming={upcoming.map(view)}
+        paymentsEnabled={settings.paymentsEnabled}
       />
     </main>
   );

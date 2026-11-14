@@ -4,6 +4,7 @@ import { clashesFor } from './availability-data';
 import { bookingsByIds, syncSeriesStatus, type AdminBooking } from './decisions';
 import { sendExpiredEmail, sendMorningEmail, sendReminderEmail, sendSeriesSkipEmail } from './emails';
 import { extendSeries } from './series-extend';
+import { getRehearsalSettings } from './settings';
 
 // The rehearsal daily job (Vercel Cron ~7am Chicago, production only; admin
 // "Run now" anywhere). Every step is safe to repeat: each email records when
@@ -40,6 +41,7 @@ function group<T>(list: T[], key: (t: T) => string): T[][] {
 
 export async function runDaily(opts: { now?: Date; force?: boolean } = {}): Promise<DailySummary> {
   const now = opts.now ?? new Date();
+  const settings = await getRehearsalSettings();
   const day = chicagoDate(now);
   const tomorrowStart = startOfChicagoDay(addDays(day, 1));
   const dayAfterStart = startOfChicagoDay(addDays(day, 2));
@@ -58,8 +60,13 @@ export async function runDaily(opts: { now?: Date; force?: boolean } = {}): Prom
     where status = 'expired' and expiry_notified_at is null and created_at > ${now} - interval '30 days'
   `;
   let expiryEmails = 0;
-  for (const g of group(toTell, (r) => `${r.bandId}:${r.requestKey ?? r.id}`)) {
-    if (await sendExpiredEmail(g.map((r) => r.id))) expiryEmails += 1;
+  if (settings.lapsedEmailsEnabled) {
+    for (const g of group(toTell, (r) => `${r.bandId}:${r.requestKey ?? r.id}`)) {
+      if (await sendExpiredEmail(g.map((r) => r.id))) expiryEmails += 1;
+    }
+  } else if (toTell.length) {
+    // Switched off: count them as told, so turning it back on doesn't send old ones.
+    await sql`update rehearsal_bookings set expiry_notified_at = now() where id in ${sql(toTell.map((r) => r.id))}`;
   }
 
   // 1b. Extend approved series, then tell bands about any skipped dates
@@ -97,8 +104,10 @@ export async function runDaily(opts: { now?: Date; force?: boolean } = {}): Prom
       and starts_at >= ${tomorrowStart} and starts_at < ${dayAfterStart}
   `;
   let reminders = 0;
-  for (const g of group(due, (r) => String(r.bandId))) {
-    if (await sendReminderEmail(g.map((r) => r.id))) reminders += 1;
+  if (settings.reminderEmailsEnabled) {
+    for (const g of group(due, (r) => String(r.bandId))) {
+      if (await sendReminderEmail(g.map((r) => r.id))) reminders += 1;
+    }
   }
 
   // 3. Conflicts on upcoming confirmed bookings.
@@ -181,6 +190,7 @@ export async function runDaily(opts: { now?: Date; force?: boolean } = {}): Prom
       newConflicts,
       expired: expiredRows.length,
       outstandingCents: outstanding,
+      paymentsEnabled: settings.paymentsEnabled,
       calendarChecked,
       seriesBooked: bookedRows.map((b) => ({ bandName: b.bandName, start: b.startsAt, end: b.endsAt, catalogueId: b.catalogueId })),
       seriesSkipped: unnotified.map((r) => ({

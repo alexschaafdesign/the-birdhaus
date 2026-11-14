@@ -22,7 +22,7 @@ export const metadata: Metadata = {
 };
 
 const DEFAULT_INTRO =
-  'The Birdhaus basement doubles as a rehearsal room: a real room with a backline, in South Minneapolis.\n\nIt’s booked by invitation. Tell us about your band below, and if it’s a fit you’ll get a private link to see open times and book.';
+  'The Birdhaus basement doubles as a rehearsal room: a real room with a backline, in South Minneapolis.\n\nIt’s booked by invitation. Tell me about your band below, and if it’s a fit I’ll send you a link to see open times and book.';
 
 function paragraphs(text: string) {
   return text
@@ -39,24 +39,21 @@ export default async function RehearsalPage() {
   const [s, isAdmin] = await Promise.all([getRehearsalSettings(), isAdminSession()]);
   if (!s.publicPageEnabled && !isAdmin) notFound();
 
-  const hours = s.blockMinutes % 60 === 0 ? `${s.blockMinutes / 60}-hour` : `${s.blockMinutes}-minute`;
-  const repeat = s.repeatPriceCents !== null && s.repeatPriceCents !== s.priceCents ? s.repeatPriceCents : null;
-  const facts = [
-    `${hours} blocks`,
-    `${money(s.priceCents)} a block`,
-    ...(repeat !== null ? [`${money(repeat)} a session when it repeats`] : []),
-    `book up to ${s.windowMaxWeeks} weeks ahead`,
-  ];
+  // The red facts line is free text from Settings (no prices unless Alex writes them).
+  const facts = s.publicFactsLine
+    .split('·')
+    .map((f) => f.trim())
+    .filter(Boolean);
   const rules = s.houseRules
     .split('\n')
     .map((r) => r.replace(/^[-•*]\s*/, '').trim())
     .filter(Boolean);
   const steps = [
-    'Tell us about your band with the form below.',
-    'If it’s a fit, you get a private booking link by email.',
-    `Pick open ${hours} blocks: once, or repeating weekly, every other week or monthly.`,
-    'We confirm by email with the address and how to get in.',
-    'Pay per session by Venmo.',
+    'Tell me about your band with the form below.',
+    'If it’s a fit, I’ll email you a private link to book.',
+    'Pick open blocks — once, or every week, every other week or monthly.',
+    'I’ll confirm by email with the address.',
+    ...(s.paymentsEnabled ? [`Pay per session by Venmo (${money(s.priceCents)} a block).`] : []),
   ];
 
   return (
@@ -150,7 +147,7 @@ export default async function RehearsalPage() {
       <section aria-labelledby="interest" className="flex w-full max-w-2xl flex-col gap-4">
         <SectionHeader id="interest" label="I’m interested" />
         <p className="text-body-3 leading-normal">
-          Tell us a bit about your band. Alex reads every one; if it’s a fit, you’ll get your booking link by email.
+          Tell me a bit about your band. I read every one, and if it’s a fit I’ll send you a link to book.
         </p>
         <InterestForm />
       </section>

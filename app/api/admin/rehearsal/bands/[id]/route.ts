@@ -11,7 +11,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   const body = await request.json().catch(() => null);
   const parsed = validateNewBand(body);
   if (!parsed.ok) return NextResponse.json({ error: parsed.error }, { status: 400 });
-  const ok = await updateBand(id, { ...parsed.value, archived: body?.archived === true });
+  const rateNotes = typeof body?.rateNotes === 'string' ? body.rateNotes : '';
+  const ok = await updateBand(id, { ...parsed.value, archived: body?.archived === true, rateNotes });
   if (!ok) return NextResponse.json({ error: 'Band not found' }, { status: 404 });
   return NextResponse.json({ ok: true });
 }

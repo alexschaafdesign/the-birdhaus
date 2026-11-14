@@ -15,6 +15,7 @@ export interface AdminBooking {
   bandId: number;
   bandName: string;
   bandEmail: string;
+  rateNotes: string; // private
   startsAt: Date;
   endsAt: Date;
   status: BookingStatus;
@@ -51,7 +52,7 @@ export function repeatLabel(b: Pick<AdminBooking, 'seriesFreq' | 'seriesStart' |
 function select() {
   return sql`
     select b.id::int as id, b.catalogue_id as "catalogueId", b.band_id::int as "bandId",
-           r.name as "bandName", r.email as "bandEmail",
+           r.name as "bandName", r.email as "bandEmail", r.rate_notes as "rateNotes",
            b.starts_at as "startsAt", b.ends_at as "endsAt", b.status, b.expires_at as "expiresAt",
            b.price_cents as "priceCents", b.payment_method as "paymentMethod",
            b.payment_status as "paymentStatus", b.payment_provider as "paymentProvider", b.paid_at as "paidAt",

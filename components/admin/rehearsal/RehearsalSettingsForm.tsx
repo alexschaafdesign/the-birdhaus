@@ -150,10 +150,12 @@ export default function RehearsalSettingsForm({ initial }: { initial: RehearsalS
   return (
     <div className="space-y-6">
       <div className="grid gap-6 lg:grid-cols-2">
-        <Group title="Blocks and prices">
+        <Group title={s.paymentsEnabled ? 'Blocks and prices' : 'Blocks'}>
           <Field title="Block length" note="minutes">
             <input {...num('blockMinutes')} min={30} max={720} step={15} />
           </Field>
+          {s.paymentsEnabled && (
+            <>
           <Field title="Price per block" note="dollars">
             <input value={price} onChange={(e) => setPrice(e.target.value)} inputMode="decimal" className={input} />
           </Field>
@@ -165,6 +167,8 @@ export default function RehearsalSettingsForm({ initial }: { initial: RehearsalS
               className={input}
             />
           </Field>
+            </>
+          )}
         </Group>
 
         <Group title="Booking window and cutoffs">
@@ -259,20 +263,20 @@ export default function RehearsalSettingsForm({ initial }: { initial: RehearsalS
         </Group>
 
         <Group title="Payments">
-          <Field title="Venmo business handle" note="without @">
-            <input {...txt('venmoHandle')} className={input} />
-          </Field>
-          <label className="flex items-center gap-2 text-sm opacity-50">
-            <input type="checkbox" checked={s.cashEnabled} disabled readOnly />
-            Offer cash <span className={hint}>(arrives in Phase 6c)</span>
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={s.paymentsEnabled} onChange={(e) => set('paymentsEnabled', e.target.checked)} />
+            Track payments
           </label>
-          <Field title="Cash box location" note="“Leave $X in the …”">
-            <input {...txt('cashBoxLocation')} className={input} />
-          </Field>
-          <label className="flex items-center gap-2 text-sm opacity-50">
-            <input type="checkbox" checked={s.squareEnabled} disabled readOnly />
-            Offer card (Square) <span className={hint}>(arrives in Phase 6b)</span>
-          </label>
+          {s.paymentsEnabled ? (
+            <Field title="Venmo business handle" note="without @">
+              <input {...txt('venmoHandle')} className={input} />
+            </Field>
+          ) : (
+            <p className="text-xs text-[#E8E0D0]/40">
+              Off: no prices, totals, Venmo or paid/outstanding anywhere — on the site, in emails or in admin. Keep each
+              band&apos;s rate in its &ldquo;Rate &amp; payment notes&rdquo; on the band page.
+            </p>
+          )}
         </Group>
 
         <Group title="House gear">
@@ -355,6 +359,7 @@ export default function RehearsalSettingsForm({ initial }: { initial: RehearsalS
           value={{
             publicPageEnabled: s.publicPageEnabled,
             publicIntro: s.publicIntro,
+            publicFactsLine: s.publicFactsLine,
             houseRules: s.houseRules,
             photoUrls: s.photoUrls,
           }}
@@ -363,6 +368,17 @@ export default function RehearsalSettingsForm({ initial }: { initial: RehearsalS
             setSavedAt(null);
           }}
         />
+      </Group>
+
+      <Group title="Emails to bands">
+        <label className="flex items-center gap-2 text-sm">
+          <input type="checkbox" checked={s.reminderEmailsEnabled} onChange={(e) => set('reminderEmailsEnabled', e.target.checked)} />
+          Send the day-before reminder
+        </label>
+        <label className="flex items-center gap-2 text-sm">
+          <input type="checkbox" checked={s.lapsedEmailsEnabled} onChange={(e) => set('lapsedEmailsEnabled', e.target.checked)} />
+          Tell bands when an unanswered request lapses
+        </label>
       </Group>
 
       <Group title="Email wording">

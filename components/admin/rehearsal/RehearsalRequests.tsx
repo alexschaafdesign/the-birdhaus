@@ -9,6 +9,7 @@ export interface RowView {
   catalogueId: string;
   bandId: number;
   bandName: string;
+  rateNotes: string;
   when: string;
   shortWhen: string;
   price: string;
@@ -43,10 +44,12 @@ export default function RehearsalRequests({
   requests,
   outstanding,
   upcoming,
+  paymentsEnabled,
 }: {
   requests: RowView[][];
   outstanding: RowView[];
   upcoming: RowView[];
+  paymentsEnabled: boolean;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState<string | null>(null);
@@ -118,8 +121,10 @@ export default function RehearsalRequests({
                 <Link href={`/admin/rehearsal/bands/${first.bandId}`} className="font-semibold hover:underline">
                   {first.bandName}
                 </Link>
+                {first.rateNotes && <span className="text-sm text-amber-200/80">{first.rateNotes}</span>}
                 <span className="text-sm text-[#E8E0D0]/50">
-                  requested {first.requested} · expires {first.expires} · {sum(group)} · pays by {first.paymentMethod}
+                  requested {first.requested} · expires {first.expires}
+                  {paymentsEnabled && ` · ${sum(group)} · pays by ${first.paymentMethod}`}
                 </span>
                 {[...new Set(group.map((r) => r.repeat).filter(Boolean))].map((label) => (
                   <span key={label} className={`${tag} bg-sky-400/15 text-sky-200`}>
@@ -134,7 +139,7 @@ export default function RehearsalRequests({
                   <li key={r.id} className="flex flex-wrap items-center gap-x-4 gap-y-1 py-2">
                     <span className="w-24 text-[#E8E0D0]/50">{r.catalogueId}</span>
                     <span className="min-w-56 font-medium">{r.when}</span>
-                    <span>{r.price}</span>
+                    {paymentsEnabled && <span>{r.price}</span>}
                     {r.repeat && group.some((x) => x.repeat !== r.repeat) && (
                       <span className="text-xs text-sky-200/80">↻ {r.repeat}</span>
                     )}
@@ -192,7 +197,8 @@ export default function RehearsalRequests({
         })}
       </section>
 
-      {/* Outstanding */}
+      {/* Outstanding (only when payments are tracked) */}
+      {paymentsEnabled && (
       <section className="space-y-3">
         <h2 className="text-xl font-bold">
           Outstanding {outstanding.length > 0 && <span className="text-[#E8E0D0]/50">({sum(outstanding)})</span>}
@@ -200,9 +206,10 @@ export default function RehearsalRequests({
         {outstanding.length === 0 ? (
           <p className="text-sm text-[#E8E0D0]/50">Nothing owed.</p>
         ) : (
-          <PaymentTable rows={outstanding} busy={busy} pay={pay} resend={resend} />
+          <PaymentTable rows={outstanding} busy={busy} pay={pay} resend={resend} paymentsEnabled />
         )}
       </section>
+      )}
 
       {/* Upcoming */}
       <section className="space-y-3">
@@ -210,7 +217,7 @@ export default function RehearsalRequests({
         {upcoming.length === 0 ? (
           <p className="text-sm text-[#E8E0D0]/50">No confirmed sessions coming up.</p>
         ) : (
-          <PaymentTable rows={upcoming} busy={busy} pay={pay} resend={resend} />
+          <PaymentTable rows={upcoming} busy={busy} pay={pay} resend={resend} paymentsEnabled={paymentsEnabled} />
         )}
       </section>
     </div>
@@ -222,8 +229,10 @@ function PaymentTable({
   busy,
   pay,
   resend,
+  paymentsEnabled,
 }: {
   rows: RowView[];
+  paymentsEnabled: boolean;
   busy: string | null;
   pay: (id: number, s: RowView['paymentStatus']) => void;
   resend: (ids: number[], key: string) => void;
@@ -237,7 +246,8 @@ function PaymentTable({
           <Link href={`/admin/rehearsal/bands/${r.bandId}`} className="min-w-32 hover:underline">
             {r.bandName}
           </Link>
-          <span>{r.price}</span>
+          {r.rateNotes && <span className="text-amber-200/80">{r.rateNotes}</span>}
+          {paymentsEnabled && <span>{r.price}</span>}
           {r.gear && <span className="text-[#E8E0D0]/60">{r.gear}</span>}
           {r.clash.length > 0 && <span className={`${tag} bg-red-400/15 text-red-300`}>{r.clash.join(', ')}</span>}
           {!r.bandEmailed && (
@@ -245,6 +255,7 @@ function PaymentTable({
               Resend confirmation
             </button>
           )}
+          {paymentsEnabled && (
           <span className="ml-auto flex items-center gap-2">
             {r.paymentStatus === 'unpaid' ? (
               <>
@@ -266,6 +277,7 @@ function PaymentTable({
               </>
             )}
           </span>
+          )}
         </li>
       ))}
     </ul>
