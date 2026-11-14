@@ -221,6 +221,45 @@ function SessionChip({ s, onEdit }: { s: Session; onEdit?: () => void }) {
 
 // --- the pick panel ---------------------------------------------------------------
 
+// One end of the time being picked. Empty and active = dashed ("pick me");
+// filled = solid, tap to change.
+function TimeSlot({
+  label,
+  value,
+  active,
+  onChange,
+}: {
+  label: string;
+  value: string | null;
+  active: boolean;
+  onChange: () => void;
+}) {
+  const box = 'flex min-w-24 flex-col items-start border-2 px-3 py-1.5 text-left';
+  const inner = (
+    <>
+      <span className="text-data-label-10-small font-bold tracking-[--spacing(0.625)] uppercase opacity-60">{label}</span>
+      <span className="font-bold">{value ?? (active ? 'Pick…' : '—')}</span>
+    </>
+  );
+  if (value) {
+    return (
+      <button
+        type="button"
+        onClick={onChange}
+        aria-label={`${label} ${value} — change`}
+        className={`${box} border-surface-ink ui-hover:bg-surface-paper-shade cursor-pointer ${FOCUS}`}
+      >
+        {inner}
+      </button>
+    );
+  }
+  return (
+    <span aria-current={active ? 'step' : undefined} className={`${box} ${active ? 'border-surface-ink border-dashed' : 'border-surface-ink/20 border-dashed opacity-50'}`}>
+      {inner}
+    </span>
+  );
+}
+
 type Choice = 'once' | Freq;
 
 function PickPanel({
@@ -327,7 +366,6 @@ function PickPanel({
   ];
   const stretches = free.filter((f) => starts.some((o) => o.start >= f.start && o.start < f.end));
   const chipBase = `text-data-caption-13 cursor-pointer border px-2 py-1.5 ${FOCUS}`;
-  const chipOn = 'bg-surface-ink text-surface-paper border-surface-ink';
   const chipOff = 'border-surface-ink ui-hover:bg-surface-paper-shade';
 
   return (
@@ -367,44 +405,69 @@ function PickPanel({
         )}
 
         {starts.length > 0 && (
-          <fieldset className="flex flex-col gap-2">
-            <legend className={FORM.label}>Start time</legend>
-            <div className="flex flex-wrap gap-1.5">
-              {starts.map((o) => {
-                const iso = o.start.toISOString();
-                return (
-                  <button
-                    key={iso}
-                    type="button"
-                    aria-pressed={start === iso}
-                    onClick={() => setStart(iso)}
-                    className={`${chipBase} ${start === iso ? chipOn : chipOff}`}
-                  >
-                    {clock(iso)}
-                  </button>
-                );
-              })}
+          <div className="flex flex-col gap-3">
+            {/* The time so far, start → end. A filled slot is tappable to
+                change it; the slot being picked is dashed. */}
+            <div className="flex items-stretch gap-2">
+              <TimeSlot
+                label="Start"
+                value={chosen ? clock(chosen.start.toISOString()) : null}
+                active={!chosen}
+                onChange={() => {
+                  setStart(null);
+                  setMinutes(null);
+                }}
+              />
+              <span aria-hidden className="self-center opacity-50">
+                →
+              </span>
+              <TimeSlot
+                label="End"
+                value={chosen && len ? clock(endOf(chosen.start.toISOString(), len)) : null}
+                active={Boolean(chosen) && !len}
+                onChange={() => setMinutes(null)}
+              />
+              {chosen && len && <span className="text-data-caption-13 self-center opacity-70">{lengthLabel(len)}</span>}
             </div>
-          </fieldset>
-        )}
 
-        {chosen && (
-          <fieldset className="flex flex-col gap-2">
-            <legend className={FORM.label}>How long?</legend>
-            <div className="flex flex-wrap gap-1.5">
-              {chosen.lengths.map((m) => (
-                <button
-                  key={m}
-                  type="button"
-                  aria-pressed={len === m}
-                  onClick={() => setMinutes(m)}
-                  className={`${chipBase} ${len === m ? chipOn : chipOff}`}
-                >
-                  {lengthLabel(m)} · until {clock(endOf(chosen.start.toISOString(), m))}
-                </button>
-              ))}
-            </div>
-          </fieldset>
+            {!chosen && (
+              <fieldset className="flex flex-col gap-2">
+                <legend className={FORM.label}>Pick a start time</legend>
+                <div className="flex flex-wrap gap-1.5">
+                  {starts.map((o) => {
+                    const iso = o.start.toISOString();
+                    return (
+                      <button
+                        key={iso}
+                        type="button"
+                        onClick={() => {
+                          setStart(iso);
+                          setMinutes(null);
+                        }}
+                        className={`${chipBase} ${chipOff}`}
+                      >
+                        {clock(iso)}
+                      </button>
+                    );
+                  })}
+                </div>
+              </fieldset>
+            )}
+
+            {chosen && !len && (
+              <fieldset className="flex flex-col gap-2">
+                <legend className={FORM.label}>Pick an end time</legend>
+                <div className="flex flex-wrap gap-1.5">
+                  {chosen.lengths.map((m) => (
+                    <button key={m} type="button" onClick={() => setMinutes(m)} className={`${chipBase} ${chipOff}`}>
+                      {clock(endOf(chosen.start.toISOString(), m))}
+                      <span className="ml-1.5 opacity-60">{lengthLabel(m)}</span>
+                    </button>
+                  ))}
+                </div>
+              </fieldset>
+            )}
+          </div>
         )}
 
         {start && len && (
