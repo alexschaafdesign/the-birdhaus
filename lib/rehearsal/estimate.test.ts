@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { estimateCents, estimateLine, weeklyEstimateCents } from './estimate.ts';
+import { estimateCents, estimateLine, rateCardLines, weeklyEstimateCents } from './estimate.ts';
 
 const CARD = {
   rateHourlyCents: 2000,
@@ -32,4 +32,8 @@ test('estimate lines', () => {
   assert.equal(estimateLine(60, 'biweekly', CARD), 'Usual rate for 1 hour: $20');
   assert.equal(estimateLine(180, 'weekly', CARD), 'Regular rate: $150 / 4 weeks');
   assert.equal(estimateLine(90, null, CARD), 'Usual rate for 1.5 hours: $30');
+});
+
+test('rate card lines', () => {
+  assert.deepEqual(rateCardLines(CARD), ['$20 an hour', '3 hours for $50', '6 hours for $100']);
 });

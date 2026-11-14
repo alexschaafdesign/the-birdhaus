@@ -5,6 +5,7 @@ import { SiteFrame } from '@/components/night/SiteFrame';
 import { SectionHeader } from '@/components/ui/SectionHeader';
 import InterestForm from '@/components/rehearsal/InterestForm';
 import { getRehearsalSettings } from '@/lib/rehearsal/settings';
+import { rateCardLines } from '@/lib/rehearsal/estimate';
 import { isAdminSession } from '@/lib/admin-session';
 
 export const dynamic = 'force-dynamic';
@@ -51,7 +52,7 @@ export default async function RehearsalPage() {
   const steps = [
     'Tell me about your band with the form below.',
     'If it’s a fit, I’ll email you a private link to book.',
-    'Pick open blocks — once, or every week, every other week or monthly.',
+    'Pick a day, a start time and how long — once, or every week, every other week or monthly.',
     'I’ll confirm by email with the address.',
     ...(s.paymentsEnabled ? [`Pay per session by Venmo (${money(s.priceCents)} a block).`] : []),
   ];
@@ -129,6 +130,24 @@ export default async function RehearsalPage() {
           </ol>
         </section>
       </div>
+
+      {!s.paymentsEnabled && (
+        <section aria-labelledby="rates" className="flex w-full max-w-5xl flex-col gap-3">
+          <SectionHeader id="rates" label="Rates" />
+          <ul className="text-body-3 flex flex-wrap gap-x-8 gap-y-1 leading-normal">
+            {rateCardLines(s).map((line) => (
+              <li key={line} className="flex gap-2">
+                <span aria-hidden className="text-accent-red">■</span>
+                {line}
+              </li>
+            ))}
+          </ul>
+          <div className="text-body-3 flex max-w-3xl flex-col gap-2 leading-normal">
+            {s.rateRegularText && <p>{s.rateRegularText}</p>}
+            {s.rateFlexibleText && <p className="opacity-80">{s.rateFlexibleText}</p>}
+          </div>
+        </section>
+      )}
 
       {rules.length > 0 && (
         <section aria-labelledby="rules" className="flex w-full max-w-5xl flex-col gap-3">

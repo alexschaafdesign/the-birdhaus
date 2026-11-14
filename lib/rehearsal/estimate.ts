@@ -50,3 +50,30 @@ export function estimateLine(minutes: number, freq: string | null, r: RateCardIn
     ? `Regular rate: ${dollars(weeklyEstimateCents(minutes, r))} / 4 weeks`
     : `Usual rate for ${hoursLabel(minutes)}: ${dollars(estimateCents(minutes, r))}`;
 }
+
+// The rate card as short lines, for /rehearsal and the invite email:
+//   ["$20 an hour", "3 hours for $50", "6 hours for $100"]
+export function rateCardLines(r: RateCardInput): string[] {
+  return [
+    `${dollars(r.rateHourlyCents)} an hour`,
+    ...[...r.ratePackages].sort((a, b) => a.minutes - b.minutes).map((p) => `${hoursLabel(p.minutes)} for ${dollars(p.cents)}`),
+  ];
+}
+
+// The soft line for Alex (request email, Requests, morning email), or null
+// when payments are on (real prices show instead) or estimates are off.
+export function usualRateFor(
+  start: Date,
+  end: Date,
+  freq: string | null,
+  s: RateCardInput & { paymentsEnabled: boolean; estimatesEnabled: boolean },
+): string | null {
+  if (s.paymentsEnabled || !s.estimatesEnabled) return null;
+  return estimateLine(Math.round((end.getTime() - start.getTime()) / 60_000), freq, s);
+}
+
+// "3 h", "1.5 h"
+export function lengthLabel(start: Date, end: Date): string {
+  const h = (end.getTime() - start.getTime()) / 3_600_000;
+  return `${Number.isInteger(h) ? h : h.toFixed(1)} h`;
+}
