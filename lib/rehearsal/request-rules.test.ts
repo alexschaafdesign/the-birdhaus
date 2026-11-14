@@ -9,14 +9,14 @@ import {
   type RequestItem,
 } from './request-rules.ts';
 
-const S = { gearOptions: ['Drum kit', 'Vocal mics'], squareEnabled: false, cashEnabled: false };
+const S = { gearOptions: ['Drum kit', 'Vocal mics'], allowedLengths: [60, 120, 180, 240, 360], squareEnabled: false, cashEnabled: false };
 const A = '2026-11-19T00:00:00.000Z'; // Wed 18 Nov 6pm Chicago
 const B = '2026-11-21T18:00:00.000Z'; // Sat 21 Nov noon
 
 test('items: one-offs and repeats, sorted and de-duplicated; gear normalised', () => {
   const r = parseRequestBody(
     {
-      items: [{ start: B }, { start: A, repeat: { freq: 'weekly', count: 4 } }, { start: B }],
+      items: [{ start: B, minutes: 180 }, { start: A, minutes: 180, repeat: { freq: 'weekly', count: 4 } }, { start: B, minutes: 180 }],
       note: '  first time here ',
       gearNeeded: ['vocal MICS', 'Drum kit'],
       gearNotes: ' 2 mics ',
@@ -42,16 +42,19 @@ test('rejects empty, too many, bad dates, unknown gear and long notes', () => {
   assert.equal(parseRequestBody(null, S).ok, false);
   const many = Array.from({ length: MAX_ITEMS_PER_REQUEST + 1 }, (_, i) => ({
     start: new Date(Date.UTC(2026, 11, i + 1)).toISOString(),
+    minutes: 180,
   }));
   assert.equal(parseRequestBody({ items: many }, S).ok, false);
-  assert.equal(parseRequestBody({ items: [{ start: 'not a date' }] }, S).ok, false);
-  assert.equal(parseRequestBody({ items: [{ start: A }], gearNeeded: ['Theremin'] }, S).ok, false);
-  assert.equal(parseRequestBody({ items: [{ start: A }], note: 'x'.repeat(2001) }, S).ok, false);
-  assert.equal(parseRequestBody({ items: [{ start: A }], gearNotes: 'x'.repeat(501) }, S).ok, false);
+  assert.equal(parseRequestBody({ items: [{ start: 'not a date', minutes: 180 }] }, S).ok, false);
+  assert.equal(parseRequestBody({ items: [{ start: A, minutes: 180 }], gearNeeded: ['Theremin'] }, S).ok, false);
+  assert.equal(parseRequestBody({ items: [{ start: A, minutes: 180 }], note: 'x'.repeat(2001) }, S).ok, false);
+  assert.equal(parseRequestBody({ items: [{ start: A, minutes: 180 }], gearNotes: 'x'.repeat(501) }, S).ok, false);
+  assert.equal(parseRequestBody({ items: [{ start: A }] }, S).ok, false); // no length
+  assert.equal(parseRequestBody({ items: [{ start: A, minutes: 300 }] }, S).ok, false); // 5h not allowed
 });
 
 test('repeat needs a frequency and exactly one of until/count', () => {
-  const ok = (repeat: unknown) => parseRequestBody({ items: [{ start: A, repeat }] }, S).ok;
+  const ok = (repeat: unknown) => parseRequestBody({ items: [{ start: A, minutes: 180, repeat }] }, S).ok;
   assert.equal(ok({ freq: 'monthly_nth', until: '2027-02-01' }), true);
   assert.equal(ok({ freq: 'daily', count: 3 }), false);
   assert.equal(ok({ freq: 'weekly' }), true); // open-ended
@@ -62,10 +65,10 @@ test('repeat needs a frequency and exactly one of until/count', () => {
 
 test('only offered payment methods are accepted', () => {
   assert.deepEqual(paymentMethodsOffered(S), ['venmo']);
-  assert.equal(parseRequestBody({ items: [{ start: A }], paymentMethod: 'cash' }, S).ok, false);
+  assert.equal(parseRequestBody({ items: [{ start: A, minutes: 180 }], paymentMethod: 'cash' }, S).ok, false);
   const withCash = { ...S, cashEnabled: true };
   assert.deepEqual(paymentMethodsOffered({ ...withCash, squareEnabled: true }), ['venmo', 'square', 'cash']);
-  const r = parseRequestBody({ items: [{ start: A }], paymentMethod: 'cash' }, withCash);
+  const r = parseRequestBody({ items: [{ start: A, minutes: 180 }], paymentMethod: 'cash' }, withCash);
   assert.ok(r.ok && r.value.paymentMethod === 'cash');
 });
 
@@ -73,10 +76,10 @@ test('planRequest: repeats skip what is not open, shared dates book once, closed
   const open = new Set([A, '2026-11-26T00:00:00.000Z', '2026-12-10T00:00:00.000Z', B].map((x) => new Date(x).getTime()));
   const windowEnd = new Date('2026-12-15T00:00:00Z');
   const items: RequestItem[] = [
-    { start: new Date(A), repeat: { freq: 'weekly', count: 5 } }, // 18 Nov, 25, 2 Dec, 9 Dec, 16 Dec
-    { start: new Date('2026-11-26T00:00:00.000Z'), repeat: null }, // also the repeat's 2nd date
-    { start: new Date(B), repeat: null },
-    { start: new Date('2026-11-28T18:00:00Z'), repeat: null }, // not open
+    { start: new Date(A), minutes: 180, repeat: { freq: 'weekly', count: 5 } }, // 18 Nov, 25, 2 Dec, 9 Dec, 16 Dec
+    { start: new Date('2026-11-26T00:00:00.000Z'), minutes: 180, repeat: null }, // also the repeat's 2nd date
+    { start: new Date(B), minutes: 180, repeat: null },
+    { start: new Date('2026-11-28T18:00:00Z'), minutes: 180, repeat: null }, // not open
   ];
   const plan = planRequest(items, (d) => open.has(d.getTime()), windowEnd);
   assert.deepEqual(
@@ -94,6 +97,21 @@ test('planRequest: repeats skip what is not open, shared dates book once, closed
   );
   assert.deepEqual(plan.later, [1, 0, 0, 0]); // 16 Dec is past the window: booked later, after approval
   assert.deepEqual(plan.closed, [3]);
+});
+
+test('planRequest: picks in one request cannot overlap or sit inside the buffer', () => {
+  const H = 3_600_000;
+  const a = new Date(A); // Wed 6pm
+  const items: RequestItem[] = [
+    { start: a, minutes: 180, repeat: { freq: 'weekly', count: 2 } }, // 18 + 25 Nov, 6–9pm
+    { start: new Date(a.getTime() + 3 * H + 15 * 60_000), minutes: 60, repeat: null }, // 18 Nov 9:15pm: inside the buffer
+    { start: new Date(a.getTime() + 7 * 86_400_000 - 2 * H), minutes: 120, repeat: { freq: 'weekly', count: 2 } }, // 25 Nov 4–6pm, then 2 Dec
+  ];
+  const plan = planRequest(items, () => true, new Date('2027-01-01T00:00:00Z'), 30);
+  assert.deepEqual(plan.closed, [1, 2]); // 9:15pm clashes via buffer; 25 Nov 4–6pm touches 6pm within 30 min
+  const noBuf = planRequest(items, () => true, new Date('2027-01-01T00:00:00Z'), 0);
+  assert.deepEqual(noBuf.closed, []);
+  assert.equal(noBuf.sessions.length, 5);
 });
 
 test('cancel allowed until the cutoff, only for pending/confirmed', () => {

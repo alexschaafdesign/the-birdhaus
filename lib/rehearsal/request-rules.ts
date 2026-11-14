@@ -6,7 +6,7 @@ import { MAX_OCCURRENCES, occurrenceStarts } from './series.ts';
 
 export type PaymentMethod = 'venmo' | 'square' | 'cash';
 
-// A request is a list of items: a single block, or a block that repeats.
+// A request is a list of items: a start time + length, once or repeating.
 export const MAX_ITEMS_PER_REQUEST = 12;
 export const MAX_SESSIONS_PER_REQUEST = 60;
 const MAX_NOTE = 2000;
@@ -14,12 +14,14 @@ const MAX_GEAR_NOTES = 500;
 
 export interface RequestRulesSettings {
   gearOptions: string[];
+  allowedLengths: number[]; // minutes
   squareEnabled: boolean;
   cashEnabled: boolean;
 }
 
 export interface RequestItem {
-  start: Date; // the block picked; a repeat's first session
+  start: Date; // the start picked; a repeat's first session
+  minutes: number; // length, the same for every session of a repeat
   repeat: SeriesRule | null;
 }
 
@@ -67,14 +69,14 @@ function parseRepeat(raw: unknown, start: Date): Result<SeriesRule | null> {
   return { ok: true, value: { freq: r.freq, count } };
 }
 
-// Shape-checks a request body: { items: [{ start, repeat? }], note, gearNeeded,
+// Shape-checks a request body: { items: [{ start, minutes, repeat? }], note, gearNeeded,
 // gearNotes, paymentMethod }. Whether blocks are open is checked separately
 // (planRequest against a fresh availability computation).
 export function parseRequestBody(body: unknown, s: RequestRulesSettings): Result<ParsedRequest> {
   if (!body || typeof body !== 'object') return { ok: false, error: 'Something went wrong — reload and try again.' };
   const b = body as Record<string, unknown>;
 
-  if (!Array.isArray(b.items) || b.items.length === 0) return { ok: false, error: 'Pick at least one open block.' };
+  if (!Array.isArray(b.items) || b.items.length === 0) return { ok: false, error: 'Pick at least one open time.' };
   if (b.items.length > MAX_ITEMS_PER_REQUEST) {
     return { ok: false, error: `That's a lot — send at most ${MAX_ITEMS_PER_REQUEST} picks at a time.` };
   }
@@ -83,12 +85,15 @@ export function parseRequestBody(body: unknown, s: RequestRulesSettings): Result
   for (const raw of b.items as unknown[]) {
     const it = (raw ?? {}) as Record<string, unknown>;
     const d = typeof it.start === 'string' ? new Date(it.start) : null;
-    if (!d || Number.isNaN(d.getTime())) return { ok: false, error: 'One of those blocks isn’t valid — reload and try again.' };
+    if (!d || Number.isNaN(d.getTime())) return { ok: false, error: "One of those times isn't valid — reload and try again." };
+    if (typeof it.minutes !== 'number' || !s.allowedLengths.includes(it.minutes)) {
+      return { ok: false, error: 'Pick how long for each time.' };
+    }
     if (seen.has(d.getTime())) continue;
     seen.add(d.getTime());
     const repeat = parseRepeat(it.repeat, d);
     if (!repeat.ok) return repeat;
-    items.push({ start: d, repeat: repeat.value });
+    items.push({ start: d, minutes: it.minutes, repeat: repeat.value });
   }
   items.sort((x, y) => x.start.getTime() - y.start.getTime());
 
@@ -121,6 +126,7 @@ export function parseRequestBody(body: unknown, s: RequestRulesSettings): Result
 
 export interface PlannedSession {
   start: Date;
+  end: Date;
   item: number; // index into items
   repeat: boolean;
 }
@@ -132,33 +138,46 @@ export interface Plan {
   // Per item: dates past the booking window. Not requested now; once the
   // series is approved, the daily run books them as they come into range.
   later: number[];
-  closed: number[]; // items whose own block isn't open (refused)
+  closed: number[]; // items whose own first session isn't open (refused)
 }
 
-// Expands items into the sessions to book now. A single block, or a repeat's
+// Expands items into the sessions to book now. A single pick, or a repeat's
 // first session, must be open; a repeat's other dates inside the window are
 // booked when open and otherwise skipped; dates past the window are counted
-// as `later` (the daily run books them after approval). A date two items
-// share is booked once. PURE: the booking page previews with it, the server
-// books with it, so the band's total matches.
-export function planRequest(items: RequestItem[], isOpen: (start: Date) => boolean, windowEnd: Date): Plan {
+// as `later` (the daily run books them after approval). Picks in one request
+// can't overlap each other (or sit inside the turnover buffer): an exact
+// repeat of an earlier session books once, anything else clashing is skipped
+// (or, for a first session, refused). PURE: the booking page previews with
+// it and the server books with it.
+export function planRequest(
+  items: RequestItem[],
+  isOpen: (start: Date, minutes: number) => boolean,
+  windowEnd: Date,
+  bufferMinutes = 0,
+): Plan {
   const plan: Plan = { sessions: [], skipped: [], later: items.map(() => 0), closed: [] };
-  const claimed = new Set<number>();
+  const buf = bufferMinutes * 60_000;
+  const clash = (start: Date, end: Date) =>
+    plan.sessions.find((x) => start.getTime() < x.end.getTime() + buf && x.start.getTime() < end.getTime() + buf);
   items.forEach((it, i) => {
-    if (!isOpen(it.start)) {
+    const len = it.minutes * 60_000;
+    const firstEnd = new Date(it.start.getTime() + len);
+    const firstClash = clash(it.start, firstEnd);
+    if (!isOpen(it.start, it.minutes) || (firstClash && firstClash.start.getTime() !== it.start.getTime())) {
       plan.closed.push(i);
       return;
     }
     const starts = it.repeat ? occurrenceStarts(it.start, it.repeat) : [it.start];
     for (const s of starts) {
-      if (claimed.has(s.getTime())) continue;
+      const end = new Date(s.getTime() + len);
+      const c = clash(s, end);
+      if (c && c.start.getTime() === s.getTime()) continue; // same session twice: book once
       if (s.getTime() >= windowEnd.getTime()) {
         plan.later[i] += 1;
         continue;
       }
-      if (isOpen(s)) {
-        claimed.add(s.getTime());
-        plan.sessions.push({ start: s, item: i, repeat: Boolean(it.repeat) });
+      if (!c && isOpen(s, it.minutes)) {
+        plan.sessions.push({ start: s, end, item: i, repeat: Boolean(it.repeat) });
       } else {
         plan.skipped.push({ start: s, item: i, why: 'unavailable' });
       }

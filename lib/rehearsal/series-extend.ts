@@ -1,6 +1,7 @@
 import { sql } from '../db';
 import { loadAvailability } from './availability-data';
-import { chicagoDate, isOpenBlock } from './availability.ts';
+import { chicagoDate, spanFits } from './availability.ts';
+import { bufferClash, lockBookings } from './booking-lock';
 import { occurrenceStarts, type Freq, type SeriesRule } from './series.ts';
 
 // Approved series keep going past the booking window. Each daily run (and
@@ -48,7 +49,7 @@ export async function extendSeries(opts: { now?: Date; seriesIds?: number[] } = 
 
   // One availability computation for everyone (admin view: every booking,
   // including the band's own, counts as taken).
-  const { availability } = await loadAvailability({ now });
+  const { availability, settings } = await loadAvailability({ now });
   const windowStart = availability.windowStart;
   const lastDate = chicagoDate(availability.windowEnd);
 
@@ -78,21 +79,34 @@ export async function extendSeries(opts: { now?: Date; seriesIds?: number[] } = 
     );
 
     for (const start of candidates) {
-      if (!isOpenBlock(availability, start)) {
+      if (!spanFits(availability, start, s.blockMinutes)) {
         await skip(s, start, out);
         continue;
       }
+      const end = new Date(start.getTime() + s.blockMinutes * 60_000);
       try {
-        const [row] = await sql<{ catalogueId: string }[]>`
+        const row = await sql.begin(async (tx) => {
+          // Under the bookings lock, re-check the buffer against everything
+          // booked since the availability snapshot (other series in this run,
+          // band requests).
+          await lockBookings(tx);
+          if (await bufferClash(tx, start, end, settings.bufferMinutes, now)) return null;
+          const [r] = await tx<{ catalogueId: string }[]>`
           insert into rehearsal_bookings
             (band_id, starts_at, ends_at, status, expires_at, decided_at, price_cents, payment_method,
              note, gear_needed, gear_notes, request_key, series_id, band_emailed_at)
           values
-            (${s.bandId}, ${start}, ${new Date(start.getTime() + s.blockMinutes * 60_000)}, 'confirmed', ${now}, ${now},
+            (${s.bandId}, ${start}, ${end}, 'confirmed', ${now}, ${now},
              ${s.priceCents}, ${s.paymentMethod}, '', ${s.gearNeeded}::text[], ${s.gearNotes},
              ${s.requestKey}, ${s.id}, ${now})
           returning catalogue_id as "catalogueId"
-        `;
+          `;
+          return r;
+        });
+        if (!row) {
+          await skip(s, start, out);
+          continue;
+        }
         out.booked.push({ seriesId: s.id, bandId: s.bandId, start, catalogueId: row.catalogueId });
       } catch (e) {
         // Lost a race for the block (another series in this run, or a request).

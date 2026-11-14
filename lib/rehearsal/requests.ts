@@ -2,15 +2,16 @@ import { randomBytes } from 'node:crypto';
 import { sql } from '../db';
 import { getRehearsalSettings } from './settings';
 import { loadAvailability } from './availability-data';
-import { isOpenBlock } from './availability.ts';
+import { isOpenSpan } from './availability.ts';
+import { lockBookings, bufferClash } from './booking-lock';
 import { MAX_SESSIONS_PER_REQUEST, canBandCancel, planRequest, type ParsedRequest } from './request-rules.ts';
 import { describeRule, type Freq } from './series.ts';
 import { chicagoDate } from './availability.ts';
 
-// Band-side writes: send a one-off request, cancel a booking. Every block is
-// re-checked against a fresh availability computation, and the no-overlap
-// constraint (migration 109) is the backstop if two bands race for a block.
-// Emails to Alex/the band arrive in Phase 4.
+// Band-side writes: send a request, cancel a booking. Every pick is checked
+// against a fresh availability computation, then re-checked inside the write
+// transaction under the bookings lock (the turnover buffer isn't in the DB
+// constraint). The no-overlap constraint (migration 109) is the final backstop.
 
 export type BookingStatus = 'pending' | 'confirmed' | 'declined' | 'cancelled' | 'expired';
 
@@ -62,8 +63,13 @@ export async function createRequest(bandId: number, req: ParsedRequest, now = ne
   const settings = await getRehearsalSettings();
   const { availability } = await loadAvailability({ viewerBandId: bandId, now });
 
-  // Same planner the booking page previews with, so the band's total matches.
-  const plan = planRequest(req.items, (d) => isOpenBlock(availability, d), availability.windowEnd);
+  // Same planner the booking page previews with.
+  const plan = planRequest(
+    req.items,
+    (d, minutes) => isOpenSpan(availability, settings, d, minutes),
+    availability.windowEnd,
+    settings.bufferMinutes,
+  );
   if (plan.closed.length) {
     return {
       ok: false,
@@ -81,11 +87,19 @@ export async function createRequest(bandId: number, req: ParsedRequest, now = ne
 
   const requestKey = randomBytes(12).toString('base64url');
   const expiresAt = new Date(now.getTime() + settings.pendingExpiryDays * 86_400_000);
-  const blockMs = settings.blockMinutes * 60_000;
-  const repeatPrice = settings.repeatPriceCents ?? settings.priceCents;
+  // Prices are only snapshotted while payments are on; with payments off
+  // nothing is stored as owed (the rate card is display-only).
+  const onePrice = settings.paymentsEnabled ? settings.priceCents : 0;
+  const repeatPrice = settings.paymentsEnabled ? (settings.repeatPriceCents ?? settings.priceCents) : 0;
 
   try {
     const catalogueIds = await sql.begin(async (tx) => {
+      await lockBookings(tx);
+      // Re-check under the lock: nothing booked since our check landed inside
+      // a pick or its buffer.
+      for (const x of plan.sessions) {
+        if (await bufferClash(tx, x.start, x.end, settings.bufferMinutes, now)) throw new TakenError();
+      }
       // One series per repeating item that booked anything.
       const seriesOf = new Map<number, number>();
       for (const i of new Set(plan.sessions.filter((x) => x.repeat).map((x) => x.item))) {
@@ -97,7 +111,7 @@ export async function createRequest(bandId: number, req: ParsedRequest, now = ne
           values
             (${bandId}, ${rule.freq}, ${rule.until ?? null}, ${rule.count ?? null},
              ${req.paymentMethod}, ${req.note}, ${req.gearNeeded}::text[], ${req.gearNotes},
-             ${req.items[i].start}, ${settings.blockMinutes}, ${repeatPrice}, ${requestKey})
+             ${req.items[i].start}, ${req.items[i].minutes}, ${repeatPrice}, ${requestKey})
           returning id::int as id
         `;
         seriesOf.set(i, row.id);
@@ -109,8 +123,8 @@ export async function createRequest(bandId: number, req: ParsedRequest, now = ne
             (band_id, starts_at, ends_at, status, expires_at, price_cents, payment_method,
              note, gear_needed, gear_notes, request_key, calendar_unchecked, series_id)
           values
-            (${bandId}, ${x.start}, ${new Date(x.start.getTime() + blockMs)}, 'pending', ${expiresAt},
-             ${x.repeat ? repeatPrice : settings.priceCents}, ${req.paymentMethod}, ${req.note}, ${req.gearNeeded}::text[],
+            (${bandId}, ${x.start}, ${x.end}, 'pending', ${expiresAt},
+             ${x.repeat ? repeatPrice : onePrice}, ${req.paymentMethod}, ${req.note}, ${req.gearNeeded}::text[],
              ${req.gearNotes}, ${requestKey}, ${!availability.calendarChecked}, ${seriesOf.get(x.item) ?? null})
           returning catalogue_id as "catalogueId"
         `;
@@ -133,14 +147,16 @@ export async function createRequest(bandId: number, req: ParsedRequest, now = ne
       ongoing: req.items.some((i) => i.repeat && !i.repeat.until && !i.repeat.count),
     };
   } catch (e) {
-    // 23P01 = exclusion_violation: another request took a block between our
-    // check and the insert.
-    if ((e as { code?: string }).code === '23P01') {
-      return { ok: false, status: 409, error: 'Someone just requested one of those blocks. Pick another.' };
+    // TakenError: the locked re-check found a clash. 23P01 =
+    // exclusion_violation: the DB backstop caught an overlap.
+    if (e instanceof TakenError || (e as { code?: string }).code === '23P01') {
+      return { ok: false, status: 409, error: 'Someone just asked for one of those times. Pick another.' };
     }
     throw e;
   }
 }
+
+class TakenError extends Error {}
 
 export type CancelOutcome = { ok: true } | { ok: false; error: string; status: number };
 
