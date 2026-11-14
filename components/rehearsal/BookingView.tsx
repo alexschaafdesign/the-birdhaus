@@ -86,6 +86,9 @@ const METHOD_LABEL: Record<PaymentMethod, string> = { venmo: 'Venmo', square: 'C
 const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const FOCUS = 'focus-visible:outline-accent-red focus-visible:outline-2 focus-visible:outline-offset-2';
 const SOFT = " — or whatever works, we'll sort it out";
+// Gear picks are hidden on the review sheet for now (just the note). The
+// band's last gear choice is still sent, so admin and emails are unchanged.
+const SHOW_GEAR = false;
 
 // --- formatting (always Chicago, whatever the viewer's zone) -----------------
 
@@ -1101,7 +1104,7 @@ export default function BookingView(props: BookingViewProps) {
               })}
             </ul>
 
-            {props.gearOptions.length > 0 && (
+            {SHOW_GEAR && props.gearOptions.length > 0 && (
               <fieldset>
                 <legend className={FORM.label}>Gear you&apos;ll need (optional)</legend>
                 <div className="grid grid-cols-1 gap-x-6 gap-y-2 sm:grid-cols-2">
@@ -1119,19 +1122,21 @@ export default function BookingView(props: BookingViewProps) {
                 </div>
               </fieldset>
             )}
-            <div>
-              <label htmlFor="gear-notes" className={FORM.label}>
-                Gear notes (optional)
-              </label>
-              <input
-                id="gear-notes"
-                value={gearNotes}
-                onChange={(e) => setGearNotes(e.target.value)}
-                maxLength={500}
-                placeholder="2 vocal mics; bringing our own kit, just need the throne"
-                className={FORM.field}
-              />
-            </div>
+            {SHOW_GEAR && (
+              <div>
+                <label htmlFor="gear-notes" className={FORM.label}>
+                  Gear notes (optional)
+                </label>
+                <input
+                  id="gear-notes"
+                  value={gearNotes}
+                  onChange={(e) => setGearNotes(e.target.value)}
+                  maxLength={500}
+                  placeholder="2 vocal mics; bringing our own kit, just need the throne"
+                  className={FORM.field}
+                />
+              </div>
+            )}
             <div>
               <label htmlFor="note" className={FORM.label}>
                 Note to Alex (optional)
