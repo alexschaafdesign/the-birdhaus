@@ -10,6 +10,7 @@ export interface RowView {
   bandId: number;
   bandName: string;
   rateNotes: string;
+  usualRate: string | null; // soft estimate (payments off, estimates on)
   when: string;
   shortWhen: string;
   price: string;
@@ -122,6 +123,11 @@ export default function RehearsalRequests({
                   {first.bandName}
                 </Link>
                 {first.rateNotes && <span className="text-sm text-amber-200/80">{first.rateNotes}</span>}
+                {[...new Set(group.map((r) => r.usualRate).filter(Boolean))].map((u) => (
+                  <span key={u} className="text-sm text-[#E8E0D0]/50">
+                    {u}
+                  </span>
+                ))}
                 <span className="text-sm text-[#E8E0D0]/50">
                   requested {first.requested} · expires {first.expires}
                   {paymentsEnabled && ` · ${sum(group)} · pays by ${first.paymentMethod}`}
@@ -247,6 +253,7 @@ function PaymentTable({
             {r.bandName}
           </Link>
           {r.rateNotes && <span className="text-amber-200/80">{r.rateNotes}</span>}
+          {r.usualRate && <span className="text-[#E8E0D0]/50">{r.usualRate}</span>}
           {paymentsEnabled && <span>{r.price}</span>}
           {r.gear && <span className="text-[#E8E0D0]/60">{r.gear}</span>}
           {r.clash.length > 0 && <span className={`${tag} bg-red-400/15 text-red-300`}>{r.clash.join(', ')}</span>}

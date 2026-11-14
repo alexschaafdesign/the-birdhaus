@@ -4,33 +4,34 @@ import {
   computeAvailability,
   findConflicts,
   forBand,
-  isOpenBlock,
+  isOpenSpan,
+  startOptions,
+  subtract,
   chicagoDate,
+  chicagoTime,
+  type Availability,
+  type Day,
   type EngineInput,
   type EngineBooking,
-  type Block,
 } from './availability.ts';
 
 // Monday 2026-11-16, 9:00am Chicago (CST, UTC-6).
 const NOW = new Date('2026-11-16T15:00:00Z');
+const H = 3_600_000;
 
 function base(over: Partial<EngineInput> = {}): EngineInput {
   return {
     now: NOW,
     settings: {
-      blockMinutes: 180,
       windowMinHours: 24,
       windowMaxWeeks: 8,
-      showDayRule: 'whole_day',
-      showDayFrom: '15:00',
+      showDayRule: 'from_time',
+      showDayFrom: '16:00',
+      startStepMinutes: 30,
+      allowedLengths: [60, 120, 180, 240, 360],
+      bufferMinutes: 30,
     },
-    hours: [
-      { weekday: 1, startTime: '18:00' }, // Mon
-      { weekday: 3, startTime: '18:00' }, // Wed
-      { weekday: 6, startTime: '12:00' }, // Sat
-      { weekday: 6, startTime: '15:00' },
-      { weekday: 6, startTime: '22:00' }, // runs past midnight into Sunday
-    ],
+    windows: Array.from({ length: 7 }, (_, weekday) => ({ weekday, opens: '10:00', closes: '22:00', closed: false })),
     showDates: [],
     unavailableDays: [],
     blackouts: [],
@@ -40,10 +41,17 @@ function base(over: Partial<EngineInput> = {}): EngineInput {
   };
 }
 
-function at(blocks: Block[], date: string, startTime: string): Block {
-  const b = blocks.find((x) => x.date === date && x.startTime === startTime);
-  assert.ok(b, `no block ${date} ${startTime}`);
-  return b;
+function day(a: Availability, date: string): Day {
+  const d = a.days.find((x) => x.date === date);
+  assert.ok(d, `no day ${date}`);
+  return d;
+}
+
+// "10:00–22:00, …" in Chicago wall time, for readable assertions.
+function free(a: Availability, date: string): string {
+  return day(a, date)
+    .free.map((f) => `${chicagoTime(f.start)}–${chicagoTime(f.end) === '00:00' ? '24:00' : chicagoTime(f.end)}`)
+    .join(', ');
 }
 
 function booking(over: Partial<EngineBooking> & Pick<EngineBooking, 'startsAt'>): EngineBooking {
@@ -51,7 +59,7 @@ function booking(over: Partial<EngineBooking> & Pick<EngineBooking, 'startsAt'>)
     id: 1,
     bandId: 10,
     status: 'pending',
-    endsAt: new Date(over.startsAt.getTime() + 3 * 3_600_000),
+    endsAt: new Date(over.startsAt.getTime() + 3 * H),
     expiresAt: new Date('2026-11-20T00:00:00Z'),
     ...over,
   };
@@ -60,168 +68,154 @@ function booking(over: Partial<EngineBooking> & Pick<EngineBooking, 'startsAt'>)
 // Wed 2026-11-18 18:00 CST = 2026-11-19T00:00Z.
 const WED_6PM = new Date('2026-11-19T00:00:00Z');
 
-test('standing hours lay out as open blocks in Chicago time', () => {
-  const { blocks } = computeAvailability(base());
-  const wed = at(blocks, '2026-11-18', '18:00');
-  assert.equal(wed.state, 'open');
-  assert.equal(wed.start.toISOString(), '2026-11-19T00:00:00.000Z');
-  assert.equal(wed.end.toISOString(), '2026-11-19T03:00:00.000Z');
-  assert.deepEqual(wed.reasons, []);
-  // Only standing weekdays appear.
-  assert.ok(!blocks.some((b) => b.date === '2026-11-17'), 'no Tuesday blocks');
+test('each day is open across its window', () => {
+  const a = computeAvailability(base());
+  assert.equal(free(a, '2026-11-18'), '10:00–22:00');
+  assert.equal(day(a, '2026-11-18').window?.start.toISOString(), '2026-11-18T16:00:00.000Z');
 });
 
-test('blocks inside 24h are unavailable (window); earlier today is past', () => {
-  const { blocks } = computeAvailability(base());
-  // Monday 6pm today is 9h away.
-  assert.deepEqual(at(blocks, '2026-11-16', '18:00').reasons, ['window']);
-  const later = computeAvailability(base({ now: new Date('2026-11-17T03:00:00Z') })); // Mon 9pm
-  assert.deepEqual(at(later.blocks, '2026-11-16', '18:00').reasons, ['past']);
+test('a closed weekday has no free time; a window can close at midnight', () => {
+  const windows = base().windows.map((w) =>
+    w.weekday === 2 ? { ...w, closed: true } : w.weekday === 5 ? { ...w, closes: '24:00' } : w,
+  );
+  const a = computeAvailability(base({ windows }));
+  assert.equal(free(a, '2026-11-17'), ''); // Tue
+  assert.equal(day(a, '2026-11-17').window, null);
+  assert.equal(free(a, '2026-11-20'), '10:00–24:00'); // Fri
+});
+
+test('inside 24h is not bookable (window); earlier today is past', () => {
+  const a = computeAvailability(base());
+  assert.equal(free(a, '2026-11-16'), ''); // today
+  assert.equal(free(a, '2026-11-17'), '10:00–22:00'); // tomorrow from 9am+24h = 9am, window opens 10
+  const later = computeAvailability(base({ now: new Date('2026-11-16T20:00:00Z') })); // 2pm Mon
+  assert.equal(free(later, '2026-11-17'), '14:00–22:00');
+  assert.deepEqual(
+    day(later, '2026-11-16').blocked.map((b) => b.reason),
+    ['past', 'window'],
+  );
 });
 
 test('the window ends 8 weeks out', () => {
-  const { blocks, windowEnd } = computeAvailability(base());
-  assert.equal(windowEnd.toISOString(), '2027-01-11T15:00:00.000Z');
-  // Mon 2027-01-11 18:00 is after 9am that day: outside.
-  assert.deepEqual(at(blocks, '2027-01-11', '18:00').reasons, ['window']);
-  assert.equal(at(blocks, '2027-01-09', '15:00').state, 'open');
-  assert.ok(!blocks.some((b) => b.date > '2027-01-11'));
+  const a = computeAvailability(base());
+  assert.equal(a.days[a.days.length - 1].date, chicagoDate(new Date(NOW.getTime() + 8 * 7 * 24 * H)));
 });
 
-test('a show blocks its whole Chicago day by default', () => {
-  const { blocks } = computeAvailability(base({ showDates: ['2026-11-21'] })); // Sat
-  for (const t of ['12:00', '15:00', '22:00']) {
-    assert.deepEqual(at(blocks, '2026-11-21', t).reasons, ['show']);
-  }
-  assert.equal(at(blocks, '2026-11-28', '12:00').state, 'open');
+test('a show blocks from 16:00 by default; whole_day blocks it all', () => {
+  const a = computeAvailability(base({ showDates: ['2026-11-21'] }));
+  assert.equal(free(a, '2026-11-21'), '10:00–16:00');
+  const whole = computeAvailability(base({ showDates: ['2026-11-21'], settings: { ...base().settings, showDayRule: 'whole_day' } }));
+  assert.equal(free(whole, '2026-11-21'), '');
 });
 
-test('show_day_from blocks only from that time; a block ending at it stays open', () => {
-  const settings = { ...base().settings, showDayRule: 'from_time' as const, showDayFrom: '15:00' };
-  const { blocks } = computeAvailability(base({ settings, showDates: ['2026-11-21'] }));
-  assert.equal(at(blocks, '2026-11-21', '12:00').state, 'open'); // 12–3pm
-  assert.deepEqual(at(blocks, '2026-11-21', '15:00').reasons, ['show']);
-});
-
-test('a late block running past midnight into a show day is blocked', () => {
-  const { blocks } = computeAvailability(base({ showDates: ['2026-11-22'] })); // Sun
-  assert.deepEqual(at(blocks, '2026-11-21', '22:00').reasons, ['show']); // Sat 10pm–1am
-  assert.equal(at(blocks, '2026-11-21', '15:00').state, 'open');
-});
-
-test('Booking "Not available" days black out the day', () => {
-  const { blocks } = computeAvailability(base({ unavailableDays: ['2026-11-18'] }));
-  assert.deepEqual(at(blocks, '2026-11-18', '18:00').reasons, ['unavailable_day']);
-});
-
-test('blackouts and busy times remove any block they overlap', () => {
-  const { blocks } = computeAvailability(
+test('Not-available days, blackouts and busy times take their time out', () => {
+  const a = computeAvailability(
     base({
-      // Wed 7:30–8pm CST
-      blackouts: [{ start: new Date('2026-11-19T01:30:00Z'), end: new Date('2026-11-19T02:00:00Z') }],
-      // Sat 11am–12:30pm CST
-      busy: {
-        intervals: [{ start: new Date('2026-11-21T17:00:00Z'), end: new Date('2026-11-21T18:30:00Z') }],
-        checked: true,
-      },
+      unavailableDays: ['2026-11-20'],
+      blackouts: [{ start: new Date('2026-11-18T19:00:00Z'), end: new Date('2026-11-18T21:00:00Z') }], // Wed 1–3pm
+      busy: { intervals: [{ start: new Date('2026-11-19T18:00:00Z'), end: new Date('2026-11-19T19:30:00Z') }], checked: true }, // Thu 12–1:30
     }),
   );
-  assert.deepEqual(at(blocks, '2026-11-18', '18:00').reasons, ['blackout']);
-  assert.deepEqual(at(blocks, '2026-11-21', '12:00').reasons, ['busy']);
-  // Touching end-to-start is not an overlap.
-  assert.equal(at(blocks, '2026-11-21', '15:00').state, 'open');
+  assert.equal(free(a, '2026-11-20'), '');
+  assert.equal(free(a, '2026-11-18'), '10:00–13:00, 15:00–22:00');
+  assert.equal(free(a, '2026-11-19'), '10:00–12:00, 13:30–22:00');
+  assert.deepEqual(
+    day(a, '2026-11-18').blocked.map((b) => b.reason),
+    ['blackout'],
+  );
 });
 
-test("a failed calendar check leaves blocks open and says so", () => {
+test('a multi-day blackout covers every day it touches', () => {
+  const a = computeAvailability(
+    base({ blackouts: [{ start: new Date('2026-11-18T20:00:00Z'), end: new Date('2026-11-20T18:00:00Z') }] }), // Wed 2pm → Fri noon
+  );
+  assert.equal(free(a, '2026-11-18'), '10:00–14:00');
+  assert.equal(free(a, '2026-11-19'), '');
+  assert.equal(free(a, '2026-11-20'), '12:00–22:00');
+});
+
+test('bookings hold their time plus the buffer on both sides', () => {
+  const a = computeAvailability(base({ bookings: [booking({ startsAt: WED_6PM, bandId: 99 })] }));
+  assert.equal(free(a, '2026-11-18'), '10:00–17:30, 21:30–22:00'); // 6–9pm + 30 min each side
+  // 9:30–10pm is free but too short for the shortest length: no start offered there.
+  assert.ok(startOptions(day(a, '2026-11-18').free, base().settings).every((o) => chicagoTime(o.start) < '17:00'));
+  const noBuffer = computeAvailability(
+    base({ bookings: [booking({ startsAt: WED_6PM })], settings: { ...base().settings, bufferMinutes: 0 } }),
+  );
+  assert.equal(free(noBuffer, '2026-11-18'), '10:00–18:00, 21:00–22:00');
+});
+
+test('expired, declined and cancelled bookings free their time', () => {
+  for (const status of ['declined', 'cancelled', 'expired'] as const) {
+    const a = computeAvailability(base({ bookings: [booking({ startsAt: WED_6PM, status })] }));
+    assert.equal(free(a, '2026-11-18'), '10:00–22:00', status);
+  }
+  const lapsed = computeAvailability(base({ bookings: [booking({ startsAt: WED_6PM, expiresAt: new Date('2026-11-16T00:00:00Z') })] }));
+  assert.equal(free(lapsed, '2026-11-18'), '10:00–22:00');
+});
+
+test("the viewer sees their own bookings; the band view has no reasons", () => {
+  const a = computeAvailability(
+    base({
+      viewerBandId: 10,
+      bookings: [booking({ id: 7, startsAt: WED_6PM, status: 'confirmed' })],
+      busy: { intervals: [{ start: new Date('2026-11-19T18:00:00Z'), end: new Date('2026-11-19T19:00:00Z') }], checked: true },
+    }),
+  );
+  assert.deepEqual(day(a, '2026-11-18').own.map((o) => [o.bookingId, o.state]), [[7, 'confirmed']]);
+  const band = forBand(a);
+  const json = JSON.stringify(band);
+  assert.ok(!json.includes('busy') && !json.includes('reason') && !json.includes('blocked'));
+  assert.equal(band.days.find((d) => d.date === '2026-11-18')?.own.length, 1);
+});
+
+test('a failed calendar check leaves time open and says so', () => {
   const a = computeAvailability(base({ busy: { intervals: [], checked: false } }));
   assert.equal(a.calendarChecked, false);
-  assert.equal(at(a.blocks, '2026-11-18', '18:00').state, 'open');
+  assert.equal(free(a, '2026-11-18'), '10:00–22:00');
 });
 
-test('pending and confirmed bookings hold their block; expired, declined and cancelled do not', () => {
-  const sat = (t: string) => new Date(`2026-11-21T${t}:00Z`);
-  const bookings: EngineBooking[] = [
-    booking({ id: 1, startsAt: WED_6PM, status: 'pending' }),
-    booking({ id: 2, startsAt: sat('18:00'), status: 'confirmed' }), // Sat 12pm CST
-    booking({ id: 3, startsAt: sat('21:00'), status: 'pending', expiresAt: new Date('2026-11-16T14:59:00Z') }), // expired a minute ago
-    booking({ id: 4, startsAt: new Date('2026-11-24T00:00:00Z'), status: 'declined' }), // Mon 23rd 6pm
-    booking({ id: 5, startsAt: new Date('2026-11-26T00:00:00Z'), status: 'cancelled' }), // Wed 25th 6pm
-  ];
-  const { blocks } = computeAvailability(base({ bookings }));
-  assert.deepEqual(at(blocks, '2026-11-18', '18:00').reasons, ['booked']);
-  assert.deepEqual(at(blocks, '2026-11-21', '12:00').reasons, ['booked']);
-  assert.equal(at(blocks, '2026-11-21', '15:00').state, 'open', 'expired pending frees the block on read');
-  assert.equal(at(blocks, '2026-11-23', '18:00').state, 'open');
-  assert.equal(at(blocks, '2026-11-25', '18:00').state, 'open');
+test('isOpenSpan: grid, allowed length, inside one stretch, inside the window', () => {
+  const a = computeAvailability(base({ bookings: [booking({ startsAt: WED_6PM, bandId: 99 })] }));
+  const s = base().settings;
+  const wed = (h: number, m = 0) => new Date(Date.UTC(2026, 10, 18, h + 6, m)); // Chicago CST
+  assert.equal(isOpenSpan(a, s, wed(14), 180), true); // 2–5pm
+  assert.equal(isOpenSpan(a, s, wed(14, 30), 180), true); // 2:30–5:30, touches the buffer
+  assert.equal(isOpenSpan(a, s, wed(15), 180), false); // 3–6pm runs into the buffer
+  assert.equal(isOpenSpan(a, s, wed(14, 15), 60), false); // off the 30-min grid
+  assert.equal(isOpenSpan(a, s, wed(10), 300), false); // 5h isn't an allowed length
+  assert.equal(isOpenSpan(a, s, wed(10), 360), true);
+  assert.equal(isOpenSpan(a, s, new Date('2026-11-16T22:00:00Z'), 60), false); // today: inside 24h
+  assert.equal(isOpenSpan(a, s, new Date('2027-02-01T22:00:00Z'), 60), false); // past the window
 });
 
-test("the viewer sees their own bookings as requested/confirmed; others' as unavailable", () => {
-  const bookings: EngineBooking[] = [
-    booking({ id: 1, bandId: 10, startsAt: WED_6PM, status: 'pending' }),
-    booking({ id: 2, bandId: 10, startsAt: new Date('2026-11-21T18:00:00Z'), status: 'confirmed' }),
-    booking({ id: 3, bandId: 99, startsAt: new Date('2026-11-21T21:00:00Z'), status: 'confirmed' }),
-  ];
-  const { blocks } = computeAvailability(base({ bookings, viewerBandId: 10 }));
-  assert.equal(at(blocks, '2026-11-18', '18:00').state, 'requested');
-  assert.equal(at(blocks, '2026-11-18', '18:00').bookingId, 1);
-  assert.equal(at(blocks, '2026-11-21', '12:00').state, 'confirmed');
-  const other = at(blocks, '2026-11-21', '15:00');
-  assert.equal(other.state, 'unavailable');
-  assert.equal(other.bookingId, undefined);
+test('startOptions lists grid starts with the lengths that fit', () => {
+  const a = computeAvailability(base({ bookings: [booking({ startsAt: WED_6PM, bandId: 99 })] }));
+  const opts = startOptions(day(a, '2026-11-18').free, base().settings);
+  const fmt = opts.map((o) => `${chicagoTime(o.start)}:${o.lengths.map((l) => l / 60).join('/')}`);
+  assert.equal(fmt[0], '10:00:1/2/3/4/6');
+  assert.ok(fmt.includes('14:30:1/2/3'));
+  assert.equal(fmt[fmt.length - 1], '16:30:1'); // last start where 1h fits before 5:30
+  // A stretch that starts off the grid rounds up to the next grid point.
+  const odd = startOptions([{ start: new Date('2026-11-18T16:10:00Z'), end: new Date('2026-11-18T18:00:00Z') }], base().settings);
+  assert.deepEqual(odd.map((o) => chicagoTime(o.start)), ['10:30', '11:00']);
 });
 
-test("the band's view never says why a block is unavailable", () => {
-  const a = computeAvailability(
-    base({ showDates: ['2026-11-21'], bookings: [booking({ bandId: 99, startsAt: WED_6PM })], viewerBandId: 10 }),
-  );
-  const band = forBand(a);
-  for (const b of band.blocks) assert.ok(!('reasons' in b));
-  assert.ok(!('calendarChecked' in band));
-  assert.equal(band.blocks.find((b) => b.date === '2026-11-21')?.state, 'unavailable');
-});
-
-test('own bookings that no longer match a standing block still show', () => {
-  // Booked Thursday 7pm, which isn't a standing block (hours changed later).
-  const thu = booking({ id: 7, startsAt: new Date('2026-11-20T01:00:00Z'), status: 'confirmed' });
-  const { blocks } = computeAvailability(base({ bookings: [thu], viewerBandId: 10 }));
-  const b = at(blocks, '2026-11-19', '19:00');
-  assert.equal(b.state, 'confirmed');
-  assert.equal(b.bookingId, 7);
-  // Still sorted by start.
-  for (let i = 1; i < blocks.length; i++) assert.ok(blocks[i - 1].start <= blocks[i].start);
-});
-
-test('duplicate standing hours produce one block', () => {
-  const hours = [...base().hours, { weekday: 3, startTime: '18:00' }];
-  const { blocks } = computeAvailability(base({ hours }));
-  assert.equal(blocks.filter((b) => b.date === '2026-11-18').length, 1);
-});
-
-test('fromDate lays out earlier days as unavailable so a week view has no holes', () => {
-  const { blocks } = computeAvailability(base({ fromDate: '2026-11-14' })); // Sat before now
-  assert.deepEqual(at(blocks, '2026-11-14', '12:00').reasons, ['past']);
-});
-
-test('DST: 6pm stays 6pm Chicago across the change, and a non-existent start is skipped', () => {
+test('DST: windows and the grid follow Chicago wall time across the change', () => {
   const now = new Date('2027-03-01T15:00:00Z');
-  const hours = [
-    { weekday: 1, startTime: '18:00' },
-    { weekday: 0, startTime: '02:30' }, // doesn't exist on 2027-03-14 (spring forward)
-  ];
-  const { blocks } = computeAvailability(base({ now, hours }));
-  assert.equal(at(blocks, '2027-03-08', '18:00').start.toISOString(), '2027-03-09T00:00:00.000Z'); // CST
-  assert.equal(at(blocks, '2027-03-15', '18:00').start.toISOString(), '2027-03-15T23:00:00.000Z'); // CDT
-  assert.ok(!blocks.some((b) => b.date === '2027-03-14'), 'no 2:30am block on the spring-forward day');
-  assert.ok(blocks.some((b) => b.date === '2027-03-21' && b.startTime === '02:30'));
-  // Blocks are always block_minutes of real time.
-  for (const b of blocks) assert.equal(b.end.getTime() - b.start.getTime(), 180 * 60_000);
+  const a = computeAvailability(base({ now }));
+  assert.equal(day(a, '2027-03-08').window?.start.toISOString(), '2027-03-08T16:00:00.000Z'); // CST
+  assert.equal(day(a, '2027-03-15').window?.start.toISOString(), '2027-03-15T15:00:00.000Z'); // CDT
+  assert.equal(free(a, '2027-03-14'), '10:00–22:00'); // spring-forward day
+  const opts = startOptions(day(a, '2027-03-15').free, base().settings);
+  assert.equal(chicagoTime(opts[0].start), '10:00');
 });
 
-test('isOpenBlock checks one exact block', () => {
-  const a = computeAvailability(base({ showDates: ['2026-11-21'] }));
-  assert.equal(isOpenBlock(a, WED_6PM), true);
-  assert.equal(isOpenBlock(a, new Date('2026-11-21T18:00:00Z')), false); // show day
-  assert.equal(isOpenBlock(a, new Date('2026-11-19T00:30:00Z')), false); // not a block start
+test('subtract handles edges and containment', () => {
+  const iv = (a: number, b: number) => ({ start: new Date(a), end: new Date(b) });
+  assert.deepEqual(subtract(iv(0, 10), [iv(2, 4), iv(6, 8)]), [iv(0, 2), iv(4, 6), iv(8, 10)]);
+  assert.deepEqual(subtract(iv(0, 10), [iv(-5, 20)]), []);
+  assert.deepEqual(subtract(iv(0, 10), [iv(10, 12)]), [iv(0, 10)]);
 });
 
 test('findConflicts flags confirmed upcoming bookings a new constraint lands on', () => {
@@ -231,6 +225,7 @@ test('findConflicts flags confirmed upcoming bookings a new constraint lands on'
     booking({ id: 2, startsAt: new Date('2026-11-21T18:00:00Z'), status: 'pending' }), // pending: not a conflict
     booking({ id: 3, startsAt: new Date('2026-11-10T00:00:00Z'), status: 'confirmed' }), // past
     booking({ id: 4, startsAt: new Date('2026-11-24T00:00:00Z'), status: 'confirmed' }), // clear
+    booking({ id: 5, startsAt: new Date('2026-11-21T16:00:00Z'), status: 'confirmed' }), // Sat 10am–1pm, show from 4pm: clear
   ];
   const conflicts = findConflicts(
     bookings,

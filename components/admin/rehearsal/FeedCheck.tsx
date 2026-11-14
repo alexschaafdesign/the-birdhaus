@@ -4,7 +4,7 @@ import { useState } from 'react';
 
 // "Check calendars now": refetches the saved feeds (skipping the 15-minute
 // cache) and shows whether each could be read, how many busy times it has in
-// the booking window, and how many blocks are open. Never shows titles.
+// the booking window, and how many hours are open. Never shows titles.
 
 interface FeedRow {
   feed: string;
@@ -90,14 +90,14 @@ export default function FeedCheck() {
           </ul>
           {!result.calendarChecked && (
             <p className="text-amber-300">
-              A feed couldn&apos;t be read, so its busy times aren&apos;t removing any blocks right now.
+              A feed couldn&apos;t be read, so its busy times aren&apos;t blocking any time right now.
             </p>
           )}
           <p className="text-[#E8E0D0]/50">
-            Blocks today through the window:{' '}
+            Hours today through the window:{' '}
             {COUNT_LABELS.filter(([k]) => result.counts[k])
               .map(([k, label]) => `${result.counts[k]} ${label}`)
-              .join(' · ') || 'none (add standing hours)'}
+              .join(' · ') || 'none (check the booking hours)'}
           </p>
         </div>
       )}

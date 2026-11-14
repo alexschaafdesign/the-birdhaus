@@ -1,5 +1,5 @@
 import { sql } from '../db';
-import { getRehearsalSettings, getStandingHours } from './settings';
+import { getDayWindows, getRehearsalSettings } from './settings';
 import { getBusyTimes, type FeedStatus } from './busy';
 import {
   addDays,
@@ -22,13 +22,13 @@ import {
 
 export async function loadAvailability(
   opts: { viewerBandId?: number; fromDate?: string; now?: Date; forceCalendar?: boolean } = {},
-): Promise<{ availability: Availability; feeds: FeedStatus[] }> {
+): Promise<{ availability: Availability; feeds: FeedStatus[]; settings: Awaited<ReturnType<typeof getRehearsalSettings>> }> {
   const now = opts.now ?? new Date();
-  const [settings, hours] = await Promise.all([getRehearsalSettings(), getStandingHours()]);
+  const [settings, windows] = await Promise.all([getRehearsalSettings(), getDayWindows()]);
 
   const fromDate = opts.fromDate ?? chicagoDate(now);
   const window = bookingWindow(now, settings);
-  // One spare day each side: a block may run past midnight into the next day.
+  // One spare day each side: blackouts and busy times can span midnight.
   const lastDate = addDays(chicagoDate(window.end), 1);
   const spanStart = startOfChicagoDay(addDays(fromDate, -1));
   const spanEnd = startOfChicagoDay(addDays(lastDate, 1));
@@ -66,7 +66,7 @@ export async function loadAvailability(
   const availability = computeAvailability({
     now,
     settings,
-    hours,
+    windows,
     showDates: shows.map((r) => r.date),
     unavailableDays: away.map((r) => r.date),
     blackouts: blackouts.map((r): Interval => ({ start: r.start, end: r.end })),
@@ -76,7 +76,7 @@ export async function loadAvailability(
     fromDate,
   });
 
-  return { availability, feeds: calendar.feeds };
+  return { availability, feeds: calendar.feeds, settings };
 }
 
 // Why each of these bookings would now clash (a show, Not-available day,

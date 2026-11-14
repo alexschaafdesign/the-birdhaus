@@ -24,6 +24,7 @@ import { getLead, leadSummary } from './leads';
 import { FREQUENCY_LABEL } from './lead-rules.ts';
 import { chicagoDate } from './availability.ts';
 import { buildIcs } from './ics-out.ts';
+import { lengthLabel, rateCardLines, usualRateFor, type RateCardInput } from './estimate.ts';
 import { longDay, money, sessionLabel, shortDay, timeRange } from './format.ts';
 import type { Reason } from './availability.ts';
 
@@ -160,8 +161,11 @@ export async function sendRequestEmail(requestKey: string): Promise<boolean> {
   if (list.length === 0) return false;
   const band = await bandContact(list[0].bandId);
   const { reasons, calendarChecked } = await clashesFor(list);
-  const { paymentsEnabled } = await getRehearsalSettings();
+  const settings = await getRehearsalSettings();
+  const { paymentsEnabled } = settings;
   const rate = list[0].rateNotes;
+  // Soft usual-rate lines (one per distinct length/repeat), beside the rate notes.
+  const usual = [...new Set(list.map((b) => usualRateFor(b.startsAt, b.endsAt, b.seriesFreq, settings)).filter((x): x is string => Boolean(x)))];
   // The band name, with Alex's private rate notes beside it.
   const bandHtml = `<strong>${esc(band.name)}</strong>${rate ? ` <span style="color:${EMAIL_COLORS.meta};">(${esc(rate)})</span>` : ''}`;
   const bandText = `${band.name}${rate ? ` (${rate})` : ''}`;
@@ -186,7 +190,7 @@ export async function sendRequestEmail(requestKey: string): Promise<boolean> {
     const decline =
       n > 1 ? ` · ${emailLink(reviewUrl(signLink({ a: 'decline', b: b.id }, secret)), 'decline just this one')}` : '';
     const rep = !allOneSeries && repeatLabel(b) ? ` · ↻ ${esc(repeatLabel(b)!)}` : '';
-    return `<strong>${esc(sessionLabel(b.startsAt, b.endsAt))}</strong> · ${esc(b.catalogueId)}${paymentsEnabled ? ` · ${money(b.priceCents)}` : ''}${rep}${decline}${
+    return `<strong>${esc(sessionLabel(b.startsAt, b.endsAt))}</strong> (${lengthLabel(b.startsAt, b.endsAt)}) · ${esc(b.catalogueId)}${paymentsEnabled ? ` · ${money(b.priceCents)}` : ''}${rep}${decline}${
       clash ? `<br><span style="color:${EMAIL_COLORS.red};">Heads up: ${esc(clash.map((r) => REASON_TEXT[r]).join('; '))}.</span>` : ''
     }`;
   });
@@ -195,6 +199,7 @@ export async function sendRequestEmail(requestKey: string): Promise<boolean> {
   const details: Array<[string, string]> = [
     ['Band', esc(band.name)],
     ...(rate ? [['Rate notes', esc(rate)] as [string, string]] : []),
+    ...(usual.length ? [['Estimate', esc(usual.join('; '))] as [string, string]] : []),
     ...(band.contactName ? [['Contact', esc(band.contactName)] as [string, string]] : []),
     ['Email', esc(band.email)],
     ...(band.phone ? [['Phone', esc(band.phone)] as [string, string]] : []),
@@ -215,7 +220,7 @@ export async function sendRequestEmail(requestKey: string): Promise<boolean> {
       emailP(
         repeats
           ? `${bandHtml} asked for a repeating booking — <strong>${esc(repeats)}</strong>, ${n} session${n === 1 ? '' : 's'}. Approve the series as a whole, or decline single dates:`
-          : `${bandHtml} asked for ${n === 1 ? 'a block' : `${n} sessions`}${
+          : `${bandHtml} asked for ${n === 1 ? 'a session' : `${n} sessions`}${
               seriesLabels.length ? ` (${seriesLabels.map((l) => esc(l)).join('; ')} — approving approves each series as a whole)` : ''
             }:`,
       ) +
@@ -238,11 +243,11 @@ export async function sendRequestEmail(requestKey: string): Promise<boolean> {
     [
       repeats
         ? `${bandText} asked for a repeating booking — ${repeats}, ${n} sessions. Approve the series, or decline single dates:`
-        : `${bandText} asked for ${n === 1 ? 'a block' : `${n} sessions`}${seriesLabels.length ? ` (${seriesLabels.join('; ')})` : ''}:`,
+        : `${bandText} asked for ${n === 1 ? 'a session' : `${n} sessions`}${seriesLabels.length ? ` (${seriesLabels.join('; ')})` : ''}:`,
       '',
       ...list.map((b) => {
         const clash = reasons.get(b.id);
-        return `- ${sessionLabel(b.startsAt, b.endsAt)} · ${b.catalogueId}${paymentsEnabled ? ` · ${money(b.priceCents)}` : ''}${
+        return `- ${sessionLabel(b.startsAt, b.endsAt)} (${lengthLabel(b.startsAt, b.endsAt)}) · ${b.catalogueId}${paymentsEnabled ? ` · ${money(b.priceCents)}` : ''}${
           clash ? `\n  Heads up: ${clash.map((r) => REASON_TEXT[r]).join('; ')}.` : ''
         }${n > 1 ? `\n  Decline just this one: ${reviewUrl(signLink({ a: 'decline', b: b.id }, secret))}` : ''}`;
       }),
@@ -532,16 +537,22 @@ export interface MorningData {
   expired: number;
   outstandingCents: number;
   paymentsEnabled: boolean;
+  // Rate card + flags for the soft usual-rate beside each session.
+  rates: RateCardInput & { paymentsEnabled: boolean; estimatesEnabled: boolean };
   // Repeating bookings extended this morning.
   seriesBooked: Array<{ bandName: string; start: Date; end: Date; catalogueId: string }>;
   seriesSkipped: Array<{ bandName: string; start: Date; end: Date }>;
   calendarChecked: boolean;
 }
 
-function sessionLine(b: AdminBooking, paymentsEnabled: boolean): string {
+function sessionLine(b: AdminBooking, d: MorningData): string {
   const g = gearLine(b);
-  const pay = !paymentsEnabled ? '' : ` · ${b.paymentStatus === 'unpaid' ? `unpaid (${b.paymentMethod})` : b.paymentStatus}`;
-  return `${timeRange(b.startsAt, b.endsAt)} · ${b.bandName}${b.rateNotes ? ` (${b.rateNotes})` : ''} · ${b.catalogueId} · gear: ${g || 'none'}${pay}${
+  const pay = !d.paymentsEnabled ? '' : ` · ${b.paymentStatus === 'unpaid' ? `unpaid (${b.paymentMethod})` : b.paymentStatus}`;
+  const usual = usualRateFor(b.startsAt, b.endsAt, b.seriesFreq, d.rates);
+  const notes = [b.rateNotes, usual && usual.replace(/^Usual rate for .*?: /, 'usual ').replace(/^Regular rate: /, 'regular ')]
+    .filter(Boolean)
+    .join('; ');
+  return `${timeRange(b.startsAt, b.endsAt)} (${lengthLabel(b.startsAt, b.endsAt)}) · ${b.bandName}${notes ? ` (${notes})` : ''} · ${b.catalogueId} · gear: ${g || 'none'}${pay}${
     b.conflict ? ' · CONFLICT' : ''
   }`;
 }
@@ -564,9 +575,9 @@ export async function sendMorningEmail(d: MorningData): Promise<boolean> {
           emailP(conflictRows.map((r) => `<span style="color:${EMAIL_COLORS.red};">${esc(r)}</span>`).join('<br>')) +
           emailSmall('Get in touch with the band, then keep or cancel it in admin.')
         : '') +
-      sec('Today', d.today.map((b) => sessionLine(b, d.paymentsEnabled))) +
+      sec('Today', d.today.map((b) => sessionLine(b, d))) +
       (d.today.length ? '' : emailP('No rehearsals today.')) +
-      sec('Tomorrow', d.tomorrow.map((b) => sessionLine(b, d.paymentsEnabled))) +
+      sec('Tomorrow', d.tomorrow.map((b) => sessionLine(b, d))) +
       sec(
         'Added to repeating bookings',
         d.seriesBooked.map((x) => `${sessionLabel(x.start, x.end)} · ${x.bandName} · ${x.catalogueId}`),
@@ -586,9 +597,9 @@ export async function sendMorningEmail(d: MorningData): Promise<boolean> {
     [
       ...(d.newConflicts.length ? ['NEW CONFLICTS — nothing was cancelled', ...conflictRows, ''] : []),
       'TODAY',
-      ...(d.today.length ? d.today.map((b) => sessionLine(b, d.paymentsEnabled)) : ['No rehearsals today.']),
+      ...(d.today.length ? d.today.map((b) => sessionLine(b, d)) : ['No rehearsals today.']),
       '',
-      ...(d.tomorrow.length ? ['TOMORROW', ...d.tomorrow.map((b) => sessionLine(b, d.paymentsEnabled)), ''] : []),
+      ...(d.tomorrow.length ? ['TOMORROW', ...d.tomorrow.map((b) => sessionLine(b, d)), ''] : []),
       ...(d.seriesBooked.length
         ? ['ADDED TO REPEATING BOOKINGS', ...d.seriesBooked.map((x) => `${sessionLabel(x.start, x.end)} · ${x.bandName} · ${x.catalogueId}`), '']
         : []),
@@ -760,11 +771,14 @@ export async function sendInviteEmail(bandId: number): Promise<boolean> {
   if (!band || !link) return false;
   const s = await getRehearsalSettings();
   const hi = hey(band.contactName);
-  const how = `Tap an open block, pick once or repeating, and send it — I'll confirm by email with the address.${
+  const how = `Tap a day, pick a start time and how long — once or repeating — and send it. I'll confirm by email with the address.${
     s.paymentsEnabled
-      ? ` It's ${money(s.priceCents)} a block${s.repeatPriceCents !== null && s.repeatPriceCents !== s.priceCents ? ` (${money(s.repeatPriceCents)} when it repeats)` : ''}, by Venmo.`
+      ? ` It's ${money(s.priceCents)} a session${s.repeatPriceCents !== null && s.repeatPriceCents !== s.priceCents ? ` (${money(s.repeatPriceCents)} when it repeats)` : ''}, by Venmo.`
       : ''
   }`;
+  // The informal rate card (payments off): display only.
+  const card = s.paymentsEnabled ? [] : rateCardLines(s);
+  const cardText = [...(card.length ? [`Rates: ${card.join(' · ')}.`] : []), s.paymentsEnabled ? '' : s.rateRegularText, s.paymentsEnabled ? '' : s.rateFlexibleText].filter(Boolean);
   const ok = await send({
     template: 'rehearsal-invite',
     to: band.email,
@@ -774,9 +788,12 @@ export async function sendInviteEmail(bandId: number): Promise<boolean> {
       emailP("Here's your link to book the basement:"),
       emailButton(link, 'Book a time'),
       emailP(esc(how)),
+      ...cardText.map((t) => emailP(esc(t))),
       emailSmall('This link is private and specific to you.'),
     ]),
-    text: [hi, '', "Here's your link to book the basement:", link, '', how, '', 'This link is private and specific to you.', '', SIGN].join('\n') + emailTextFooter(),
+    text:
+      [hi, '', "Here's your link to book the basement:", link, '', how, '', ...cardText.flatMap((t) => [t, '']), 'This link is private and specific to you.', '', SIGN].join('\n') +
+      emailTextFooter(),
     replyTo: REPLY_TO,
   });
   return ok;

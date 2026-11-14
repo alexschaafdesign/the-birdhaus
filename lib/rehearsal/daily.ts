@@ -191,6 +191,7 @@ export async function runDaily(opts: { now?: Date; force?: boolean } = {}): Prom
       expired: expiredRows.length,
       outstandingCents: outstanding,
       paymentsEnabled: settings.paymentsEnabled,
+      rates: settings,
       calendarChecked,
       seriesBooked: bookedRows.map((b) => ({ bandName: b.bandName, start: b.startsAt, end: b.endsAt, catalogueId: b.catalogueId })),
       seriesSkipped: unnotified.map((r) => ({

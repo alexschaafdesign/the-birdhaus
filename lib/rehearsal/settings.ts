@@ -38,8 +38,37 @@ export interface RehearsalSettings {
   publicFactsLine: string;
   reminderEmailsEnabled: boolean;
   lapsedEmailsEnabled: boolean;
+  // Flexible hours (118): edited through Booking hours, not the main form.
+  startStepMinutes: number;
+  allowedLengths: number[]; // minutes, ascending
+  minMinutes: number;
+  maxMinutes: number;
+  bufferMinutes: number;
+  // Rate card (118): display-only, edited through Rates.
+  rateHourlyCents: number;
+  ratePackages: RatePackage[];
+  rateRegularText: string;
+  rateFlexibleText: string;
+  estimatesEnabled: boolean;
   updatedAt: string;
 }
+
+export interface RatePackage {
+  minutes: number;
+  cents: number;
+}
+
+// Fields with their own editors (Booking hours, Rates); the main settings form
+// neither sends nor writes them.
+export type BookingRules = Pick<
+  RehearsalSettings,
+  'startStepMinutes' | 'allowedLengths' | 'minMinutes' | 'maxMinutes' | 'bufferMinutes'
+>;
+export type RateCard = Pick<
+  RehearsalSettings,
+  'rateHourlyCents' | 'ratePackages' | 'rateRegularText' | 'rateFlexibleText' | 'estimatesEnabled'
+>;
+type CoreSettings = Omit<RehearsalSettings, 'updatedAt' | keyof BookingRules | keyof RateCard>;
 
 // The admin client never sees full feed URLs: they're private calendar links.
 export type RehearsalSettingsForAdmin = Omit<RehearsalSettings, 'icsFeedUrls'> & {
@@ -49,7 +78,7 @@ export type RehearsalSettingsForAdmin = Omit<RehearsalSettings, 'icsFeedUrls'> &
 // Feed edits from the admin form: keep a stored feed by index, or add a URL.
 export type FeedEdit = { keep: number } | { url: string };
 
-export type SettingsInput = Omit<RehearsalSettings, 'icsFeedUrls' | 'updatedAt'> & {
+export type SettingsInput = Omit<CoreSettings, 'icsFeedUrls'> & {
   icsFeeds: FeedEdit[];
 };
 
@@ -93,6 +122,16 @@ export async function getRehearsalSettings(): Promise<RehearsalSettings> {
       public_facts_line as "publicFactsLine",
       reminder_emails_enabled as "reminderEmailsEnabled",
       lapsed_emails_enabled as "lapsedEmailsEnabled",
+      start_step_minutes as "startStepMinutes",
+      allowed_lengths as "allowedLengths",
+      min_minutes as "minMinutes",
+      max_minutes as "maxMinutes",
+      buffer_minutes as "bufferMinutes",
+      rate_hourly_cents as "rateHourlyCents",
+      rate_packages as "ratePackages",
+      rate_regular_text as "rateRegularText",
+      rate_flexible_text as "rateFlexibleText",
+      estimates_enabled as "estimatesEnabled",
       updated_at::text as "updatedAt"
     from rehearsal_settings
     where id
@@ -151,11 +190,11 @@ export function isFeedUrl(raw: string): boolean {
 export function validateSettingsInput(
   body: unknown,
   storedFeeds: string[],
-): Result<Omit<RehearsalSettings, 'updatedAt'>> {
+): Result<CoreSettings> {
   if (!body || typeof body !== 'object') return { ok: false, error: 'Expected a JSON object.' };
   const b = body as Record<string, unknown>;
 
-  const ints: Array<[keyof RehearsalSettings, string, number, number]> = [
+  const ints: Array<[keyof CoreSettings, string, number, number]> = [
     ['blockMinutes', 'Block length', 30, 720],
     ['priceCents', 'Price', 0, 1_000_000],
     ['windowMinHours', 'Earliest booking (hours ahead)', 0, 720],
@@ -192,7 +231,7 @@ export function validateSettingsInput(
     if (typeof b[key] !== 'boolean') return { ok: false, error: `${key} must be true or false.` };
   }
 
-  const texts: Array<[keyof RehearsalSettings, string, number]> = [
+  const texts: Array<[keyof CoreSettings, string, number]> = [
     ['cashBoxLocation', 'Cash box location', 200],
     ['address', 'Address', 500],
     ['arrivalNotes', 'Arrival notes', 5000],
@@ -340,7 +379,7 @@ export function validateGearNeeded(
   return { ok: true, value: { gearNeeded, gearNotes } };
 }
 
-export async function updateRehearsalSettings(v: Omit<RehearsalSettings, 'updatedAt'>): Promise<RehearsalSettings> {
+export async function updateRehearsalSettings(v: CoreSettings): Promise<RehearsalSettings> {
   await sql`
     update rehearsal_settings set
       block_minutes = ${v.blockMinutes},
@@ -447,4 +486,157 @@ export async function replaceStandingHours(hours: StandingHour[]): Promise<Stand
     }
   });
   return getStandingHours();
+}
+
+// --- flexible hours (118) ----------------------------------------------------
+
+export interface DayWindow {
+  weekday: number; // 0 = Sunday … 6 = Saturday
+  opens: string; // "HH:MM"
+  closes: string; // "HH:MM", "24:00" = end of day
+  closed: boolean;
+}
+
+export async function getDayWindows(): Promise<DayWindow[]> {
+  return sql<DayWindow[]>`
+    select weekday::int as weekday,
+           to_char(opens, 'HH24:MI') as opens,
+           case when closes = '24:00'::time then '24:00' else to_char(closes, 'HH24:MI') end as closes,
+           closed
+    from rehearsal_day_windows
+    order by weekday
+  `;
+}
+
+const HHMM_24 = /^(([01]\d|2[0-3]):([0-5]\d)|24:00)$/;
+
+export function validateDayWindows(body: unknown): Result<DayWindow[]> {
+  if (!Array.isArray(body) || body.length !== 7) return { ok: false, error: 'Expected all seven days.' };
+  const out: DayWindow[] = [];
+  for (const item of body) {
+    const r = item as Record<string, unknown> | null;
+    const weekday = r?.weekday;
+    if (typeof weekday !== 'number' || !Number.isInteger(weekday) || weekday < 0 || weekday > 6) {
+      return { ok: false, error: 'Weekday must be 0 (Sunday) to 6 (Saturday).' };
+    }
+    if (out.some((w) => w.weekday === weekday)) return { ok: false, error: 'Each day once.' };
+    if (typeof r?.opens !== 'string' || !HHMM.test(r.opens)) return { ok: false, error: 'Opening times must be HH:MM.' };
+    if (typeof r?.closes !== 'string' || !HHMM_24.test(r.closes)) {
+      return { ok: false, error: 'Closing times must be HH:MM (24:00 = midnight).' };
+    }
+    if (minutesOf(r.closes) <= minutesOf(r.opens)) {
+      return { ok: false, error: `${WEEKDAY_NAMES[weekday]}: closing time must be after opening time.` };
+    }
+    if (typeof r?.closed !== 'boolean') return { ok: false, error: 'closed must be true or false.' };
+    out.push({ weekday, opens: r.opens, closes: r.closes, closed: r.closed });
+  }
+  return { ok: true, value: out.sort((a, b) => a.weekday - b.weekday) };
+}
+
+export async function replaceDayWindows(windows: DayWindow[]): Promise<DayWindow[]> {
+  await sql.begin(async (tx) => {
+    for (const w of windows) {
+      await tx`
+        update rehearsal_day_windows
+        set opens = ${w.opens}::time, closes = ${w.closes}::time, closed = ${w.closed}
+        where weekday = ${w.weekday}
+      `;
+    }
+  });
+  return getDayWindows();
+}
+
+export function validateBookingRules(body: unknown): Result<BookingRules> {
+  if (!body || typeof body !== 'object') return { ok: false, error: 'Expected a JSON object.' };
+  const b = body as Record<string, unknown>;
+  if (![15, 30, 60].includes(b.startStepMinutes as number)) {
+    return { ok: false, error: 'Start times every 15, 30 or 60 minutes.' };
+  }
+  const min = int(b.minMinutes, 'Shortest booking', 30, 720);
+  if (typeof min === 'string') return { ok: false, error: min };
+  const max = int(b.maxMinutes, 'Longest booking', 30, 720);
+  if (typeof max === 'string') return { ok: false, error: max };
+  if (max < min) return { ok: false, error: 'Longest booking must be at least the shortest.' };
+  const buffer = int(b.bufferMinutes, 'Turnover buffer', 0, 240);
+  if (typeof buffer === 'string') return { ok: false, error: buffer };
+  if (!Array.isArray(b.allowedLengths) || b.allowedLengths.length === 0 || b.allowedLengths.length > 24) {
+    return { ok: false, error: 'Pick at least one length.' };
+  }
+  const lengths = new Set<number>();
+  for (const l of b.allowedLengths as unknown[]) {
+    if (typeof l !== 'number' || !Number.isInteger(l) || l % 30 !== 0 || l < min || l > max) {
+      return { ok: false, error: 'Lengths must be whole half-hours between the shortest and longest booking.' };
+    }
+    lengths.add(l);
+  }
+  return {
+    ok: true,
+    value: {
+      startStepMinutes: b.startStepMinutes as number,
+      allowedLengths: [...lengths].sort((x, y) => x - y),
+      minMinutes: min,
+      maxMinutes: max,
+      bufferMinutes: buffer,
+    },
+  };
+}
+
+export async function updateBookingRules(v: BookingRules): Promise<void> {
+  await sql`
+    update rehearsal_settings set
+      start_step_minutes = ${v.startStepMinutes},
+      allowed_lengths = ${v.allowedLengths}::int[],
+      min_minutes = ${v.minMinutes},
+      max_minutes = ${v.maxMinutes},
+      buffer_minutes = ${v.bufferMinutes},
+      updated_at = now()
+    where id
+  `;
+}
+
+export function validateRateCard(body: unknown): Result<RateCard> {
+  if (!body || typeof body !== 'object') return { ok: false, error: 'Expected a JSON object.' };
+  const b = body as Record<string, unknown>;
+  const hourly = int(b.rateHourlyCents, 'Hourly rate', 0, 100_000);
+  if (typeof hourly === 'string') return { ok: false, error: hourly };
+  if (!Array.isArray(b.ratePackages) || b.ratePackages.length > 8) return { ok: false, error: 'Up to 8 packages.' };
+  const packages: RatePackage[] = [];
+  for (const p of b.ratePackages as unknown[]) {
+    const r = p as Record<string, unknown> | null;
+    const minutes = int(r?.minutes, 'Package length', 30, 720);
+    if (typeof minutes === 'string') return { ok: false, error: minutes };
+    if (minutes % 30 !== 0) return { ok: false, error: 'Package lengths must be whole half-hours.' };
+    const cents = int(r?.cents, 'Package price', 0, 1_000_000);
+    if (typeof cents === 'string') return { ok: false, error: cents };
+    if (packages.some((x) => x.minutes === minutes)) return { ok: false, error: 'One price per package length.' };
+    packages.push({ minutes, cents });
+  }
+  const regular = text(b.rateRegularText, 'Regular deal', 500);
+  if (typeof regular !== 'string') return { ok: false, error: regular.error };
+  const flexible = text(b.rateFlexibleText, 'Flexible line', 1000);
+  if (typeof flexible !== 'string') return { ok: false, error: flexible.error };
+  if (typeof b.estimatesEnabled !== 'boolean') return { ok: false, error: 'estimatesEnabled must be true or false.' };
+  return {
+    ok: true,
+    value: {
+      rateHourlyCents: hourly,
+      ratePackages: packages.sort((x, y) => x.minutes - y.minutes),
+      rateRegularText: regular,
+      rateFlexibleText: flexible,
+      estimatesEnabled: b.estimatesEnabled,
+    },
+  };
+}
+
+export async function updateRateCard(v: RateCard): Promise<void> {
+  await sql`
+    update rehearsal_settings set
+      rate_hourly_cents = ${v.rateHourlyCents},
+      rate_packages = ${sql.json(v.ratePackages as unknown as Parameters<typeof sql.json>[0])},
+      rate_regular_text = ${v.rateRegularText},
+      rate_flexible_text = ${v.rateFlexibleText},
+      estimates_enabled = ${v.estimatesEnabled},
+      updated_at = now()
+    where id
+  `;
 }

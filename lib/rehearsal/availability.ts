@@ -2,16 +2,18 @@
 // pass in everything (lib/rehearsal/availability-data.ts loads the real data),
 // so it runs under `npm test` with fake shows / bookings / busy times.
 //
-// Availability is open by default. Every standing-hours block starts open,
-// then loses it to, in order of the reasons below:
+// Flexible hours (migration 118). Each weekday has one broad bookable window
+// (an outer limit only). Inside it everything is open, minus:
 //   past / window  — before now + window_min_hours, or after now + window_max_weeks
-//   show           — a day with a (non-cancelled, non-postponed) show
+//   show           — a show day, from show_day_from (or the whole day)
 //   unavailable_day— a day marked Not available in Booking (booking_days)
-//   blackout       — a manual rehearsal blackout
+//   blackout       — a manual rehearsal block (admin Calendar → Block time)
 //   busy           — a busy time from the private .ics feeds
-//   booked         — a pending (not yet expired) or confirmed booking
-// A band's own pending/confirmed booking shows as requested/confirmed instead.
-// What a band sees never says why a block is unavailable (forBand()).
+//   booked         — a pending (not yet expired) or confirmed booking, widened
+//                    by the turnover buffer on both sides
+// What's left is each day's free stretches. A band picks a start on the step
+// grid and one of the allowed lengths that fits inside one stretch.
+// What a band sees never says why time is unavailable (forBand()).
 //
 // Imports use the .ts extension so `node --test` can load this file directly.
 
@@ -24,11 +26,20 @@ const HOUR_MS = 3_600_000;
 export type ShowDayRule = 'whole_day' | 'from_time';
 
 export interface EngineSettings {
-  blockMinutes: number;
   windowMinHours: number;
   windowMaxWeeks: number;
   showDayRule: ShowDayRule;
   showDayFrom: string; // "HH:MM"
+  startStepMinutes: number;
+  allowedLengths: number[]; // minutes
+  bufferMinutes: number;
+}
+
+export interface DayWindow {
+  weekday: number; // 0 = Sunday … 6 = Saturday
+  opens: string; // "HH:MM"
+  closes: string; // "HH:MM", "24:00" = midnight
+  closed: boolean;
 }
 
 export interface Interval {
@@ -57,7 +68,7 @@ export interface BusyTimes {
 export interface EngineInput {
   now: Date;
   settings: EngineSettings;
-  hours: Array<{ weekday: number; startTime: string }>;
+  windows: DayWindow[];
   showDates: string[]; // "YYYY-MM-DD" (Chicago)
   unavailableDays: string[]; // "YYYY-MM-DD"
   blackouts: Interval[];
@@ -65,27 +76,36 @@ export interface EngineInput {
   bookings: EngineBooking[];
   // The band looking (its own bookings show as requested/confirmed). Omit for admin.
   viewerBandId?: number;
-  // First Chicago date to lay out (default: today). Blocks before the window
-  // are still returned, as unavailable, so a week view has no holes.
+  // First Chicago date to lay out (default: today). Days before the window
+  // are still returned (no free time) so a week view has no holes.
   fromDate?: string;
 }
 
 export type Reason = 'past' | 'window' | 'show' | 'unavailable_day' | 'blackout' | 'busy' | 'booked';
 
-export type BlockState = 'open' | 'requested' | 'confirmed' | 'unavailable';
-
-export interface Block {
-  date: string; // Chicago date the block starts on
-  startTime: string; // "HH:MM" Chicago
+export interface OwnBooking {
+  bookingId: number;
   start: Date;
   end: Date;
-  state: BlockState;
-  bookingId?: number; // the viewer's own booking, when requested/confirmed
-  reasons: Reason[]; // admin-only; empty when open
+  state: 'requested' | 'confirmed';
+}
+
+export interface BlockedSpan {
+  start: Date;
+  end: Date;
+  reason: Reason;
+}
+
+export interface Day {
+  date: string; // Chicago date
+  window: Interval | null; // the weekday's bookable window; null = closed
+  free: Interval[]; // open stretches, merged, ascending
+  blocked: BlockedSpan[]; // admin-only: what took time out of the window (clipped to it)
+  own: OwnBooking[]; // the viewer's own pending/confirmed bookings that day
 }
 
 export interface Availability {
-  blocks: Block[];
+  days: Day[];
   calendarChecked: boolean;
   windowStart: Date;
   windowEnd: Date;
@@ -209,35 +229,39 @@ export function holdsTime(b: EngineBooking, now: Date): boolean {
   return b.status === 'pending' && b.expiresAt.getTime() > now.getTime();
 }
 
-// --- block layout ------------------------------------------------------------
+// --- free time ---------------------------------------------------------------
 
-// Every standing-hours block from `fromDate` through the window's last day.
-export function layoutBlocks(
-  fromDate: string,
-  toDate: string,
-  hours: EngineInput['hours'],
-  blockMinutes: number,
-): Array<{ date: string; startTime: string; start: Date; end: Date }> {
-  const byDay = new Map<number, string[]>();
-  for (const h of hours) {
-    const list = byDay.get(h.weekday) ?? [];
-    list.push(h.startTime);
-    byDay.set(h.weekday, list);
-  }
-  const out: Array<{ date: string; startTime: string; start: Date; end: Date }> = [];
-  const seen = new Set<number>();
-  for (let d = fromDate; d <= toDate; d = addDays(d, 1)) {
-    for (const startTime of (byDay.get(weekdayOf(d)) ?? []).slice().sort()) {
-      const [h, m] = hm(startTime);
-      const start = wallTimeToUtc(d, h, m, TIME_ZONE);
-      // A start time that doesn't exist (spring-forward gap) lands on another
-      // wall time; skip it rather than offer a block nobody asked for.
-      if (chicagoTime(start) !== startTime || seen.has(start.getTime())) continue;
-      seen.add(start.getTime());
-      out.push({ date: d, startTime, start, end: new Date(start.getTime() + blockMinutes * 60_000) });
+function windowFor(date: string, windows: DayWindow[]): Interval | null {
+  const w = windows.find((x) => x.weekday === weekdayOf(date));
+  if (!w || w.closed) return null;
+  const [oh, om] = hm(w.opens);
+  const start = wallTimeToUtc(date, oh, om, TIME_ZONE);
+  const end = w.closes === '24:00' ? startOfChicagoDay(addDays(date, 1)) : wallTimeToUtc(date, ...hm(w.closes), TIME_ZONE);
+  return end > start ? { start, end } : null;
+}
+
+// `from` minus every interval in `cut`, merged and ascending.
+export function subtract(from: Interval, cut: Interval[]): Interval[] {
+  let out: Interval[] = [from];
+  for (const c of cut) {
+    const next: Interval[] = [];
+    for (const iv of out) {
+      if (!overlaps(iv, c)) {
+        next.push(iv);
+        continue;
+      }
+      if (c.start > iv.start) next.push({ start: iv.start, end: c.start });
+      if (c.end < iv.end) next.push({ start: c.end, end: iv.end });
     }
+    out = next;
   }
-  return out;
+  return out.sort((x, y) => x.start.getTime() - y.start.getTime());
+}
+
+function clipTo(iv: Interval, to: Interval): Interval | null {
+  const start = iv.start > to.start ? iv.start : to.start;
+  const end = iv.end < to.end ? iv.end : to.end;
+  return end > start ? { start, end } : null;
 }
 
 export function computeAvailability(input: EngineInput): Availability {
@@ -245,87 +269,120 @@ export function computeAvailability(input: EngineInput): Availability {
   const window = bookingWindow(now, settings);
   const fromDate = input.fromDate ?? chicagoDate(now);
   const toDate = chicagoDate(window.end);
+  const bufferMs = settings.bufferMinutes * 60_000;
 
-  const constraints: Constraints = {
-    settings,
-    showDates: input.showDates,
-    unavailableDays: input.unavailableDays,
-    blackouts: input.blackouts,
-    busy: input.busy.intervals,
-  };
+  const shows = new Set(input.showDates);
+  const away = new Set(input.unavailableDays);
   const holding = input.bookings.filter((b) => holdsTime(b, now));
-  const own = input.viewerBandId === undefined ? [] : holding.filter((b) => b.bandId === input.viewerBandId);
 
-  const blocks: Block[] = [];
-  const shownOwn = new Set<number>();
-
-  for (const slot of layoutBlocks(fromDate, toDate, input.hours, settings.blockMinutes)) {
-    const iv = { start: slot.start, end: slot.end };
-
-    // The viewer's own booking wins: they always see what they asked for.
-    const mine = own.find((b) => overlaps(iv, { start: b.startsAt, end: b.endsAt }));
-    if (mine) {
-      shownOwn.add(mine.id);
-      blocks.push({
-        ...slot,
-        state: mine.status === 'confirmed' ? 'confirmed' : 'requested',
-        bookingId: mine.id,
-        reasons: [],
-      });
+  const days: Day[] = [];
+  for (let date = fromDate; date <= toDate; date = addDays(date, 1)) {
+    const own: OwnBooking[] = holding
+      .filter((b) => b.bandId === input.viewerBandId && chicagoDate(b.startsAt) === date)
+      .map((b) => ({
+        bookingId: b.id,
+        start: b.startsAt,
+        end: b.endsAt,
+        state: b.status === 'confirmed' ? ('confirmed' as const) : ('requested' as const),
+      }));
+    const dayWin = windowFor(date, input.windows);
+    if (!dayWin) {
+      days.push({ date, window: null, free: [], blocked: [], own });
       continue;
     }
 
-    const reasons: Reason[] = [];
-    if (slot.start.getTime() < now.getTime()) reasons.push('past');
-    else if (slot.start.getTime() < window.start.getTime() || slot.start.getTime() >= window.end.getTime()) {
-      reasons.push('window');
+    const spans: BlockedSpan[] = [];
+    const add = (iv: Interval, reason: Reason) => {
+      const c = clipTo(iv, dayWin);
+      if (c) spans.push({ ...c, reason });
+    };
+    add({ start: new Date(0), end: now }, 'past');
+    if (window.start > now) add({ start: now, end: window.start }, 'window');
+    if (shows.has(date)) add(showDayInterval(date, settings), 'show');
+    if (away.has(date)) add(wholeDay(date), 'unavailable_day');
+    for (const bl of input.blackouts) add(bl, 'blackout');
+    for (const bz of input.busy.intervals) add(bz, 'busy');
+    for (const bk of holding) {
+      add({ start: new Date(bk.startsAt.getTime() - bufferMs), end: new Date(bk.endsAt.getTime() + bufferMs) }, 'booked');
     }
-    reasons.push(...constraintReasons(iv, constraints));
-    if (holding.some((b) => overlaps(iv, { start: b.startsAt, end: b.endsAt }))) reasons.push('booked');
-
-    blocks.push({ ...slot, state: reasons.length ? 'unavailable' : 'open', reasons });
+    spans.sort((x, y) => x.start.getTime() - y.start.getTime());
+    days.push({ date, window: dayWin, free: subtract(dayWin, spans), blocked: spans, own });
   }
 
-  // Own bookings that no longer line up with a standing block (hours or block
-  // length changed since) still appear, so nothing a band booked goes missing.
-  for (const b of own) {
-    if (shownOwn.has(b.id)) continue;
-    const date = chicagoDate(b.startsAt);
-    if (date < fromDate || date > toDate) continue;
-    blocks.push({
-      date,
-      startTime: chicagoTime(b.startsAt),
-      start: b.startsAt,
-      end: b.endsAt,
-      state: b.status === 'confirmed' ? 'confirmed' : 'requested',
-      bookingId: b.id,
-      reasons: [],
-    });
-  }
-  blocks.sort((a, b) => a.start.getTime() - b.start.getTime());
-
-  return { blocks, calendarChecked: input.busy.checked, windowStart: window.start, windowEnd: window.end };
+  return { days, calendarChecked: input.busy.checked, windowStart: window.start, windowEnd: window.end };
 }
 
-// What a band's page gets: no reasons, no other bands' details.
-export type BandBlock = Omit<Block, 'reasons'>;
+// What a band's page gets: free stretches and its own bookings, no reasons.
+export interface BandDay {
+  date: string;
+  window: Interval | null;
+  free: Interval[];
+  own: OwnBooking[];
+}
 
-export function forBand(a: Availability): { blocks: BandBlock[]; windowStart: Date; windowEnd: Date } {
+export function forBand(a: Availability): { days: BandDay[]; windowStart: Date; windowEnd: Date } {
   return {
-    blocks: a.blocks.map(({ reasons: _r, ...rest }) => {
-      void _r;
-      return rest;
-    }),
+    days: a.days.map(({ date, window, free, own }) => ({ date, window, free, own })),
     windowStart: a.windowStart,
     windowEnd: a.windowEnd,
   };
 }
 
-// Is this exact block open right now? The request route re-checks every block
-// a band asks for against a fresh computation (the DB constraint is the final
-// backstop against a race).
-export function isOpenBlock(a: Availability, start: Date): boolean {
-  return a.blocks.some((b) => b.start.getTime() === start.getTime() && b.state === 'open');
+// On the start-time grid? (Chicago wall clock, so 6:00pm stays on the grid
+// across DST.)
+export function onGrid(start: Date, stepMinutes: number): boolean {
+  if (start.getUTCSeconds() !== 0 || start.getUTCMilliseconds() !== 0) return false;
+  const [h, m] = hm(chicagoTime(start));
+  return (h * 60 + m) % stepMinutes === 0;
+}
+
+// Can a band ask for `minutes` starting at `start` right now? Start on the
+// grid and inside the booking window, length allowed, and the whole span
+// inside one free stretch. The request route re-checks every pick against a
+// fresh computation, under a lock (the buffer isn't in the DB constraint).
+export function isOpenSpan(
+  a: Availability,
+  s: Pick<EngineSettings, 'startStepMinutes' | 'allowedLengths'>,
+  start: Date,
+  minutes: number,
+): boolean {
+  if (!s.allowedLengths.includes(minutes) || !onGrid(start, s.startStepMinutes)) return false;
+  return spanFits(a, start, minutes);
+}
+
+// The span is free and starts inside the booking window (no grid or length
+// rule): extending an approved series keeps its own start and length even if
+// the settings have changed since.
+export function spanFits(a: Availability, start: Date, minutes: number): boolean {
+  if (start < a.windowStart || start >= a.windowEnd) return false;
+  const end = new Date(start.getTime() + minutes * 60_000);
+  const day = a.days.find((d) => d.date === chicagoDate(start));
+  return Boolean(day?.free.some((f) => f.start <= start && end <= f.end));
+}
+
+// Every grid start in a day's free stretches where at least the shortest
+// allowed length fits, with the lengths that fit from it. Shared by the
+// booking page and tests.
+export function startOptions(
+  free: Interval[],
+  s: Pick<EngineSettings, 'startStepMinutes' | 'allowedLengths'>,
+  windowEnd?: Date,
+): Array<{ start: Date; lengths: number[] }> {
+  const stepMs = s.startStepMinutes * 60_000;
+  const out: Array<{ start: Date; lengths: number[] }> = [];
+  for (const f of free) {
+    // First grid point at or after the stretch start.
+    let t = Math.ceil(f.start.getTime() / 60_000) * 60_000;
+    for (let i = 0; i < s.startStepMinutes && !onGrid(new Date(t), s.startStepMinutes); i++) t += 60_000;
+    for (; t < f.end.getTime(); t += stepMs) {
+      const start = new Date(t);
+      if (!onGrid(start, s.startStepMinutes)) continue; // DST edge
+      if (windowEnd && start >= windowEnd) break;
+      const lengths = s.allowedLengths.filter((m) => t + m * 60_000 <= f.end.getTime());
+      if (lengths.length) out.push({ start, lengths });
+    }
+  }
+  return out;
 }
 
 // --- conflicts ---------------------------------------------------------------

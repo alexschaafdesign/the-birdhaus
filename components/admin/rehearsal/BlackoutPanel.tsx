@@ -30,7 +30,7 @@ export default function BlackoutPanel({ blackouts }: { blackouts: Array<{ id: nu
       setMsg(
         d.conflicts.length
           ? { ok: false, text: `Added. It lands on confirmed booking(s) — flagged, not cancelled: ${d.conflicts.join('; ')}` }
-          : { ok: true, text: 'Blackout added.' },
+          : { ok: true, text: 'Blocked.' },
       );
       setF({ ...f, note: '' });
       router.refresh();
@@ -40,14 +40,15 @@ export default function BlackoutPanel({ blackouts }: { blackouts: Array<{ id: nu
   }
 
   async function remove(id: number) {
-    if (!confirm('Remove this blackout?')) return;
+    if (!confirm('Remove this block?')) return;
     await fetch(`/api/admin/rehearsal/blackouts/${id}`, { method: 'DELETE' });
     router.refresh();
   }
 
   return (
     <section className="space-y-3">
-      <h2 className="text-xl font-bold">Blackouts</h2>
+      <h2 className="text-xl font-bold">Block a date range</h2>
+      <p className="text-sm text-[#E8E0D0]/55">For one day, click the date on the calendar instead.</p>
       <form onSubmit={add} className="flex flex-wrap items-end gap-3 rounded-lg border border-[#E8E0D0]/15 p-4 text-sm">
         <label className="space-y-1">
           <span className="block text-xs uppercase tracking-wide text-[#E8E0D0]/60">From</span>
@@ -70,7 +71,7 @@ export default function BlackoutPanel({ blackouts }: { blackouts: Array<{ id: nu
         )}
         <input placeholder="Note (only you see it)" maxLength={500} value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} className={`${input} min-w-48 flex-1`} />
         <button type="submit" disabled={busy} className="rounded bg-[#E8E0D0] px-4 py-1.5 text-[#2A2420] hover:bg-[#E8E0D0]/90 disabled:opacity-50">
-          {busy ? 'Adding…' : 'Add blackout'}
+          {busy ? 'Adding…' : 'Block'}
         </button>
       </form>
       {msg && (

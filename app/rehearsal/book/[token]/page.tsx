@@ -62,14 +62,22 @@ export default async function RehearsalBookingPage({ params }: { params: Promise
     contactEmail: CONTACT_EMAIL,
     firstMonday: monday,
     today,
-    blocks: view.blocks.map((b) => ({
-      date: b.date,
-      startTime: b.startTime,
-      start: b.start.toISOString(),
-      end: b.end.toISOString(),
-      state: b.state,
-      bookingId: b.bookingId ?? null,
+    days: view.days.map((d) => ({
+      date: d.date,
+      window: d.window ? { start: d.window.start.toISOString(), end: d.window.end.toISOString() } : null,
+      // Slivers too short for the shortest length aren't worth showing.
+      free: d.free
+        .filter((f) => f.end.getTime() - f.start.getTime() >= Math.min(...settings.allowedLengths) * 60_000)
+        .map((f) => ({ start: f.start.toISOString(), end: f.end.toISOString() })),
+      own: d.own.map((o) => ({ bookingId: o.bookingId, start: o.start.toISOString(), end: o.end.toISOString(), state: o.state })),
     })),
+    startStepMinutes: settings.startStepMinutes,
+    allowedLengths: settings.allowedLengths,
+    bufferMinutes: settings.bufferMinutes,
+    rates:
+      settings.estimatesEnabled && !settings.paymentsEnabled
+        ? { rateHourlyCents: settings.rateHourlyCents, ratePackages: settings.ratePackages }
+        : null,
     bookings: bookings.map((b) => ({
       id: b.id,
       catalogueId: b.catalogueId,
@@ -89,7 +97,6 @@ export default async function RehearsalBookingPage({ params }: { params: Promise
     priceCents: settings.priceCents,
     repeatPriceCents: settings.repeatPriceCents ?? settings.priceCents,
     windowEnd: view.windowEnd.toISOString(),
-    blockMinutes: settings.blockMinutes,
     cancelCutoffHours: settings.cancelCutoffHours,
     pendingExpiryDays: settings.pendingExpiryDays,
     gearOptions: settings.gearOptions,

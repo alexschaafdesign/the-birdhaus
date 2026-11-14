@@ -11,6 +11,7 @@ import {
   type AdminBooking,
 } from '@/lib/rehearsal/decisions';
 import { clashesFor } from '@/lib/rehearsal/availability-data';
+import { lengthLabel, usualRateFor } from '@/lib/rehearsal/estimate';
 import { getRehearsalSettings } from '@/lib/rehearsal/settings';
 import { money, sessionLabel, shortDay } from '@/lib/rehearsal/format';
 
@@ -39,7 +40,8 @@ export default async function RehearsalRequestsPage() {
     bandId: b.bandId,
     bandName: b.bandName,
     rateNotes: b.rateNotes,
-    when: sessionLabel(b.startsAt, b.endsAt),
+    usualRate: usualRateFor(b.startsAt, b.endsAt, b.seriesFreq, settings),
+    when: `${sessionLabel(b.startsAt, b.endsAt)} (${lengthLabel(b.startsAt, b.endsAt)})`,
     shortWhen: shortDay(b.startsAt),
     price: money(b.priceCents),
     priceCents: b.priceCents,
