@@ -49,7 +49,10 @@ export default async function RehearsalCalendarPage({ searchParams }: { searchPa
   ]);
 
   const openByDay = new Map<string, number>();
-  for (const b of availability.blocks) if (b.state === 'open') openByDay.set(b.date, (openByDay.get(b.date) ?? 0) + 1);
+  // Open hours per day (step 5 replaces this with an open-stretch summary).
+  for (const d of availability.days) {
+    openByDay.set(d.date, Math.round(d.free.reduce((h, f) => h + (f.end.getTime() - f.start.getTime()), 0) / 360_000) / 10);
+  }
   const today = chicagoDate(now);
 
   const days = Array.from({ length: WEEKS * 7 }, (_, i) => {
@@ -124,7 +127,7 @@ export default async function RehearsalCalendarPage({ searchParams }: { searchPa
                       ? ` ${new Date(`${d.date}T12:00:00Z`).toLocaleDateString('en-US', { month: 'short', timeZone: 'UTC' })}`
                       : ''}
                   </span>
-                  {d.open > 0 && <span className="text-[#E8E0D0]/40">{d.open} open</span>}
+                  {d.open > 0 && <span className="text-[#E8E0D0]/40">{d.open} h open</span>}
                 </div>
                 {d.shows.map((t) => (
                   <p key={t} className="truncate text-red-200" title={t}>Show: {t}</p>
