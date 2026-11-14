@@ -1,24 +1,53 @@
-import { forAdmin, getRehearsalSettings, getStandingHours } from '@/lib/rehearsal/settings';
+import { forAdmin, getDayWindows, getRehearsalSettings } from '@/lib/rehearsal/settings';
 import RehearsalSettingsForm from '@/components/admin/rehearsal/RehearsalSettingsForm';
-import StandingHoursEditor from '@/components/admin/rehearsal/StandingHoursEditor';
+import BookingHoursEditor from '@/components/admin/rehearsal/BookingHoursEditor';
+import RatesEditor from '@/components/admin/rehearsal/RatesEditor';
 import RehearsalFeedLink from '@/components/admin/rehearsal/RehearsalFeedLink';
 
 export const dynamic = 'force-dynamic';
 
 export default async function RehearsalSettingsPage() {
-  const [settings, hours] = await Promise.all([getRehearsalSettings(), getStandingHours()]);
+  const [settings, windows] = await Promise.all([getRehearsalSettings(), getDayWindows()]);
 
   return (
     <main className="max-w-6xl mx-auto px-6 pb-16 pt-6 space-y-12">
       <section className="space-y-4">
         <div className="space-y-1">
-          <h2 className="text-xl font-bold">Standing hours</h2>
+          <h2 className="text-xl font-bold">Booking hours</h2>
           <p className="text-sm text-[#E8E0D0]/55">
-            The weekly blocks bands can pick from (Chicago time). Every block starts open; show days,
-            your calendar, bookings and blackouts take blocks away automatically.
+            The outer limit of each day (Chicago time). Everything inside is open unless something blocks it: show
+            days, your calendar, other bookings (plus the turnover), and blocks you add on the Calendar.
           </p>
         </div>
-        <StandingHoursEditor initial={hours} blockMinutes={settings.blockMinutes} />
+        <BookingHoursEditor
+          initialWindows={windows}
+          initialRules={{
+            startStepMinutes: settings.startStepMinutes,
+            allowedLengths: settings.allowedLengths,
+            minMinutes: settings.minMinutes,
+            maxMinutes: settings.maxMinutes,
+            bufferMinutes: settings.bufferMinutes,
+          }}
+        />
+      </section>
+
+      <section className="space-y-4">
+        <div className="space-y-1">
+          <h2 className="text-xl font-bold">Rates</h2>
+          <p className="text-sm text-[#E8E0D0]/55">
+            An informal rate card, shown on /rehearsal and in the invite email. Display only: nothing is billed or
+            tracked as owed.
+          </p>
+        </div>
+        <RatesEditor
+          initial={{
+            rateHourlyCents: settings.rateHourlyCents,
+            ratePackages: settings.ratePackages,
+            rateRegularText: settings.rateRegularText,
+            rateFlexibleText: settings.rateFlexibleText,
+            estimatesEnabled: settings.estimatesEnabled,
+          }}
+        />
       </section>
 
       <section className="space-y-3">

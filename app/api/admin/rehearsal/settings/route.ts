@@ -3,10 +3,8 @@ import { requireAdmin } from '@/lib/admin-session';
 import {
   forAdmin,
   getRehearsalSettings,
-  getStandingHours,
   updateRehearsalSettings,
   validateSettingsInput,
-  validateStandingHours,
 } from '@/lib/rehearsal/settings';
 
 // Rehearsal settings. Calendar feed URLs are secret: GET returns them masked,
@@ -25,18 +23,6 @@ export async function PUT(request: Request) {
   const current = await getRehearsalSettings();
   const result = validateSettingsInput(body, current.icsFeedUrls);
   if (!result.ok) return NextResponse.json({ error: result.error }, { status: 400 });
-
-  // A longer block can make the saved standing hours overlap.
-  if (result.value.blockMinutes !== current.blockMinutes) {
-    const hours = await getStandingHours();
-    const check = validateStandingHours(hours, result.value.blockMinutes);
-    if (!check.ok) {
-      return NextResponse.json(
-        { error: `Standing hours don't fit that block length: ${check.error} Fix the hours first.` },
-        { status: 400 },
-      );
-    }
-  }
 
   const saved = await updateRehearsalSettings(result.value);
   return NextResponse.json(forAdmin(saved));

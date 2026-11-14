@@ -150,26 +150,21 @@ export default function RehearsalSettingsForm({ initial }: { initial: RehearsalS
   return (
     <div className="space-y-6">
       <div className="grid gap-6 lg:grid-cols-2">
-        <Group title={s.paymentsEnabled ? 'Blocks and prices' : 'Blocks'}>
-          <Field title="Block length" note="minutes">
-            <input {...num('blockMinutes')} min={30} max={720} step={15} />
-          </Field>
-          {s.paymentsEnabled && (
-            <>
-          <Field title="Price per block" note="dollars">
-            <input value={price} onChange={(e) => setPrice(e.target.value)} inputMode="decimal" className={input} />
-          </Field>
-          <Field title="Repeat price per block" note="dollars; blank = same as one-off">
-            <input
-              value={repeatPrice}
-              onChange={(e) => setRepeatPrice(e.target.value)}
-              inputMode="decimal"
-              className={input}
-            />
-          </Field>
-            </>
-          )}
-        </Group>
+        {s.paymentsEnabled && (
+          <Group title="Prices">
+            <Field title="Price per session" note="dollars">
+              <input value={price} onChange={(e) => setPrice(e.target.value)} inputMode="decimal" className={input} />
+            </Field>
+            <Field title="Repeat price per session" note="dollars; blank = same as one-off">
+              <input
+                value={repeatPrice}
+                onChange={(e) => setRepeatPrice(e.target.value)}
+                inputMode="decimal"
+                className={input}
+              />
+            </Field>
+          </Group>
+        )}
 
         <Group title="Booking window and cutoffs">
           <Field title="Earliest booking" note="hours from now">
