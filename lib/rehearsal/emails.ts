@@ -100,6 +100,35 @@ function gearLine(b: Pick<AdminBooking, 'gearNeeded' | 'gearNotes'>): string {
   return [b.gearNeeded.join(', '), b.gearNotes].filter(Boolean).join(' — ');
 }
 
+// A confirmed batch that's exactly one repeating series, summarised for the
+// band: headline, the next few dates after the first, and gear (once if it's
+// the same for all, else per date). Null for single or mixed bookings.
+function seriesSummary(list: AdminBooking[]): { headline: string; next: string[]; gear: string; gearByDate: string[] } | null {
+  if (list.length < 2) return null;
+  const sid = list[0].seriesId;
+  const freq = list[0].seriesFreq;
+  if (sid == null || !freq || list.some((b) => b.seriesId !== sid)) return null;
+  const sorted = [...list].sort((a, b) => a.startsAt.getTime() - b.startsAt.getTime());
+  const first = sorted[0];
+  const weekday = new Intl.DateTimeFormat('en-US', { weekday: 'long', timeZone: 'America/Chicago' }).format(first.startsAt);
+  const rule =
+    freq === 'weekly'
+      ? `Every ${weekday}`
+      : freq === 'biweekly'
+        ? `Every other ${weekday}`
+        : describeRule(chicagoDate(first.seriesStart ?? first.startsAt), freq);
+  const headline = `${rule}, ${timeRange(first.startsAt, first.endsAt)}, starting ${shortDay(first.startsAt)}`;
+  const next = sorted.slice(1, 4).map((b) => shortDay(b.startsAt));
+  const gears = sorted.map(gearLine);
+  const same = gears.every((g) => g === gears[0]);
+  return {
+    headline,
+    next,
+    gear: same ? gears[0] : '',
+    gearByDate: same ? [] : sorted.map((b, i) => (gears[i] ? `${shortDay(b.startsAt)} gear: ${gears[i]}` : '')).filter(Boolean),
+  };
+}
+
 function paragraphs(text: string): string {
   return text
     .split(/\n{2,}/)
@@ -254,7 +283,19 @@ export async function sendApprovedEmail(ids: number[]): Promise<boolean> {
     s.cancellationPolicy ||
     `Can't make it? Cancel on your booking page up to ${s.cancelCutoffHours} hours before, or just let me know.`;
 
-  const sessionHtml = list
+  // One repeating series (payments off): summarise instead of listing every
+  // date. "Every Wednesday, 6–9pm, starting Wed 18 Nov" + the next few dates;
+  // gear once when it's the same for every session. Single and mixed bookings
+  // (and payments on, which needs a pay button per session) list each date.
+  const series = !s.paymentsEnabled ? seriesSummary(list) : null;
+
+  const sessionHtml = series
+    ? emailP(
+        `<strong>${esc(series.headline)}</strong>` +
+          (series.next.length ? `<br>Next up: ${esc(series.next.join(', '))}` : '') +
+          (series.gear ? `<br>Gear: ${esc(series.gear)}` : ''),
+      ) + (series.gearByDate.length ? emailP(series.gearByDate.map((x) => esc(x)).join('<br>')) : '')
+    : list
     .map((b) => {
       const g = gearLine(b);
       const memo = venmoMemo(b.catalogueId, band.name);
@@ -262,7 +303,7 @@ export async function sendApprovedEmail(ids: number[]): Promise<boolean> {
         emailP(`<strong>${esc(sessionLabel(b.startsAt, b.endsAt))}</strong>${g ? `<br>Gear: ${esc(g)}` : ''}`) +
         (s.paymentsEnabled
           ? emailButton(venmoPayUrl(s.venmoHandle, b.priceCents, memo), `Pay ${money(b.priceCents)} on Venmo`) +
-            emailSmall(`Venmo @${esc(s.venmoHandle)} · $${venmoAmount(b.priceCents)} · memo “${esc(memo)}”`)
+            emailSmall(`Venmo @${esc(s.venmoHandle)} · $${venmoAmount(b.priceCents)} · memo "${esc(memo)}"`)
           : '')
       );
     })
@@ -286,7 +327,16 @@ export async function sendApprovedEmail(ids: number[]): Promise<boolean> {
       '',
       intro,
       '',
-      ...list.flatMap((b) => {
+      ...(series
+        ? [
+            series.headline,
+            ...(series.next.length ? [`Next up: ${series.next.join(', ')}`] : []),
+            ...(series.gear ? [`Gear: ${series.gear}`] : []),
+            ...series.gearByDate,
+            '',
+          ]
+        : []),
+      ...(series ? [] : list).flatMap((b) => {
         const g = gearLine(b);
         const memo = venmoMemo(b.catalogueId, band.name);
         return [
@@ -348,14 +398,14 @@ export async function sendDeclinedEmail(ids: number[], reason: string): Promise<
   const hi = hey(band.contactName);
   const when = list.map((b) => sessionLabel(b.startsAt, b.endsAt));
   const sorry = s.emailDeclinedIntro || `Sorry, I can't do ${list.length === 1 ? 'this one' : 'these'}:`;
-  const next = link ? 'Grab another time on your booking page, or reply and we’ll figure something out.' : 'Reply and we’ll figure something out.';
+  const next = link ? "Grab another time on your booking page, or reply and we'll figure something out." : "Reply and we'll figure something out.";
 
   const html = bandEmail('About your rehearsal request', [
     emailP(esc(hi)),
     paragraphs(sorry),
     emailP(when.map((x) => `<strong>${esc(x)}</strong>`).join('<br>')),
     reason.trim() ? paragraphs(reason.trim()) : '',
-    link ? emailP(`${emailLink(link, 'Grab another time')}, or reply and we’ll figure something out.`) : emailP(esc(next)),
+    link ? emailP(`${emailLink(link, 'Grab another time')}, or reply and we'll figure something out.`) : emailP(esc(next)),
   ]);
   const text =
     [hi, '', sorry, ...when, ...(reason.trim() ? ['', reason.trim()] : []), '', next, ...(link ? [link] : []), '', SIGN].join('\n') +
@@ -573,15 +623,20 @@ export async function sendSeriesSkipEmail(bandId: number, sessions: Array<{ star
   const link = await liveLink(bandId);
   const hi = hey(band.contactName);
   const when = sessions.map((x) => sessionLabel(x.start, x.end));
-  const line = `Heads up: the basement's not free ${when.length === 1 ? 'for this one' : 'for these'}, so I've skipped ${when.length === 1 ? 'it' : 'them'}. Everything else stays the same.`;
+  // Date first: "Heads up: Wednesday 2 December, 6–9pm is off — …"
+  const one = when.length === 1;
+  const lead = one ? `Heads up: ${when[0]} is off` : 'Heads up: these are off';
+  const tail = ` — the basement's not free ${one ? 'that night' : 'those nights'}. Everything else stays the same.`;
   const html = bandEmail('A rehearsal date is skipped', [
     emailP(esc(hi)),
-    emailP(esc(line)),
-    emailP(when.map((x) => `<strong>${esc(x)}</strong>`).join('<br>')),
+    one
+      ? emailP(`Heads up: <strong>${esc(when[0])}</strong> is off${esc(tail)}`)
+      : emailP(esc(`${lead}${tail}`)) + emailP(when.map((x) => `<strong>${esc(x)}</strong>`).join('<br>')),
     link ? emailP(`Want another time that week? ${emailLink(link, 'Grab one here')}.`) : '',
   ]);
   const text =
-    [hi, '', line, ...when, ...(link ? ['', `Want another time that week? ${link}`] : []), '', SIGN].join('\n') + emailTextFooter();
+    [hi, '', `${lead}${tail}`, ...(one ? [] : when), ...(link ? ['', `Want another time that week? ${link}`] : []), '', SIGN].join('\n') +
+    emailTextFooter();
   return send({
     template: 'rehearsal-series-skipped',
     to: band.email,
@@ -640,9 +695,9 @@ export async function sendSeriesEndedEmail(seriesId: number, by: 'band' | 'admin
     html: bandEmail('Your regular slot has ended', [
       emailP(esc(hi)),
       emailP(esc(body)),
-      link ? emailP(emailLink(link, 'Your booking page')) : '',
+      link ? emailP(`Your booking page: ${emailLink(link, link.replace(/^https?:\/\//, ''))}`) : '',
     ]),
-    text: [hi, '', body, ...(link ? ['', link] : []), '', SIGN].join('\n') + emailTextFooter(),
+    text: [hi, '', body, ...(link ? ['', `Your booking page: ${link}`] : []), '', SIGN].join('\n') + emailTextFooter(),
     replyTo: REPLY_TO,
   });
 }
@@ -719,9 +774,9 @@ export async function sendInviteEmail(bandId: number): Promise<boolean> {
       emailP("Here's your link to book the basement:"),
       emailButton(link, 'Book a time'),
       emailP(esc(how)),
-      emailSmall("It's just for you, so please don't pass it around."),
+      emailSmall('This link is private and specific to you.'),
     ]),
-    text: [hi, '', "Here's your link to book the basement:", link, '', how, '', "It's just for you, so please don't pass it around.", '', SIGN].join('\n') + emailTextFooter(),
+    text: [hi, '', "Here's your link to book the basement:", link, '', how, '', 'This link is private and specific to you.', '', SIGN].join('\n') + emailTextFooter(),
     replyTo: REPLY_TO,
   });
   return ok;
