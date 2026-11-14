@@ -13,6 +13,9 @@ import {
   type SettlementDbRow,
   SETTLEMENT_COLUMNS,
 } from '@/lib/settlements';
+import { getRehearsalSettings } from '@/lib/rehearsal/settings';
+import { rehearsalPromoLine } from '@/lib/rehearsal/promo';
+import { SITE_URL } from '@/lib/site';
 
 export const dynamic = 'force-dynamic';
 
@@ -136,6 +139,8 @@ export default async function SettlementPage({ params }: { params: Promise<{ id:
 
   // Copy-summary and PDF read the saved record, so only offer them once a
   // settlement has actually been recorded.
+  // The rehearsal plug only while /rehearsal is public (it's a 404 until then).
+  const rehearsal = settlementRow ? await getRehearsalSettings() : null;
   const emailSummary = settlementRow
     ? settlementEmailSummary(
         show.title,
@@ -147,7 +152,8 @@ export default async function SettlementPage({ params }: { params: Promise<{ id:
           includedBands.map((b) => b.payoutOverride),
           includedBands.map((b) => b.payoutPct)
         ),
-        payoutBandCount
+        payoutBandCount,
+        rehearsal?.publicPageEnabled ? rehearsalPromoLine(SITE_URL) : null
       )
     : null;
   const pdfHref = `/api/admin/settlements/${showId}/pdf`;

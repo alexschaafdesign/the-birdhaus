@@ -313,12 +313,15 @@ export function dealTermsLabel(values: Pick<SettlementValues, 'dealType' | 'arti
 
 // Plain-text settlement summary for pasting into a band-facing email, alongside
 // the PDF attachment. Deliberately short — the headline money figures only.
+// `promo` (the rehearsal-space line, when /rehearsal is public) goes last,
+// after a blank line.
 export function settlementEmailSummary(
   showTitle: string,
   showDate: string | null,
   values: SettlementValues,
   summary: SettlementSummary,
-  bandCount: number
+  bandCount: number,
+  promo: string | null = null
 ): string {
   // showDate is a plain 'YYYY-MM-DD' string; the local-midnight suffix avoids the
   // UTC off-by-one-day shift toLocaleDateString would otherwise introduce.
@@ -345,6 +348,7 @@ export function settlementEmailSummary(
     lines.push(`Venue redirect (${formatPct(values.venueRedirectPct)}%): −${formatCurrency(summary.venueRedirect)}`);
   }
   lines.push(`Venue net: ${formatCurrency(summary.venueNet)}`);
+  if (promo) lines.push('', promo);
 
   return lines.join('\n');
 }
