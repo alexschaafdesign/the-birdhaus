@@ -5,27 +5,32 @@ import { useRouter } from 'next/navigation';
 import { SectionHeader } from '@/components/ui/SectionHeader';
 import { FORM } from '@/components/night/form';
 import { describeRule, occurrenceStarts, type Freq, type SeriesRule } from '@/lib/rehearsal/series';
-import { planRequest } from '@/lib/rehearsal/request-rules';
+import { planRequest, type RequestItem } from '@/lib/rehearsal/request-rules';
+import { onGrid, startOptions, subtract } from '@/lib/rehearsal/availability';
+import { estimateLine, type RateCardInput } from '@/lib/rehearsal/estimate';
 import SeriesList, { type SeriesView } from './SeriesList';
 
-// The band's private booking page. Their bookings, then a calendar of blocks
-// (Open / Requested / Confirmed / Unavailable — never why). Clicking an open
-// block opens a small panel right there (a sheet on phones): just this date,
-// or repeat it. Picks collect in a bar pinned to the bottom of the screen;
-// "Review and send" takes gear, a note and payment. If a band picks the same
-// slot on consecutive weeks, the bar offers to make it a weekly repeat.
+// The band's private booking page. Their bookings, then a calendar of days.
+// Each day shows its open time as a strip (never why the rest is closed).
+// Tapping a day opens a panel right there (a sheet on phones): pick a start
+// time, then a length (only lengths that fit), then once or repeating. Picks
+// collect in a bar pinned to the bottom of the screen; "Review and send"
+// takes gear and a note, and shows a soft usual-rate line per pick. If a band
+// picks the same time on consecutive weeks, the bar offers to make it weekly.
 // 2027 tokens only.
 
-type State = 'open' | 'requested' | 'confirmed' | 'unavailable';
 type PaymentMethod = 'venmo' | 'square' | 'cash';
 
-export interface ViewBlock {
-  date: string;
-  startTime: string;
-  start: string;
+export interface ViewSpan {
+  start: string; // ISO
   end: string;
-  state: State;
-  bookingId: number | null;
+}
+
+export interface ViewDay {
+  date: string; // Chicago date
+  window: ViewSpan | null; // bookable window; null = closed that day
+  free: ViewSpan[];
+  own: Array<ViewSpan & { bookingId: number; state: 'requested' | 'confirmed' }>;
 }
 
 export interface ViewBooking {
@@ -50,13 +55,16 @@ export interface BookingViewProps {
   contactEmail: string;
   firstMonday: string;
   today: string; // Chicago date, for the calendar's today mark
-  blocks: ViewBlock[];
+  days: ViewDay[];
+  startStepMinutes: number;
+  allowedLengths: number[]; // minutes
+  bufferMinutes: number;
+  rates: RateCardInput | null; // null = no estimates shown
   bookings: ViewBooking[];
   paymentsEnabled: boolean; // off = no prices or payment choice anywhere on the page
   priceCents: number;
   repeatPriceCents: number; // per session in a repeating booking
-  windowEnd: string; // ISO; repeats past it are skipped
-  blockMinutes: number;
+  windowEnd: string; // ISO; repeats past it are booked later, after approval
   cancelCutoffHours: number;
   pendingExpiryDays: number;
   gearOptions: string[];
@@ -66,9 +74,10 @@ export interface BookingViewProps {
   series: SeriesView[];
 }
 
-// One pick: a single block, or a block that repeats.
+// One pick: a start time + length, once or repeating.
 interface Item {
   start: string; // ISO
+  minutes: number;
   repeat: SeriesRule | null;
 }
 
@@ -76,6 +85,7 @@ const TZ = 'America/Chicago';
 const METHOD_LABEL: Record<PaymentMethod, string> = { venmo: 'Venmo', square: 'Card', cash: 'Cash' };
 const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const FOCUS = 'focus-visible:outline-accent-red focus-visible:outline-2 focus-visible:outline-offset-2';
+const SOFT = " — or whatever works, we'll sort it out";
 
 // --- formatting (always Chicago, whatever the viewer's zone) -----------------
 
@@ -89,10 +99,17 @@ function hourLabel(iso: string): { text: string; ampm: string } {
   return { text: minute === '00' ? hour : `${hour}:${minute}`, ampm };
 }
 
-// "6–9pm", "10pm–1am"
+// "2:30pm"
+function clock(iso: string): string {
+  const h = hourLabel(iso);
+  return `${h.text}${h.ampm}`;
+}
+
+// "6–9pm", "10am–1pm"
 function timeRange(start: string, end: string): string {
   const s = hourLabel(start);
   const e = hourLabel(end);
+  if (e.text === '12' && e.ampm === 'am') return `${s.text}${s.ampm}–midnight`;
   return s.ampm === e.ampm ? `${s.text}–${e.text}${e.ampm}` : `${s.text}${s.ampm}–${e.text}${e.ampm}`;
 }
 
@@ -109,11 +126,11 @@ function chicagoDateOf(iso: string): string {
   );
 }
 
-function dateParts(date: string): { weekday: string; day: string; month: string } {
+function dateParts(date: string): { weekday: string; long: string; day: string; month: string } {
   const [y, m, d] = date.split('-').map(Number);
   const dt = new Date(Date.UTC(y, m - 1, d, 12));
   const f = (o: Intl.DateTimeFormatOptions) => new Intl.DateTimeFormat('en-GB', { timeZone: 'UTC', ...o }).format(dt);
-  return { weekday: f({ weekday: 'short' }), day: f({ day: 'numeric' }), month: f({ month: 'short' }) };
+  return { weekday: f({ weekday: 'short' }), long: f({ weekday: 'long' }), day: f({ day: 'numeric' }), month: f({ month: 'short' }) };
 }
 
 function addDays(date: string, n: number): string {
@@ -125,6 +142,15 @@ function money(cents: number): string {
   return `$${(cents / 100).toFixed(cents % 100 === 0 ? 0 : 2)}`;
 }
 
+function lengthLabel(minutes: number): string {
+  const h = minutes / 60;
+  return Number.isInteger(h) ? `${h} h` : `${h.toFixed(1)} h`;
+}
+
+function endOf(start: string, minutes: number): string {
+  return new Date(new Date(start).getTime() + minutes * 60_000).toISOString();
+}
+
 const STATUS_TEXT: Record<ViewBooking['status'], string> = {
   pending: 'Requested',
   confirmed: 'Confirmed',
@@ -133,103 +159,63 @@ const STATUS_TEXT: Record<ViewBooking['status'], string> = {
   expired: 'Expired',
 };
 
-const STATE_WORD: Record<State, string> = {
-  open: 'open',
-  requested: 'requested, waiting for Alex',
-  confirmed: 'confirmed, yours',
-  unavailable: 'unavailable',
-};
+const toSpan = (s: ViewSpan) => ({ start: new Date(s.start), end: new Date(s.end) });
 
 // --- calendar cells -----------------------------------------------------------
 
-// A block inside a desktop calendar cell. `picked` = in the request (↻ when
-// it's one of a repeat's dates).
-function Chip({
-  block,
-  picked,
-  onPick,
-}: {
-  block: ViewBlock;
-  picked: 'no' | 'once' | 'repeat';
-  onPick: (el: HTMLElement) => void;
-}) {
-  const label = timeRange(block.start, block.end);
-  const base = 'text-data-caption-13 block w-full border px-1.5 py-1 text-left leading-tight';
-  if (block.state === 'open') {
-    return (
-      <button
-        type="button"
-        data-start={block.start}
-        aria-haspopup="dialog"
-        aria-label={`${dayLabel(block.start)} ${label}, ${picked === 'no' ? 'open' : 'in your request'}`}
-        onClick={(e) => onPick(e.currentTarget)}
-        className={`${base} cursor-pointer font-bold ${FOCUS} ${
-          picked !== 'no' ? 'bg-surface-ink text-surface-paper border-surface-ink' : 'border-surface-ink ui-hover:bg-surface-paper-shade'
-        }`}
-      >
-        {picked === 'repeat' && <span aria-hidden>↻ </span>}
-        {label}
-      </button>
-    );
-  }
-  const look =
-    block.state === 'requested'
-      ? 'border-surface-ink border-dashed font-bold'
-      : block.state === 'confirmed'
-        ? 'bg-accent-red text-surface-paper border-accent-red font-bold'
-        : 'border-transparent text-surface-ink/35 line-through decoration-1';
+// The day's open time as a strip across its bookable window.
+function OpenStrip({ day }: { day: ViewDay }) {
+  if (!day.window) return null;
+  const w0 = new Date(day.window.start).getTime();
+  const span = new Date(day.window.end).getTime() - w0;
   return (
-    <span aria-label={`${dayLabel(block.start)} ${label}, ${STATE_WORD[block.state]}`} className={`${base} ${look}`}>
-      {label}
+    <span aria-hidden className="bg-surface-ink/10 relative block h-1.5 w-full overflow-hidden">
+      {day.free.map((f) => (
+        <span
+          key={f.start}
+          className="bg-surface-ink absolute inset-y-0"
+          style={{
+            left: `${((new Date(f.start).getTime() - w0) / span) * 100}%`,
+            width: `${((new Date(f.end).getTime() - new Date(f.start).getTime()) / span) * 100}%`,
+          }}
+        />
+      ))}
     </span>
   );
 }
 
-// A block on the phone calendar: a small square, state by style.
-function Mark({ block, picked }: { block: ViewBlock; picked: boolean }) {
-  const look = picked
-    ? 'bg-surface-ink border-surface-ink'
-    : block.state === 'open'
-      ? 'border-surface-ink'
-      : block.state === 'requested'
-        ? 'border-surface-ink border-dashed'
-        : block.state === 'confirmed'
-          ? 'bg-accent-red border-accent-red'
-          : 'border-surface-ink/20';
-  return <span aria-hidden className={`inline-block size-2 border ${look}`} />;
-}
+type Session = { start: string; end: string; kind: 'picked' | 'repeat' | 'requested' | 'confirmed'; item?: number };
 
-// A block in the phone's day list, full width.
-function DayBlock({ block, picked, onPick }: { block: ViewBlock; picked: boolean; onPick: () => void }) {
-  const label = timeRange(block.start, block.end);
-  const base = 'text-data-caption-13 flex w-full items-center justify-between gap-2 border px-2 py-3 text-left';
-  if (block.state === 'open') {
+function SessionChip({ s, onEdit }: { s: Session; onEdit?: () => void }) {
+  const label = timeRange(s.start, s.end);
+  const base = 'text-data-caption-13 block w-full border px-1 py-0.5 text-left leading-tight';
+  const look =
+    s.kind === 'picked' || s.kind === 'repeat'
+      ? 'bg-surface-ink text-surface-paper border-surface-ink'
+      : s.kind === 'requested'
+        ? 'border-surface-ink border-dashed'
+        : 'bg-accent-red text-surface-paper border-accent-red';
+  const word = s.kind === 'requested' ? 'requested, waiting for Alex' : s.kind === 'confirmed' ? 'confirmed, yours' : 'in your request';
+  if (onEdit) {
     return (
       <button
         type="button"
-        aria-haspopup="dialog"
-        onClick={onPick}
-        className={`${base} cursor-pointer ${FOCUS} ${
-          picked ? 'bg-surface-ink text-surface-paper border-surface-ink' : 'border-surface-ink ui-hover:bg-surface-paper-shade'
-        }`}
+        onClick={(e) => {
+          e.stopPropagation();
+          onEdit();
+        }}
+        aria-label={`${dayLabel(s.start)} ${label}, ${word} — edit`}
+        className={`${base} ${look} cursor-pointer font-bold ${FOCUS}`}
       >
-        <span className="font-bold">{label}</span>
-        <span className="text-data-label-10-small uppercase">{picked ? 'In your request' : 'Open — tap to book'}</span>
+        {s.kind === 'repeat' && <span aria-hidden>↻ </span>}
+        {label}
       </button>
     );
   }
-  const word = block.state === 'requested' ? 'Requested' : block.state === 'confirmed' ? 'Yours' : 'Unavailable';
-  const look =
-    block.state === 'requested'
-      ? 'border-surface-ink border-dashed'
-      : block.state === 'confirmed'
-        ? 'bg-accent-red text-surface-paper border-accent-red'
-        : 'border-surface-ink/20 text-surface-ink/40';
   return (
-    <div className={`${base} ${look}`}>
-      <span className={block.state === 'unavailable' ? 'line-through decoration-1' : 'font-bold'}>{label}</span>
-      <span className="text-data-label-10-small uppercase">{word}</span>
-    </div>
+    <span aria-label={`${dayLabel(s.start)} ${label}, ${word}`} className={`${base} ${look} font-bold`}>
+      {label}
+    </span>
   );
 }
 
@@ -238,77 +224,111 @@ function DayBlock({ block, picked, onPick }: { block: ViewBlock; picked: boolean
 type Choice = 'once' | Freq;
 
 function PickPanel({
-  block,
+  day,
   existing,
+  others,
   pos,
-  openSet,
+  isOpen,
   windowEnd,
-  priceCents,
-  repeatPriceCents,
-  paymentsEnabled,
+  props,
   onSave,
   onRemove,
   onClose,
 }: {
-  block: ViewBlock;
+  day: ViewDay;
   existing: Item | null;
+  others: Item[]; // the request's other picks (their sessions are taken)
   pos: { top: number; left: number } | null; // desktop anchor inside the calendar
-  openSet: Set<number>;
+  isOpen: (start: Date, minutes: number) => boolean;
   windowEnd: Date;
-  priceCents: number;
-  repeatPriceCents: number;
-  paymentsEnabled: boolean;
+  props: BookingViewProps;
   onSave: (item: Item) => void;
   onRemove: () => void;
   onClose: () => void;
 }) {
+  const [start, setStart] = useState<string | null>(existing?.start ?? null);
+  const [minutes, setMinutes] = useState<number | null>(existing?.minutes ?? null);
   const [choice, setChoice] = useState<Choice>(existing?.repeat?.freq ?? 'once');
   const [endBy, setEndBy] = useState<'count' | 'until' | 'ongoing'>(
     existing?.repeat ? (existing.repeat.until ? 'until' : existing.repeat.count ? 'count' : 'ongoing') : 'count',
   );
   const [count, setCount] = useState(existing?.repeat?.count ?? 6);
   const [until, setUntil] = useState(existing?.repeat?.until ?? '');
-  const first = useRef<HTMLInputElement>(null);
+  const closeRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
-    first.current?.focus();
+    closeRef.current?.focus();
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
 
-  const rule: SeriesRule | null =
-    choice === 'once'
-      ? null
-      : endBy === 'ongoing'
-        ? { freq: choice }
-        : endBy === 'count'
-          ? { freq: choice, count }
-          : until
-            ? { freq: choice, until }
-            : null;
-  const all = rule
-    ? occurrenceStarts(new Date(block.start), rule).map((d) => ({
-        d,
-        state: openSet.has(d.getTime()) ? 'open' : d >= windowEnd ? 'later' : 'unavailable',
-      }))
-    : [];
-  // Dates inside the booking window are listed; later ones are booked
-  // automatically once Alex approves, as they come into range.
-  const preview = all.filter((p) => p.state !== 'later');
-  const later = all.length - preview.length;
-  const open = preview.filter((p) => p.state === 'open').length;
-  const date = block.date;
-  const label = `${dayLabel(block.start)} · ${timeRange(block.start, block.end)}`;
+  // This day's free time minus the request's other picks (+ the buffer).
+  const buf = props.bufferMinutes * 60_000;
+  const taken = useMemo(() => {
+    const plan = planRequest(
+      others.map((o) => ({ start: new Date(o.start), minutes: o.minutes, repeat: o.repeat })),
+      isOpen,
+      windowEnd,
+      props.bufferMinutes,
+    );
+    return plan.sessions.map((s) => ({ start: new Date(s.start.getTime() - buf), end: new Date(s.end.getTime() + buf) }));
+  }, [others, isOpen, windowEnd, props.bufferMinutes, buf]);
+  const free = useMemo(() => {
+    const out = [];
+    for (const f of day.free.map(toSpan)) out.push(...subtract(f, taken));
+    return out;
+  }, [day.free, taken]);
+  const starts = useMemo(
+    () => startOptions(free, { startStepMinutes: props.startStepMinutes, allowedLengths: props.allowedLengths }, windowEnd),
+    [free, props.startStepMinutes, props.allowedLengths, windowEnd],
+  );
+  const chosen = starts.find((o) => o.start.toISOString() === start) ?? null;
+  // A start or length that no longer fits (picks changed) drops back a step.
+  const len = chosen && minutes && chosen.lengths.includes(minutes) ? minutes : null;
 
-  const [y, m, d] = date.split('-').map(Number);
-  const weekday = new Intl.DateTimeFormat('en-US', { weekday: 'long', timeZone: 'UTC' }).format(new Date(Date.UTC(y, m - 1, d, 12)));
+  const rule = useMemo<SeriesRule | null>(
+    () =>
+      choice === 'once'
+        ? null
+        : endBy === 'ongoing'
+          ? { freq: choice }
+          : endBy === 'count'
+            ? { freq: choice, count }
+            : until
+              ? { freq: choice, until }
+              : null,
+    [choice, endBy, count, until],
+  );
+
+  // Preview this pick's dates with the same planner as the server.
+  const preview = useMemo(() => {
+    if (!start || !len) return null;
+    const items: RequestItem[] = [
+      ...others.map((o) => ({ start: new Date(o.start), minutes: o.minutes, repeat: o.repeat })),
+      { start: new Date(start), minutes: len, repeat: rule },
+    ];
+    const plan = planRequest(items, isOpen, windowEnd, props.bufferMinutes);
+    const me = items.length - 1;
+    const dates = [
+      ...plan.sessions.filter((x) => x.item === me).map((x) => ({ d: x.start, open: true })),
+      ...plan.skipped.filter((x) => x.item === me).map((x) => ({ d: x.start, open: false })),
+    ].sort((a, b) => a.d.getTime() - b.d.getTime());
+    return { dates, later: plan.later[me], closed: plan.closed.includes(me) };
+  }, [start, len, rule, others, isOpen, windowEnd, props.bufferMinutes]);
+  const openCount = preview ? preview.dates.filter((x) => x.open).length : 0;
+
+  const p = dateParts(day.date);
   const options: Array<[Choice, string]> = [
-    ['once', 'Just this date'],
-    ['weekly', `Every ${weekday}`],
-    ['biweekly', `Every other ${weekday}`],
-    ['monthly_nth', describeRule(date, 'monthly_nth').replace(/^Monthly on the/, 'Monthly, the')],
+    ['once', 'Just this one'],
+    ['weekly', `Every ${p.long}`],
+    ['biweekly', `Every other ${p.long}`],
+    ['monthly_nth', describeRule(day.date, 'monthly_nth').replace(/^Monthly on the/, 'Monthly, the')],
   ];
+  const stretches = free.filter((f) => starts.some((o) => o.start >= f.start && o.start < f.end));
+  const chipBase = `text-data-caption-13 cursor-pointer border px-2 py-1.5 ${FOCUS}`;
+  const chipOn = 'bg-surface-ink text-surface-paper border-surface-ink';
+  const chipOff = 'border-surface-ink ui-hover:bg-surface-paper-shade';
 
   return (
     <>
@@ -317,123 +337,184 @@ function PickPanel({
       <div
         role="dialog"
         aria-modal="true"
-        aria-label={`Book ${label}`}
+        aria-label={`Book ${p.long} ${p.day} ${p.month}`}
         style={pos ? ({ '--px': `${pos.left}px`, '--py': `${pos.top}px` } as React.CSSProperties) : undefined}
-        className={`bg-surface-paper border-surface-ink text-body-3 fixed inset-x-0 bottom-0 z-50 flex max-h-[85vh] flex-col gap-4 overflow-y-auto border-t-2 p-4 pb-6 lg:inset-x-auto lg:bottom-auto lg:max-h-none lg:w-[24rem] lg:border-2 ${
+        className={`bg-surface-paper border-surface-ink text-body-3 fixed inset-x-0 bottom-0 z-50 flex max-h-[85vh] flex-col gap-4 overflow-y-auto border-t-2 p-4 pb-6 lg:inset-x-auto lg:bottom-auto lg:max-h-[80vh] lg:w-[26rem] lg:border-2 ${
           pos ? 'lg:absolute lg:top-(--py) lg:left-(--px)' : 'lg:top-1/4 lg:left-1/2 lg:-translate-x-1/2'
         }`}
       >
         <div className="flex items-baseline justify-between gap-4">
-          <p className="font-bold">{label}</p>
-          <button type="button" onClick={onClose} aria-label="Close" className={`${FORM.link} text-data-caption-13`}>
+          <div>
+            <p className="font-bold">
+              {p.long} {p.day} {p.month}
+            </p>
+            <p className="text-data-caption-13 opacity-70">
+              {stretches.length
+                ? `Open ${stretches.map((f) => timeRange(f.start.toISOString(), f.end.toISOString())).join(' · ')}`
+                : 'Nothing open this day.'}
+            </p>
+          </div>
+          <button ref={closeRef} type="button" onClick={onClose} aria-label="Close" className={`${FORM.link} text-data-caption-13`}>
             Close
           </button>
         </div>
 
-        <fieldset className="flex flex-col gap-2">
-          <legend className="sr-only">Once or repeating</legend>
-          {options.map(([value, text], i) => (
-            <label key={value} className="flex cursor-pointer items-center gap-2">
-              <input
-                ref={i === 0 ? first : undefined}
-                type="radio"
-                name="choice"
-                checked={choice === value}
-                onChange={() => setChoice(value)}
-                className="accent-accent-red size-4"
-              />
-              {text}
-            </label>
-          ))}
-        </fieldset>
-
-        {choice !== 'once' && (
-          <div className="flex flex-col gap-2">
-            <p className={FORM.label}>Ends</p>
-            <label className="flex cursor-pointer flex-wrap items-center gap-2">
-              <input
-                type="radio"
-                name="endBy"
-                checked={endBy === 'count'}
-                onChange={() => setEndBy('count')}
-                className="accent-accent-red size-4"
-              />
-              After
-              <input
-                type="number"
-                min={2}
-                max={52}
-                value={count}
-                onChange={(e) => {
-                  setEndBy('count');
-                  setCount(Math.max(2, Math.min(52, Number(e.target.value) || 2)));
-                }}
-                aria-label="Number of sessions"
-                className={`${FORM.field.replace('w-full', '')} w-20`}
-              />
-              sessions
-            </label>
-            <label className="flex cursor-pointer flex-wrap items-center gap-2">
-              <input
-                type="radio"
-                name="endBy"
-                checked={endBy === 'until'}
-                onChange={() => setEndBy('until')}
-                className="accent-accent-red size-4"
-              />
-              On
-              <input
-                type="date"
-                value={until}
-                min={date}
-                onChange={(e) => {
-                  setEndBy('until');
-                  setUntil(e.target.value);
-                }}
-                aria-label="Last date"
-                className={`${FORM.field.replace('w-full', '')} w-auto`}
-              />
-            </label>
-            <label className="flex cursor-pointer items-center gap-2">
-              <input
-                type="radio"
-                name="endBy"
-                checked={endBy === 'ongoing'}
-                onChange={() => setEndBy('ongoing')}
-                className="accent-accent-red size-4"
-              />
-              Until we end it
-            </label>
-            {preview.length > 0 && (
-              <ul className="text-data-caption-13 flex max-h-40 flex-col gap-0.5 overflow-y-auto" aria-label="Dates">
-                {preview.map((p) => (
-                  <li key={p.d.getTime()} className={`flex justify-between gap-4 ${p.state === 'open' ? '' : 'opacity-50'}`}>
-                    <span className={p.state === 'open' ? '' : 'line-through decoration-1'}>{dayLabel(p.d.toISOString())}</span>
-                    <span className="uppercase">{p.state === 'open' ? 'Open' : 'Unavailable'}</span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
+        {day.own.length > 0 && (
+          <p className="text-data-caption-13">
+            Yours this day:{' '}
+            {day.own.map((o) => `${timeRange(o.start, o.end)} (${o.state === 'confirmed' ? 'confirmed' : 'requested'})`).join(', ')}
+          </p>
         )}
 
-        <p className="opacity-70">
-          {choice === 'once'
-            ? paymentsEnabled
-              ? money(priceCents)
-              : 'Just this one.'
-            : rule
-              ? `${open} session${open === 1 ? '' : 's'} now${paymentsEnabled ? ` · ${money(open * repeatPriceCents)}` : ''}${
-                  open < preview.length ? ' — dates that aren’t open are skipped' : ''
-                }. ${
-                  endBy === 'ongoing'
-                    ? 'After that it keeps going, booked automatically once Alex approves, until you end it.'
-                    : later
-                      ? `${later} more ${later === 1 ? 'is' : 'are'} booked automatically as ${later === 1 ? 'it comes' : 'they come'} into the booking window, once Alex approves.`
-                      : ''
-                }`
-              : 'Pick an end date.'}
-        </p>
+        {starts.length > 0 && (
+          <fieldset className="flex flex-col gap-2">
+            <legend className={FORM.label}>Start time</legend>
+            <div className="flex flex-wrap gap-1.5">
+              {starts.map((o) => {
+                const iso = o.start.toISOString();
+                return (
+                  <button
+                    key={iso}
+                    type="button"
+                    aria-pressed={start === iso}
+                    onClick={() => setStart(iso)}
+                    className={`${chipBase} ${start === iso ? chipOn : chipOff}`}
+                  >
+                    {clock(iso)}
+                  </button>
+                );
+              })}
+            </div>
+          </fieldset>
+        )}
+
+        {chosen && (
+          <fieldset className="flex flex-col gap-2">
+            <legend className={FORM.label}>How long?</legend>
+            <div className="flex flex-wrap gap-1.5">
+              {chosen.lengths.map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  aria-pressed={len === m}
+                  onClick={() => setMinutes(m)}
+                  className={`${chipBase} ${len === m ? chipOn : chipOff}`}
+                >
+                  {lengthLabel(m)} · until {clock(endOf(chosen.start.toISOString(), m))}
+                </button>
+              ))}
+            </div>
+          </fieldset>
+        )}
+
+        {start && len && (
+          <>
+            <fieldset className="flex flex-col gap-2">
+              <legend className={FORM.label}>Once or repeating</legend>
+              {options.map(([value, text]) => (
+                <label key={value} className="flex cursor-pointer items-center gap-2">
+                  <input
+                    type="radio"
+                    name="choice"
+                    checked={choice === value}
+                    onChange={() => setChoice(value)}
+                    className="accent-accent-red size-4"
+                  />
+                  {text}
+                </label>
+              ))}
+            </fieldset>
+
+            {choice !== 'once' && (
+              <div className="flex flex-col gap-2">
+                <p className={FORM.label}>Ends</p>
+                <label className="flex cursor-pointer flex-wrap items-center gap-2">
+                  <input
+                    type="radio"
+                    name="endBy"
+                    checked={endBy === 'count'}
+                    onChange={() => setEndBy('count')}
+                    className="accent-accent-red size-4"
+                  />
+                  After
+                  <input
+                    type="number"
+                    min={2}
+                    max={52}
+                    value={count}
+                    onChange={(e) => {
+                      setEndBy('count');
+                      setCount(Math.max(2, Math.min(52, Number(e.target.value) || 2)));
+                    }}
+                    aria-label="Number of sessions"
+                    className={`${FORM.field.replace('w-full', '')} w-20`}
+                  />
+                  sessions
+                </label>
+                <label className="flex cursor-pointer flex-wrap items-center gap-2">
+                  <input
+                    type="radio"
+                    name="endBy"
+                    checked={endBy === 'until'}
+                    onChange={() => setEndBy('until')}
+                    className="accent-accent-red size-4"
+                  />
+                  On
+                  <input
+                    type="date"
+                    value={until}
+                    min={day.date}
+                    onChange={(e) => {
+                      setEndBy('until');
+                      setUntil(e.target.value);
+                    }}
+                    aria-label="Last date"
+                    className={`${FORM.field.replace('w-full', '')} w-auto`}
+                  />
+                </label>
+                <label className="flex cursor-pointer items-center gap-2">
+                  <input
+                    type="radio"
+                    name="endBy"
+                    checked={endBy === 'ongoing'}
+                    onChange={() => setEndBy('ongoing')}
+                    className="accent-accent-red size-4"
+                  />
+                  Until we end it
+                </label>
+                {preview && preview.dates.length > 0 && (
+                  <ul className="text-data-caption-13 flex max-h-40 flex-col gap-0.5 overflow-y-auto" aria-label="Dates">
+                    {preview.dates.map((x) => (
+                      <li key={x.d.getTime()} className={`flex justify-between gap-4 ${x.open ? '' : 'opacity-50'}`}>
+                        <span className={x.open ? '' : 'line-through decoration-1'}>{dayLabel(x.d.toISOString())}</span>
+                        <span className="uppercase">{x.open ? 'Open' : 'Unavailable'}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
+
+            <p className="opacity-70">
+              {timeRange(start, endOf(start, len))} ({lengthLabel(len)}).{' '}
+              {choice === 'once'
+                ? props.paymentsEnabled
+                  ? money(props.priceCents)
+                  : 'Just this one.'
+                : rule && preview
+                  ? `${openCount} session${openCount === 1 ? '' : 's'} now${
+                      props.paymentsEnabled ? ` · ${money(openCount * props.repeatPriceCents)}` : ''
+                    }${openCount < preview.dates.length ? " — dates that aren't free are skipped" : ''}. ${
+                      endBy === 'ongoing'
+                        ? 'After that it keeps going, booked automatically once Alex approves, until you end it.'
+                        : preview.later
+                          ? `${preview.later} more ${preview.later === 1 ? 'is' : 'are'} booked automatically as ${preview.later === 1 ? 'it comes' : 'they come'} into the booking window, once Alex approves.`
+                          : ''
+                    }`
+                  : 'Pick an end date.'}
+            </p>
+          </>
+        )}
 
         <div className="flex flex-wrap items-center justify-end gap-3">
           {existing && (
@@ -443,8 +524,8 @@ function PickPanel({
           )}
           <button
             type="button"
-            disabled={choice !== 'once' && (!rule || open === 0)}
-            onClick={() => onSave({ start: block.start, repeat: rule })}
+            disabled={!start || !len || Boolean(preview?.closed) || (choice !== 'once' && (!rule || openCount === 0))}
+            onClick={() => start && len && onSave({ start, minutes: len, repeat: rule })}
             className={`${FORM.primary} w-auto`}
           >
             {existing ? 'Update' : 'Add to request'}
@@ -462,7 +543,8 @@ export default function BookingView(props: BookingViewProps) {
   const calendarRef = useRef<HTMLDivElement>(null);
   const noticeRef = useRef<HTMLParagraphElement>(null);
   const [items, setItems] = useState<Item[]>([]);
-  const [panel, setPanel] = useState<{ block: ViewBlock; pos: { top: number; left: number } | null } | null>(null);
+  // The open panel: a day, and the pick being edited (index into items) if any.
+  const [panel, setPanel] = useState<{ date: string; edit: number | null; pos: { top: number; left: number } | null } | null>(null);
   const [reviewing, setReviewing] = useState(false);
   const [gear, setGear] = useState<string[]>(props.defaultGearNeeded);
   const [gearNotes, setGearNotes] = useState(props.defaultGearNotes);
@@ -473,91 +555,89 @@ export default function BookingView(props: BookingViewProps) {
   const [sent, setSent] = useState<string | null>(null);
   const [cancelling, setCancelling] = useState<number | null>(null);
   const [cancelError, setCancelError] = useState<{ id: number; message: string } | null>(null);
-  const [openDay, setOpenDay] = useState<string | null>(
-    () => props.blocks.find((b) => b.state === 'open')?.date ?? null,
-  );
 
   const windowEnd = useMemo(() => new Date(props.windowEnd), [props.windowEnd]);
-  const openSet = useMemo(
-    () => new Set(props.blocks.filter((b) => b.state === 'open').map((b) => new Date(b.start).getTime())),
-    [props.blocks],
-  );
-  const blockByStart = useMemo(() => new Map(props.blocks.map((b) => [new Date(b.start).getTime(), b])), [props.blocks]);
+  const dayByDate = useMemo(() => new Map(props.days.map((d) => [d.date, d])), [props.days]);
 
-  // Calendar rows: Monday-start weeks from this week through the last block.
+  // Same rule as the server (isOpenSpan): on the grid, an allowed length,
+  // inside one free stretch, starting inside the window.
+  const isOpen = useMemo(() => {
+    const rules = { startStepMinutes: props.startStepMinutes, allowedLengths: props.allowedLengths };
+    return (start: Date, minutes: number) => {
+      if (!rules.allowedLengths.includes(minutes) || !onGrid(start, rules.startStepMinutes) || start >= windowEnd) return false;
+      const end = start.getTime() + minutes * 60_000;
+      const day = dayByDate.get(chicagoDateOf(start.toISOString()));
+      return Boolean(day?.free.some((f) => new Date(f.start) <= start && end <= new Date(f.end).getTime()));
+    };
+  }, [props.startStepMinutes, props.allowedLengths, windowEnd, dayByDate]);
+
+  // Calendar rows: Monday-start weeks from this week through the last day.
   const weeks = useMemo(() => {
-    const last = props.blocks.length ? props.blocks[props.blocks.length - 1].date : props.firstMonday;
+    const last = props.days.length ? props.days[props.days.length - 1].date : props.firstMonday;
     const out: string[][] = [];
     for (let m = props.firstMonday; m <= last; m = addDays(m, 7)) out.push(Array.from({ length: 7 }, (_, i) => addDays(m, i)));
     return out;
-  }, [props.blocks, props.firstMonday]);
-
-  const blocksByDay = useMemo(() => {
-    const map = new Map<string, ViewBlock[]>();
-    for (const b of props.blocks) map.set(b.date, [...(map.get(b.date) ?? []), b]);
-    return map;
-  }, [props.blocks]);
+  }, [props.days, props.firstMonday]);
 
   // What the request books right now (same planner as the server).
   const plan = useMemo(
     () =>
       planRequest(
-        items.map((i) => ({ start: new Date(i.start), repeat: i.repeat })),
-        (d) => openSet.has(d.getTime()),
+        items.map((i) => ({ start: new Date(i.start), minutes: i.minutes, repeat: i.repeat })),
+        isOpen,
         windowEnd,
+        props.bufferMinutes,
       ),
-    [items, openSet, windowEnd],
+    [items, isOpen, windowEnd, props.bufferMinutes],
   );
-  const pickedAt = useMemo(() => {
-    const m = new Map<number, { item: number; repeat: boolean }>();
-    for (const s of plan.sessions) m.set(s.start.getTime(), { item: s.item, repeat: s.repeat });
-    return m;
-  }, [plan]);
   const total = plan.sessions.reduce((sum, s) => sum + (s.repeat ? props.repeatPriceCents : props.priceCents), 0);
+
+  // Sessions per day for the calendar: the band's own bookings + the request.
+  const sessionsByDay = useMemo(() => {
+    const map = new Map<string, Session[]>();
+    const push = (s: Session) => {
+      const d = chicagoDateOf(s.start);
+      map.set(d, [...(map.get(d) ?? []), s]);
+    };
+    for (const d of props.days) for (const o of d.own) push({ start: o.start, end: o.end, kind: o.state });
+    for (const s of plan.sessions) {
+      push({ start: s.start.toISOString(), end: s.end.toISOString(), kind: s.repeat ? 'repeat' : 'picked', item: s.item });
+    }
+    for (const list of map.values()) list.sort((a, b) => a.start.localeCompare(b.start));
+    return map;
+  }, [props.days, plan.sessions]);
 
   // A pick that's no longer open (calendar refreshed) drops out.
   useEffect(() => {
     if (plan.closed.length) setItems((list) => list.filter((_, i) => !plan.closed.includes(i)));
   }, [plan.closed]);
 
-  function itemIndexFor(start: string): number {
-    const t = new Date(start).getTime();
-    const own = items.findIndex((i) => new Date(i.start).getTime() === t);
-    if (own >= 0) return own;
-    return pickedAt.get(t)?.item ?? -1;
-  }
-
-  function openPanel(block: ViewBlock, el?: HTMLElement | null) {
+  function openPanel(date: string, edit: number | null, el?: HTMLElement | null) {
     setSent(null);
-    // Clicking a date that belongs to a repeat edits that repeat (its first date).
-    const idx = itemIndexFor(block.start);
-    const anchor = idx >= 0 ? (blockByStart.get(new Date(items[idx].start).getTime()) ?? block) : block;
-    // Anchor the panel where they clicked (else at the pick's first date).
-    const target = el ?? document.querySelector<HTMLElement>(`[data-start="${anchor.start}"]`);
+    // Editing a repeat opens it on its first date.
+    const at = edit !== null ? chicagoDateOf(items[edit].start) : date;
+    const target = el ?? document.querySelector<HTMLElement>(`[data-day="${at}"]`);
     let pos: { top: number; left: number } | null = null;
     const wrap = calendarRef.current;
     if (target && wrap && target.offsetParent !== null) {
       const r = target.getBoundingClientRect();
       const w = wrap.getBoundingClientRect();
-      pos = { top: r.bottom - w.top + 6, left: Math.max(0, Math.min(r.left - w.left, w.width - 384)) };
+      pos = { top: r.bottom - w.top + 6, left: Math.max(0, Math.min(r.left - w.left, w.width - 416)) };
     }
-    setPanel({ block: anchor, pos });
+    setPanel({ date: at, edit, pos });
   }
 
   function savePanel(item: Item) {
-    setItems((list) => {
-      const i = list.findIndex((x) => x.start === item.start);
-      return i >= 0 ? list.map((x, j) => (j === i ? item : x)) : [...list, item];
-    });
+    setItems((list) => (panel?.edit != null ? list.map((x, j) => (j === panel.edit ? item : x)) : [...list, item]));
     setPanel(null);
   }
 
-  function removeItem(start: string) {
-    setItems((list) => list.filter((x) => x.start !== start));
+  function removeItem(index: number) {
+    setItems((list) => list.filter((_, j) => j !== index));
     setPanel(null);
   }
 
-  // Same weekday and time on consecutive weeks, all single picks -> offer weekly.
+  // Same weekday, start and length on consecutive weeks, all single picks -> offer weekly.
   const nudge = useMemo(() => {
     const singles = items.filter((i) => !i.repeat).sort((a, b) => a.start.localeCompare(b.start));
     for (const a of singles) {
@@ -565,7 +645,7 @@ export default function BookingView(props: BookingViewProps) {
       let next = new Date(a.start);
       for (;;) {
         next = new Date(occurrenceStarts(next, { freq: 'weekly', count: 2 })[1]);
-        const hit = singles.find((x) => new Date(x.start).getTime() === next.getTime());
+        const hit = singles.find((x) => new Date(x.start).getTime() === next.getTime() && x.minutes === a.minutes);
         if (!hit) break;
         run.push(hit);
       }
@@ -578,18 +658,14 @@ export default function BookingView(props: BookingViewProps) {
   // say how many weeks.
   function makeWeekly(run: Item[]) {
     const keep = new Set(run.map((r) => r.start));
-    setItems((list) => [
-      ...list.filter((x) => !keep.has(x.start)),
-      { start: run[0].start, repeat: { freq: 'weekly', count: Math.max(2, run.length) } },
-    ]);
-    const b = blockByStart.get(new Date(run[0].start).getTime());
-    if (b) setTimeout(() => openPanel(b, null), 0);
+    const rest = items.filter((x) => !keep.has(x.start));
+    setItems([...rest, { start: run[0].start, minutes: run[0].minutes, repeat: { freq: 'weekly', count: Math.max(2, run.length) } }]);
+    setTimeout(() => openPanel(chicagoDateOf(run[0].start), rest.length, null), 0);
   }
 
   function itemSummary(i: Item, index: number): string {
     const n = plan.sessions.filter((s) => s.item === index).length;
-    const b = blockByStart.get(new Date(i.start).getTime());
-    const time = b ? timeRange(b.start, b.end) : '';
+    const time = `${timeRange(i.start, endOf(i.start, i.minutes))} (${lengthLabel(i.minutes)})`;
     if (!i.repeat) return `${dayLabel(i.start)} ${time}`;
     const rule = describeRule(chicagoDateOf(i.start), i.repeat.freq);
     const ongoing = !i.repeat.until && !i.repeat.count;
@@ -609,14 +685,13 @@ export default function BookingView(props: BookingViewProps) {
       });
       const data = await res.json().catch(() => null);
       if (!res.ok) {
-        setError(data?.error ?? 'That didn’t go through — try again.');
+        setError(data?.error ?? "That didn't go through — try again.");
         if (res.status === 409) router.refresh();
         return;
       }
       const n = data.catalogueIds.length;
       const skipped: Array<{ start: string; why: string }> = data.skipped ?? [];
-      const list = (why: string) => skipped.filter((x) => x.why === why).map((x) => dayLabel(x.start));
-      const taken = list('unavailable');
+      const taken = skipped.filter((x) => x.why === 'unavailable').map((x) => dayLabel(x.start));
       const later: number = data.later ?? 0;
       setSent(
         `Request sent for ${n} session${n === 1 ? '' : 's'} (${data.catalogueIds.join(', ')}). ` +
@@ -634,7 +709,7 @@ export default function BookingView(props: BookingViewProps) {
       router.refresh();
       setTimeout(() => noticeRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 50);
     } catch {
-      setError('That didn’t go through — check your connection and try again.');
+      setError("That didn't go through — check your connection and try again.");
     } finally {
       setSending(false);
     }
@@ -651,25 +726,26 @@ export default function BookingView(props: BookingViewProps) {
         body: JSON.stringify({ bookingId: b.id }),
       });
       const data = await res.json().catch(() => null);
-      if (!res.ok) setCancelError({ id: b.id, message: data?.error ?? 'Couldn’t cancel — try again.' });
+      if (!res.ok) setCancelError({ id: b.id, message: data?.error ?? "Couldn't cancel — try again." });
       router.refresh();
     } finally {
       setCancelling(null);
     }
   }
 
-  const hours = props.blockMinutes % 60 === 0 ? `${props.blockMinutes / 60}-hour` : `${props.blockMinutes}-minute`;
   const live = props.bookings.filter((b) => b.status === 'pending' || b.status === 'confirmed').length;
+  const anyOpen = props.days.some((d) => d.free.length > 0);
+  const panelDay = panel ? dayByDate.get(panel.date) : undefined;
 
   return (
     <div className={`flex w-full max-w-5xl flex-col gap-10 ${items.length ? 'pb-36' : ''}`}>
       <section aria-labelledby="hello" className="text-body-3 flex flex-col gap-3 leading-normal">
         <SectionHeader id="hello" label={`Rehearsal space · ${props.bandName}`} rule="m" />
         <p className="max-w-2xl">
-          Tap an open {hours} block to book it once or make it repeat, then send your request. I&apos;ll confirm by email
+          Tap a day, pick a start time and how long — once or repeating — then send your request. I&apos;ll confirm by email
           with the address.
           {props.paymentsEnabled &&
-            ` ${money(props.priceCents)} per block${
+            ` ${money(props.priceCents)} per session${
               props.repeatPriceCents !== props.priceCents ? `, ${money(props.repeatPriceCents)} per session when it repeats` : ''
             }.`}
         </p>
@@ -744,20 +820,20 @@ export default function BookingView(props: BookingViewProps) {
 
       {/* Calendar */}
       <section aria-labelledby="pick" className="flex flex-col gap-4">
-        <SectionHeader id="pick" label="Pick blocks" />
+        <SectionHeader id="pick" label="Pick a time" />
         {sent && (
           <p ref={noticeRef} role="status" className={FORM.notice}>
             {sent}
           </p>
         )}
-        {props.blocks.length === 0 ? (
-          <p className="text-body-3 opacity-70">No blocks are on the calendar right now — check back soon.</p>
+        {!anyOpen && props.days.every((d) => d.own.length === 0) ? (
+          <p className="text-body-3 opacity-70">Nothing&apos;s open right now — check back soon.</p>
         ) : (
           <>
             <ul className="text-data-caption-13 flex flex-wrap gap-x-5 gap-y-1 opacity-80" aria-label="Key">
               <li className="flex items-center gap-1.5">
-                <span className="border-surface-ink inline-block size-3 border" />
-                Open
+                <span className="bg-surface-ink inline-block h-1.5 w-4" />
+                Open time
               </li>
               <li className="flex items-center gap-1.5">
                 <span className="bg-surface-ink inline-block size-3" />
@@ -770,10 +846,6 @@ export default function BookingView(props: BookingViewProps) {
               <li className="flex items-center gap-1.5">
                 <span className="bg-accent-red inline-block size-3" />
                 Confirmed
-              </li>
-              <li className="flex items-center gap-1.5">
-                <span className="border-surface-ink/20 inline-block size-3 border" />
-                Unavailable
               </li>
             </ul>
 
@@ -790,68 +862,58 @@ export default function BookingView(props: BookingViewProps) {
                     </div>
                   ))}
                 </div>
-                {weeks.map((days) => (
-                  <div key={days[0]} role="row" className="border-surface-ink/20 grid grid-cols-7 border-b">
-                    {days.map((d) => {
+                {weeks.map((week) => (
+                  <div key={week[0]} role="row" className="border-surface-ink/20 grid grid-cols-7 border-b">
+                    {week.map((d) => {
                       const p = dateParts(d);
-                      const list = blocksByDay.get(d) ?? [];
+                      const day = dayByDate.get(d);
+                      const sessions = sessionsByDay.get(d) ?? [];
+                      const open = Boolean(day?.free.length);
                       const isToday = d === props.today;
                       const firstOfMonth = p.day === '1' || d === props.firstMonday;
-                      const dateLabel = (
-                        <span className="flex items-baseline gap-1">
-                          <span
-                            className={`text-data-caption-13 inline-flex min-w-6 justify-center font-bold ${
-                              isToday ? 'bg-accent-red text-surface-paper px-1' : ''
-                            }`}
-                          >
-                            {p.day}
-                          </span>
-                          {firstOfMonth && (
-                            <span className="text-data-label-10-small text-accent-red font-bold uppercase">{p.month}</span>
-                          )}
-                        </span>
-                      );
+                      const openText = day?.free.map((f) => timeRange(f.start, f.end)).join(', ');
                       return (
                         <div
                           key={d}
                           role="gridcell"
-                          className={`border-surface-ink/20 min-h-14 border-r p-1 last:border-r-0 lg:min-h-24 lg:p-1.5 ${
-                            d < props.today ? 'opacity-40' : ''
-                          }`}
+                          className={`border-surface-ink/20 flex min-h-16 flex-col border-r last:border-r-0 lg:min-h-24 ${d < props.today ? 'opacity-40' : ''}`}
                         >
-                          {/* Phone: the cell picks the day; its blocks list below the calendar. */}
                           <button
                             type="button"
-                            onClick={() => setOpenDay(d)}
-                            disabled={list.length === 0}
-                            aria-label={`${p.weekday} ${p.day} ${p.month}: ${list.filter((b) => b.state === 'open').length} open`}
-                            aria-pressed={openDay === d}
-                            className={`flex h-full w-full flex-col items-center gap-1 disabled:cursor-default lg:hidden ${
-                              openDay === d ? 'outline-surface-ink outline-2 -outline-offset-2' : ''
-                            }`}
+                            data-day={d}
+                            onClick={(e) => day && open && openPanel(d, null, e.currentTarget)}
+                            disabled={!open}
+                            aria-haspopup="dialog"
+                            aria-label={`${p.long} ${p.day} ${p.month}: ${open ? `open ${openText}` : 'nothing open'}`}
+                            className={`flex w-full flex-1 flex-col gap-1 p-1 text-left disabled:cursor-default lg:p-1.5 ${
+                              open ? `ui-hover:bg-surface-paper-shade cursor-pointer ${FOCUS}` : ''
+                            } ${panel?.date === d ? 'outline-surface-ink outline-2 -outline-offset-2' : ''}`}
                           >
-                            {dateLabel}
-                            <span className="flex flex-wrap justify-center gap-0.5">
-                              {list.map((b) => (
-                                <Mark key={b.start} block={b} picked={pickedAt.has(new Date(b.start).getTime())} />
-                              ))}
+                            <span className="flex items-baseline gap-1">
+                              <span
+                                className={`text-data-caption-13 inline-flex min-w-6 justify-center font-bold ${
+                                  isToday ? 'bg-accent-red text-surface-paper px-1' : ''
+                                }`}
+                              >
+                                {p.day}
+                              </span>
+                              {firstOfMonth && (
+                                <span className="text-data-label-10-small text-accent-red font-bold uppercase">{p.month}</span>
+                              )}
                             </span>
+                            {day && open && <OpenStrip day={day} />}
                           </button>
-                          {/* Desktop: blocks right in the cell. */}
-                          <div className="hidden flex-col gap-1 lg:flex">
-                            {dateLabel}
-                            {list.map((b) => {
-                              const at = pickedAt.get(new Date(b.start).getTime());
-                              return (
-                                <Chip
-                                  key={b.start}
-                                  block={b}
-                                  picked={at ? (at.repeat ? 'repeat' : 'once') : 'no'}
-                                  onPick={(el) => openPanel(b, el)}
+                          {sessions.length > 0 && (
+                            <div className="flex flex-col gap-0.5 px-1 pb-1 lg:px-1.5">
+                              {sessions.map((s) => (
+                                <SessionChip
+                                  key={`${s.kind}-${s.start}`}
+                                  s={s}
+                                  onEdit={s.item !== undefined ? () => openPanel(d, s.item!, null) : undefined}
                                 />
-                              );
-                            })}
-                          </div>
+                              ))}
+                            </div>
+                          )}
                         </div>
                       );
                     })}
@@ -859,43 +921,22 @@ export default function BookingView(props: BookingViewProps) {
                 ))}
               </div>
 
-              {panel && (
+              {panel && panelDay && (
                 <PickPanel
-                  key={panel.block.start}
-                  block={panel.block}
-                  existing={items.find((i) => i.start === panel.block.start) ?? null}
+                  key={`${panel.date}-${panel.edit}`}
+                  day={panelDay}
+                  existing={panel.edit !== null ? items[panel.edit] : null}
+                  others={items.filter((_, j) => j !== panel.edit)}
                   pos={panel.pos}
-                  openSet={openSet}
+                  isOpen={isOpen}
                   windowEnd={windowEnd}
-                  priceCents={props.priceCents}
-                  paymentsEnabled={props.paymentsEnabled}
-                  repeatPriceCents={props.repeatPriceCents}
+                  props={props}
                   onSave={savePanel}
-                  onRemove={() => removeItem(panel.block.start)}
+                  onRemove={() => panel.edit !== null && removeItem(panel.edit)}
                   onClose={() => setPanel(null)}
                 />
               )}
             </div>
-
-            {/* Phone: the chosen day's blocks */}
-            {openDay && (
-              <div className="flex flex-col gap-2 lg:hidden">
-                <h3 className="text-data-overline-11 font-bold tracking-[--spacing(0.625)] uppercase">
-                  {(() => {
-                    const p = dateParts(openDay);
-                    return `${p.weekday} ${p.day} ${p.month}`;
-                  })()}
-                </h3>
-                {(blocksByDay.get(openDay) ?? []).map((b) => (
-                  <DayBlock
-                    key={b.start}
-                    block={b}
-                    picked={pickedAt.has(new Date(b.start).getTime())}
-                    onPick={() => openPanel(b, null)}
-                  />
-                ))}
-              </div>
-            )}
             <p className="text-body-3 opacity-70">All times are Minneapolis time.</p>
           </>
         )}
@@ -908,12 +949,7 @@ export default function BookingView(props: BookingViewProps) {
             {nudge && (
               <p className="flex flex-wrap items-baseline gap-x-3">
                 <span>
-                  {(() => {
-                    const b = blockByStart.get(new Date(nudge[0].start).getTime());
-                    const [y, m, d] = chicagoDateOf(nudge[0].start).split('-').map(Number);
-                    const wd = new Intl.DateTimeFormat('en-US', { weekday: 'long', timeZone: 'UTC' }).format(new Date(Date.UTC(y, m - 1, d, 12)));
-                    return `${wd}s ${b ? timeRange(b.start, b.end) : ''}, ${nudge.length} weeks in a row — make it every week?`;
-                  })()}
+                  {`${dateParts(chicagoDateOf(nudge[0].start)).long}s ${timeRange(nudge[0].start, endOf(nudge[0].start, nudge[0].minutes))}, ${nudge.length} weeks in a row — make it every week?`}
                 </span>
                 <button type="button" onClick={() => makeWeekly(nudge)} className={FORM.link}>
                   Make it weekly
@@ -974,14 +1010,13 @@ export default function BookingView(props: BookingViewProps) {
                           type="button"
                           onClick={() => {
                             setReviewing(false);
-                            const b = blockByStart.get(new Date(i.start).getTime());
-                            if (b) setTimeout(() => openPanel(b, null), 0);
+                            setTimeout(() => openPanel(chicagoDateOf(i.start), n, null), 0);
                           }}
                           className={FORM.link}
                         >
                           Edit
                         </button>
-                        <button type="button" onClick={() => removeItem(i.start)} className={FORM.link}>
+                        <button type="button" onClick={() => removeItem(n)} className={FORM.link}>
                           Remove
                         </button>
                       </span>
@@ -990,6 +1025,12 @@ export default function BookingView(props: BookingViewProps) {
                       <span className="text-data-caption-13 opacity-70">
                         {dates.map((d) => dayLabel(d.start.toISOString())).join(', ')}
                         {skipped.length ? ` · skipped: ${skipped.map((s) => dayLabel(s.start.toISOString())).join(', ')}` : ''}
+                      </span>
+                    )}
+                    {props.rates && !props.paymentsEnabled && (
+                      <span className="text-data-caption-13 opacity-70">
+                        {estimateLine(i.minutes, i.repeat?.freq ?? null, props.rates)}
+                        {SOFT}
                       </span>
                     )}
                   </li>
