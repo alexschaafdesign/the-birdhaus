@@ -1141,7 +1141,15 @@ export default function BookingView(props: BookingViewProps) {
               <label htmlFor="note" className={FORM.label}>
                 Note to Alex (optional)
               </label>
-              <textarea id="note" value={note} onChange={(e) => setNote(e.target.value)} maxLength={2000} rows={3} className={FORM.field} />
+              <textarea
+                id="note"
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                maxLength={2000}
+                rows={3}
+                placeholder="Anything I should know? Gear you'll need?"
+                className={FORM.field}
+              />
             </div>
             {!props.paymentsEnabled ? null : props.paymentMethods.length > 1 ? (
               <fieldset>
