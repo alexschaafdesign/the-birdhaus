@@ -34,7 +34,7 @@ export default async function ShowHubPage({
   }
 
   return (
-    <main className="min-h-screen bg-[#2A2420] text-[#E8E0D0] px-5 py-10">
+    <main className="min-h-screen bg-surface-paper text-surface-ink px-5 py-10">
       <ShowHubView data={data} token={token} isAdmin={isAdmin} adminState={adminState} />
     </main>
   );

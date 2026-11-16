@@ -20,8 +20,8 @@ export default function HubInfo({
   const hasBody = Boolean(introHtml) || sections.length > 0;
 
   return (
-    <section className="border border-[#E8E0D0]/15 rounded-xl p-5 space-y-3">
-      <h2 className="text-xs uppercase tracking-[0.12em] text-[#c8a26a] font-semibold">
+    <section className="border border-surface-ink bg-surface-paper p-5 space-y-3">
+      <h2 className="text-data-overline-11 font-bold leading-[1.3] tracking-[--spacing(0.625)] uppercase">
         Venue &amp; info
       </h2>
 
@@ -38,15 +38,15 @@ export default function HubInfo({
           >
             {introHtml && (
               <div
-                className="hub-prose text-sm text-[#E8E0D0]/80 leading-relaxed"
+                className="hub-prose text-body-3 text-surface-ink/80 leading-relaxed"
                 dangerouslySetInnerHTML={{ __html: introHtml }}
               />
             )}
             {sections.map((s) => (
               <div key={s.title} className="space-y-1">
-                <h3 className="text-sm font-semibold text-[#E8E0D0]">{s.title}</h3>
+                <h3 className="text-body-3 font-bold text-surface-ink">{s.title}</h3>
                 <div
-                  className="hub-prose text-sm text-[#E8E0D0]/80 leading-relaxed"
+                  className="hub-prose text-body-3 text-surface-ink/80 leading-relaxed"
                   dangerouslySetInnerHTML={{ __html: s.html }}
                 />
               </div>
@@ -57,7 +57,7 @@ export default function HubInfo({
             type="button"
             onClick={() => setOpen((v) => !v)}
             aria-expanded={open}
-            className="text-sm font-medium text-[#c8a26a] hover:text-[#E8E0D0] transition-colors"
+            className="text-body-3 font-bold text-accent-red cursor-pointer hover:underline transition-colors"
           >
             {open ? 'Show less' : 'Read the full venue rundown …'}
           </button>
@@ -65,10 +65,10 @@ export default function HubInfo({
       )}
 
       {isAdmin && (
-        <p className="text-xs pt-1">
+        <p className="text-data-caption-13 pt-1">
           <a
             href="/admin/settings"
-            className="text-[#E8E0D0]/45 hover:text-[#E8E0D0] underline"
+            className="text-surface-ink/60 hover:text-accent-red underline"
           >
             Edit this text (admin) →
           </a>

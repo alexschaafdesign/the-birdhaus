@@ -4,8 +4,8 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { ADMIN_NAV as GROUPS, adminLinkActive as linkActive } from './nav';
 
-// The old dark two-row nav, still used by admin pages not yet on the 2027
-// sidebar (see isMigratedAdminPath in ./nav). Deleted in the last phase.
+// The old dark two-row nav, kept only for the rehearsal admin until it moves
+// to the 2027 sidebar (see isDarkAdminPath in ./nav); then it's deleted.
 
 const rowClass =
   'flex gap-4 text-sm uppercase tracking-wide overflow-x-auto whitespace-nowrap -mx-6 px-6 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden';
