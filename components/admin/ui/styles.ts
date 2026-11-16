@@ -1,3 +1,5 @@
+import { FORM } from '@/components/night/form';
+
 // Class strings for the 2027 admin (paper ground). Tokens only: no hex, no px,
 // square corners. Strings rather than components so server and client
 // components (and the odd <a> styled as a button) can share them.
@@ -32,3 +34,7 @@ export const ADMIN_TABLE = {
   // A <ul> list with the same row rules.
   list: 'divide-surface-ink/20 divide-y',
 } as const;
+
+// FORM.field without its w-full, for fields sized by the caller (w-40, w-auto):
+// two width classes in one list resolve by CSS order, not by position.
+export const FIELD_INLINE = FORM.field.replace('w-full ', '');

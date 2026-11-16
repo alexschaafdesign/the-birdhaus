@@ -5,5 +5,5 @@ export { PageHeader } from './PageHeader';
 export { Swatch } from './Swatch';
 export { StatusMark, type StatusTone } from './StatusMark';
 export { Field, Input, Textarea, Select, Checkbox, Notice } from './form';
-export { ADMIN_TYPE, ADMIN_TABLE } from './styles';
+export { ADMIN_TYPE, ADMIN_TABLE, FIELD_INLINE } from './styles';
 export { Button, buttonClassName } from '@/components/ui/Button';
