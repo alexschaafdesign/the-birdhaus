@@ -2,9 +2,17 @@
 
 import { useState, type FormEvent } from 'react';
 import type { Rsvp, RsvpSummary as RsvpSummaryData } from '@/lib/rsvps';
+import { FORM } from '@/components/night/form';
+import { ADMIN_TYPE, FIELD_INLINE, Swatch, buttonClassName } from './ui';
 
-const inputClass =
-  'bg-transparent border border-[#E8E0D0]/30 rounded px-3 py-1.5 text-sm focus:outline-none focus:border-[#E8E0D0] placeholder:text-[#E8E0D0]/30';
+const inputClass = FIELD_INLINE;
+const SMALL_BTN = `${buttonClassName('secondary', 's')} disabled:opacity-40`;
+const TAG = 'text-data-caption-13 inline-flex items-center gap-1.5 border border-surface-ink px-2 py-0.5 whitespace-nowrap';
+// A two-state toggle (Arrived, Paid, audience): ink fill when on.
+const toggle = (on: boolean) =>
+  `text-data-caption-13 border border-surface-ink px-2.5 py-1 font-bold whitespace-nowrap transition-colors cursor-pointer ${ADMIN_TYPE.focus} ${
+    on ? 'bg-surface-ink text-surface-paper' : 'text-surface-ink/70 hover:bg-surface-paper-shade'
+  }`;
 
 function formatSubmittedAt(createdAt: string): string {
   return new Date(createdAt).toLocaleString('en-US', {
@@ -483,22 +491,22 @@ export default function RsvpSummary({
   }
 
   return (
-    <div className="border border-[#E8E0D0]/15 rounded-lg p-4">
+    <div className="border-surface-ink bg-surface-paper border p-4 sm:p-5">
       <div className="mb-4 space-y-2">
         <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-          <h2 className="text-sm font-semibold text-[#E8E0D0]/80">RSVPs</h2>
-          <span className="text-xs text-[#E8E0D0]/50">
+          <h2 className={ADMIN_TYPE.heading}>RSVPs</h2>
+          <span className="text-data-caption-13 text-surface-ink/60">
             {totalCount} RSVP{totalCount === 1 ? '' : 's'} · {totalGuests} guest{totalGuests === 1 ? '' : 's'}
             {arrivedCount > 0 && (
-              <> · <span className="text-sky-300/80">{arrivedCount} arrived</span></>
+              <> · <span className="text-surface-ink">{arrivedCount} arrived</span></>
             )}
             {paidCount > 0 && (
-              <> · <span className="text-green-300/80">{paidCount} paid</span></>
+              <> · <span className="text-surface-ink">{paidCount} paid</span></>
             )}
             {hasPurchases && (
               <>
                 {' '}·{' '}
-                <span className="text-amber-300/80">
+                <span className="text-surface-ink">
                   {boughtCount} buyer{boughtCount === 1 ? '' : 's'} · {ticketCount} ticket
                   {ticketCount === 1 ? '' : 's'} · {dollars(revenueCents)}
                 </span>
@@ -511,7 +519,7 @@ export default function RsvpSummary({
             type="button"
             onClick={() => openCompose('all')}
             disabled={uniqueEmailCount === 0}
-            className="border border-[#E8E0D0]/40 rounded px-3 py-1 text-xs hover:bg-[#E8E0D0]/10 transition-colors disabled:opacity-40"
+            className={SMALL_BTN}
           >
             Email all RSVPs
           </button>
@@ -519,7 +527,7 @@ export default function RsvpSummary({
             type="button"
             onClick={() => openCompose('not-bought')}
             disabled={notBoughtCount === 0}
-            className="border border-[#E8E0D0]/40 rounded px-3 py-1 text-xs hover:bg-[#E8E0D0]/10 transition-colors disabled:opacity-40"
+            className={SMALL_BTN}
           >
             Email non-buyers
           </button>
@@ -527,7 +535,7 @@ export default function RsvpSummary({
             type="button"
             onClick={handlePrint}
             disabled={rsvps.length === 0}
-            className="border border-[#E8E0D0]/40 rounded px-3 py-1 text-xs hover:bg-[#E8E0D0]/10 transition-colors disabled:opacity-40"
+            className={SMALL_BTN}
           >
             Print door list
           </button>
@@ -536,7 +544,7 @@ export default function RsvpSummary({
               href={`/door/${doorToken}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="border border-[#c8a26a]/50 text-[#c8a26a] rounded px-3 py-1 text-xs hover:bg-[#c8a26a]/10 transition-colors"
+              className={buttonClassName('primary', 's')}
             >
               Open door check-in ↗
             </a>
@@ -545,37 +553,37 @@ export default function RsvpSummary({
       </div>
 
       {(hasPurchases || ticketLimit !== null || creditedExtra > 0) && (
-        <div className="mb-4 border border-[#E8E0D0]/15 rounded-lg p-4 bg-[#E8E0D0]/[0.03]">
+        <div className="bg-surface-paper-shade mb-4 p-4">
           <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 mb-2">
-            <h3 className="text-sm font-semibold text-[#E8E0D0]/80">Effective attendance</h3>
-            <span className="text-sm">
-              <span className="font-bold text-[#E8E0D0]">{effectiveCount}</span>
+            <h3 className={ADMIN_TYPE.overline}>Effective attendance</h3>
+            <span className="text-body-3">
+              <span className="font-bold text-surface-ink">{effectiveCount}</span>
               {ticketLimit !== null && (
-                <span className="text-[#E8E0D0]/50"> / {ticketLimit} cap</span>
+                <span className="text-surface-ink/60"> / {ticketLimit} cap</span>
               )}
               {ticketLimit !== null && effectiveCount >= ticketLimit && (
-                <span className="ml-2 text-xs px-2 py-0.5 rounded-full border border-red-400/50 text-red-300">
+                <span className="ml-2 text-data-caption-13 px-2 py-0.5 bg-accent-red text-surface-paper font-bold">
                   SOLD OUT
                 </span>
               )}
             </span>
           </div>
 
-          <p className="text-xs text-[#E8E0D0]/50">
+          <p className="text-data-caption-13 text-surface-ink/60">
             {ticketCount} ticket{ticketCount === 1 ? '' : 's'} sold online
             {creditedExtra > 0 && (
               <>
                 {' '}
-                + <span className="text-[#E8E0D0]/80">{creditedExtra}</span> credited RSVP head
+                + <span className="text-surface-ink/80">{creditedExtra}</span> credited RSVP head
                 {creditedExtra === 1 ? '' : 's'}
               </>
             )}{' '}
-            = <span className="text-[#E8E0D0]/80">{effectiveCount}</span> expected.
+            = <span className="text-surface-ink/80">{effectiveCount}</span> expected.
             {ticketLimit !== null && ' This is what the sold-out cap counts.'}
           </p>
 
           {uncreditedShortfall > 0 && (
-            <p className="text-xs text-amber-300/70 mt-2 max-w-prose">
+            <p className="text-data-caption-13 text-surface-ink mt-2 max-w-prose">
               {uncreditedShortfall} buyer{uncreditedShortfall === 1 ? '' : 's'} RSVP&apos;d for a
               bigger party than they bought tickets for. Use “Count as N” on their row below to count
               those extra heads toward capacity.
@@ -587,49 +595,43 @@ export default function RsvpSummary({
       {composing && (
         <form
           onSubmit={handleSendBlast}
-          className="mb-4 border border-[#E8E0D0]/25 rounded-lg p-4 space-y-3"
+          className="mb-4 border-2 border-surface-ink p-4 space-y-3"
         >
           <div className="flex items-center justify-between gap-3 flex-wrap">
-            <h3 className="text-sm font-semibold text-[#E8E0D0]/80">
+            <h3 className={ADMIN_TYPE.overline}>
               Compose email
             </h3>
-            <div className="flex items-center gap-1 text-xs">
+            <div className="flex items-center gap-1 text-data-caption-13">
               <button
                 type="button"
                 onClick={() => setAudience('all')}
-                className={`rounded px-2.5 py-1 border transition-colors ${
-                  audience === 'all'
-                    ? 'border-[#E8E0D0] bg-[#E8E0D0]/10'
-                    : 'border-[#E8E0D0]/30 hover:bg-[#E8E0D0]/10'
-                }`}
+                className={toggle(audience === 'all')}
+                aria-pressed={audience === 'all'}
               >
                 All ({uniqueEmailCount})
               </button>
               <button
                 type="button"
                 onClick={() => setAudience('not-bought')}
-                className={`rounded px-2.5 py-1 border transition-colors ${
-                  audience === 'not-bought'
-                    ? 'border-[#E8E0D0] bg-[#E8E0D0]/10'
-                    : 'border-[#E8E0D0]/30 hover:bg-[#E8E0D0]/10'
-                }`}
+                className={toggle(audience === 'not-bought')}
+                aria-pressed={audience === 'not-bought'}
               >
                 Haven&apos;t bought ({notBoughtCount})
               </button>
             </div>
           </div>
 
-          <p className="text-xs text-[#E8E0D0]/50">
+          <p className="text-data-caption-13 text-surface-ink/60">
             Sending to{' '}
-            <strong className="text-[#E8E0D0]/80">
+            <strong className="text-surface-ink/80">
               {audienceCount} recipient{audienceCount === 1 ? '' : 's'}
             </strong>{' '}
-            (unique emails). Use <code className="text-[#E8E0D0]/70">{'{name}'}</code> in the
+            (unique emails). Use <code className="text-surface-ink/80">{'{name}'}</code> in the
             message to insert each person&apos;s first name.
           </p>
 
           <div>
-            <label className="block text-xs uppercase tracking-wide text-[#E8E0D0]/40 mb-1">
+            <label className={FORM.label}>
               Subject
             </label>
             <input
@@ -641,7 +643,7 @@ export default function RsvpSummary({
           </div>
 
           <div>
-            <label className="block text-xs uppercase tracking-wide text-[#E8E0D0]/40 mb-1">
+            <label className={FORM.label}>
               Message
             </label>
             <textarea
@@ -657,7 +659,7 @@ export default function RsvpSummary({
             <button
               type="submit"
               disabled={sending || audienceCount === 0}
-              className="border border-[#E8E0D0]/40 rounded px-4 py-1.5 text-sm hover:bg-[#E8E0D0]/10 transition-colors disabled:opacity-50"
+              className={`${buttonClassName('primary', 's')} disabled:opacity-50`}
             >
               {sending
                 ? 'Sending...'
@@ -666,7 +668,7 @@ export default function RsvpSummary({
             <button
               type="button"
               onClick={() => setComposing(false)}
-              className="text-[#E8E0D0]/60 hover:text-[#E8E0D0] text-sm"
+              className="text-surface-ink/60 hover:text-accent-red text-body-3"
             >
               Cancel
             </button>
@@ -675,19 +677,19 @@ export default function RsvpSummary({
       )}
 
       {blastResult && (
-        <div className="mb-4 border border-green-400/30 bg-green-400/5 text-sm rounded px-3 py-2">
-          <div className="text-green-300">
+        <div className={`${FORM.notice} mb-4`}>
+          <div className="text-surface-ink">
             Sent {blastResult.sent} email{blastResult.sent === 1 ? '' : 's'}
             {blastResult.audience === 'not-bought' ? ' (non-buyers)' : ''}.
           </div>
           {blastResult.invalid.length > 0 && (
-            <div className="text-[#E8E0D0]/50 mt-1">
+            <div className="text-surface-ink/60 mt-1">
               Skipped {blastResult.invalid.length} invalid address
               {blastResult.invalid.length === 1 ? '' : 'es'}: {blastResult.invalid.join(', ')}
             </div>
           )}
           {blastResult.failed.length > 0 && (
-            <div className="text-red-300 mt-1">
+            <div className="text-accent-red mt-1">
               Failed {blastResult.failed.length}:{' '}
               {blastResult.failed.map((f) => f.email).join(', ')}
             </div>
@@ -696,25 +698,25 @@ export default function RsvpSummary({
       )}
 
       {error && (
-        <div className="mb-3 border border-red-400/40 bg-red-400/10 text-red-300 text-sm rounded px-3 py-2 flex justify-between items-center">
+        <div role="alert" className={`${FORM.error} border-accent-red mb-3 flex items-center justify-between gap-3 border-2 p-3`}>
           <span>{error}</span>
-          <button type="button" onClick={() => setError(null)} className="text-red-300/70 hover:text-red-300">
+          <button type="button" onClick={() => setError(null)} className={ADMIN_TYPE.link}>
             dismiss
           </button>
         </div>
       )}
 
-      <form onSubmit={handleAdd} className="flex flex-wrap gap-2 items-end mb-4 border border-[#E8E0D0]/10 rounded p-3">
+      <form onSubmit={handleAdd} className="flex flex-wrap gap-2 items-end mb-4 bg-surface-paper-shade p-3">
         <div className="flex-1 min-w-[140px]">
-          <label className="block text-xs uppercase tracking-wide text-[#E8E0D0]/40 mb-1">Name</label>
+          <label className={FORM.label}>Name</label>
           <input value={name} onChange={(e) => setName(e.target.value)} className={`${inputClass} w-full`} />
         </div>
         <div className="flex-1 min-w-[180px]">
-          <label className="block text-xs uppercase tracking-wide text-[#E8E0D0]/40 mb-1">Email</label>
+          <label className={FORM.label}>Email</label>
           <input value={email} onChange={(e) => setEmail(e.target.value)} className={`${inputClass} w-full`} />
         </div>
         <div className="w-20">
-          <label className="block text-xs uppercase tracking-wide text-[#E8E0D0]/40 mb-1">Guests</label>
+          <label className={FORM.label}>Guests</label>
           <input
             type="number"
             min={1}
@@ -723,14 +725,14 @@ export default function RsvpSummary({
             className={`${inputClass} w-full text-center`}
           />
         </div>
-        <label className="flex items-center gap-2 text-xs text-[#E8E0D0]/60 pb-1.5 whitespace-nowrap">
-          <input type="checkbox" checked={emailListOptIn} onChange={(e) => setEmailListOptIn(e.target.checked)} />
+        <label className="flex items-center gap-2 text-data-caption-13 text-surface-ink/60 pb-2.5 whitespace-nowrap">
+          <input type="checkbox" className="accent-surface-ink size-4" checked={emailListOptIn} onChange={(e) => setEmailListOptIn(e.target.checked)} />
           Email list
         </label>
         <button
           type="submit"
           disabled={submitting}
-          className="border border-[#E8E0D0]/40 rounded px-4 py-1.5 text-sm hover:bg-[#E8E0D0]/10 transition-colors disabled:opacity-50"
+          className={`${buttonClassName('primary', 's')} disabled:opacity-50`}
         >
           {submitting ? 'Adding...' : '+ Add RSVP'}
         </button>
@@ -741,10 +743,10 @@ export default function RsvpSummary({
           editingId === rsvp.id && editForm ? (
             <div
               key={rsvp.id}
-              className="flex flex-wrap gap-2 items-end border border-[#E8E0D0]/30 rounded-lg px-4 py-3"
+              className="flex flex-wrap gap-2 items-end border-2 border-surface-ink px-4 py-3"
             >
               <div className="flex-1 min-w-[140px]">
-                <label className="block text-xs uppercase tracking-wide text-[#E8E0D0]/40 mb-1">Name</label>
+                <label className={FORM.label}>Name</label>
                 <input
                   value={editForm.name}
                   onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
@@ -752,7 +754,7 @@ export default function RsvpSummary({
                 />
               </div>
               <div className="flex-1 min-w-[180px]">
-                <label className="block text-xs uppercase tracking-wide text-[#E8E0D0]/40 mb-1">Email</label>
+                <label className={FORM.label}>Email</label>
                 <input
                   value={editForm.email}
                   onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
@@ -760,7 +762,7 @@ export default function RsvpSummary({
                 />
               </div>
               <div className="w-20">
-                <label className="block text-xs uppercase tracking-wide text-[#E8E0D0]/40 mb-1">Guests</label>
+                <label className={FORM.label}>Guests</label>
                 <input
                   type="number"
                   min={1}
@@ -769,24 +771,25 @@ export default function RsvpSummary({
                   className={`${inputClass} w-full text-center`}
                 />
               </div>
-              <label className="flex items-center gap-2 text-xs text-[#E8E0D0]/60 pb-1.5 whitespace-nowrap">
+              <label className="flex items-center gap-2 text-data-caption-13 text-surface-ink/60 pb-2.5 whitespace-nowrap">
                 <input
                   type="checkbox"
+                  className="accent-surface-ink size-4"
                   checked={editForm.emailListOptIn}
                   onChange={(e) => setEditForm({ ...editForm, emailListOptIn: e.target.checked })}
                 />
                 Email list
               </label>
-              <div className="flex items-center gap-3 pb-1.5">
+              <div className="flex items-center gap-3">
                 <button
                   type="button"
                   onClick={() => saveEdit(rsvp.id)}
                   disabled={savingEdit}
-                  className="border border-[#E8E0D0]/40 rounded px-3 py-1.5 text-sm hover:bg-[#E8E0D0]/10 transition-colors disabled:opacity-50"
+                  className={`${buttonClassName('primary', 's')} disabled:opacity-50`}
                 >
                   {savingEdit ? 'Saving...' : 'Save'}
                 </button>
-                <button type="button" onClick={cancelEdit} className="text-[#E8E0D0]/60 hover:text-[#E8E0D0] text-sm">
+                <button type="button" onClick={cancelEdit} className="text-surface-ink/60 hover:text-accent-red text-body-3">
                   Cancel
                 </button>
               </div>
@@ -794,34 +797,35 @@ export default function RsvpSummary({
           ) : (
             <div
               key={rsvp.id}
-              className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4 border border-[#E8E0D0]/15 rounded-lg px-4 py-3"
+              className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4 border-b border-surface-ink/20 px-1 py-3"
             >
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-3 flex-wrap">
-                  <span className="font-semibold break-words">{rsvp.name}</span>
-                  <span className="text-sm text-[#E8E0D0]/50 break-all">{rsvp.email}</span>
+                  <span className="font-bold break-words">{rsvp.name}</span>
+                  <span className="text-body-3 text-surface-ink/60 break-all">{rsvp.email}</span>
                   {(() => {
                     const purchase = purchases[rsvp.email.toLowerCase()];
                     return purchase ? (
-                      <span className="text-xs px-2 py-0.5 rounded-full border border-amber-400/40 text-amber-300 whitespace-nowrap">
+                      <span className={TAG}>
                         ✓ Bought · {dollars(purchase.totalCents)}
                         {purchase.quantity > 1 ? ` · ${purchase.quantity} tickets` : ''}
                       </span>
                     ) : null;
                   })()}
                   {rsvp.credited_tickets != null && (
-                    <span className="text-xs px-2 py-0.5 rounded-full border border-purple-400/50 text-purple-300 whitespace-nowrap">
+                    <span className={TAG}>
+                      <Swatch className="bg-spectrum-violet" />
                       Counted as {rsvp.credited_tickets}
                     </span>
                   )}
                   {rsvp.email_list_opt_in && (
-                    <span className="text-xs px-2 py-0.5 rounded-full border border-green-400/40 text-green-300">
+                    <span className={TAG}>
                       Email list
                     </span>
                   )}
                 </div>
               </div>
-              <div className="flex items-center gap-3 flex-shrink-0 text-sm text-[#E8E0D0]/50">
+              <div className="flex items-center gap-3 flex-shrink-0 text-body-3 text-surface-ink/60">
                 <span>
                   {rsvp.guests} guest{rsvp.guests === 1 ? '' : 's'}
                 </span>
@@ -834,7 +838,7 @@ export default function RsvpSummary({
                         type="button"
                         onClick={() => setCredit(rsvp.id, null)}
                         disabled={creditBusyId === rsvp.id}
-                        className="text-xs px-2.5 py-1 rounded-full border border-purple-400/50 bg-purple-400/10 text-purple-300 hover:bg-purple-400/20 transition-colors whitespace-nowrap disabled:opacity-50"
+                        className={SMALL_BTN}
                       >
                         Undo credit
                       </button>
@@ -848,7 +852,7 @@ export default function RsvpSummary({
                         type="button"
                         onClick={() => setCredit(rsvp.id, rsvp.guests)}
                         disabled={creditBusyId === rsvp.id}
-                        className="text-xs px-2.5 py-1 rounded-full border border-[#E8E0D0]/25 text-[#E8E0D0]/60 hover:bg-[#E8E0D0]/10 transition-colors whitespace-nowrap disabled:opacity-50"
+                        className={SMALL_BTN}
                         title={`They bought ${bought} but RSVP'd for ${rsvp.guests} — count as ${rsvp.guests}`}
                       >
                         Count as {rsvp.guests}
@@ -861,11 +865,7 @@ export default function RsvpSummary({
                   type="button"
                   onClick={() => toggleFlag(rsvp.id, 'arrived', !rsvp.arrived)}
                   aria-pressed={rsvp.arrived}
-                  className={`text-xs px-2.5 py-1 rounded-full border transition-colors whitespace-nowrap ${
-                    rsvp.arrived
-                      ? 'border-sky-400/50 bg-sky-400/10 text-sky-300'
-                      : 'border-[#E8E0D0]/25 text-[#E8E0D0]/50 hover:bg-[#E8E0D0]/10'
-                  }`}
+                  className={toggle(rsvp.arrived)}
                 >
                   {rsvp.arrived ? '✓ Arrived' : 'Arrived'}
                 </button>
@@ -873,19 +873,15 @@ export default function RsvpSummary({
                   type="button"
                   onClick={() => toggleFlag(rsvp.id, 'paid', !rsvp.paid)}
                   aria-pressed={rsvp.paid}
-                  className={`text-xs px-2.5 py-1 rounded-full border transition-colors whitespace-nowrap ${
-                    rsvp.paid
-                      ? 'border-green-400/50 bg-green-400/10 text-green-300'
-                      : 'border-[#E8E0D0]/25 text-[#E8E0D0]/50 hover:bg-[#E8E0D0]/10'
-                  }`}
+                  className={toggle(rsvp.paid)}
                 >
                   {rsvp.paid ? '✓ Paid' : 'Paid'}
                 </button>
-                <span className="font-mono text-xs">{formatSubmittedAt(rsvp.created_at)}</span>
-                <button type="button" onClick={() => startEdit(rsvp)} className="text-[#E8E0D0]/80 hover:text-[#E8E0D0] underline">
+                <span className="text-data-caption-13">{formatSubmittedAt(rsvp.created_at)}</span>
+                <button type="button" onClick={() => startEdit(rsvp)} className="text-surface-ink/80 hover:text-accent-red underline underline-offset-4">
                   Edit
                 </button>
-                <button type="button" onClick={() => handleDelete(rsvp.id)} className="text-red-400/70 hover:text-red-400">
+                <button type="button" onClick={() => handleDelete(rsvp.id)} className="text-accent-red cursor-pointer underline-offset-4 hover:underline">
                   Remove
                 </button>
               </div>
@@ -893,16 +889,16 @@ export default function RsvpSummary({
           )
         )}
         {rsvps.length === 0 && (
-          <p className="text-[#E8E0D0]/40 text-sm py-8 text-center">No RSVPs yet.</p>
+          <p className="text-surface-ink/60 text-body-3 py-8 text-center">No RSVPs yet.</p>
         )}
       </div>
 
       {unmatchedGroups.length > 0 && (
-        <div className="mt-4 pt-4 border-t border-[#E8E0D0]/10">
-          <h3 className="text-xs uppercase tracking-wide text-[#E8E0D0]/40 mb-2">
+        <div className="mt-4 pt-4 border-t border-surface-ink/20">
+          <h3 className={`${ADMIN_TYPE.overline} mb-2`}>
             Bought, no matching RSVP ({unmatchedGroups.length})
           </h3>
-          <p className="text-xs text-[#E8E0D0]/40 mb-3">
+          <p className="text-data-caption-13 text-surface-ink/60 mb-3">
             Paid with an email that doesn&apos;t match any RSVP — likely a typo or a different
             address. Match them to an existing RSVP or add them to the list so they show up at the door.
           </p>
@@ -912,14 +908,14 @@ export default function RsvpSummary({
               const active = buyerAction?.email === g.email ? buyerAction : null;
               return (
                 <div key={g.email} className="space-y-2">
-                  <div className="flex items-center justify-between gap-4 text-sm text-[#E8E0D0]/60">
+                  <div className="flex items-center justify-between gap-4 text-body-3 text-surface-ink/60">
                     <span className="truncate">{g.email}</span>
                     <span className="flex items-center gap-3 flex-shrink-0">
-                      <span className="text-amber-300/80">
+                      <span className="text-surface-ink">
                         {dollars(g.totalCents)}
                         {g.quantity > 1 ? ` · ${g.quantity} tickets` : ''}
                       </span>
-                      <span className="font-mono text-xs">{formatSubmittedAt(g.latest)}</span>
+                      <span className="text-data-caption-13">{formatSubmittedAt(g.latest)}</span>
                       {actionable && (
                         <>
                           <button
@@ -928,7 +924,7 @@ export default function RsvpSummary({
                               setBuyerAction(active?.mode === 'match' ? null : { email: g.email, mode: 'match' });
                               setMatchRsvpId('');
                             }}
-                            className="text-[#E8E0D0]/80 hover:text-[#E8E0D0] underline text-xs whitespace-nowrap"
+                            className="text-surface-ink/80 hover:text-accent-red underline underline-offset-4 text-data-caption-13 whitespace-nowrap"
                           >
                             Match to RSVP
                           </button>
@@ -938,7 +934,7 @@ export default function RsvpSummary({
                               setBuyerAction(active?.mode === 'add' ? null : { email: g.email, mode: 'add' });
                               setBuyerName('');
                             }}
-                            className="text-[#E8E0D0]/80 hover:text-[#E8E0D0] underline text-xs whitespace-nowrap"
+                            className="text-surface-ink/80 hover:text-accent-red underline underline-offset-4 text-data-caption-13 whitespace-nowrap"
                           >
                             + Add as RSVP
                           </button>
@@ -947,7 +943,7 @@ export default function RsvpSummary({
                     </span>
                   </div>
                   {active?.mode === 'match' && (
-                    <div className="flex flex-wrap items-center gap-2 pl-3 border-l border-[#E8E0D0]/20">
+                    <div className="flex flex-wrap items-center gap-2 pl-3 border-l border-surface-ink">
                       <select
                         value={matchRsvpId}
                         onChange={(e) => setMatchRsvpId(e.target.value)}
@@ -966,21 +962,21 @@ export default function RsvpSummary({
                         type="button"
                         onClick={() => handleMatchBuyer(g)}
                         disabled={buyerBusy || !matchRsvpId}
-                        className="border border-[#E8E0D0]/40 rounded px-3 py-1.5 text-xs hover:bg-[#E8E0D0]/10 transition-colors disabled:opacity-50"
+                        className={SMALL_BTN}
                       >
                         {buyerBusy ? 'Matching...' : 'Match'}
                       </button>
                       <button
                         type="button"
                         onClick={() => setBuyerAction(null)}
-                        className="text-[#E8E0D0]/60 hover:text-[#E8E0D0] text-xs"
+                        className="text-surface-ink/60 hover:text-accent-red text-data-caption-13"
                       >
                         Cancel
                       </button>
                     </div>
                   )}
                   {active?.mode === 'add' && (
-                    <div className="flex flex-wrap items-center gap-2 pl-3 border-l border-[#E8E0D0]/20">
+                    <div className="flex flex-wrap items-center gap-2 pl-3 border-l border-surface-ink">
                       <input
                         value={buyerName}
                         onChange={(e) => setBuyerName(e.target.value)}
@@ -991,7 +987,7 @@ export default function RsvpSummary({
                         type="button"
                         onClick={() => handleAddBuyerAsRsvp(g)}
                         disabled={buyerBusy || !buyerName.trim()}
-                        className="border border-[#E8E0D0]/40 rounded px-3 py-1.5 text-xs hover:bg-[#E8E0D0]/10 transition-colors disabled:opacity-50"
+                        className={SMALL_BTN}
                       >
                         {buyerBusy
                           ? 'Adding...'
@@ -1000,7 +996,7 @@ export default function RsvpSummary({
                       <button
                         type="button"
                         onClick={() => setBuyerAction(null)}
-                        className="text-[#E8E0D0]/60 hover:text-[#E8E0D0] text-xs"
+                        className="text-surface-ink/60 hover:text-accent-red text-data-caption-13"
                       >
                         Cancel
                       </button>
