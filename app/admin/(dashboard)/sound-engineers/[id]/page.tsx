@@ -15,7 +15,7 @@ export default async function EditSoundEngineerPage({ params }: { params: Promis
   const shows = await getShowsForSoundEngineer(engineerId);
 
   return (
-    <main className="max-w-6xl mx-auto px-6 pb-16 pt-6">
+    <main className="mx-auto max-w-6xl px-4 pt-8 pb-16 sm:px-8">
       <SoundEngineerForm mode="edit" initialValues={engineer} linkedShows={shows} />
     </main>
   );

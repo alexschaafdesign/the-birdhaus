@@ -17,7 +17,7 @@ async function getEngineers(): Promise<SoundEngineerListItem[]> {
 export default async function AdminSoundEngineersPage() {
   const engineers = await getEngineers();
   return (
-    <main className="max-w-6xl mx-auto px-6 pb-16 pt-6">
+    <main className="mx-auto max-w-6xl px-4 pt-8 pb-16 sm:px-8">
       <SoundEngineersList initialEngineers={engineers} />
     </main>
   );

@@ -42,7 +42,7 @@ export default async function EditBandPage({ params }: { params: Promise<{ id: s
   };
 
   return (
-    <main className="max-w-6xl mx-auto px-6 pb-16 pt-6">
+    <main className="mx-auto max-w-6xl px-4 pt-8 pb-16 sm:px-8">
       <BandForm mode="edit" initialValues={initialValues} linkedShows={linkedShows} />
     </main>
   );
