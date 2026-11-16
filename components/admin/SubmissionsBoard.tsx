@@ -22,7 +22,7 @@ import {
   type DateOfferStatus,
 } from '@/lib/date-offers';
 import { FORM } from '@/components/night/form';
-import { Panel, PageHeader, Swatch, ADMIN_TYPE, buttonClassName } from './ui';
+import { Panel, PageHeader, Swatch, ADMIN_TYPE, FIELD_INLINE, buttonClassName } from './ui';
 
 const inputClass = FORM.field;
 
@@ -313,7 +313,7 @@ export default function SubmissionsBoard({
                   setDateFrom(e.target.value);
                   setDateTo(e.target.value);
                 }}
-                className={`${inputClass} w-40`}
+                className={`${FIELD_INLINE} w-40`}
                 title="Available on"
               />
             ) : (
@@ -322,7 +322,7 @@ export default function SubmissionsBoard({
                   type="date"
                   value={dateFrom}
                   onChange={(e) => setDateFrom(e.target.value)}
-                  className={`${inputClass} w-36`}
+                  className={`${FIELD_INLINE} w-36`}
                   title="Available from"
                 />
                 <span className="text-surface-ink/60 text-body-3">&ndash;</span>
@@ -330,7 +330,7 @@ export default function SubmissionsBoard({
                   type="date"
                   value={dateTo}
                   onChange={(e) => setDateTo(e.target.value)}
-                  className={`${inputClass} w-36`}
+                  className={`${FIELD_INLINE} w-36`}
                   title="Available to"
                 />
               </div>
@@ -362,7 +362,7 @@ export default function SubmissionsBoard({
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value as 'newest' | 'band_name')}
-            className={`${inputClass} w-auto`}
+            className={`${FIELD_INLINE} w-auto`}
           >
             <option value="newest">Newest first</option>
             <option value="band_name">Band name A-Z</option>
@@ -452,7 +452,7 @@ export default function SubmissionsBoard({
               type="date"
               value={newAvailableDate}
               onChange={(e) => setNewAvailableDate(e.target.value)}
-              className={`${inputClass} w-40`}
+              className={`${FIELD_INLINE} w-40`}
             />
             <button
               type="submit"
@@ -657,7 +657,7 @@ function SubmissionCard({
             <AvailabilityPicker
               entries={availabilityDraft}
               onChange={handleAvailabilityChange}
-              inputClassName={`${inputClass} w-36`}
+              inputClassName={`${FIELD_INLINE} w-36`}
             />
           </div>
 
@@ -678,7 +678,7 @@ function SubmissionCard({
                 type="date"
                 value={newOfferDate}
                 onChange={(e) => setNewOfferDate(e.target.value)}
-                className={`${inputClass} w-40`}
+                className={`${FIELD_INLINE} w-40`}
               />
               <button
                 type="submit"
