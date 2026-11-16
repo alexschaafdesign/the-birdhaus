@@ -26,17 +26,6 @@ export const ADMIN_NAV: AdminNavGroup[] = [
     links: [{ href: '/admin/bands', label: 'Bands' }],
   },
   {
-    // Money joins with its phase.
-    label: 'Rehearsal',
-    links: [
-      { href: '/admin/rehearsal/requests', label: 'Requests' },
-      { href: '/admin/rehearsal/calendar', label: 'Calendar' },
-      { href: '/admin/rehearsal/bands', label: 'Bands' },
-      { href: '/admin/rehearsal/leads', label: 'Leads' },
-      { href: '/admin/rehearsal/settings', label: 'Settings' },
-    ],
-  },
-  {
     label: 'Money',
     links: [
       { href: '/admin/settlements', label: 'Settlements' },
