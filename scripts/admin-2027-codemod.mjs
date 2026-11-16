@@ -52,8 +52,28 @@ const RULES = [
   [/(^|[\s"'`])((?:[a-z]+:)?)text-(?:lg|xl)(?=[\s"'`])/g, '$1$2text-header-4'],
   [/(^|[\s"'`])((?:[a-z]+:)?)text-2xl(?=[\s"'`])/g, '$1$2text-header-3'],
   [/(^|[\s"'`])font-(?:semibold|medium)(?=[\s"'`])/g, '$1font-bold'],
+  // The dark shell ground, used for sticky bars and popovers → paper.
+  [/(hover:|lg:)?bg-\[#(?:171412|1d1916|1b1712|1a1512)\]/g, (_, p = '') => `${p}bg-surface-paper`],
+  // Yellow meant "draft / needs attention" → amber fill (fill-only on paper)
+  // with ink text and edges; yellow rings and dots → accent-red.
+  [/((?:[a-z]+:)*)bg-yellow-[0-9]{3}\/[0-9]+/g, '$1bg-spectrum-amber/40'],
+  [/((?:[a-z]+:)*)bg-yellow-[0-9]{3}(?![\/0-9])/g, '$1bg-accent-red'],
+  [/((?:[a-z]+:)*)ring-yellow-[0-9]{3}(\/[0-9]+)?/g, '$1ring-accent-red'],
+  [/((?:[a-z]+:)*)text-yellow-[0-9]{3}(\/[0-9]+)?/g, '$1text-surface-ink'],
+  [/((?:[a-z]+:)*)border-yellow-[0-9]{3}(\/[0-9]+)?/g, '$1border-surface-ink'],
+  // Green-500s ("available", "booked") → ink.
+  [/((?:[a-z]+:)*)text-green-[0-9]{3}(\/[0-9]+)?/g, '$1text-surface-ink'],
+  [/((?:[a-z]+:)*)border-green-[0-9]{3}(\/[0-9]+)?/g, '$1border-surface-ink'],
+  [/((?:[a-z]+:)*)bg-green-[0-9]{3}\/[0-9]+/g, '$1bg-surface-paper-shade'],
+  [/((?:[a-z]+:)*)bg-green-[0-9]{3}(?![\/0-9])/g, '$1bg-surface-ink'],
+  // The shell is CommitMono throughout; font-mono would swap in Plex Mono.
+  [/(^|[\s"'`])font-mono(?=[\s"'`])/g, '$1'],
+  // Sub-DS pixel sizes → the smallest DS label.
+  [/(^|[\s"'`])((?:[a-z]+:)?)text-\[(?:9|10|11)px\](?=[\s"'`])/g, '$1$2text-data-label-10-small'],
   // Square corners.
-  [/(^|[\s"'`])((?:[a-z-]+:)?rounded(?:-[a-z0-9]+)?)(?=[\s"'`])/g, '$1'],
+  [/(^|[\s"'`])((?:[a-z-]+:)?rounded(?:-[a-z0-9]+)*)(?=[\s"'`])/g, '$1'],
+  // No soft shadows in the DS (shadow-none stays: it resets a breakpoint).
+  [/(^|[\s"'`])((?:[a-z-]+:)?shadow-(?:sm|md|lg|xl|2xl|inner))(?=[\s"'`])/g, '$1'],
 ];
 
 // Any hex literal counts, inline style={{…}} colours included.

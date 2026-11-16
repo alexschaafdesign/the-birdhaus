@@ -16,6 +16,14 @@ export const DATE_OFFER_COLORS: Record<DateOfferStatus, string> = {
   declined: '#B0645A',
 };
 
+// Paper-admin swatches, matching STATUS_SWATCH in lib/submissions.ts
+// (contacted / booked / passed). DATE_OFFER_COLORS stays for the dark pages.
+export const DATE_OFFER_SWATCH: Record<DateOfferStatus, string> = {
+  contacted: 'bg-spectrum-violet',
+  confirmed: 'bg-surface-ink',
+  declined: 'bg-spectrum-red',
+};
+
 export interface DateOffer {
   id: number;
   submission_id: number;

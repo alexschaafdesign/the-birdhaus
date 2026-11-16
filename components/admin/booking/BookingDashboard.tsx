@@ -4,6 +4,8 @@ import { useCallback, useMemo, useState } from 'react';
 import type { AvailableDate } from '@/lib/available-dates';
 import type { DateOfferStatus } from '@/lib/date-offers';
 import type { BookingDay, BookingProspect } from '@/lib/booking';
+import { FORM } from '@/components/night/form';
+import { ADMIN_TYPE, buttonClassName } from '../ui';
 import BookingCalendar from './BookingCalendar';
 import BookingListView from './BookingListView';
 import CalendarSubscribe from './CalendarSubscribe';
@@ -231,10 +233,10 @@ export default function BookingDashboard({
   return (
     <div>
       {errorMessage && (
-        <div className="mb-4 border border-red-400/40 bg-red-400/10 text-red-300 text-sm rounded px-4 py-2 flex justify-between items-center">
+        <div role="alert" className={`${FORM.error} mb-4 flex items-center justify-between gap-3`}>
           <span>{errorMessage}</span>
-          <button onClick={() => setErrorMessage(null)} className="text-red-300/70 hover:text-red-300">
-            dismiss
+          <button type="button" onClick={() => setErrorMessage(null)} className={ADMIN_TYPE.link}>
+            Dismiss
           </button>
         </div>
       )}
@@ -243,24 +245,20 @@ export default function BookingDashboard({
         {(['calendar', 'list'] as const).map((option) => (
           <button
             key={option}
+            type="button"
             onClick={() => setView(option)}
-            className={`rounded px-3 py-1.5 font-mono text-sm uppercase tracking-widest transition-colors ${
-              view === option
-                ? 'bg-[#E8E0D0] text-[#171412]'
-                : 'border border-[#E8E0D0]/30 text-[#E8E0D0]/60 hover:text-[#E8E0D0]'
-            }`}
+            aria-pressed={view === option}
+            className={`${buttonClassName(view === option ? 'primary' : 'secondary', 's')} uppercase`}
           >
             {option}
           </button>
         ))}
         {view === 'calendar' && (
           <button
+            type="button"
             onClick={() => setPaintAvailability((prev) => !prev)}
-            className={`ml-2 rounded px-3 py-1.5 font-mono text-sm uppercase tracking-widest transition-colors ${
-              paintAvailability
-                ? 'border border-green-500/60 bg-green-500/15 text-green-400'
-                : 'border border-[#E8E0D0]/30 text-[#E8E0D0]/60 hover:text-[#E8E0D0]'
-            }`}
+            aria-pressed={paintAvailability}
+            className={`ml-2 ${buttonClassName(paintAvailability ? 'primary' : 'secondary', 's')}`}
           >
             ✎ mark available
           </button>

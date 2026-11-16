@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react';
 import AvailabilityPicker from '@/components/AvailabilityPicker';
 import {
   STATUS_LABELS,
-  STATUS_COLORS,
+  STATUS_SWATCH,
   SUBMISSION_STATUSES,
   parseAvailability,
   availabilityEntryOverlaps,
@@ -17,14 +17,14 @@ import type { AvailableDate } from '@/lib/available-dates';
 import {
   DATE_OFFER_STATUSES,
   DATE_OFFER_LABELS,
-  DATE_OFFER_COLORS,
+  DATE_OFFER_SWATCH,
   type DateOffer,
   type DateOfferStatus,
 } from '@/lib/date-offers';
-import Section from './Section';
+import { FORM } from '@/components/night/form';
+import { Panel, PageHeader, Swatch, ADMIN_TYPE, buttonClassName } from './ui';
 
-const inputClass =
-  'bg-transparent border border-[#E8E0D0]/30 rounded px-3 py-1.5 text-sm focus:outline-none focus:border-[#E8E0D0] placeholder:text-[#E8E0D0]/30';
+const inputClass = FORM.field;
 
 async function patchSubmission(id: number, patch: Record<string, unknown>) {
   const res = await fetch(`/api/admin/submissions/${id}`, {
@@ -264,16 +264,18 @@ export default function SubmissionsBoard({
 
   return (
     <div>
+      <PageHeader overline="Shows" title="Submissions" description={`${submissions.length} band submissions`} />
+
       {errorMessage && (
-        <div className="mb-4 border border-red-400/40 bg-red-400/10 text-red-300 text-sm rounded px-4 py-2 flex justify-between items-center">
+        <div role="alert" className={`${FORM.error} mb-4 flex items-center justify-between gap-3`}>
           <span>{errorMessage}</span>
-          <button onClick={() => setErrorMessage(null)} className="text-red-300/70 hover:text-red-300">
-            dismiss
+          <button type="button" onClick={() => setErrorMessage(null)} className={ADMIN_TYPE.link}>
+            Dismiss
           </button>
         </div>
       )}
 
-      <div className="sticky top-0 z-10 bg-[#171412] pt-4 pb-4 border-b border-[#E8E0D0]/15 mb-4 space-y-3">
+      <div className="sticky top-0 z-10 bg-surface-paper pt-4 pb-4 border-b border-surface-ink mb-4 space-y-3">
         <div className="flex flex-wrap gap-3 items-center">
           <input
             type="text"
@@ -284,26 +286,20 @@ export default function SubmissionsBoard({
           />
 
           <div className="flex items-center gap-2">
-            <div className="flex text-xs rounded border border-[#E8E0D0]/30 overflow-hidden">
+            <div role="group" aria-label="Date filter" className="flex gap-2">
               <button
                 type="button"
                 onClick={() => switchDateMode('single')}
-                className="px-2.5 py-1.5 transition-colors"
-                style={{
-                  backgroundColor: dateMode === 'single' ? '#E8E0D0' : 'transparent',
-                  color: dateMode === 'single' ? '#2A2420' : '#E8E0D080',
-                }}
+                aria-pressed={dateMode === 'single'}
+                className={buttonClassName(dateMode === 'single' ? 'primary' : 'secondary', 's')}
               >
                 On date
               </button>
               <button
                 type="button"
                 onClick={() => switchDateMode('range')}
-                className="px-2.5 py-1.5 transition-colors border-l border-[#E8E0D0]/30"
-                style={{
-                  backgroundColor: dateMode === 'range' ? '#E8E0D0' : 'transparent',
-                  color: dateMode === 'range' ? '#2A2420' : '#E8E0D080',
-                }}
+                aria-pressed={dateMode === 'range'}
+                className={buttonClassName(dateMode === 'range' ? 'primary' : 'secondary', 's')}
               >
                 Date range
               </button>
@@ -329,7 +325,7 @@ export default function SubmissionsBoard({
                   className={`${inputClass} w-36`}
                   title="Available from"
                 />
-                <span className="text-[#E8E0D0]/40 text-sm">&ndash;</span>
+                <span className="text-surface-ink/60 text-body-3">&ndash;</span>
                 <input
                   type="date"
                   value={dateTo}
@@ -344,17 +340,18 @@ export default function SubmissionsBoard({
               <button
                 type="button"
                 onClick={clearDateFilter}
-                className="text-xs text-[#E8E0D0]/40 hover:text-[#E8E0D0]"
+                className={`text-data-caption-13 ${ADMIN_TYPE.link}`}
               >
-                clear
+                Clear
               </button>
             )}
           </div>
 
           {(dateFrom || dateTo) && (
-            <label className="flex items-center gap-1.5 text-sm text-[#E8E0D0]/60">
+            <label className="flex items-center gap-1.5 text-body-3">
               <input
                 type="checkbox"
+                className="accent-surface-ink size-4"
                 checked={includeUndated}
                 onChange={(e) => setIncludeUndated(e.target.checked)}
               />
@@ -372,8 +369,9 @@ export default function SubmissionsBoard({
           </select>
 
           <button
+            type="button"
             onClick={() => setShowAddForm((v) => !v)}
-            className="ml-auto border border-[#E8E0D0]/40 rounded px-4 py-1.5 text-sm hover:bg-[#E8E0D0]/10 transition-colors"
+            className={`ml-auto ${buttonClassName(showAddForm ? 'secondary' : 'primary', 's')}`}
           >
             {showAddForm ? 'Cancel' : '+ Add submission'}
           </button>
@@ -385,30 +383,32 @@ export default function SubmissionsBoard({
             return (
               <button
                 key={status}
+                type="button"
                 onClick={() => toggleStatus(status)}
-                className="text-xs px-3 py-1 rounded-full border transition-colors"
-                style={{
-                  borderColor: STATUS_COLORS[status],
-                  backgroundColor: active ? `${STATUS_COLORS[status]}22` : 'transparent',
-                  color: active ? STATUS_COLORS[status] : '#E8E0D080',
-                }}
+                aria-pressed={active}
+                className={`text-data-caption-13 inline-flex cursor-pointer items-center gap-1.5 border px-3 py-1 ${
+                  active
+                    ? 'border-surface-ink bg-surface-paper-shade font-bold'
+                    : 'border-surface-ink/40 text-surface-ink/60 hover:text-accent-red'
+                }`}
               >
+                <Swatch className={STATUS_SWATCH[status].swatch} />
                 {STATUS_LABELS[status]}
               </button>
             );
           })}
         </div>
 
-        <p className="text-xs text-[#E8E0D0]/40">
+        <p className={ADMIN_TYPE.meta}>
           {filtered.length} of {submissions.length} submissions shown
         </p>
       </div>
 
-      <Section
+      <Panel
         title="Venue open dates"
         action={
           availableDates.length > 0 ? (
-            <span className="text-xs text-[#E8E0D0]/40">click a date to see who&rsquo;s free</span>
+            <span className={ADMIN_TYPE.meta}>Click a date to see who&rsquo;s free</span>
           ) : undefined
         }
         className="mb-4"
@@ -420,17 +420,15 @@ export default function SubmissionsBoard({
             return (
               <div
                 key={d.id}
-                className="flex items-center rounded-full border text-xs transition-colors"
-                style={{
-                  borderColor: active ? '#E8E0D0' : '#E8E0D050',
-                  backgroundColor: active ? '#E8E0D022' : 'transparent',
-                }}
+                className={`text-data-caption-13 flex items-center border ${
+                  active ? 'border-surface-ink bg-surface-paper-shade font-bold' : 'border-surface-ink/40'
+                }`}
               >
                 <button
                   type="button"
                   onClick={() => selectAvailableDate(d.date)}
-                  className="pl-3 pr-1.5 py-1 hover:underline"
-                  style={{ color: active ? '#E8E0D0' : '#E8E0D0B0' }}
+                  aria-pressed={active}
+                  className="cursor-pointer py-1 pr-1.5 pl-3 hover:underline"
                 >
                   {formatAvailabilityEntries([{ type: 'date', value: d.date }])}
                   {count > 0 && <span className="opacity-60"> · {count}</span>}
@@ -438,7 +436,7 @@ export default function SubmissionsBoard({
                 <button
                   type="button"
                   onClick={() => handleRemoveAvailableDate(d.id)}
-                  className="pr-2 pl-1 py-1 text-[#E8E0D0]/40 hover:text-red-400"
+                  className="cursor-pointer py-1 pr-2 pl-1 hover:text-accent-red"
                   aria-label={`Remove ${d.date}`}
                 >
                   ×
@@ -447,7 +445,7 @@ export default function SubmissionsBoard({
             );
           })}
           {availableDates.length === 0 && (
-            <p className="text-xs text-[#E8E0D0]/30">No open dates added yet.</p>
+            <p className={ADMIN_TYPE.meta}>No open dates added yet.</p>
           )}
           <form onSubmit={handleAddAvailableDate} className="flex items-center gap-1.5">
             <input
@@ -458,13 +456,13 @@ export default function SubmissionsBoard({
             />
             <button
               type="submit"
-              className="text-xs border border-[#E8E0D0]/30 rounded px-2 py-1.5 hover:bg-[#E8E0D0]/10"
+              className={buttonClassName('secondary', 's')}
             >
-              + add
+              + Add
             </button>
           </form>
         </div>
-      </Section>
+      </Panel>
 
       {showAddForm && <AddSubmissionForm onAdd={handleAdd} onCancel={() => setShowAddForm(false)} />}
 
@@ -483,7 +481,7 @@ export default function SubmissionsBoard({
           />
         ))}
         {filtered.length === 0 && (
-          <p className="text-[#E8E0D0]/40 text-sm py-8 text-center">No submissions match these filters.</p>
+          <p className="text-surface-ink/60 text-body-3 py-8 text-center">No submissions match these filters.</p>
         )}
       </div>
     </div>
@@ -516,7 +514,8 @@ function SubmissionCard({
 
   const activeFilterOffer = activeFilterDate ? offers.find((o) => o.date === activeFilterDate) : undefined;
   const activeFilterStatus: DateOfferStatus | 'new' = activeFilterOffer?.status ?? 'new';
-  const activeFilterColor = activeFilterStatus === 'new' ? STATUS_COLORS.new : DATE_OFFER_COLORS[activeFilterStatus];
+  const activeFilterSwatch =
+    activeFilterStatus === 'new' ? STATUS_SWATCH.new.swatch : DATE_OFFER_SWATCH[activeFilterStatus];
   const shortActiveDate = activeFilterDate
     ? formatAvailabilityEntries([{ type: 'date', value: activeFilterDate }])
     : '';
@@ -547,29 +546,29 @@ function SubmissionCard({
 
   return (
     <div
-      className="border rounded-lg p-4 bg-[#E8E0D0]/[0.03]"
-      style={{ borderColor: `${STATUS_COLORS[submission.status]}55` }}
+      className={`border-surface-ink bg-surface-paper border border-l-4 p-4 ${STATUS_SWATCH[submission.status].edge}`}
     >
       <div className="flex flex-wrap items-start gap-3 justify-between">
         <div className="min-w-0 flex-1">
           <button
             onClick={() => setExpanded((v) => !v)}
-            className="text-left font-semibold text-lg hover:underline"
+            aria-expanded={expanded}
+            className="text-left font-bold text-header-4 cursor-pointer hover:text-accent-red"
           >
             {submission.band_name}
           </button>
-          <div className="text-sm text-[#E8E0D0]/60 flex flex-wrap gap-x-3 mt-0.5">
+          <div className="text-body-3 text-surface-ink/60 flex flex-wrap gap-x-3 mt-0.5">
             {submission.genre && <span>{submission.genre}</span>}
             {submission.contact_name && <span>{submission.contact_name}</span>}
             {submission.email && (
-              <a href={`mailto:${submission.email}`} className="underline hover:text-[#E8E0D0]">
+              <a href={`mailto:${submission.email}`} className="underline hover:text-accent-red">
                 {submission.email}
               </a>
             )}
             {submission.socials && <span>{submission.socials}</span>}
           </div>
           {submission.availability_text && (
-            <p className="text-sm text-[#E8E0D0]/80 mt-2 whitespace-pre-wrap">
+            <p className="text-body-3 text-surface-ink/80 mt-2 whitespace-pre-wrap">
               📅 {submission.availability_text}
             </p>
           )}
@@ -581,24 +580,20 @@ function SubmissionCard({
                 .map((offer) => (
                   <div
                     key={offer.id}
-                    className="flex items-center rounded-full border text-xs"
-                    style={{
-                      borderColor: `${DATE_OFFER_COLORS[offer.status]}55`,
-                      backgroundColor: `${DATE_OFFER_COLORS[offer.status]}15`,
-                      color: DATE_OFFER_COLORS[offer.status],
-                    }}
+                    className="border-surface-ink/40 flex items-center border text-data-caption-13"
                   >
-                    <span className="pl-2.5 py-0.5">
+                    <span className="flex items-center gap-1.5 py-0.5 pl-2">
+                      <Swatch className={DATE_OFFER_SWATCH[offer.status]} />
                       {formatAvailabilityEntries([{ type: 'date', value: offer.date }])}
                     </span>
                     <select
                       value={offer.status}
                       onChange={(e) => onUpdateOfferStatus(offer.id, e.target.value as DateOfferStatus)}
-                      className="bg-transparent text-xs pl-1 pr-0.5 py-0.5 focus:outline-none"
-                      style={{ color: DATE_OFFER_COLORS[offer.status] }}
+                      aria-label={`Contact status for ${offer.date}`}
+                      className={`bg-transparent text-data-caption-13 cursor-pointer py-0.5 pr-0.5 pl-1 ${ADMIN_TYPE.focus}`}
                     >
                       {DATE_OFFER_STATUSES.map((s) => (
-                        <option key={s} value={s} className="text-[#2A2420]">
+                        <option key={s} value={s}>
                           {DATE_OFFER_LABELS[s]}
                         </option>
                       ))}
@@ -618,11 +613,12 @@ function SubmissionCard({
         </div>
 
         <div className="flex items-center gap-2 flex-shrink-0">
+          <Swatch className={STATUS_SWATCH[submission.status].swatch} />
           <select
             value={submission.status}
             onChange={(e) => onUpdate(submission.id, { status: e.target.value })}
-            className="text-xs rounded px-2 py-1 border bg-[#171412]"
-            style={{ borderColor: STATUS_COLORS[submission.status], color: STATUS_COLORS[submission.status] }}
+            aria-label="Submission status"
+            className={`text-data-caption-13 border-surface-ink bg-surface-paper cursor-pointer border py-1 pr-2 pl-2 ${ADMIN_TYPE.focus}`}
           >
             {SUBMISSION_STATUSES.map((s) => (
               <option key={s} value={s}>
@@ -631,12 +627,12 @@ function SubmissionCard({
             ))}
           </select>
 
+          {activeFilterDate && <Swatch className={activeFilterSwatch} />}
           {activeFilterDate && (
             <select
               value={activeFilterStatus}
               onChange={(e) => handleActiveDateStatusChange(e.target.value)}
-              className="text-xs rounded px-2 py-1 border bg-[#171412]"
-              style={{ borderColor: activeFilterColor, color: activeFilterColor }}
+              className={`text-data-caption-13 border-surface-ink bg-surface-paper cursor-pointer border px-2 py-1 ${ADMIN_TYPE.focus}`}
               title={`Contact status for ${shortActiveDate}`}
             >
               <option value="new">New</option>
@@ -648,14 +644,14 @@ function SubmissionCard({
             </select>
           )}
 
-          <span className="text-xs text-[#E8E0D0]/30">{createdDate}</span>
+          <span className={ADMIN_TYPE.meta}>{createdDate}</span>
         </div>
       </div>
 
       {expanded && (
-        <div className="mt-4 pt-4 border-t border-[#E8E0D0]/10 grid gap-4 sm:grid-cols-2">
+        <div className="mt-4 pt-4 border-t border-surface-ink grid gap-4 sm:grid-cols-2">
           <div className="sm:col-span-2">
-            <label className="block text-xs uppercase tracking-wide text-[#E8E0D0]/40 mb-1">
+            <label className={FORM.label}>
               Availability
             </label>
             <AvailabilityPicker
@@ -666,7 +662,7 @@ function SubmissionCard({
           </div>
 
           <div className="sm:col-span-2">
-            <label className="block text-xs uppercase tracking-wide text-[#E8E0D0]/40 mb-1">
+            <label className={FORM.label}>
               Log contact for a date
             </label>
             <form
@@ -686,7 +682,7 @@ function SubmissionCard({
               />
               <button
                 type="submit"
-                className="text-xs border border-[#E8E0D0]/30 rounded px-2 py-1.5 hover:bg-[#E8E0D0]/10"
+                className="text-data-caption-13 border border-surface-ink  px-2 py-1.5 hover:bg-surface-paper-shade"
               >
                 + log
               </button>
@@ -695,15 +691,15 @@ function SubmissionCard({
 
           {submission.comments && (
             <div className="sm:col-span-2">
-              <label className="block text-xs uppercase tracking-wide text-[#E8E0D0]/40 mb-1">
+              <label className={FORM.label}>
                 Their comments
               </label>
-              <p className="text-sm whitespace-pre-wrap">{submission.comments}</p>
+              <p className="text-body-3 whitespace-pre-wrap">{submission.comments}</p>
             </div>
           )}
 
           <div className="sm:col-span-2">
-            <label className="block text-xs uppercase tracking-wide text-[#E8E0D0]/40 mb-1">
+            <label className={FORM.label}>
               Your notes
             </label>
             <textarea
@@ -720,9 +716,9 @@ function SubmissionCard({
             />
           </div>
 
-          <div className="sm:col-span-2 flex justify-between items-center text-xs text-[#E8E0D0]/30">
+          <div className="sm:col-span-2 flex justify-between items-center text-data-caption-13 text-surface-ink/60">
             <span>source: {submission.source}</span>
-            <button onClick={() => onDelete(submission.id)} className="text-red-400/70 hover:text-red-400">
+            <button type="button" onClick={() => onDelete(submission.id)} className="text-accent-red cursor-pointer underline-offset-4 hover:underline">
               Delete
             </button>
           </div>
@@ -761,7 +757,7 @@ function AddSubmissionForm({
         if (!form.band_name.trim()) return;
         onAdd(form);
       }}
-      className="border border-[#E8E0D0]/20 bg-[#E8E0D0]/[0.03] rounded-lg p-4 mb-4 grid gap-3 sm:grid-cols-2"
+      className="border border-surface-ink bg-surface-paper-shade p-4 mb-4 grid gap-3 sm:grid-cols-2"
     >
       <input
         required
@@ -808,12 +804,12 @@ function AddSubmissionForm({
         rows={2}
       />
       <div className="sm:col-span-2 flex gap-2 justify-end">
-        <button type="button" onClick={onCancel} className="text-sm text-[#E8E0D0]/60 hover:text-[#E8E0D0] px-4 py-1.5">
+        <button type="button" onClick={onCancel} className={buttonClassName('ghost', 's')}>
           Cancel
         </button>
         <button
           type="submit"
-          className="border border-[#E8E0D0] rounded px-4 py-1.5 text-sm hover:bg-[#E8E0D0] hover:text-[#2A2420] transition-colors"
+          className={buttonClassName('primary', 's')}
         >
           Add
         </button>
