@@ -35,15 +35,18 @@ const RULES = [
   [new RegExp(`hover:border-${C}(/[0-9]+)?`, 'g'), 'hover:border-accent-red'],
   [new RegExp(`(border|divide)-${C}/(\\[?[0-9.]+\\]?)`, 'g'), (_, p, o) => (op(o) >= 20 ? `${p}-surface-ink` : `${p}-surface-ink/20`)],
   [new RegExp(`(border|divide)-${C}`, 'g'), (_, p) => `${p}-surface-ink`],
-  [/accent-\[#c8a26a\]/g, 'accent-surface-ink'],
+  [/accent-\[#(?:c8a26a|E8E0D0)\]/g, 'accent-surface-ink'],
+  [/((?:[a-z]+:)*)ring-\[#E8E0D0\](\/[0-9]+)?/g, '$1ring-accent-red'],
+  [/\[&>option\]:bg-\[#2A2420\]/g, ''],
+  [/((?:[a-z]+:)*)bg-\[#2A2420\]/g, '$1bg-surface-paper'],
   // Reds → the DS red. (Error *boxes* get a hand pass: the DS rule is plain red text.)
-  [/(hover:)?text-(?:red-[34]00|\[#F5A3A3\])(\/[0-9]+)?/g, (_, h = '') => `${h}text-accent-red`],
-  [/(hover:)?border-(?:red-400|\[#F5A3A3\])(\/[0-9]+)?/g, (_, h = '') => `${h}border-accent-red`],
-  [/bg-(?:red-400|\[#F5A3A3\])\/[0-9]+/g, ''],
+  [/(hover:)?text-(?:red-[345]00|\[#F5A3A3\])(\/[0-9]+)?/g, (_, h = '') => `${h}text-accent-red`],
+  [/(hover:)?border-(?:red-[345]00|\[#F5A3A3\])(\/[0-9]+)?/g, (_, h = '') => `${h}border-accent-red`],
+  [/((?:[a-z]+:)*)bg-(?:red-[345]00|\[#F5A3A3\])\/[0-9]+/g, (_, p = '') => (p ? `${p}bg-surface-paper-shade` : '')],
   // Greens → ink (ok is ink + ✓ in StatusMark).
-  [/text-(?:emerald-300|green-300|\[#bfe6c8\]|\[#7bb98a\])(\/[0-9]+)?/g, 'text-surface-ink'],
+  [/((?:[a-z]+:)*)text-(?:emerald-[23]00|green-300|\[#bfe6c8\]|\[#7bb98a\])(\/[0-9]+)?/g, (_, p = '') => (p.includes('hover') ? `${p}text-accent-red` : `${p}text-surface-ink`)],
   [/border-(?:emerald-400|green-400|\[#7bb98a\])(\/[0-9]+)?/g, 'border-surface-ink'],
-  [/bg-(?:emerald-400|green-400|\[#7bb98a\])\/[0-9]+/g, ''],
+  [/((?:[a-z]+:)*)bg-(?:emerald-400|green-400|\[#7bb98a\])\/[0-9]+/g, (_, p = '') => (p ? `${p}bg-surface-paper-shade` : '')],
   // Type onto the DS scale (CommitMono only ships 400 and 700, so medium and
   // semibold would be synthesised: they become bold).
   [/(^|[\s"'`])((?:[a-z]+:)?)text-xs(?=[\s"'`])/g, '$1$2text-data-caption-13'],
@@ -54,6 +57,11 @@ const RULES = [
   [/(^|[\s"'`])font-(?:semibold|medium)(?=[\s"'`])/g, '$1font-bold'],
   // The dark shell ground, used for sticky bars and popovers → paper.
   [/(hover:|lg:)?bg-\[#(?:171412|1d1916|1b1712|1a1512)\]/g, (_, p = '') => `${p}bg-surface-paper`],
+  // Amber is yellow's twin (attention); sky was info → ink on paper-shade.
+  [/((?:[a-z]+:)*)bg-amber-[0-9]{3}\/[0-9]+/g, '$1bg-spectrum-amber/40'],
+  [/((?:[a-z]+:)*)(text|border)-amber-[0-9]{3}(\/[0-9]+)?/g, (_, p, k) => `${p}${k}-surface-ink`],
+  [/((?:[a-z]+:)*)bg-sky-[0-9]{3}\/[0-9]+/g, '$1bg-surface-paper-shade'],
+  [/((?:[a-z]+:)*)(text|border)-sky-[0-9]{3}(\/[0-9]+)?/g, (_, p, k) => `${p}${k}-surface-ink`],
   // Yellow meant "draft / needs attention" → amber fill (fill-only on paper)
   // with ink text and edges; yellow rings and dots → accent-red.
   [/((?:[a-z]+:)*)bg-yellow-[0-9]{3}\/[0-9]+/g, '$1bg-spectrum-amber/40'],
@@ -70,6 +78,12 @@ const RULES = [
   [/(^|[\s"'`])font-mono(?=[\s"'`])/g, '$1'],
   // Sub-DS pixel sizes → the smallest DS label.
   [/(^|[\s"'`])((?:[a-z]+:)?)text-\[(?:9|10|11)px\](?=[\s"'`])/g, '$1$2text-data-label-10-small'],
+  // Small uppercase labels → the DS overline.
+  [/text-(?:body-3|data-caption-13) uppercase tracking-(?:wide|wider|widest)/g, 'text-data-overline-11 font-bold leading-[1.3] tracking-[--spacing(0.625)] uppercase'],
+  // Hovers that no longer change anything after the colour swap.
+  [/text-accent-red hover:text-accent-red/g, 'text-accent-red cursor-pointer hover:underline'],
+  [/text-surface-ink hover:text-surface-ink/g, 'text-surface-ink hover:text-accent-red'],
+  [/(^|[\s"'`])hover:bg-surface-paper-shade hover:bg-surface-paper-shade/g, '$1hover:bg-surface-paper-shade'],
   // Square corners.
   [/(^|[\s"'`])((?:[a-z-]+:)?rounded(?:-[a-z0-9]+)*)(?=[\s"'`])/g, '$1'],
   // No soft shadows in the DS (shadow-none stays: it resets a breakpoint).

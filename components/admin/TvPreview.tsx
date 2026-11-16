@@ -30,19 +30,19 @@ export default function TvPreview({ showId = null }: { showId?: number | null })
   const url = `/tv?${params.toString()}`;
 
   return (
-    <div className="text-[#E8E0D0]">
+    <div className="text-surface-ink">
       <div className="flex items-center justify-between gap-4 mb-3 flex-wrap">
-        <h3 className="text-sm uppercase tracking-wide text-[#E8E0D0]/50">Preview</h3>
+        <h3 className="text-data-overline-11 font-bold leading-[1.3] tracking-[--spacing(0.625)] uppercase text-surface-ink/60">Preview</h3>
         <div className="flex items-center gap-1 flex-wrap">
           {OPTIONS.map(({ key, label }) => (
             <button
               key={key}
               type="button"
               onClick={() => setMode(key)}
-              className={`text-xs border rounded px-3 py-1.5 transition-colors ${
+              className={`text-data-caption-13 border  px-3 py-1.5 transition-colors ${
                 mode === key
-                  ? 'border-[#E8E0D0] bg-[#E8E0D0]/10 text-[#E8E0D0]'
-                  : 'border-[#E8E0D0]/30 text-[#E8E0D0]/70 hover:text-[#E8E0D0]'
+                  ? 'border-surface-ink bg-surface-paper-shade text-surface-ink'
+                  : 'border-surface-ink text-surface-ink/80 hover:text-accent-red'
               }`}
             >
               {label}
@@ -52,14 +52,14 @@ export default function TvPreview({ showId = null }: { showId?: number | null })
             href={url}
             target="_blank"
             rel="noreferrer"
-            className="text-xs text-[#E8E0D0]/50 hover:text-[#E8E0D0] underline ml-1"
+            className="text-data-caption-13 text-surface-ink/60 hover:text-accent-red underline ml-1"
           >
             Open ↗
           </a>
         </div>
       </div>
       <div
-        className="bg-black rounded overflow-hidden border border-[#E8E0D0]/15"
+        className="bg-black  overflow-hidden border border-surface-ink/20"
         style={{ width: W * SCALE, height: H * SCALE }}
       >
         <iframe
@@ -71,7 +71,7 @@ export default function TvPreview({ showId = null }: { showId?: number | null })
           style={{ border: 0, transform: `scale(${SCALE})`, transformOrigin: 'top left' }}
         />
       </div>
-      <p className="text-xs text-[#E8E0D0]/40 mt-2">
+      <p className="text-data-caption-13 text-surface-ink/60 mt-2">
         {mode === 'live'
           ? 'Following the live program.'
           : `Forced to ${mode} for preview — the live tube is unchanged.`}
