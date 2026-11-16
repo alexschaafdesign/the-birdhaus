@@ -3,6 +3,7 @@ import { getTodayCentral } from '@/lib/shows';
 import { getAvailableDates } from '@/lib/available-dates';
 import { feedUrl, getOrCreateFeedToken } from '@/lib/booking-feed';
 import type { BookingDay, BookingProspect } from '@/lib/booking';
+import { PageHeader } from '@/components/admin/ui';
 import BookingDashboard, {
   type BookingShow,
   type BookingDateOffer,
@@ -45,8 +46,8 @@ export default async function BookingPage() {
   ]);
 
   return (
-    <main className="max-w-6xl mx-auto px-6 pb-16">
-      <h2 className="mb-6 mt-8 text-xl font-bold">Booking</h2>
+    <main className="mx-auto max-w-6xl px-4 pt-8 pb-16 sm:px-8">
+      <PageHeader overline="Shows" title="Booking" />
       <BookingDashboard
         today={today}
         initialProspects={prospects}

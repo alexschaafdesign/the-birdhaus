@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { DATE_OFFER_COLORS } from '@/lib/date-offers';
+import { DATE_OFFER_SWATCH } from '@/lib/date-offers';
+import { ADMIN_TYPE } from '@/components/admin/ui';
 import type { DayInfo } from './BookingDashboard';
 
 // Forked from components/CalendarView.tsx: same month-grid math, but built
@@ -63,10 +64,10 @@ export default function BookingCalendar({
   ];
 
   const navButtonClass =
-    'rounded p-1.5 text-[#E8E0D0]/60 transition-colors hover:bg-[#E8E0D0]/10 hover:text-[#E8E0D0]';
+    ' p-1.5 text-surface-ink/60 transition-colors hover:bg-surface-paper-shade hover:text-accent-red';
 
   return (
-    <div className="rounded-lg border border-[#E8E0D0]/20 p-4 sm:p-6">
+    <div className="border border-surface-ink p-4 sm:p-6">
       <div className="mb-4 flex items-center justify-between">
         <div className="flex items-center gap-1">
           <button onClick={() => goToMonth(-12)} aria-label="Previous year" className={navButtonClass}>
@@ -77,7 +78,7 @@ export default function BookingCalendar({
           </button>
         </div>
         <div className="flex items-center gap-3">
-          <h3 className="text-lg font-bold">
+          <h3 className="text-header-4 font-bold">
             {firstOfMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
           </h3>
           {!isCurrentMonth && (
@@ -85,7 +86,7 @@ export default function BookingCalendar({
               onClick={() =>
                 setCursor({ year: todayDate.getFullYear(), month: todayDate.getMonth() })
               }
-              className="font-mono text-xs uppercase tracking-widest text-[#E8E0D0]/50 hover:text-[#E8E0D0]"
+              className={`text-data-caption-13 uppercase ${ADMIN_TYPE.link}`}
             >
               Today
             </button>
@@ -102,12 +103,12 @@ export default function BookingCalendar({
       </div>
 
       {paintMode && (
-        <p className="mb-3 rounded border border-green-500/30 bg-green-500/10 px-3 py-1.5 text-xs text-green-400">
+        <p className="mb-3  border border-surface-ink bg-surface-paper-shade px-3 py-1.5 text-data-caption-13 text-surface-ink">
           Availability mode — click days to mark or unmark them as available.
         </p>
       )}
 
-      <div className="mb-1 grid grid-cols-7 gap-1 text-center text-xs text-[#E8E0D0]/40">
+      <div className="mb-1 grid grid-cols-7 gap-1 text-center text-data-caption-13 text-surface-ink/60">
         {WEEKDAY_LABELS.map((label, i) => (
           <div key={i}>{label}</div>
         ))}
@@ -132,13 +133,13 @@ export default function BookingCalendar({
           const paintable = paintMode && !titled && !unavailable;
 
           const base = show
-            ? 'border border-[#E8E0D0]/40 bg-[#E8E0D0]/10'
+            ? 'border border-surface-ink bg-surface-paper-shade'
             : draft
-              ? 'border border-dashed border-yellow-500/50 bg-yellow-500/10'
+              ? 'border border-dashed border-surface-ink bg-spectrum-amber/40'
               : unavailable
-                ? 'border border-red-400/30 bg-[repeating-linear-gradient(135deg,rgba(248,113,113,0.12)_0_4px,transparent_4px_9px)]'
+                ? 'border border-accent-red bg-[repeating-linear-gradient(135deg,color-mix(in_srgb,var(--color-accent-red)_15%,transparent)_0_4px,transparent_4px_9px)]'
                 : info?.available
-                ? 'border border-dotted border-green-500/40'
+                ? 'border border-dotted border-surface-ink'
                 : 'border border-transparent';
 
           return (
@@ -151,76 +152,75 @@ export default function BookingCalendar({
                 else onSelectDate(dateStr);
               }}
               title={`${titled ? `${titled.title}${draft && !show ? ' (draft)' : ''}` : dayTitle ?? dateStr}${unavailable ? ' — not available' : ''}`}
-              className={`relative flex aspect-square flex-col items-center justify-center overflow-hidden rounded text-sm transition-all ${
-                paintable ? 'hover:border-green-400' : 'hover:border-[#E8E0D0]/60'
+              className={`relative flex aspect-square flex-col items-center justify-center overflow-hidden  text-body-3 transition-all ${
+                paintable ? 'hover:border-surface-ink' : 'hover:border-accent-red'
               } ${base} ${
-                isSelected ? 'ring-2 ring-yellow-400' : ''
-              } ${titled ? 'text-[#E8E0D0]/80' : isToday ? 'text-[#E8E0D0]' : 'text-[#E8E0D0]/40'}`}
+                isSelected ? 'ring-2 ring-accent-red' : ''
+              } ${titled ? 'text-surface-ink/80' : isToday ? 'text-surface-ink' : 'text-surface-ink/60'}`}
             >
-              <span className="absolute left-1 top-0.5 flex items-center gap-1 text-[10px] font-bold">
+              <span className="absolute left-1 top-0.5 flex items-center gap-1 text-data-label-10-small font-bold">
                 {day}
-                {isToday && <span className="h-1 w-1 rounded-full bg-yellow-400" />}
+                {isToday && <span className="h-1 w-1  bg-accent-red" />}
               </span>
 
               {titled && (
-                <span className="mt-3 line-clamp-3 break-words px-1 text-center text-[9px] font-medium leading-tight sm:text-xs">
+                <span className="mt-3 line-clamp-3 break-words px-1 text-center text-data-label-10-small font-bold leading-tight sm:text-data-caption-13">
                   {titled.title}
                 </span>
               )}
               {dayTitle && (
-                <span className="mt-3 line-clamp-3 break-words px-1 text-center text-[9px] font-medium leading-tight text-[#E8E0D0]/90 sm:text-xs">
+                <span className="mt-3 line-clamp-3 break-words px-1 text-center text-data-label-10-small font-bold leading-tight text-surface-ink/80 sm:text-data-caption-13">
                   {dayTitle}
                 </span>
               )}
               {unavailable && !titled && !dayTitle && (
-                <span className="mt-3 px-1 text-center text-[9px] font-medium uppercase leading-tight text-red-300/80 sm:text-[10px]">
+                <span className="mt-3 px-1 text-center text-data-label-10-small font-bold uppercase leading-tight text-accent-red sm:text-data-label-10-small">
                   Not avail.
                 </span>
               )}
 
               <span className="absolute bottom-0.5 left-1 flex items-center gap-0.5">
-                {hasNotepad && <span className="h-1.5 w-1.5 rounded-full bg-[#E8E0D0]/50" title="Has notes" />}
+                {hasNotepad && <span className="h-1.5 w-1.5  bg-surface-ink/50" title="Has notes" />}
                 {info?.offers.slice(0, 2).map((offer) => (
                   <span
                     key={offer.id}
-                    className="h-1.5 w-1.5 rounded-full"
-                    style={{ backgroundColor: DATE_OFFER_COLORS[offer.status] }}
+                    className={`h-1.5 w-1.5 ${DATE_OFFER_SWATCH[offer.status]}`}
                     title={`Offered to ${offer.band_name} (${offer.status})`}
                   />
                 ))}
               </span>
 
               {unavailable && (
-                <span className="absolute right-1 top-0.5 text-[10px] font-bold leading-none text-red-300" aria-hidden>
+                <span className="absolute right-1 top-0.5 text-data-label-10-small font-bold leading-none text-accent-red" aria-hidden>
                   ✕
                 </span>
               )}
               {info?.available && !titled && (
-                <span className="absolute bottom-0.5 right-1 h-1.5 w-1.5 rounded-full bg-green-500" />
+                <span className="absolute bottom-0.5 right-1 h-1.5 w-1.5  bg-surface-ink" />
               )}
             </button>
           );
         })}
       </div>
 
-      <div className="mt-4 flex flex-wrap gap-x-4 gap-y-1 text-[10px] text-[#E8E0D0]/40">
+      <div className="mt-4 flex flex-wrap gap-x-4 gap-y-1 text-data-label-10-small text-surface-ink/60">
         <span className="flex items-center gap-1.5">
-          <span className="inline-block h-3 w-3 rounded border border-[#E8E0D0]/40 bg-[#E8E0D0]/10" /> show
+          <span className="inline-block h-3 w-3  border border-surface-ink bg-surface-paper-shade" /> show
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="inline-block h-3 w-3 rounded border border-dashed border-yellow-500/50 bg-yellow-500/10" /> draft
+          <span className="inline-block h-3 w-3  border border-dashed border-surface-ink bg-spectrum-amber/40" /> draft
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="inline-block h-3 w-3 rounded border border-dotted border-green-500/40" /> available
+          <span className="inline-block h-3 w-3  border border-dotted border-surface-ink" /> available
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="inline-block h-3 w-3 rounded border border-red-400/30 bg-red-400/15" /> not available
+          <span className="inline-block h-3 w-3  border border-accent-red " /> not available
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="inline-block h-1.5 w-1.5 rounded-full bg-[#E8E0D0]/50" /> notes
+          <span className="inline-block h-1.5 w-1.5 bg-surface-ink/50" /> notes
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="inline-block h-1.5 w-1.5 rounded-full" style={{ backgroundColor: DATE_OFFER_COLORS.contacted }} /> offered (submissions)
+          <span className={`inline-block h-1.5 w-1.5 ${DATE_OFFER_SWATCH.contacted}`} /> offered (submissions)
         </span>
       </div>
     </div>

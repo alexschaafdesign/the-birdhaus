@@ -2,6 +2,7 @@
 // admin uses size "s" and usually arrow={false}.
 export { Panel } from './Panel';
 export { PageHeader } from './PageHeader';
+export { Swatch } from './Swatch';
 export { StatusMark, type StatusTone } from './StatusMark';
 export { Field, Input, Textarea, Select, Checkbox, Notice } from './form';
 export { ADMIN_TYPE, ADMIN_TABLE } from './styles';

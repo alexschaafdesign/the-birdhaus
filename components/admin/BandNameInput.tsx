@@ -32,6 +32,25 @@ interface DisplayMatch {
   photo: string | null;
 }
 
+// The suggestion dropdown in the 2027 paper look, or the old dark one (the
+// default, until ShowForm and AddBandModal move to paper in Phase 4).
+const DROPDOWN = {
+  paper: {
+    menu: 'absolute z-10 mt-1 w-full max-h-48 overflow-auto border border-surface-ink bg-surface-paper',
+    item: 'block w-full cursor-pointer text-left px-3 py-1.5 text-body-3 hover:bg-surface-paper-shade disabled:opacity-50',
+    name: 'font-bold',
+    meta: 'text-surface-ink/60 ml-2 text-data-caption-13',
+    add: 'block w-full cursor-pointer text-left px-3 py-1.5 text-body-3 border-t border-surface-ink hover:bg-surface-paper-shade',
+  },
+  dark: {
+    menu: 'absolute z-10 mt-1 w-full max-h-48 overflow-auto rounded border border-[#E8E0D0]/30 bg-[#171412] shadow-lg',
+    item: 'block w-full text-left px-3 py-1.5 text-sm hover:bg-[#E8E0D0]/10 disabled:opacity-50',
+    name: 'font-medium',
+    meta: 'text-[#E8E0D0]/40 ml-2 text-xs',
+    add: 'block w-full text-left px-3 py-1.5 text-sm text-[#E8E0D0]/70 border-t border-[#E8E0D0]/10 hover:bg-[#E8E0D0]/10',
+  },
+};
+
 export default function BandNameInput({
   value,
   onChange,
@@ -40,6 +59,7 @@ export default function BandNameInput({
   twinSceneBands,
   className,
   placeholder,
+  paper = false,
 }: {
   value: string;
   onChange: (value: string) => void;
@@ -51,7 +71,10 @@ export default function BandNameInput({
   twinSceneBands?: TwinSceneBandOption[];
   className?: string;
   placeholder?: string;
+  /** The 2027 paper dropdown (the default is the old dark one). */
+  paper?: boolean;
 }) {
+  const ui = paper ? DROPDOWN.paper : DROPDOWN.dark;
   const [matches, setMatches] = useState<(BandMatch & { twinSceneId?: number })[]>([]);
   const [open, setOpen] = useState(false);
   const [syncingId, setSyncingId] = useState<number | null>(null);
@@ -155,7 +178,7 @@ export default function BandNameInput({
         autoComplete="off"
       />
       {open && trimmed.length >= 2 && (displayMatches.length > 0 || showAddNew) && (
-        <div className="absolute z-10 mt-1 w-full max-h-48 overflow-auto rounded border border-[#E8E0D0]/30 bg-[#171412] shadow-lg">
+        <div className={ui.menu}>
           {displayMatches.map((match) => (
             <button
               key={match.id ?? `ts-${match.twinSceneId}`}
@@ -166,12 +189,12 @@ export default function BandNameInput({
                 e.preventDefault();
                 handleSelect(match);
               }}
-              className="block w-full text-left px-3 py-1.5 text-sm hover:bg-[#E8E0D0]/10 disabled:opacity-50"
+              className={ui.item}
             >
-              <span className="font-medium">{match.name}</span>
-              {match.instagram && <span className="text-[#E8E0D0]/40 ml-2 text-xs">{match.instagram}</span>}
+              <span className={ui.name}>{match.name}</span>
+              {match.instagram && <span className={ui.meta}>{match.instagram}</span>}
               {match.id === null && (
-                <span className="text-[#E8E0D0]/40 ml-2 text-xs italic">
+                <span className={`${ui.meta} italic`}>
                   {syncingId === match.twinSceneId ? 'linking…' : 'Twin Scene'}
                 </span>
               )}
@@ -185,7 +208,7 @@ export default function BandNameInput({
                 onAddNew!(trimmed);
                 setOpen(false);
               }}
-              className="block w-full text-left px-3 py-1.5 text-sm text-[#E8E0D0]/70 border-t border-[#E8E0D0]/10 hover:bg-[#E8E0D0]/10"
+              className={ui.add}
             >
               ＋ Add “{trimmed}” as a new band
             </button>

@@ -33,6 +33,18 @@ export const STATUS_COLORS: Record<SubmissionStatus, string> = {
   passed: '#B0645A',
 };
 
+// The 2027 admin (paper) shows a status as an ink label beside a small fill
+// swatch from the DS spectrum (fill-only colours), plus the same colour as a
+// card's left edge. STATUS_COLORS stays for the dark /hub until it moves.
+export const STATUS_SWATCH: Record<SubmissionStatus, { swatch: string; edge: string }> = {
+  new: { swatch: 'border border-surface-ink bg-surface-paper', edge: 'border-l-surface-ink/30' },
+  contacted: { swatch: 'bg-spectrum-violet', edge: 'border-l-spectrum-violet' },
+  replied: { swatch: 'bg-spectrum-magenta', edge: 'border-l-spectrum-magenta' },
+  set_aside: { swatch: 'bg-spectrum-amber', edge: 'border-l-spectrum-amber' },
+  booked: { swatch: 'bg-surface-ink', edge: 'border-l-surface-ink' },
+  passed: { swatch: 'bg-spectrum-red', edge: 'border-l-spectrum-red' },
+};
+
 export type SubmissionSource = 'form' | 'manual' | 'import';
 
 export type AvailabilityEntry =
