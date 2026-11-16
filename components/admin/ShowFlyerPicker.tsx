@@ -66,7 +66,7 @@ export default function ShowFlyerPicker({
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-6"
+      className="fixed inset-0 z-50 bg-surface-ink/70 flex items-center justify-center p-6"
       onClick={onClose}
     >
       <div
@@ -100,7 +100,7 @@ export default function ShowFlyerPicker({
                     }`}
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={s.flyer} alt="" className="w-full aspect-[3/4] object-cover bg-black/40" />
+                    <img src={s.flyer} alt="" className="w-full aspect-[3/4] object-cover bg-surface-paper-shade" />
                     <div className="p-1.5">
                       <div className="text-data-caption-13 truncate">{s.title}</div>
                       <div className="text-data-label-10-small text-surface-ink/60">{s.date}</div>

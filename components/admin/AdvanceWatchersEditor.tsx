@@ -1,9 +1,9 @@
 'use client';
 
 import { useState } from 'react';
+import { FIELD_INLINE, buttonClassName } from './ui';
 
-const inputClass =
-  'bg-transparent border border-[#E8E0D0]/30 rounded px-3 py-1.5 text-sm focus:outline-none focus:border-[#E8E0D0] placeholder:text-[#E8E0D0]/30';
+const inputClass = FIELD_INLINE;
 
 // Edits the advance watcher list — who is CC'd on every outbound advance /
 // thread message and notified of portal activity. Saved as a whole via
@@ -58,7 +58,7 @@ export default function AdvanceWatchersEditor({ initial }: { initial: string[] }
               <button
                 type="button"
                 onClick={() => setEmails((list) => list.filter((_, j) => j !== i))}
-                className="border border-[#E8E0D0]/40 rounded px-3 py-1.5 text-sm hover:bg-[#E8E0D0]/10 transition-colors"
+                className={buttonClassName('secondary', 's')}
                 aria-label={`Remove watcher ${i + 1}`}
               >
                 Remove
@@ -67,7 +67,7 @@ export default function AdvanceWatchersEditor({ initial }: { initial: string[] }
           ))}
         </ul>
       ) : (
-        <p className="text-sm text-amber-300/80">
+        <p className="text-body-3 text-surface-ink">
           No watchers — nobody is CC&apos;d on advance emails or notified of band replies and
           portal activity.
         </p>
@@ -76,7 +76,7 @@ export default function AdvanceWatchersEditor({ initial }: { initial: string[] }
         <button
           type="button"
           onClick={() => setEmails((list) => [...list, ''])}
-          className="border border-[#E8E0D0]/40 rounded px-4 py-1.5 text-sm hover:bg-[#E8E0D0]/10 transition-colors"
+          className={buttonClassName('secondary', 's')}
         >
           + Add email
         </button>
@@ -84,13 +84,13 @@ export default function AdvanceWatchersEditor({ initial }: { initial: string[] }
           type="button"
           onClick={save}
           disabled={saving || !dirty}
-          className="border border-[#E8E0D0]/40 rounded px-4 py-1.5 text-sm hover:bg-[#E8E0D0]/10 transition-colors disabled:opacity-40"
+          className={`${buttonClassName('primary', 's')} disabled:opacity-40`}
         >
           {saving ? 'Saving…' : 'Save watchers'}
         </button>
       </div>
-      {error && <p className="text-xs text-red-300">{error}</p>}
-      {notice && <p className="text-xs text-green-300">{notice}</p>}
+      {error && <p role="alert" className="text-body-3 text-accent-red">{error}</p>}
+      {notice && <p className="text-body-3 text-surface-ink">{notice}</p>}
     </div>
   );
 }

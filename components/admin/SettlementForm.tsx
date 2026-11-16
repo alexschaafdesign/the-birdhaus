@@ -147,6 +147,7 @@ function Icon({ name, className = 'h-[18px] w-[18px]' }: { name: string; classNa
       );
     case 'venmo':
       return (
+        // admin-tokens-ok: Venmo's own brand colours for its logo mark.
         <svg {...svg}>
           <rect width="24" height="24" rx="5.5" fill="#008CFF" />
           <path d="M8 7.5 12 16.5 16 7.5" fill="none" stroke="#fff" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />

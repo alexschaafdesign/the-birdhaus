@@ -82,6 +82,8 @@ const MIGRATED: RegExp[] = [
   // Expenses, Year in Review and the Timesheet.
   /^\/admin\/shows\/\d+\/settlement$/,
   /^\/admin\/(settlements|expenses|year|timesheet)$/,
+  // Phase 6: Settings.
+  /^\/admin\/settings$/,
 ];
 
 export function isMigratedAdminPath(pathname: string) {

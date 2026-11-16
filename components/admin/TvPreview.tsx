@@ -59,7 +59,7 @@ export default function TvPreview({ showId = null }: { showId?: number | null })
         </div>
       </div>
       <div
-        className="bg-black  overflow-hidden border border-surface-ink/20"
+        className="bg-surface-ink overflow-hidden border border-surface-ink/20"
         style={{ width: W * SCALE, height: H * SCALE }}
       >
         <iframe

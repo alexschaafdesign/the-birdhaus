@@ -125,9 +125,9 @@ export default function TvCardsList({
               <div className="flex-shrink-0">
                 {c.image ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={c.image} alt="" className="w-24 h-16 object-cover  bg-black/40" />
+                  <img src={c.image} alt="" className="w-24 h-16 object-cover bg-surface-paper-shade" />
                 ) : (
-                  <div className="w-24 h-16  bg-black/20 border border-dashed border-surface-ink" />
+                  <div className="w-24 h-16 bg-surface-paper-shade border border-dashed border-surface-ink" />
                 )}
                 <button
                   type="button"

@@ -18,7 +18,7 @@ const inputClass =
   'bg-transparent border border-current/40  px-3 py-1.5 text-body-3 focus:outline-none focus:border-current placeholder:opacity-60';
 
 const timeSelectClass =
-  'bg-transparent border border-current/40  px-1 py-1 text-body-3 focus:outline-none focus:border-current [&>option]:bg-white [&>option]:text-black';
+  'bg-transparent border border-current/40  px-1 py-1 text-body-3 focus:outline-none focus:border-current [&>option]:bg-surface-paper [&>option]:text-surface-ink';
 
 interface ParsedTime {
   startH: number | null;

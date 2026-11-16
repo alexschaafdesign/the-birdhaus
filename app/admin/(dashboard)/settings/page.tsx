@@ -6,6 +6,7 @@ import { sql } from '@/lib/db';
 import AdvanceTemplateEditor from '@/components/admin/AdvanceTemplateEditor';
 import AdvanceWatchersEditor from '@/components/admin/AdvanceWatchersEditor';
 import PortalInfoEditor from '@/components/admin/PortalInfoEditor';
+import { PageHeader, Panel, StatusMark } from '@/components/admin/ui';
 
 export const dynamic = 'force-dynamic';
 
@@ -20,84 +21,78 @@ export default async function SettingsPage() {
   const optInCount = optInRows[0]?.n ?? 0;
 
   return (
-    <main className="max-w-6xl mx-auto px-6 pb-16 pt-6 space-y-12">
-      <section className="space-y-4">
-        <div className="space-y-1">
-          <h2 className="text-xl font-bold">Mailing list (Mailchimp)</h2>
-          <p className="text-sm text-[#E8E0D0]/55">
-            When someone checks &ldquo;add me to the mailing list&rdquo; while
-            RSVPing, they&apos;re synced to Mailchimp. This needs{' '}
-            <code className="text-[#E8E0D0]/80">MAILCHIMP_API_KEY</code> and{' '}
-            <code className="text-[#E8E0D0]/80">MAILCHIMP_AUDIENCE_ID</code> set
-            in the Vercel environment.
-          </p>
-        </div>
-        {mailchimp.configured ? (
-          <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm">
-            <span className="font-semibold text-emerald-300">Configured.</span>{' '}
-            <span className="text-[#E8E0D0]/70">
-              Opt-ins sync to Mailchimp
-              {mailchimp.datacenter ? ` (${mailchimp.datacenter})` : ''}. Live
-              check: <code>/api/health/mailchimp?live=1</code>.
-            </span>
-          </div>
-        ) : (
-          <div className="rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm">
-            <span className="font-semibold text-red-300">Not configured</span>{' '}
-            <span className="text-[#E8E0D0]/70">
-              — RSVP opt-ins are being collected but{' '}
-              <span className="font-semibold text-red-300">dropped</span> (not
-              added to Mailchimp). Missing{' '}
-              {!mailchimp.apiKeyPresent && <code>MAILCHIMP_API_KEY</code>}
-              {!mailchimp.apiKeyPresent && !mailchimp.audiencePresent && ' and '}
-              {!mailchimp.audiencePresent && <code>MAILCHIMP_AUDIENCE_ID</code>}.
-            </span>
-          </div>
-        )}
-        <p className="text-sm text-[#E8E0D0]/55">
-          {optInCount} RSVP{optInCount === 1 ? '' : 's'} have opted into the
-          mailing list to date.
-        </p>
-      </section>
+    <main className="mx-auto max-w-6xl px-4 pt-8 pb-16 sm:px-8">
+      <PageHeader overline="Settings" title="Settings" />
 
-      <section className="space-y-6 border-t border-[#E8E0D0]/10 pt-10">
-        <div className="space-y-1">
-          <h2 className="text-xl font-bold">Portal invite email</h2>
-          <p className="text-sm text-[#E8E0D0]/55">
+      <div className="space-y-6">
+        <Panel title="Mailing list (Mailchimp)">
+          <div className="space-y-4">
+            <p className="text-body-3 text-surface-ink/60 max-w-prose">
+              When someone checks &ldquo;add me to the mailing list&rdquo; while
+              RSVPing, they&apos;re synced to Mailchimp. This needs{' '}
+              <code className="text-surface-ink">MAILCHIMP_API_KEY</code> and{' '}
+              <code className="text-surface-ink">MAILCHIMP_AUDIENCE_ID</code> set
+              in the Vercel environment.
+            </p>
+            {mailchimp.configured ? (
+              <div className="border-surface-ink text-body-3 flex flex-wrap items-baseline gap-x-2 gap-y-1 border-2 p-3">
+                <StatusMark tone="ok">Configured</StatusMark>
+                <span className="text-surface-ink/70">
+                  Opt-ins sync to Mailchimp
+                  {mailchimp.datacenter ? ` (${mailchimp.datacenter})` : ''}. Live
+                  check: <code>/api/health/mailchimp?live=1</code>.
+                </span>
+              </div>
+            ) : (
+              <div role="alert" className="border-accent-red text-body-3 flex flex-wrap items-baseline gap-x-2 gap-y-1 border-2 p-3">
+                <StatusMark tone="problem">Not configured</StatusMark>
+                <span className="text-surface-ink/70">
+                  — RSVP opt-ins are being collected but{' '}
+                  <span className="text-accent-red font-bold">dropped</span> (not
+                  added to Mailchimp). Missing{' '}
+                  {!mailchimp.apiKeyPresent && <code>MAILCHIMP_API_KEY</code>}
+                  {!mailchimp.apiKeyPresent && !mailchimp.audiencePresent && ' and '}
+                  {!mailchimp.audiencePresent && <code>MAILCHIMP_AUDIENCE_ID</code>}.
+                </span>
+              </div>
+            )}
+            <p className="text-body-3 text-surface-ink/60">
+              {optInCount} RSVP{optInCount === 1 ? '' : 's'} have opted into the
+              mailing list to date.
+            </p>
+          </div>
+        </Panel>
+
+        <Panel title="Portal invite email">
+          <p className="text-body-3 text-surface-ink/60 mb-5 max-w-prose">
             The short boilerplate emailed to bands ahead of each show — an
             invitation pointing them at their show portal. Per-show details
             (schedule, sound engineer, show link, lineup) fill in when you send
             it from a show&apos;s Portal tab.
           </p>
-        </div>
-        <AdvanceTemplateEditor initial={template} />
-      </section>
+          <AdvanceTemplateEditor initial={template} />
+        </Panel>
 
-      <section className="space-y-6 border-t border-[#E8E0D0]/10 pt-10">
-        <div className="space-y-1">
-          <h2 className="text-xl font-bold">Watchers</h2>
-          <p className="text-sm text-[#E8E0D0]/55">
+        <Panel title="Watchers">
+          <p className="text-body-3 text-surface-ink/60 mb-5 max-w-prose">
             Who&apos;s CC&apos;d on every portal invite and thread message, and
             notified when a band replies or does something in the show portal
             (stage plot, message, schedule response). Replies-all from bands
             reach these inboxes directly.
           </p>
-        </div>
-        <AdvanceWatchersEditor initial={watchers} />
-      </section>
+          <AdvanceWatchersEditor initial={watchers} />
+        </Panel>
 
-      <section className="space-y-6 border-t border-[#E8E0D0]/10 pt-10">
-        <div className="space-y-1">
-          <h2 className="text-xl font-bold">Portal info</h2>
-          <p className="text-sm text-[#E8E0D0]/55">
+        <Panel title="Portal info">
+          <p className="text-body-3 text-surface-ink/60 mb-5 max-w-prose">
             The venue/logistics rundown shown to bands on the show portal (the
             /hub page) — venue, capacity, accessibility, backline, recording,
             parking, WiFi, and the rest. Static across shows; schedule, pay, RSVP
             count, and input needs each have their own portal card.
           </p>
-        </div>
-        <PortalInfoEditor initial={portalInfo} />
-      </section>
+          <PortalInfoEditor initial={portalInfo} />
+        </Panel>
+      </div>
     </main>
   );
 }
