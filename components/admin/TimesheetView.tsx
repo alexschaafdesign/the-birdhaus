@@ -5,8 +5,8 @@ import type { TimesheetEntry } from '@/lib/timesheet-shared';
 import { computeHours, computePayout, DEFAULT_RATE_CENTS } from '@/lib/timesheet-shared';
 
 const inputClass =
-  'bg-transparent border border-[#E8E0D0]/30 rounded px-2.5 py-1.5 text-sm focus:outline-none focus:border-[#E8E0D0]';
-const cardClass = 'border border-[#E8E0D0]/15 rounded-lg p-4';
+  'bg-surface-paper text-surface-ink border border-surface-ink rounded-none px-2.5 py-1.5 text-body-3 placeholder:text-surface-ink/45 focus-visible:outline-accent-red focus-visible:outline-2 focus-visible:outline-offset-2';
+const cardClass = 'border border-surface-ink bg-surface-paper p-4';
 
 function formatCurrency(value: number): string {
   return value.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
@@ -180,8 +180,9 @@ export default function TimesheetView({ initialEntries }: { initialEntries: Time
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-xl font-medium">Timesheet</h2>
-        <p className="mt-1 text-xs text-[#E8E0D0]/50">
+        <p className="text-data-overline-11 font-bold leading-[1.3] tracking-[--spacing(0.625)] uppercase text-accent-red mb-1">Money</p>
+          <h1 className="text-header-3 font-bold leading-tight">Timesheet</h1>
+        <p className="mt-1 text-body-3 text-surface-ink/60">
           Hours logged by admin help. Paid amounts roll into the Settlements yearly summary as a venue
           expense.
         </p>
@@ -190,26 +191,26 @@ export default function TimesheetView({ initialEntries }: { initialEntries: Time
       {/* Totals */}
       <div className="grid gap-3 sm:grid-cols-3">
         <div className={cardClass}>
-          <p className="mb-1 text-xs uppercase tracking-wide text-[#E8E0D0]/40">Total logged</p>
-          <p className="text-xl font-semibold">{formatCurrency(totals.logged)}</p>
+          <p className="mb-1 text-data-overline-11 font-bold leading-[1.3] tracking-[--spacing(0.625)] uppercase text-surface-ink/60">Total logged</p>
+          <p className="text-header-4 font-bold">{formatCurrency(totals.logged)}</p>
         </div>
         <div className={cardClass}>
-          <p className="mb-1 text-xs uppercase tracking-wide text-[#E8E0D0]/40">Paid</p>
-          <p className="text-xl font-semibold text-[#E8E0D0]/70">{formatCurrency(totals.paid)}</p>
+          <p className="mb-1 text-data-overline-11 font-bold leading-[1.3] tracking-[--spacing(0.625)] uppercase text-surface-ink/60">Paid</p>
+          <p className="text-header-4 font-bold text-surface-ink/80">{formatCurrency(totals.paid)}</p>
         </div>
-        <div className="rounded-lg border-2 border-[#E8E0D0] p-4">
-          <p className="mb-1 text-xs uppercase tracking-wide text-[#E8E0D0]/60">Unpaid balance</p>
-          <p className="text-2xl font-bold">{formatCurrency(totals.unpaid)}</p>
+        <div className="border-2 border-surface-ink p-4">
+          <p className="mb-1 text-data-overline-11 font-bold leading-[1.3] tracking-[--spacing(0.625)] uppercase text-surface-ink/60">Unpaid balance</p>
+          <p className="text-header-3 font-bold">{formatCurrency(totals.unpaid)}</p>
         </div>
       </div>
 
       {/* Add / edit form */}
       <form onSubmit={submit} className={cardClass}>
-        <h3 className="mb-3 text-sm font-semibold text-[#E8E0D0]/80">
+        <h3 className="mb-3 text-body-3 font-bold text-surface-ink/80">
           {editingId ? 'Edit entry' : 'Add hours'}
         </h3>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
-          <label className="flex flex-col gap-1 text-xs text-[#E8E0D0]/50 lg:col-span-2">
+          <label className="flex flex-col gap-1 text-data-caption-13 text-surface-ink/60 lg:col-span-2">
             Who
             <input
               type="text"
@@ -220,7 +221,7 @@ export default function TimesheetView({ initialEntries }: { initialEntries: Time
               placeholder="Name"
             />
           </label>
-          <label className="flex flex-col gap-1 text-xs text-[#E8E0D0]/50">
+          <label className="flex flex-col gap-1 text-data-caption-13 text-surface-ink/60">
             Date
             <input
               type="date"
@@ -230,7 +231,7 @@ export default function TimesheetView({ initialEntries }: { initialEntries: Time
               className={inputClass}
             />
           </label>
-          <label className="flex flex-col gap-1 text-xs text-[#E8E0D0]/50">
+          <label className="flex flex-col gap-1 text-data-caption-13 text-surface-ink/60">
             Clock in
             <input
               type="time"
@@ -240,7 +241,7 @@ export default function TimesheetView({ initialEntries }: { initialEntries: Time
               className={inputClass}
             />
           </label>
-          <label className="flex flex-col gap-1 text-xs text-[#E8E0D0]/50">
+          <label className="flex flex-col gap-1 text-data-caption-13 text-surface-ink/60">
             Clock out
             <input
               type="time"
@@ -250,7 +251,7 @@ export default function TimesheetView({ initialEntries }: { initialEntries: Time
               className={inputClass}
             />
           </label>
-          <label className="flex flex-col gap-1 text-xs text-[#E8E0D0]/50">
+          <label className="flex flex-col gap-1 text-data-caption-13 text-surface-ink/60">
             Rate ($/hr)
             <input
               type="number"
@@ -262,7 +263,7 @@ export default function TimesheetView({ initialEntries }: { initialEntries: Time
               className={inputClass}
             />
           </label>
-          <label className="flex flex-col gap-1 text-xs text-[#E8E0D0]/50 lg:col-span-6">
+          <label className="flex flex-col gap-1 text-data-caption-13 text-surface-ink/60 lg:col-span-6">
             Note (optional)
             <input
               type="text"
@@ -277,7 +278,7 @@ export default function TimesheetView({ initialEntries }: { initialEntries: Time
           <button
             type="submit"
             disabled={busy}
-            className="rounded-md bg-[#E8E0D0] px-3.5 py-1.5 text-sm font-semibold text-[#2A2420] transition hover:bg-white disabled:opacity-50"
+            className="bg-surface-ink px-3.5 py-1.5 text-body-3 font-bold text-surface-paper transition hover:bg-accent-red disabled:opacity-50"
           >
             {busy ? 'Saving…' : editingId ? 'Save changes' : '+ Add entry'}
           </button>
@@ -285,28 +286,28 @@ export default function TimesheetView({ initialEntries }: { initialEntries: Time
             <button
               type="button"
               onClick={resetForm}
-              className="text-sm text-[#E8E0D0]/50 hover:text-[#E8E0D0]"
+              className="text-body-3 text-surface-ink/60 hover:text-accent-red"
             >
               Cancel
             </button>
           )}
           {preview && (
-            <span className="text-xs text-[#E8E0D0]/50">
+            <span className="text-data-caption-13 text-surface-ink/60">
               {preview.hours.toFixed(2)} hrs · {formatCurrency(preview.payout)}
             </span>
           )}
-          {error && <span className="text-xs text-[#F5A3A3]">{error}</span>}
+          {error && <span className="text-data-caption-13 text-accent-red">{error}</span>}
         </div>
       </form>
 
       {/* Entries table */}
       {entries.length === 0 ? (
-        <p className="text-sm text-[#E8E0D0]/50">No hours logged yet.</p>
+        <p className="text-body-3 text-surface-ink/60">No hours logged yet.</p>
       ) : (
         <div className={`${cardClass} overflow-x-auto`}>
-          <table className="w-full text-sm">
+          <table className="w-full text-body-3">
             <thead>
-              <tr className="border-b border-[#E8E0D0]/10 text-left text-xs uppercase tracking-wide text-[#E8E0D0]/40">
+              <tr className="border-b border-surface-ink/20 text-left text-data-overline-11 font-bold leading-[1.3] tracking-[--spacing(0.625)] uppercase text-surface-ink/60">
                 <th className="py-2 pr-3">Date</th>
                 <th className="py-2 pr-3">Who</th>
                 <th className="py-2 pr-3">In</th>
@@ -322,32 +323,32 @@ export default function TimesheetView({ initialEntries }: { initialEntries: Time
               {entries.map((e) => (
                 <tr
                   key={e.id}
-                  className={`border-b border-[#E8E0D0]/5 ${e.paid ? 'text-[#E8E0D0]/45' : ''}`}
+                  className={`border-b border-surface-ink/20 ${e.paid ? 'text-surface-ink/60' : ''}`}
                 >
                   <td className="whitespace-nowrap py-2 pr-3">{formatDate(e.work_date)}</td>
                   <td className="py-2 pr-3">
                     {e.worker_name}
-                    {e.note && <span className="block text-xs text-[#E8E0D0]/40">{e.note}</span>}
+                    {e.note && <span className="block text-data-caption-13 text-surface-ink/60">{e.note}</span>}
                   </td>
                   <td className="whitespace-nowrap py-2 pr-3">{formatTime(e.clock_in)}</td>
                   <td className="whitespace-nowrap py-2 pr-3">{formatTime(e.clock_out)}</td>
                   <td className="py-2 pr-3 text-right tabular-nums">{e.hours.toFixed(2)}</td>
                   <td className="py-2 pr-3 text-right tabular-nums">${(e.rate_cents / 100).toFixed(0)}</td>
-                  <td className="py-2 pr-3 text-right font-medium tabular-nums">{formatCurrency(e.payout)}</td>
+                  <td className="py-2 pr-3 text-right font-bold tabular-nums">{formatCurrency(e.payout)}</td>
                   <td className="py-2 pr-3 text-center">
                     <div className="inline-flex items-center gap-1.5">
                       <input
                         type="checkbox"
                         checked={e.paid}
                         onChange={() => togglePaid(e)}
-                        className="cursor-pointer accent-[#E8E0D0]"
+                        className="cursor-pointer accent-surface-ink"
                       />
                       {e.paid && (
                         <input
                           type="date"
                           value={e.paid_date ?? ''}
                           onChange={(ev) => ev.target.value && changePaidDate(e, ev.target.value)}
-                          className="rounded border border-[#E8E0D0]/20 bg-transparent px-1 py-0.5 text-[11px] text-[#E8E0D0]/70 focus:border-[#E8E0D0] focus:outline-none"
+                          className="border border-surface-ink bg-transparent px-1 py-0.5 text-data-label-10-small text-surface-ink/80 focus:border-accent-red focus:outline-none"
                         />
                       )}
                     </div>
@@ -356,7 +357,7 @@ export default function TimesheetView({ initialEntries }: { initialEntries: Time
                     <button
                       type="button"
                       onClick={() => startEdit(e)}
-                      className="text-xs text-[#E8E0D0]/60 hover:text-[#E8E0D0]"
+                      className="text-data-caption-13 text-surface-ink/60 hover:text-accent-red"
                     >
                       Edit
                     </button>
@@ -365,14 +366,14 @@ export default function TimesheetView({ initialEntries }: { initialEntries: Time
                         <button
                           type="button"
                           onClick={() => remove(e.id)}
-                          className="text-xs font-medium text-[#F5A3A3]"
+                          className="text-data-caption-13 font-bold text-accent-red"
                         >
                           Confirm
                         </button>
                         <button
                           type="button"
                           onClick={() => setConfirmDelete(null)}
-                          className="text-xs text-[#E8E0D0]/50 hover:text-[#E8E0D0]"
+                          className="text-data-caption-13 text-surface-ink/60 hover:text-accent-red"
                         >
                           Cancel
                         </button>
@@ -381,7 +382,7 @@ export default function TimesheetView({ initialEntries }: { initialEntries: Time
                       <button
                         type="button"
                         onClick={() => setConfirmDelete(e.id)}
-                        className="ml-2 text-xs text-[#E8E0D0]/40 hover:text-[#F5A3A3]"
+                        className="ml-2 text-data-caption-13 text-surface-ink/60 hover:text-accent-red"
                       >
                         Delete
                       </button>

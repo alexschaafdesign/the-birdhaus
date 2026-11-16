@@ -12,7 +12,7 @@ export const dynamic = 'force-dynamic';
 export default async function AdminExpensesPage() {
   const [expenses, shows] = await Promise.all([listExpenses(), listShowOptions()]);
   return (
-    <main className="mx-auto w-full max-w-6xl px-6 py-8 text-[#E8E0D0]">
+    <main className="mx-auto max-w-6xl px-4 pt-8 pb-16 sm:px-8">
       <ExpensesView initialExpenses={expenses} shows={shows} />
     </main>
   );
