@@ -4,9 +4,16 @@ import { useState } from 'react';
 import type { UserAccount } from '@/lib/accounts/members';
 import { ALL_ROLES, ROLE_LABEL, type AccountRole } from '@/lib/accounts/roles';
 import { FOCUS_AREAS, type FocusAreaKey } from '@/lib/crew';
+import { FORM } from '@/components/night/form';
+import { Panel, StatusMark, Notice, ADMIN_TABLE, ADMIN_TYPE, buttonClassName, type StatusTone } from './ui';
 
-const inputBase =
-  'w-full rounded-md border border-[#E8E0D0]/20 bg-[#E8E0D0]/[0.03] px-3 py-2 text-sm text-[#E8E0D0] placeholder:text-[#E8E0D0]/30 focus:border-[#E8E0D0]/50 focus:outline-none transition';
+const inputBase = FORM.field;
+
+const STATUS_TONE: Record<UserAccount['status'], StatusTone> = {
+  invited: 'neutral',
+  active: 'ok',
+  disabled: 'problem',
+};
 
 const STATUS_LABEL: Record<UserAccount['status'], string> = {
   invited: 'Invited',
@@ -172,13 +179,11 @@ export default function CrewList({
 
   return (
     <div className="space-y-6">
-      <form
-        onSubmit={invite}
-        className="space-y-3 rounded-lg border border-[#E8E0D0]/15 bg-[#E8E0D0]/[0.03] p-4"
-      >
+      <Panel title="Invite crew">
+      <form onSubmit={invite} className="space-y-3">
         <div className="flex flex-col gap-3 sm:flex-row">
           <div className="flex-1">
-            <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-[#E8E0D0]/55">
+            <label className={FORM.label}>
               Name
             </label>
             <input
@@ -190,7 +195,7 @@ export default function CrewList({
             />
           </div>
           <div className="flex-1">
-            <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-[#E8E0D0]/55">
+            <label className={FORM.label}>
               Email
             </label>
             <input
@@ -203,7 +208,7 @@ export default function CrewList({
           </div>
         </div>
         <div>
-          <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-[#E8E0D0]/55">
+          <label className={FORM.label}>
             Title
           </label>
           <input
@@ -215,21 +220,21 @@ export default function CrewList({
           />
         </div>
         <div>
-          <span className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-[#E8E0D0]/55">
+          <span className={FORM.label}>
             Focus areas
           </span>
           <div className="space-y-1.5">
             {FOCUS_AREAS.map((area) => (
-              <label key={area.key} className="flex cursor-pointer items-start gap-2 text-sm text-[#E8E0D0]/80">
+              <label key={area.key} className="flex cursor-pointer items-start gap-2 text-body-3 text-surface-ink/80">
                 <input
                   type="checkbox"
                   checked={focus.includes(area.key)}
                   onChange={() => toggleInviteFocus(area.key)}
-                  className="mt-0.5 accent-[#c8a26a]"
+                  className="accent-surface-ink mt-0.5"
                 />
                 <span>
                   {area.label}
-                  <span className="block text-xs text-[#E8E0D0]/45">{area.description}</span>
+                  <span className={`${ADMIN_TYPE.meta} block`}>{area.description}</span>
                 </span>
               </label>
             ))}
@@ -238,27 +243,26 @@ export default function CrewList({
         <button
           type="submit"
           disabled={busy}
-          className="rounded-md bg-[#E8E0D0] px-4 py-2 text-sm font-semibold text-[#2A2420] transition hover:bg-white disabled:opacity-50"
+          className={buttonClassName('primary', 's')}
         >
           {busy ? 'Sending…' : 'Send crew invite'}
         </button>
       </form>
+      </Panel>
 
       {error && (
-        <div className="rounded-lg border border-[#F5A3A3]/40 bg-[#F5A3A3]/10 p-3 text-sm text-[#F5A3A3]">
+        <p role="alert" className={FORM.error}>
           {error}
-        </div>
+        </p>
       )}
       {notice && (
-        <div className="rounded-lg border border-[#7bb98a]/40 bg-[#7bb98a]/10 p-3 text-sm text-[#bfe6c8]">
-          {notice}
-        </div>
+        <Notice>{notice}</Notice>
       )}
 
       {crew.length === 0 ? (
-        <p className="text-sm text-[#E8E0D0]/50">No crew yet — send the first invite above.</p>
+        <p className="text-body-3 text-surface-ink/60">No crew yet — send the first invite above.</p>
       ) : (
-        <ul className="divide-y divide-[#E8E0D0]/10">
+        <ul className={`${ADMIN_TABLE.list} border-surface-ink border-y`}>
           {crew.map((m) => {
             const editedTitle = titleEdits[m.id];
             const titleValue = editedTitle ?? m.title ?? '';
@@ -268,31 +272,21 @@ export default function CrewList({
                 <div className="flex items-start justify-between gap-4">
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
-                      <span className="truncate font-medium">{m.name}</span>
-                      <span
-                        className={`rounded px-1.5 py-0.5 text-[10px] uppercase tracking-wide ${
-                          m.status === 'active'
-                            ? 'bg-[#7bb98a]/15 text-[#bfe6c8]'
-                            : m.status === 'disabled'
-                              ? 'bg-[#F5A3A3]/15 text-[#F5A3A3]'
-                              : 'bg-[#E8E0D0]/10 text-[#E8E0D0]/60'
-                        }`}
-                      >
-                        {STATUS_LABEL[m.status]}
-                      </span>
+                      <span className="truncate font-bold">{m.name}</span>
+                      <StatusMark tone={STATUS_TONE[m.status]}>{STATUS_LABEL[m.status]}</StatusMark>
                     </div>
-                    <div className="mt-0.5 truncate text-xs text-[#E8E0D0]/50">
+                    <div className={`${ADMIN_TYPE.meta} mt-0.5 truncate`}>
                       {m.email}
                       {m.last_seen_at ? ` · last seen ${formatDate(m.last_seen_at)}` : ''}
                     </div>
                   </div>
-                  <div className="flex shrink-0 items-center gap-3 text-sm">
+                  <div className="flex shrink-0 items-center gap-3 text-body-3">
                     {m.status !== 'disabled' && (
                       <button
                         type="button"
                         disabled={rowBusy === m.id}
                         onClick={() => rowAction(m, 'resend')}
-                        className="text-[#E8E0D0]/70 transition hover:text-[#E8E0D0] disabled:opacity-50"
+                        className="cursor-pointer underline-offset-4 hover:text-accent-red hover:underline disabled:opacity-50"
                       >
                         {m.status === 'invited' ? 'Resend invite' : 'Send reset link'}
                       </button>
@@ -301,7 +295,7 @@ export default function CrewList({
                       type="button"
                       disabled={rowBusy === m.id}
                       onClick={() => rowAction(m, m.status === 'disabled' ? 'enable' : 'disable')}
-                      className="text-[#E8E0D0]/70 transition hover:text-[#E8E0D0] disabled:opacity-50"
+                      className="cursor-pointer underline-offset-4 hover:text-accent-red hover:underline disabled:opacity-50"
                     >
                       {m.status === 'disabled' ? 'Enable' : 'Disable'}
                     </button>
@@ -309,7 +303,7 @@ export default function CrewList({
                       type="button"
                       disabled={rowBusy === m.id}
                       onClick={() => remove(m)}
-                      className="text-[#F5A3A3]/80 transition hover:text-[#F5A3A3] disabled:opacity-50"
+                      className="text-accent-red cursor-pointer underline-offset-4 hover:underline disabled:opacity-50"
                     >
                       Remove
                     </button>
@@ -332,7 +326,7 @@ export default function CrewList({
                       type="button"
                       disabled={rowBusy === m.id}
                       onClick={() => saveProfile(m, { title: titleValue })}
-                      className="shrink-0 rounded-md border border-[#E8E0D0]/30 px-3 py-1.5 text-xs text-[#E8E0D0]/80 transition hover:border-[#E8E0D0]/60 hover:text-[#E8E0D0] disabled:opacity-50"
+                      className={buttonClassName('secondary', 's')}
                     >
                       Save title
                     </button>
@@ -340,7 +334,7 @@ export default function CrewList({
                 </div>
 
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-                  <span className="text-xs uppercase tracking-wide text-[#E8E0D0]/45">Roles</span>
+                  <span className={`${ADMIN_TYPE.overline} text-surface-ink/60`}>Roles</span>
                   {ALL_ROLES.map((role) => {
                     const has = m.roles.includes(role);
                     const lastRole = has && m.roles.length === 1;
@@ -355,14 +349,14 @@ export default function CrewList({
                               ? "You can't remove your own staff role."
                               : undefined
                         }
-                        className="flex cursor-pointer items-center gap-1.5 text-[13px] text-[#E8E0D0]/70"
+                        className="flex cursor-pointer items-center gap-1.5 text-data-caption-13"
                       >
                         <input
                           type="checkbox"
                           checked={has}
                           disabled={rowBusy === m.id || lastRole || ownStaff}
                           onChange={() => toggleRole(m, role)}
-                          className="accent-[#c8a26a]"
+                          className="accent-surface-ink"
                         />
                         {ROLE_LABEL[role]}
                       </label>
@@ -374,14 +368,14 @@ export default function CrewList({
                   {FOCUS_AREAS.map((area) => (
                     <label
                       key={area.key}
-                      className="flex cursor-pointer items-center gap-1.5 text-[13px] text-[#E8E0D0]/70"
+                      className="flex cursor-pointer items-center gap-1.5 text-data-caption-13"
                     >
                       <input
                         type="checkbox"
                         checked={m.focus_areas.includes(area.key)}
                         disabled={rowBusy === m.id}
                         onChange={() => toggleFocus(m, area.key)}
-                        className="accent-[#c8a26a]"
+                        className="accent-surface-ink"
                       />
                       {area.label}
                     </label>

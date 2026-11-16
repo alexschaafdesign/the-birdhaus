@@ -64,6 +64,8 @@ export function activeAdminGroup(pathname: string) {
 const MIGRATED: RegExp[] = [
   /^\/admin$/, // the crew home (everyone else is redirected to /admin/shows)
   /^\/admin\/crew\/\d+\/preview$/, // the read-only preview of that home
+  // Phase 2: the directories.
+  /^\/admin\/(crew|sound-engineers|photographers|door-persons|bands)(\/.*)?$/,
 ];
 
 export function isMigratedAdminPath(pathname: string) {

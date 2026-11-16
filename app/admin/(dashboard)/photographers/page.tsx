@@ -17,7 +17,7 @@ async function getPhotographers(): Promise<PhotographerListItem[]> {
 export default async function AdminPhotographersPage() {
   const photographers = await getPhotographers();
   return (
-    <main className="max-w-6xl mx-auto px-6 pb-16 pt-6">
+    <main className="mx-auto max-w-6xl px-4 pt-8 pb-16 sm:px-8">
       <PhotographersList initialPhotographers={photographers} />
     </main>
   );
