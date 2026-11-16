@@ -2,8 +2,10 @@ import type { ComponentProps } from 'react';
 
 // Birdhaus DS — birdhaus-wordmark (Figma 210:271), the cleaned-up hand-lettered
 // logo. Outlines only, fill = currentColor, so colour comes from a text token
-// (text-text-primary by default — what the Figma fill is bound to; override
-// with text-surface-paper on dark grounds).
+// (text-text-primary by default — what the Figma fill is bound to; pass
+// onInk for text-surface-paper on dark grounds). The colour is a prop, not a
+// className override: two text colours in one class list resolve by CSS
+// order, which once left the AdminBar's paper wordmark ink on ink.
 //   layout="horizontal"  the full wordmark (web/birdhaus-currentcolor.svg)
 //   layout="short-tail"  the s tail pulled in, for tight spaces / the mobile
 //                        header (wordmark-short-tail/…-medium, fill → currentColor)
@@ -30,10 +32,13 @@ const ART: Record<Layout, { viewBox: string; paths: Path[] }> = {
 
 export type BirdhausWordmarkProps = Omit<ComponentProps<'svg'>, 'children' | 'viewBox'> & {
   layout?: Layout;
+  /** Paper wordmark, for an ink ground. */
+  onInk?: boolean;
 };
 
 export function BirdhausWordmark({
   layout = 'horizontal',
+  onInk = false,
   className = '',
   ...props
 }: BirdhausWordmarkProps) {
@@ -44,7 +49,7 @@ export function BirdhausWordmark({
       {...props}
       viewBox={art.viewBox}
       fill="currentColor"
-      className={`text-text-primary block h-auto ${className}`}
+      className={`${onInk ? 'text-surface-paper' : 'text-text-primary'} block h-auto ${className}`}
       aria-hidden="true"
       focusable="false"
     >
