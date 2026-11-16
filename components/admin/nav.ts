@@ -89,6 +89,10 @@ const MIGRATED: RegExp[] = [
   // Phase 4c: a show's Contacts, Inputs and RSVPs tabs. (Portal renders the
   // band-facing /hub view, so it moves with /hub in Phase 7.)
   /^\/admin\/shows\/\d+\/(crew|inputs|rsvps)$/,
+  // Phase 5: money — a show's Settlement tab, the Settlements summary,
+  // Expenses, Year in Review and the Timesheet.
+  /^\/admin\/shows\/\d+\/settlement$/,
+  /^\/admin\/(settlements|expenses|year|timesheet)$/,
 ];
 
 export function isMigratedAdminPath(pathname: string) {

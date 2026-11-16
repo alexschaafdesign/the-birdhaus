@@ -4,13 +4,15 @@ import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { formatCurrency } from '@/lib/settlements';
 
-// Dark-surface steps of the shared data-viz categorical palette (validated for
-// the dark chart surface): Square / Venmo / Cash.
+// The 2027 spectrum as chart fills on paper: Square / Venmo / Cash. Violet is
+// dark enough for paper text on it; orange and amber take ink text.
 const SERIES = {
-  square: '#3987e5',
-  venmo: '#d95926',
-  cash: '#199e70',
+  square: 'var(--color-spectrum-violet)',
+  venmo: 'var(--color-spectrum-orange)',
+  cash: 'var(--color-spectrum-amber)',
 } as const;
+const onSeries = (color: string) =>
+  color === SERIES.square ? 'var(--color-surface-paper)' : 'var(--color-surface-ink)';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -86,9 +88,9 @@ const shortDate = (iso: string) => {
   return `${MONTHS[Number(m) - 1]} ${Number(d)}`;
 };
 
-const cardClass = 'border border-[#E8E0D0]/15 rounded-lg p-4';
+const cardClass = 'border border-surface-ink bg-surface-paper p-4';
 const inputClass =
-  'bg-transparent border border-[#E8E0D0]/30 rounded px-3 py-1.5 text-sm focus:outline-none focus:border-[#E8E0D0]';
+  'bg-surface-paper text-surface-ink border border-surface-ink rounded-none px-3 py-1.5 text-body-3 placeholder:text-surface-ink/45 focus-visible:outline-accent-red focus-visible:outline-2 focus-visible:outline-offset-2';
 
 interface Tip {
   x: number;
@@ -124,10 +126,10 @@ function StatTile({
   emphasis?: boolean;
 }) {
   return (
-    <div className={emphasis ? 'border-2 border-[#E8E0D0] rounded-lg p-4' : cardClass}>
-      <p className="text-xs uppercase tracking-wide text-[#E8E0D0]/40 mb-1">{label}</p>
-      <p className={`font-semibold tabular-nums ${emphasis ? 'text-2xl font-bold' : 'text-xl'}`}>{value}</p>
-      {sub && <p className="text-xs text-[#E8E0D0]/30 mt-1">{sub}</p>}
+    <div className={emphasis ? 'border-2 border-surface-ink  p-4' : cardClass}>
+      <p className="text-data-overline-11 font-bold leading-[1.3] tracking-[--spacing(0.625)] uppercase text-surface-ink/60 mb-1">{label}</p>
+      <p className={`font-bold tabular-nums ${emphasis ? 'text-header-3 font-bold' : 'text-header-4'}`}>{value}</p>
+      {sub && <p className="text-data-caption-13 text-surface-ink/60 mt-1">{sub}</p>}
     </div>
   );
 }
@@ -205,19 +207,22 @@ export default function YearInReviewView() {
 
   return (
     <div className="space-y-6" onMouseLeave={() => setTip(null)}>
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <h1 className="text-2xl font-bold">Year in Review</h1>
+      <div className="flex items-end justify-between flex-wrap gap-3">
+        <div>
+          <p className="text-data-overline-11 font-bold leading-[1.3] tracking-[--spacing(0.625)] uppercase text-accent-red mb-1">Money</p>
+          <h1 className="text-header-3 font-bold leading-tight">Year in Review</h1>
+        </div>
         <div className="flex items-center gap-3 flex-wrap">
           {data?.skewed && (
-            <label className="inline-flex items-center gap-2 text-sm text-[#E8E0D0]/70 cursor-pointer select-none">
+            <label className="inline-flex items-center gap-2 text-body-3 text-surface-ink/80 cursor-pointer select-none">
               <input
                 type="checkbox"
                 checked={showAll}
                 onChange={(e) => setShowAll(e.target.checked)}
-                className="accent-[#E8E0D0]"
+                className="accent-surface-ink"
               />
               Show all
-              <span className="text-xs text-[#E8E0D0]/40">
+              <span className="text-data-caption-13 text-surface-ink/60">
                 ({data.skewed.label} {data.skewed.excluded ? 'hidden' : 'included'})
               </span>
             </label>
@@ -233,15 +238,15 @@ export default function YearInReviewView() {
       </div>
 
       {error && (
-        <div className="border border-red-400/40 bg-red-400/10 text-red-300 text-sm rounded px-4 py-2">{error}</div>
+        <div className="border border-accent-red text-accent-red text-body-3 px-4 py-2">{error}</div>
       )}
-      {loading && !data && <p className="text-sm text-[#E8E0D0]/50">Loading…</p>}
+      {loading && !data && <p className="text-body-3 text-surface-ink/60">Loading…</p>}
 
       {data && t && h && (
         <>
           {/* The season */}
           <section className="space-y-3">
-            <h2 className="text-xs uppercase tracking-widest text-[#E8E0D0]/40">The season</h2>
+            <h2 className="text-data-overline-11 font-bold leading-[1.3] tracking-[--spacing(0.625)] uppercase text-surface-ink/60">The season</h2>
             <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-6">
               <StatTile label="Shows" value={String(t.shows)} />
               <StatTile label="Bands" value={String(t.bands)} sub={`${t.repeatBands} played more than once`} />
@@ -262,7 +267,7 @@ export default function YearInReviewView() {
 
           {/* The money */}
           <section className="space-y-3">
-            <h2 className="text-xs uppercase tracking-widest text-[#E8E0D0]/40">The money</h2>
+            <h2 className="text-data-overline-11 font-bold leading-[1.3] tracking-[--spacing(0.625)] uppercase text-surface-ink/60">The money</h2>
             <div className="grid gap-3 grid-cols-2 sm:grid-cols-4">
               <StatTile label="Money in" value={usd0(t.totalIncome)} sub={`${t.settledShows} settled shows`} emphasis />
               <StatTile label="Paid to bands" value={usd0(t.bandPayout)} sub={pctOf(t.bandPayout, t.totalIncome)} />
@@ -273,7 +278,7 @@ export default function YearInReviewView() {
 
           {/* Highlights */}
           <section className={cardClass}>
-            <h2 className="text-sm font-semibold text-[#E8E0D0]/80 mb-4">Highlights</h2>
+            <h2 className="text-data-overline-11 font-bold leading-[1.3] tracking-[--spacing(0.625)] uppercase mb-4">Highlights</h2>
             <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
               <Highlight
                 label="Biggest band payout"
@@ -303,15 +308,15 @@ export default function YearInReviewView() {
               />
             </div>
             {h.topRepeatBands.length > 0 && (
-              <div className="mt-5 pt-4 border-t border-[#E8E0D0]/10">
-                <h3 className="text-xs uppercase tracking-wide text-[#E8E0D0]/40 mb-2">Repeat bands</h3>
+              <div className="mt-5 pt-4 border-t border-surface-ink/20">
+                <h3 className="text-data-overline-11 font-bold leading-[1.3] tracking-[--spacing(0.625)] uppercase text-surface-ink/60 mb-2">Repeat bands</h3>
                 <div className="flex flex-wrap gap-2">
                   {h.topRepeatBands.map((b) => (
                     <span
                       key={b.name}
-                      className="text-sm border border-[#E8E0D0]/20 rounded-full px-3 py-1 text-[#E8E0D0]/80"
+                      className="text-body-3 border border-surface-ink px-3 py-1 text-surface-ink/80"
                     >
-                      {b.name} <span className="text-[#E8E0D0]/40 tabular-nums">×{b.count}</span>
+                      {b.name} <span className="text-surface-ink/60 tabular-nums">×{b.count}</span>
                     </span>
                   ))}
                 </div>
@@ -322,8 +327,8 @@ export default function YearInReviewView() {
           {/* Charts */}
           <div className="grid gap-4 lg:grid-cols-2">
             <div className={cardClass}>
-              <h2 className="text-sm font-semibold text-[#E8E0D0]/80">Money in, month by month</h2>
-              <p className="text-xs text-[#E8E0D0]/40 mb-3">Settlement income by payment method</p>
+              <h2 className="text-data-overline-11 font-bold leading-[1.3] tracking-[--spacing(0.625)] uppercase">Money in, month by month</h2>
+              <p className="text-data-caption-13 text-surface-ink/60 mb-3">Settlement income by payment method</p>
               {incomeChart && (
                 <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto" role="img" aria-label="Monthly income by method">
                   <YGrid max={incomeChart.max} fmt={(v) => (v >= 1000 ? `$${v / 1000}k` : `$${v}`)} />
@@ -345,7 +350,7 @@ export default function YearInReviewView() {
                           height={Math.max(0.5, hgt)}
                           rx={2}
                           fill={SERIES[s.key]}
-                          stroke="#2A2420"
+                          stroke="var(--color-surface-paper)"
                           strokeWidth={1.5}
                           onMouseMove={(e) =>
                             showTip(e, {
@@ -365,11 +370,11 @@ export default function YearInReviewView() {
                       <g key={m.month}>
                         {rects}
                         {m.totalIncome > 0 && (
-                          <text x={cx} y={yTop - 6} textAnchor="middle" className="tabular-nums" fill="#E8E0D0" opacity={0.7} fontSize={10} fontWeight={700}>
+                          <text x={cx} y={yTop - 6} textAnchor="middle" className="tabular-nums" fill="currentColor" opacity={0.7} fontSize={10} fontWeight={700}>
                             {usd0(m.totalIncome)}
                           </text>
                         )}
-                        <text x={cx} y={H - 10} textAnchor="middle" fill="#E8E0D0" opacity={0.4} fontSize={11}>
+                        <text x={cx} y={H - 10} textAnchor="middle" fill="currentColor" opacity={0.4} fontSize={11}>
                           {monthLabel(m.month)}
                         </text>
                       </g>
@@ -381,8 +386,8 @@ export default function YearInReviewView() {
             </div>
 
             <div className={cardClass}>
-              <h2 className="text-sm font-semibold text-[#E8E0D0]/80">Shows &amp; sets each month</h2>
-              <p className="text-xs text-[#E8E0D0]/40 mb-3">Band slots booked across the season</p>
+              <h2 className="text-data-overline-11 font-bold leading-[1.3] tracking-[--spacing(0.625)] uppercase">Shows &amp; sets each month</h2>
+              <p className="text-data-caption-13 text-surface-ink/60 mb-3">Band slots booked across the season</p>
               {activityChart && (
                 <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto" role="img" aria-label="Shows and sets per month">
                   <YGrid max={activityChart.max} fmt={(v) => String(v)} />
@@ -419,13 +424,13 @@ export default function YearInReviewView() {
                                 }
                                 onMouseLeave={() => setTip(null)}
                               />
-                              <text x={x + activityChart.bw / 2} y={y - 5} textAnchor="middle" className="tabular-nums" fill="#E8E0D0" opacity={0.7} fontSize={10} fontWeight={700}>
+                              <text x={x + activityChart.bw / 2} y={y - 5} textAnchor="middle" className="tabular-nums" fill="currentColor" opacity={0.7} fontSize={10} fontWeight={700}>
                                 {p.val}
                               </text>
                             </g>
                           );
                         })}
-                        <text x={cx} y={H - 10} textAnchor="middle" fill="#E8E0D0" opacity={0.4} fontSize={11}>
+                        <text x={cx} y={H - 10} textAnchor="middle" fill="currentColor" opacity={0.4} fontSize={11}>
                           {monthLabel(m.month)}
                         </text>
                       </g>
@@ -439,20 +444,20 @@ export default function YearInReviewView() {
 
           {/* Income split */}
           <div className={cardClass}>
-            <h2 className="text-sm font-semibold text-[#E8E0D0]/80 mb-3">Where the money came from</h2>
+            <h2 className="text-data-overline-11 font-bold leading-[1.3] tracking-[--spacing(0.625)] uppercase mb-3">Where the money came from</h2>
             <IncomeSplit square={t.incomeSquare} venmo={t.incomeVenmo} cash={t.incomeCash} />
           </div>
 
           {/* Per-show table */}
           <div className={cardClass}>
-            <h2 className="text-sm font-semibold text-[#E8E0D0]/80 mb-3">Every show</h2>
+            <h2 className="text-data-overline-11 font-bold leading-[1.3] tracking-[--spacing(0.625)] uppercase mb-3">Every show</h2>
             {data.perShow.length === 0 ? (
-              <p className="text-xs text-[#E8E0D0]/30">No shows in {year}.</p>
+              <p className="text-data-caption-13 text-surface-ink/60">No shows in {year}.</p>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+                <table className="w-full text-body-3">
                   <thead>
-                    <tr className="text-left text-xs uppercase tracking-wide text-[#E8E0D0]/40 border-b border-[#E8E0D0]/10">
+                    <tr className="text-left text-data-overline-11 font-bold leading-[1.3] tracking-[--spacing(0.625)] uppercase text-surface-ink/60 border-b border-surface-ink/20">
                       <th className="py-2 pr-4">Date</th>
                       <th className="py-2 pr-4">Show</th>
                       <th className="py-2 pr-4 text-right">Bands</th>
@@ -468,9 +473,9 @@ export default function YearInReviewView() {
                       <tr
                         key={row.showId}
                         onClick={() => router.push(`/admin/shows/${row.showId}/settlement`)}
-                        className="border-b border-[#E8E0D0]/5 hover:bg-[#E8E0D0]/5 cursor-pointer"
+                        className="border-b border-surface-ink/20 hover:bg-surface-paper-shade cursor-pointer"
                       >
-                        <td className="py-2 pr-4 whitespace-nowrap text-[#E8E0D0]/60 tabular-nums">{shortDate(row.date)}</td>
+                        <td className="py-2 pr-4 whitespace-nowrap text-surface-ink/60 tabular-nums">{shortDate(row.date)}</td>
                         <td className="py-2 pr-4 underline">{row.title}</td>
                         <td className="py-2 pr-4 text-right tabular-nums">{row.bands}</td>
                         <td className="py-2 pr-4 text-right tabular-nums">{row.ticketsSold || '—'}</td>
@@ -478,8 +483,8 @@ export default function YearInReviewView() {
                         <td className="py-2 pr-4 text-right tabular-nums">{row.totalIncome ? formatCurrency(row.totalIncome) : '—'}</td>
                         <td className="py-2 pr-4 text-right tabular-nums">{row.bandPayout ? formatCurrency(row.bandPayout) : '—'}</td>
                         <td
-                          className={`py-2 pr-4 text-right tabular-nums font-semibold ${
-                            row.venueNet > 0.005 ? 'text-green-400' : row.venueNet < -0.005 ? 'text-red-400' : ''
+                          className={`py-2 pr-4 text-right tabular-nums font-bold ${
+                            row.venueNet > 0.005 ? 'text-surface-ink' : row.venueNet < -0.005 ? 'text-accent-red' : ''
                           }`}
                         >
                           {formatCurrency(row.venueNet)}
@@ -492,7 +497,7 @@ export default function YearInReviewView() {
             )}
           </div>
 
-          <p className="text-xs text-[#E8E0D0]/30 leading-relaxed">
+          <p className="text-data-caption-13 text-surface-ink/60 leading-relaxed">
             Money figures reuse each show&rsquo;s settlement math (splits, guarantees, overrides). &ldquo;Ticket
             revenue&rdquo; is online Square card sales only; &ldquo;money in&rdquo; is total settlement income across all
             settled shows. Venue net is before admin-help labor.
@@ -504,13 +509,13 @@ export default function YearInReviewView() {
 
       {tip && (
         <div
-          className="fixed z-50 pointer-events-none bg-[#1a1512] text-[#E8E0D0] rounded-md px-3 py-2 text-xs shadow-lg border border-[#E8E0D0]/15"
+          className="fixed z-50 pointer-events-none bg-surface-paper text-surface-ink px-3 py-2 text-data-caption-13 border border-surface-ink/20"
           style={{ left: tip.x + 14, top: tip.y + 14, maxWidth: 220 }}
         >
-          <p className="font-semibold mb-1">{tip.rows.title}</p>
+          <p className="font-bold mb-1">{tip.rows.title}</p>
           {tip.rows.lines.map(([k, v]) => (
             <p key={k} className="flex justify-between gap-4 tabular-nums">
-              <span className="text-[#E8E0D0]/50">{k}</span>
+              <span className="text-surface-ink/60">{k}</span>
               <span>{v}</span>
             </p>
           ))}
@@ -528,9 +533,9 @@ function pctOf(part: number, whole: number): string {
 function Highlight({ label, primary, secondary }: { label: string; primary: string; secondary?: string }) {
   return (
     <div>
-      <p className="text-xs uppercase tracking-wide text-[#E8E0D0]/40 mb-1">{label}</p>
-      <p className="text-xl font-semibold tabular-nums">{primary}</p>
-      {secondary && <p className="text-xs text-[#E8E0D0]/50 mt-1 leading-snug">{secondary}</p>}
+      <p className="text-data-overline-11 font-bold leading-[1.3] tracking-[--spacing(0.625)] uppercase text-surface-ink/60 mb-1">{label}</p>
+      <p className="text-header-4 font-bold tabular-nums">{primary}</p>
+      {secondary && <p className="text-data-caption-13 text-surface-ink/60 mt-1 leading-snug">{secondary}</p>}
     </div>
   );
 }
@@ -539,8 +544,8 @@ function Legend({ items }: { items: [string, string][] }) {
   return (
     <div className="flex flex-wrap gap-x-4 gap-y-1 mt-3">
       {items.map(([label, color]) => (
-        <span key={label} className="inline-flex items-center gap-1.5 text-xs text-[#E8E0D0]/70">
-          <i className="w-2.5 h-2.5 rounded-sm" style={{ background: color }} />
+        <span key={label} className="inline-flex items-center gap-1.5 text-data-caption-13 text-surface-ink/80">
+          <i className="w-2.5 h-2.5" style={{ background: color }} />
           {label}
         </span>
       ))}
@@ -555,8 +560,8 @@ function YGrid({ max, fmt }: { max: number; fmt: (v: number) => string }) {
     const y = PAD.t + PH - (val / max) * PH;
     lines.push(
       <g key={i}>
-        <line x1={PAD.l} y1={y} x2={PAD.l + PW} y2={y} stroke="#E8E0D0" strokeOpacity={0.1} strokeWidth={1} />
-        <text x={PAD.l - 7} y={y + 3.5} textAnchor="end" className="tabular-nums" fill="#E8E0D0" opacity={0.4} fontSize={10}>
+        <line x1={PAD.l} y1={y} x2={PAD.l + PW} y2={y} stroke="currentColor" strokeOpacity={0.1} strokeWidth={1} />
+        <text x={PAD.l - 7} y={y + 3.5} textAnchor="end" className="tabular-nums" fill="currentColor" opacity={0.4} fontSize={10}>
           {fmt(val)}
         </text>
       </g>
@@ -567,7 +572,7 @@ function YGrid({ max, fmt }: { max: number; fmt: (v: number) => string }) {
 
 function IncomeSplit({ square, venmo, cash }: { square: number; venmo: number; cash: number }) {
   const total = square + venmo + cash;
-  if (total <= 0) return <p className="text-xs text-[#E8E0D0]/30">No income recorded.</p>;
+  if (total <= 0) return <p className="text-data-caption-13 text-surface-ink/60">No income recorded.</p>;
   const rows: [string, number, string][] = [
     ['Square (online + door reader)', square, SERIES.square],
     ['Venmo', venmo, SERIES.venmo],
@@ -575,27 +580,27 @@ function IncomeSplit({ square, venmo, cash }: { square: number; venmo: number; c
   ];
   return (
     <>
-      <div className="flex h-9 rounded overflow-hidden mb-3">
+      <div className="flex h-9 overflow-hidden mb-3">
         {rows.map(([label, val, color]) => {
           const pct = (val / total) * 100;
           return (
             <div
               key={label}
-              style={{ flexGrow: val, background: color }}
-              className="flex items-center justify-center text-xs font-semibold text-white/90"
+              style={{ flexGrow: val, background: color, color: onSeries(color) }}
+              className="flex items-center justify-center text-data-caption-13 font-bold"
             >
               {pct >= 10 ? `${Math.round(pct)}%` : ''}
             </div>
           );
         })}
       </div>
-      <dl className="space-y-2 text-sm">
+      <dl className="space-y-2 text-body-3">
         {rows.map(([label, val, color]) => (
           <div key={label} className="flex items-center gap-2">
-            <i className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ background: color }} />
-            <dt className="text-[#E8E0D0]/60">{label}</dt>
-            <dd className="ml-auto tabular-nums font-semibold">{formatCurrency(val)}</dd>
-            <dd className="tabular-nums text-[#E8E0D0]/40 w-10 text-right">{Math.round((val / total) * 100)}%</dd>
+            <i className="w-2.5 h-2.5 shrink-0" style={{ background: color }} />
+            <dt className="text-surface-ink/60">{label}</dt>
+            <dd className="ml-auto tabular-nums font-bold">{formatCurrency(val)}</dd>
+            <dd className="tabular-nums text-surface-ink/60 w-10 text-right">{Math.round((val / total) * 100)}%</dd>
           </div>
         ))}
       </dl>

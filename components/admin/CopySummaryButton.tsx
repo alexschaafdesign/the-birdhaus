@@ -22,7 +22,7 @@ export default function CopySummaryButton({ text }: { text: string }) {
       onClick={handleCopy}
       title={copied ? 'Copied!' : 'Copy main details for email'}
       aria-label="Copy main details for email"
-      className="flex items-center justify-center border border-[#E8E0D0]/30 rounded p-[9px] hover:bg-[#E8E0D0]/10 transition-colors"
+      className="border-surface-ink ui-hover:bg-surface-ink ui-hover:text-surface-paper flex size-9.5 cursor-pointer items-center justify-center border-2 transition-colors focus-visible:outline-accent-red focus-visible:outline-2 focus-visible:outline-offset-2"
     >
       {copied ? (
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

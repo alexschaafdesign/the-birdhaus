@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation';
 import { sql } from '@/lib/db';
 import CopySummaryButton from '@/components/admin/CopySummaryButton';
 import SettlementForm from '@/components/admin/SettlementForm';
+import { buttonClassName } from '@/components/admin/ui';
 import { getShowBandsPaidStatus } from '@/lib/bands';
 import { getShowPurchaseMatches } from '@/lib/square';
 import {
@@ -166,7 +167,7 @@ export default async function SettlementPage({ params }: { params: Promise<{ id:
           <a
             href={pdfHref}
             title="Download PDF"
-            className="flex items-center gap-1.5 text-sm border border-[#E8E0D0]/30 rounded px-3 py-1.5 hover:bg-[#E8E0D0]/10 transition-colors"
+            className={buttonClassName('secondary', 's')}
           >
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M12 3v13m0 0-4-4m4 4 4-4" strokeLinecap="round" strokeLinejoin="round" />

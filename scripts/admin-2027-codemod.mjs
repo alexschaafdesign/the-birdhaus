@@ -79,19 +79,20 @@ const RULES = [
   // Sub-DS pixel sizes → the smallest DS label.
   [/(^|[\s"'`])((?:[a-z]+:)?)text-\[(?:9|10|11)px\](?=[\s"'`])/g, '$1$2text-data-label-10-small'],
   // Small uppercase labels → the DS overline.
-  [/text-(?:body-3|data-caption-13) uppercase tracking-(?:wide|wider|widest)/g, 'text-data-overline-11 font-bold leading-[1.3] tracking-[--spacing(0.625)] uppercase'],
+  [/text-(?:body-3|data-caption-13) uppercase tracking-(?:widest|wider|wide)\b/g, 'text-data-overline-11 font-bold leading-[1.3] tracking-[--spacing(0.625)] uppercase'],
   // Hovers that no longer change anything after the colour swap.
   [/text-accent-red hover:text-accent-red/g, 'text-accent-red cursor-pointer hover:underline'],
   [/text-surface-ink hover:text-surface-ink/g, 'text-surface-ink hover:text-accent-red'],
   [/(^|[\s"'`])hover:bg-surface-paper-shade hover:bg-surface-paper-shade/g, '$1hover:bg-surface-paper-shade'],
   // Square corners.
-  [/(^|[\s"'`])((?:[a-z-]+:)?rounded(?:-[a-z0-9]+)*)(?=[\s"'`])/g, '$1'],
+  // Not a JS identifier: `const rounded = …` / `rounded === due` must survive.
+  [/(^|[\s"'`])((?:[a-z-]+:)?rounded(?:-[a-z0-9]+)*)(?=[\s"'`])(?![ \t]*[=!<>)*/+,;?:-])/g, '$1'],
   // No soft shadows in the DS (shadow-none stays: it resets a breakpoint).
   [/(^|[\s"'`])((?:[a-z-]+:)?shadow-(?:sm|md|lg|xl|2xl|inner))(?=[\s"'`])/g, '$1'],
 ];
 
 // Any hex literal counts, inline style={{…}} colours included.
-const LEFTOVER = /#[0-9A-Fa-f]{6}\b|\b(?:red|green|emerald|amber|yellow|sky|blue)-[0-9]{3}\b|\brounded\b/;
+const LEFTOVER = /#[0-9A-Fa-f]{6}\b|\b(?:red|green|emerald|amber|yellow|sky|blue|rose|purple)-[0-9]{3}\b|\brounded\b/;
 
 for (const file of process.argv.slice(2)) {
   let src = readFileSync(file, 'utf8');
