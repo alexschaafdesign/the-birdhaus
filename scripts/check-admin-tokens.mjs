@@ -26,6 +26,10 @@ const LEGACY = {
   'components/admin/InputsPdfDocument.tsx': 'PDF',
 };
 
+// Whole folders still on the dark frame. The rehearsal admin lives on the
+// rehearsal branch (staging only) and moves to paper after it reaches main.
+const LEGACY_DIRS = ['components/admin/rehearsal/', 'app/admin/(dashboard)/rehearsal/'];
+
 const RULES = [
   ['hex colour', /#[0-9a-fA-F]{6}\b|\[#[0-9a-fA-F]{3,8}\]|["'`]#[0-9a-fA-F]{3}["'`]/],
   [
@@ -49,7 +53,7 @@ let files = 0;
 for (const root of ROOTS) {
   for (const file of walk(root)) {
     const rel = relative('.', file);
-    if (LEGACY[rel]) continue;
+    if (LEGACY[rel] || LEGACY_DIRS.some((d) => rel.startsWith(d))) continue;
     files++;
     const lines = readFileSync(file, 'utf8').split('\n');
     let inStyle = false;
