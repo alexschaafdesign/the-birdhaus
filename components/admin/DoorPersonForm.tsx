@@ -126,7 +126,6 @@ export default function DoorPersonForm({
         </div>
 
         <ImageUploadField
-          paper
           label="Photo"
           value={photo}
           onChange={setPhoto}

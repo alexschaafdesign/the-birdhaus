@@ -8,11 +8,11 @@ import AddBandModal from './AddBandModal';
 import PhotographerNameInput, { type PhotographerMatch } from './PhotographerNameInput';
 import ImageUploadField from './ImageUploadField';
 import ShowDateAvailability from './ShowDateAvailability';
-import Section from './Section';
+import { FORM } from '@/components/night/form';
+import { Panel as Section, PageHeader, ADMIN_TYPE, FIELD_INLINE, buttonClassName } from './ui';
 import { downscaleImage } from '@/lib/downscale-image';
 
-const inputClass =
-  'bg-transparent border border-[#E8E0D0]/30 rounded px-3 py-1.5 text-sm focus:outline-none focus:border-[#E8E0D0] placeholder:text-[#E8E0D0]/30';
+const inputClass = FORM.field;
 
 function slugify(text: string): string {
   return text
@@ -796,7 +796,7 @@ export default function ShowForm({
       collapsible
       defaultOpen={defaultOpen}
       action={
-        <button type="button" onClick={addVideo} className="text-xs border border-[#E8E0D0]/30 rounded px-2 py-1 hover:bg-[#E8E0D0]/10">
+        <button type="button" onClick={addVideo} className="text-data-caption-13 border border-surface-ink px-2 py-1 cursor-pointer hover:bg-surface-paper-shade">
           + add video
         </button>
       }
@@ -804,7 +804,7 @@ export default function ShowForm({
       <div className="space-y-5">
         <div className="space-y-2">
           {form.videos.map((video, index) => (
-            <div key={index} className="border border-[#E8E0D0]/10 rounded p-3 space-y-2">
+            <div key={index} className="border border-surface-ink p-3 space-y-2">
               <div className="grid gap-2 sm:grid-cols-[1fr_1fr_auto] items-start">
                 <input
                   placeholder="YouTube URL or video ID"
@@ -822,14 +822,14 @@ export default function ShowForm({
                 <button
                   type="button"
                   onClick={() => removeVideo(index)}
-                  className="text-red-400/70 hover:text-red-400 text-sm px-2"
+                  className="text-accent-red cursor-pointer hover:underline text-body-3 px-2"
                 >
                   Remove
                 </button>
               </div>
               {form.bands.length > 0 && (
                 <div>
-                  <p className="text-xs text-[#E8E0D0]/40 mb-1.5">
+                  <p className="text-data-caption-13 text-surface-ink/60 mb-1.5">
                     Which band(s) is this a video of? (optional)
                   </p>
                   <div className="flex flex-wrap gap-1.5">
@@ -842,8 +842,8 @@ export default function ShowForm({
                           onClick={() => toggleVideoBand(index, bandIdx)}
                           className={
                             selected
-                              ? 'text-xs rounded-full px-2.5 py-1 border border-[#E8E0D0] bg-[#E8E0D0] text-[#2A2420]'
-                              : 'text-xs rounded-full px-2.5 py-1 border border-[#E8E0D0]/30 text-[#E8E0D0]/70 hover:border-[#E8E0D0]/60'
+                              ? 'text-data-caption-13  px-2.5 py-1 border border-surface-ink bg-surface-ink text-surface-paper'
+                              : 'text-data-caption-13  px-2.5 py-1 border border-surface-ink text-surface-ink/80 hover:border-accent-red'
                           }
                         >
                           {band.name || `Band ${bandIdx + 1}`}
@@ -855,12 +855,12 @@ export default function ShowForm({
               )}
             </div>
           ))}
-          {form.videos.length === 0 && <p className="text-xs text-[#E8E0D0]/30">No videos added yet.</p>}
+          {form.videos.length === 0 && <p className="text-data-caption-13 text-surface-ink/60">No videos added yet.</p>}
         </div>
 
-        <div className="pt-4 border-t border-[#E8E0D0]/10 space-y-3">
+        <div className="pt-4 border-t border-surface-ink space-y-3">
           <div>
-            <label className="block text-xs uppercase tracking-wide text-[#E8E0D0]/40 mb-1">
+            <label className={FORM.label}>
               Photographer for these photos
             </label>
             <PhotographerNameInput
@@ -878,21 +878,21 @@ export default function ShowForm({
               placeholder="Choose or add a photographer…"
               className={`${inputClass} w-full sm:max-w-sm`}
             />
-            <p className="mt-1 text-xs text-[#E8E0D0]/40 max-w-prose">
+            <p className="mt-1 text-data-caption-13 text-surface-ink/60 max-w-prose">
               Photos you upload are credited to this photographer (pulled from the Photographers
               registry). Shooting a gallery with more than one? Upload each person&apos;s batch
               under their name — or switch the name here and click a photo below to re-credit it.
             </p>
           </div>
           <div className="flex items-center justify-between mb-1">
-            <label className="block text-xs uppercase tracking-wide text-[#E8E0D0]/40">
+            <label className="block text-data-overline-11 font-bold leading-[1.3] tracking-[--spacing(0.625)] uppercase">
               Photos
             </label>
             <button
               type="button"
               onClick={() => photosFileInputRef.current?.click()}
               disabled={photosUploading}
-              className="text-xs border border-[#E8E0D0]/30 rounded px-2 py-1 hover:bg-[#E8E0D0]/10 disabled:opacity-50"
+              className="text-data-caption-13 border border-surface-ink px-2 py-1 cursor-pointer hover:bg-surface-paper-shade disabled:opacity-50"
             >
               {photosUploadProgress
                 ? `Uploading ${photosUploadProgress.done}/${photosUploadProgress.total}...`
@@ -912,22 +912,22 @@ export default function ShowForm({
             />
           </div>
           {form.photos.length > 0 && form.bands.length > 0 && (
-            <div className="space-y-2 rounded border border-[#E8E0D0]/10 px-3 py-2 text-xs">
+            <div className="space-y-2 border border-surface-ink px-3 py-2 text-data-caption-13">
               {photoSelectMode ? (
                 <>
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-[#E8E0D0]/70 tabular-nums">{pickedPhotos.size} selected</span>
+                    <span className="text-surface-ink/80 tabular-nums">{pickedPhotos.size} selected</span>
                     <button
                       type="button"
                       onClick={() => setPickedPhotos(new Set(form.photos.map((_, i) => i)))}
-                      className="text-[#E8E0D0]/60 underline underline-offset-2 hover:text-[#E8E0D0]"
+                      className="text-surface-ink/60 underline underline-offset-2 hover:text-accent-red"
                     >
                       all
                     </button>
                     <button
                       type="button"
                       onClick={clearPhotoPicks}
-                      className="text-[#E8E0D0]/60 underline underline-offset-2 hover:text-[#E8E0D0]"
+                      className="text-surface-ink/60 underline underline-offset-2 hover:text-accent-red"
                     >
                       none
                     </button>
@@ -937,13 +937,13 @@ export default function ShowForm({
                         setPhotoSelectMode(false);
                         clearPhotoPicks();
                       }}
-                      className="ml-auto border border-[#E8E0D0]/30 rounded px-2 py-1 hover:bg-[#E8E0D0]/10"
+                      className="ml-auto border border-surface-ink px-2 py-1 cursor-pointer hover:bg-surface-paper-shade"
                     >
                       Done
                     </button>
                   </div>
                   <div className="flex flex-wrap items-center gap-1.5">
-                    <span className="text-[#E8E0D0]/40">Tag selected →</span>
+                    <span className="text-surface-ink/60">Tag selected →</span>
                     {form.bands.map((band, bandIdx) => (
                       <button
                         key={bandIdx}
@@ -953,7 +953,7 @@ export default function ShowForm({
                           tagPhotos(pickedPhotos, bandIdx);
                           clearPhotoPicks();
                         }}
-                        className="rounded-full px-2.5 py-1 border border-[#E8E0D0]/30 text-[#E8E0D0]/70 hover:border-[#E8E0D0]/60 disabled:opacity-40"
+                        className=" px-2.5 py-1 border border-surface-ink text-surface-ink/80 hover:border-accent-red disabled:opacity-40"
                       >
                         {band.name || `Band ${bandIdx + 1}`}
                       </button>
@@ -965,16 +965,16 @@ export default function ShowForm({
                         tagPhotos(pickedPhotos, undefined);
                         clearPhotoPicks();
                       }}
-                      className="rounded-full px-2.5 py-1 border border-dashed border-[#E8E0D0]/30 text-[#E8E0D0]/50 hover:border-[#E8E0D0]/60 disabled:opacity-40"
+                      className=" px-2.5 py-1 border border-dashed border-surface-ink text-surface-ink/60 hover:border-accent-red disabled:opacity-40"
                     >
                       Whole night
                     </button>
                   </div>
-                  <p className="text-[#E8E0D0]/40">Click photos to select; shift-click selects everything in between.</p>
+                  <p className="text-surface-ink/60">Click photos to select; shift-click selects everything in between.</p>
                 </>
               ) : (
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-[#E8E0D0]/40">
+                  <span className="text-surface-ink/60">
                     {[
                       `Whole night ${form.photos.filter((p) => p.bandIndex === undefined).length}`,
                       ...form.bands.map(
@@ -986,7 +986,7 @@ export default function ShowForm({
                   <button
                     type="button"
                     onClick={() => setPhotoSelectMode(true)}
-                    className="ml-auto border border-[#E8E0D0]/30 rounded px-2 py-1 hover:bg-[#E8E0D0]/10"
+                    className="ml-auto border border-surface-ink px-2 py-1 cursor-pointer hover:bg-surface-paper-shade"
                   >
                     Tag photos by set
                   </button>
@@ -995,7 +995,7 @@ export default function ShowForm({
             </div>
           )}
           {form.photos.length === 0 ? (
-            <p className="text-xs text-[#E8E0D0]/30">
+            <p className="text-data-caption-13 text-surface-ink/60">
               No photos yet — choose a photographer above, then use “Upload photos”.
             </p>
           ) : (
@@ -1007,8 +1007,8 @@ export default function ShowForm({
                 return (
                   <div
                     key={`${photo.url}-${i}`}
-                    className={`group relative overflow-hidden rounded border ${
-                      picked ? 'border-[#E8E0D0] ring-2 ring-[#E8E0D0]' : 'border-[#E8E0D0]/10'
+                    className={`group relative overflow-hidden  border ${
+                      picked ? 'border-surface-ink ring-2 ring-accent-red' : 'border-surface-ink/20'
                     }`}
                   >
                     <div className="relative aspect-square">
@@ -1023,10 +1023,10 @@ export default function ShowForm({
                           className="absolute inset-0 flex items-start justify-start p-1.5 select-none"
                         >
                           <span
-                            className={`flex h-5 w-5 items-center justify-center rounded border text-xs ${
+                            className={`flex h-5 w-5 items-center justify-center  border text-data-caption-13 ${
                               picked
-                                ? 'border-[#E8E0D0] bg-[#E8E0D0] text-[#2A2420]'
-                                : 'border-[#E8E0D0]/70 bg-[#2A2420]/60'
+                                ? 'border-surface-ink bg-surface-ink text-surface-paper'
+                                : 'border-surface-ink bg-surface-paper/60'
                             }`}
                           >
                             {picked ? '✓' : ''}
@@ -1044,7 +1044,7 @@ export default function ShowForm({
                             }));
                           }}
                           aria-label="Remove photo"
-                          className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-[#2A2420]/80 text-[#E8E0D0] opacity-0 transition-opacity hover:bg-red-500/80 group-hover:opacity-100"
+                          className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center  bg-surface-paper/80 text-surface-ink opacity-0 transition-opacity hover:bg-surface-paper-shade group-hover:opacity-100"
                         >
                           ×
                         </button>
@@ -1060,12 +1060,12 @@ export default function ShowForm({
                         })
                       }
                       title="Credit this photo to the photographer selected above"
-                      className="block w-full truncate px-2 py-1 text-left text-[11px] hover:bg-[#E8E0D0]/10"
+                      className="block w-full truncate px-2 py-1 text-left text-data-label-10-small hover:bg-surface-paper-shade"
                     >
                       {creditName ? (
-                        <span className="text-[#E8E0D0]/70">📷 {creditName}</span>
+                        <span className="text-surface-ink/80">📷 {creditName}</span>
                       ) : (
-                        <span className="text-[#E8E0D0]/35">Uncredited — click to credit</span>
+                        <span className="text-surface-ink/60">Uncredited — click to credit</span>
                       )}
                     </button>
                     {form.bands.length > 0 && (
@@ -1075,15 +1075,15 @@ export default function ShowForm({
                         onChange={(e) =>
                           tagPhotos([i], e.target.value === '' ? undefined : Number(e.target.value))
                         }
-                        className={`block w-full truncate bg-transparent px-1.5 pb-1 text-[11px] focus:outline-none ${
-                          photo.bandIndex === undefined ? 'text-[#E8E0D0]/35' : 'text-[#E8E0D0]/80'
+                        className={`block w-full truncate bg-transparent px-1.5 pb-1 text-data-label-10-small focus:outline-none ${
+                          photo.bandIndex === undefined ? 'text-surface-ink/60' : 'text-surface-ink/80'
                         }`}
                       >
-                        <option value="" className="bg-[#2A2420]">
+                        <option value="" className="bg-surface-paper">
                           Whole night
                         </option>
                         {form.bands.map((band, bandIdx) => (
-                          <option key={bandIdx} value={bandIdx} className="bg-[#2A2420]">
+                          <option key={bandIdx} value={bandIdx} className="bg-surface-paper">
                             {band.name || `Band ${bandIdx + 1}`}
                           </option>
                         ))}
@@ -1114,13 +1114,15 @@ export default function ShowForm({
     )}
     <form onSubmit={handleSubmit} className="space-y-6">
       {!embedded && (
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold">{mode === 'create' ? 'New show' : 'Edit show'}</h1>
+        <PageHeader
+          overline="Shows"
+          title={mode === 'create' ? 'New show' : 'Edit show'}
+          actions={
           <div className="flex items-center gap-4">
             {mode === 'edit' && initialValues?.id && (
               <Link
                 href={`/admin/shows/${initialValues.id}/settlement`}
-                className="text-sm text-[#E8E0D0]/60 hover:text-[#E8E0D0]"
+                className={`text-body-3 ${ADMIN_TYPE.link}`}
               >
                 Settlement →
               </Link>
@@ -1128,24 +1130,25 @@ export default function ShowForm({
             <button
               type="button"
               onClick={() => router.push('/admin/shows')}
-              className="text-sm text-[#E8E0D0]/60 hover:text-[#E8E0D0]"
+              className={`text-body-3 ${ADMIN_TYPE.link}`}
             >
               ← Back to shows
             </button>
           </div>
-        </div>
+          }
+        />
       )}
 
       {error && (
-        <div className="border border-red-400/40 bg-red-400/10 text-red-300 text-sm rounded px-4 py-2 flex justify-between items-center">
+        <div role="alert" className={`${FORM.error} flex items-center justify-between gap-3`}>
           <span>{error}</span>
-          <button type="button" onClick={() => setError(null)} className="text-red-300/70 hover:text-red-300">
-            dismiss
+          <button type="button" onClick={() => setError(null)} className={ADMIN_TYPE.link}>
+            Dismiss
           </button>
         </div>
       )}
 
-      <div className="inline-flex rounded-lg border border-[#E8E0D0]/25 p-0.5 text-sm">
+      <div role="group" aria-label="Form section" className="flex flex-wrap gap-2">
         {([
           ['show', 'Show & lineup'],
           ['public', 'Public page & tickets'],
@@ -1154,11 +1157,8 @@ export default function ShowForm({
             key={value}
             type="button"
             onClick={() => setView(value)}
-            className={`rounded-md px-3 py-1.5 transition-colors ${
-              view === value
-                ? 'bg-[#E8E0D0] text-[#2A2420] font-medium'
-                : 'text-[#E8E0D0]/60 hover:text-[#E8E0D0]'
-            }`}
+            aria-pressed={view === value}
+            className={buttonClassName(view === value ? 'primary' : 'secondary', 's')}
           >
             {label}
           </button>
@@ -1170,7 +1170,7 @@ export default function ShowForm({
       <Section
         title="Show details"
         action={
-          <label className="flex items-center gap-1.5 text-xs text-[#E8E0D0]/70 whitespace-nowrap">
+          <label className="flex items-center gap-1.5 text-data-caption-13 text-surface-ink/80 whitespace-nowrap">
             <input
               type="checkbox"
               checked={form.announced}
@@ -1182,7 +1182,7 @@ export default function ShowForm({
       >
       <div className="grid gap-3 sm:grid-cols-2">
         <div>
-          <label className="block text-xs uppercase tracking-wide text-[#E8E0D0]/40 mb-1">Title*</label>
+          <label className={FORM.label}>Title*</label>
           <input
             required
             value={form.title}
@@ -1191,15 +1191,15 @@ export default function ShowForm({
           />
         </div>
         <div>
-          <label className="block text-xs uppercase tracking-wide text-[#E8E0D0]/40 mb-1">Slug</label>
+          <label className={FORM.label}>Slug</label>
           <input
             value={form.slug}
             onChange={(e) => setForm((prev) => ({ ...prev, slug: e.target.value, slugTouched: true }))}
-            className={`${inputClass} w-full font-mono`}
+            className={`${inputClass} w-full `}
           />
         </div>
         <div>
-          <label className="block text-xs uppercase tracking-wide text-[#E8E0D0]/40 mb-1">Date*</label>
+          <label className={FORM.label}>Date*</label>
           <input
             required
             type="date"
@@ -1209,14 +1209,14 @@ export default function ShowForm({
             className={`${inputClass} w-full min-w-0 appearance-none disabled:opacity-60`}
           />
           {dateFrozen && (
-            <div className="mt-1.5 space-y-2 text-xs text-[#E8E0D0]/60">
+            <div className="mt-1.5 space-y-2 text-data-caption-13 text-surface-ink/60">
               <p>
                 {initialValues?.announced ? 'Announced' : 'Past'}: the date is locked to this night&apos;s page.{' '}
                 {!isPastShow && form.status === 'scheduled' && initialValues?.status !== 'cancelled' && (
                   <button
                     type="button"
                     onClick={() => setShowPostpone((v) => !v)}
-                    className="underline hover:text-[#E8E0D0]"
+                    className="underline hover:text-accent-red"
                   >
                     Postpone…
                   </button>
@@ -1235,7 +1235,7 @@ export default function ShowForm({
                     type="button"
                     onClick={handlePostpone}
                     disabled={postponing || !postponeDate || postponeDate === savedDate}
-                    className="rounded bg-[#E8E0D0] px-3 py-1.5 text-xs font-medium text-[#2A2420] disabled:opacity-40"
+                    className=" bg-surface-ink px-3 py-1.5 text-data-caption-13 font-bold text-surface-paper disabled:opacity-40"
                   >
                     {postponing ? 'Postponing…' : 'Postpone to this date'}
                   </button>
@@ -1246,9 +1246,9 @@ export default function ShowForm({
         </div>
         {mode === 'edit' && initialValues?.catalogueId && (
           <div>
-            <label className="block text-xs uppercase tracking-wide text-[#E8E0D0]/40 mb-1">Status</label>
+            <label className={FORM.label}>Status</label>
             {form.status === 'postponed' ? (
-              <p className="py-1.5 text-sm">
+              <p className="py-1.5 text-body-3">
                 Postponed
                 {initialValues.rescheduledTo && (
                   <>
@@ -1269,9 +1269,9 @@ export default function ShowForm({
                 <option value="cancelled">Cancelled</option>
               </select>
             )}
-            <p className="mt-1.5 text-xs text-[#E8E0D0]/60">
+            <p className="mt-1.5 text-data-caption-13 text-surface-ink/60">
               Page:{' '}
-              <a href={`/shows/${initialValues.catalogueId}`} target="_blank" rel="noopener noreferrer" className="font-mono underline">
+              <a href={`/shows/${initialValues.catalogueId}`} target="_blank" rel="noopener noreferrer" className=" underline">
                 /shows/{initialValues.catalogueId}
               </a>
             </p>
@@ -1279,7 +1279,7 @@ export default function ShowForm({
         )}
         <div className="flex gap-3">
           <div className="flex-1">
-            <label className="block text-xs uppercase tracking-wide text-[#E8E0D0]/40 mb-1">Doors time</label>
+            <label className={FORM.label}>Doors time</label>
             <input
               placeholder="7:00pm"
               value={form.doorsTime}
@@ -1289,7 +1289,7 @@ export default function ShowForm({
             />
           </div>
           <div className="flex-1">
-            <label className="block text-xs uppercase tracking-wide text-[#E8E0D0]/40 mb-1">Show time</label>
+            <label className={FORM.label}>Show time</label>
             <input
               placeholder="7:30pm"
               value={form.showTime}
@@ -1305,11 +1305,11 @@ export default function ShowForm({
             value={form.flyer}
             onChange={(url) => set('flyer', url)}
             folder="flyers"
-            previewClassName="mt-2 max-w-xs rounded"
+            previewClassName="mt-2 max-w-xs "
           />
         </div>
         <div className="sm:col-span-2">
-          <label className="block text-xs uppercase tracking-wide text-[#E8E0D0]/40 mb-1">Description</label>
+          <label className={FORM.label}>Description</label>
           <textarea
             rows={3}
             value={form.description}
@@ -1327,17 +1327,17 @@ export default function ShowForm({
         collapsible
         action={
           <div className="flex items-center gap-3">
-            <label className="flex items-center gap-2 text-xs text-[#E8E0D0]/60">
+            <label className="flex items-center gap-2 text-data-caption-13 text-surface-ink/60">
               Bill size
               <input
                 type="number"
                 min={1}
                 value={form.targetBandCount}
                 onChange={(e) => set('targetBandCount', Math.max(1, Number(e.target.value) || 1))}
-                className={`${inputClass} w-14 text-center`}
+                className={`${FIELD_INLINE} w-14 text-center`}
               />
             </label>
-            <button type="button" onClick={addBand} className="text-xs border border-[#E8E0D0]/30 rounded px-2 py-1 hover:bg-[#E8E0D0]/10">
+            <button type="button" onClick={addBand} className="text-data-caption-13 border border-surface-ink px-2 py-1 cursor-pointer hover:bg-surface-paper-shade">
               + add band
             </button>
           </div>
@@ -1345,7 +1345,7 @@ export default function ShowForm({
       >
         <div className="space-y-3">
           {form.bands.map((band, index) => (
-            <div key={index} className="border border-[#E8E0D0]/10 rounded p-3 space-y-2">
+            <div key={index} className="border border-surface-ink p-3 space-y-2">
               <div className="grid gap-2 sm:grid-cols-[1fr_1fr_auto] items-start">
                 <div>
                   <BandNameInput
@@ -1358,14 +1358,14 @@ export default function ShowForm({
                     className={`${inputClass} w-full`}
                   />
                   {band.bandId && (
-                    <p className="text-xs mt-1 flex items-center gap-2">
-                      <span className="text-green-400/70">🔗 Linked to existing band profile</span>
+                    <p className="text-data-caption-13 mt-1 flex items-center gap-2">
+                      <span className="text-surface-ink">🔗 Linked to existing band profile</span>
                       <button
                         type="button"
                         onClick={() =>
                           setAddBandModal({ index, name: band.name, editBandId: band.bandId ?? undefined })
                         }
-                        className="text-[#E8E0D0]/60 underline underline-offset-2 hover:text-[#E8E0D0]"
+                        className="text-surface-ink/60 underline underline-offset-2 hover:text-accent-red"
                       >
                         Edit full profile
                       </button>
@@ -1381,7 +1381,7 @@ export default function ShowForm({
                 <button
                   type="button"
                   onClick={() => removeBand(index)}
-                  className="text-red-400/70 hover:text-red-400 text-sm px-2"
+                  className="text-accent-red cursor-pointer hover:underline text-body-3 px-2"
                 >
                   Remove
                 </button>
@@ -1391,7 +1391,7 @@ export default function ShowForm({
                 onChange={(url) => updateBand(index, 'photo', url)}
                 folder="bands"
                 placeholder="Photo URL"
-                previewClassName="mt-2 w-9 h-9 rounded-full object-cover"
+                previewClassName="mt-2 w-9 h-9  object-cover"
               />
               <textarea
                 placeholder="Bio (optional) — a sentence or a few paragraphs"
@@ -1409,14 +1409,14 @@ export default function ShowForm({
               />
             </div>
           ))}
-          {form.bands.length === 0 && <p className="text-xs text-[#E8E0D0]/30">No bands added yet.</p>}
+          {form.bands.length === 0 && <p className="text-data-caption-13 text-surface-ink/60">No bands added yet.</p>}
         </div>
         {mode === 'edit' && initialValues?.id && (
-          <p className="mt-3 text-xs text-[#E8E0D0]/40">
+          <p className="mt-3 text-data-caption-13 text-surface-ink/60">
             Band emails &amp; payout handles are on the{' '}
             <Link
               href={`/admin/shows/${initialValues.id}/crew`}
-              className="underline decoration-dotted underline-offset-2 hover:text-[#E8E0D0]"
+              className="underline decoration-dotted underline-offset-2 hover:text-accent-red"
             >
               Crew tab
             </Link>
@@ -1426,11 +1426,11 @@ export default function ShowForm({
       </Section>
 
       {mode === 'edit' && initialValues?.id && (
-        <p className="text-xs text-[#E8E0D0]/40">
+        <p className="text-data-caption-13 text-surface-ink/60">
           Sound engineers, band contacts, the door person, and the photographer live on the{' '}
           <Link
             href={`/admin/shows/${initialValues.id}/crew`}
-            className="underline decoration-dotted underline-offset-2 hover:text-[#E8E0D0]"
+            className="underline decoration-dotted underline-offset-2 hover:text-accent-red"
           >
             Crew tab
           </Link>
@@ -1445,7 +1445,7 @@ export default function ShowForm({
       <Section title="Tickets & visibility" collapsible>
         <div className="grid gap-3 sm:grid-cols-2">
         <div>
-          <label className="block text-xs uppercase tracking-wide text-[#E8E0D0]/40 mb-1">Ticket URL</label>
+          <label className={FORM.label}>Ticket URL</label>
           <input
             value={form.ticketUrl}
             onChange={(e) => set('ticketUrl', e.target.value)}
@@ -1453,7 +1453,7 @@ export default function ShowForm({
           />
         </div>
         <div>
-          <label className="block text-xs uppercase tracking-wide text-[#E8E0D0]/40 mb-1">External ticket URL</label>
+          <label className={FORM.label}>External ticket URL</label>
           <input
             value={form.externalTicketUrl}
             onChange={(e) => set('externalTicketUrl', e.target.value)}
@@ -1463,7 +1463,7 @@ export default function ShowForm({
       </div>
 
       <div className="mt-4">
-        <label className="block text-xs uppercase tracking-wide text-[#E8E0D0]/40 mb-1">
+        <label className={FORM.label}>
           Online ticket limit
         </label>
         <input
@@ -1473,17 +1473,17 @@ export default function ShowForm({
           placeholder="No limit"
           value={form.ticketLimit}
           onChange={(e) => set('ticketLimit', e.target.value.replace(/[^0-9]/g, ''))}
-          className={`${inputClass} w-40`}
+          className={`${FIELD_INLINE} w-40`}
         />
-        <p className="text-xs text-[#E8E0D0]/40 mt-1 max-w-prose">
+        <p className="text-data-caption-13 text-surface-ink/60 mt-1 max-w-prose">
           Max tickets sellable online (total, across all donation tiers). Leave blank for no cap.
           Counts completed online sales only — door/cash sales aren&apos;t included. Once reached, the
           tickets page shows “sold out” and points buyers to the door.
         </p>
       </div>
 
-      <div className="mt-4 pt-4 border-t border-[#E8E0D0]/10 flex flex-wrap gap-6">
-        <label className="flex items-center gap-2 text-sm">
+      <div className="mt-4 pt-4 border-t border-surface-ink flex flex-wrap gap-6">
+        <label className="flex items-center gap-2 text-body-3">
           <input
             type="checkbox"
             checked={form.rsvpForm}
@@ -1504,7 +1504,7 @@ export default function ShowForm({
                 type="button"
                 onClick={handleSquareSync}
                 disabled={squareBusy}
-                className="text-xs border border-[#E8E0D0]/30 rounded px-3 py-1.5 hover:bg-[#E8E0D0]/10 disabled:opacity-50"
+                className="text-data-caption-13 border border-surface-ink px-3 py-1.5 cursor-pointer hover:bg-surface-paper-shade disabled:opacity-50"
               >
                 {squareBusy ? 'Creating…' : 'Create Square links'}
               </button>
@@ -1513,7 +1513,7 @@ export default function ShowForm({
                 type="button"
                 onClick={handleSquareSync}
                 disabled={squareBusy}
-                className="text-xs border border-[#E8E0D0]/30 rounded px-3 py-1.5 hover:bg-[#E8E0D0]/10 disabled:opacity-50"
+                className="text-data-caption-13 border border-surface-ink px-3 py-1.5 cursor-pointer hover:bg-surface-paper-shade disabled:opacity-50"
               >
                 {squareBusy ? 'Attaching…' : 'Attach flyer'}
               </button>
@@ -1521,35 +1521,35 @@ export default function ShowForm({
           }
         >
           {!square.itemId ? (
-            <p className="text-sm text-[#E8E0D0]/50">
+            <p className="text-body-3 text-surface-ink/60">
               Creates a Square event item with $10 / $20 / $30 donation links. Do this once the show is
               ready to sell — drafts don&apos;t need it.
             </p>
           ) : (
             <div className="space-y-2">
               {square.links.map((link) => (
-                <div key={link.tierLabel} className="flex items-center gap-3 text-sm">
-                  <span className="text-[#E8E0D0]/60 w-40 shrink-0">{link.tierLabel}</span>
+                <div key={link.tierLabel} className="flex items-center gap-3 text-body-3">
+                  <span className="text-surface-ink/60 w-40 shrink-0">{link.tierLabel}</span>
                   {link.url ? (
                     <a
                       href={link.url}
                       target="_blank"
                       rel="noreferrer"
-                      className="text-[#E8E0D0] underline decoration-[#E8E0D0]/30 hover:decoration-[#E8E0D0] break-all"
+                      className="break-all underline underline-offset-4 hover:text-accent-red"
                     >
                       {link.url}
                     </a>
                   ) : (
-                    <span className="text-[#E8E0D0]/30">no link</span>
+                    <span className="text-surface-ink/60">no link</span>
                   )}
                 </div>
               ))}
               {!square.imageId && (
-                <p className="text-xs text-[#E8E0D0]/40 pt-1">No flyer photo attached yet.</p>
+                <p className="text-data-caption-13 text-surface-ink/60 pt-1">No flyer photo attached yet.</p>
               )}
             </div>
           )}
-          {squareMsg && <p className="text-xs text-[#E8E0D0]/60 mt-3">{squareMsg}</p>}
+          {squareMsg && <p className="text-data-caption-13 text-surface-ink/60 mt-3">{squareMsg}</p>}
         </Section>
       )}
 
@@ -1559,7 +1559,7 @@ export default function ShowForm({
         title="Audio"
         collapsible
         action={
-          <button type="button" onClick={addAudio} className="text-xs border border-[#E8E0D0]/30 rounded px-2 py-1 hover:bg-[#E8E0D0]/10">
+          <button type="button" onClick={addAudio} className="text-data-caption-13 border border-surface-ink px-2 py-1 cursor-pointer hover:bg-surface-paper-shade">
             + add audio
           </button>
         }
@@ -1582,24 +1582,24 @@ export default function ShowForm({
               <button
                 type="button"
                 onClick={() => removeAudio(index)}
-                className="text-red-400/70 hover:text-red-400 text-sm px-2"
+                className="text-accent-red cursor-pointer hover:underline text-body-3 px-2"
               >
                 Remove
               </button>
             </div>
           ))}
-          {form.audio.length === 0 && <p className="text-xs text-[#E8E0D0]/30">No audio added yet.</p>}
+          {form.audio.length === 0 && <p className="text-data-caption-13 text-surface-ink/60">No audio added yet.</p>}
         </div>
       </Section>
 
-      <details className="rounded-lg border border-[#E8E0D0]/15 bg-[#E8E0D0]/[0.03] p-4 sm:p-5">
-        <summary className="text-sm font-semibold text-[#E8E0D0]/90 cursor-pointer select-none">
+      <details className="border border-surface-ink bg-surface-paper p-4 sm:p-5">
+        <summary className="text-data-overline-11 font-bold leading-[1.3] tracking-[--spacing(0.625)] uppercase cursor-pointer select-none hover:text-accent-red">
           Advanced (Cloudinary gallery · page content)
         </summary>
         <div className="mt-3 space-y-3">
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
-              <label className="block text-xs uppercase tracking-wide text-[#E8E0D0]/40 mb-1">
+              <label className={FORM.label}>
                 Cloudinary photo folder
               </label>
               <input
@@ -1609,7 +1609,7 @@ export default function ShowForm({
               />
             </div>
             <div>
-              <label className="block text-xs uppercase tracking-wide text-[#E8E0D0]/40 mb-1">Photo credit</label>
+              <label className={FORM.label}>Photo credit</label>
               <input
                 value={form.photoCredit}
                 onChange={(e) => set('photoCredit', e.target.value)}
@@ -1618,14 +1618,14 @@ export default function ShowForm({
             </div>
           </div>
           <div>
-            <label className="block text-xs uppercase tracking-wide text-[#E8E0D0]/40 mb-1">
+            <label className={FORM.label}>
               Content (markdown)
             </label>
             <textarea
               rows={8}
               value={form.content}
               onChange={(e) => set('content', e.target.value)}
-              className={`${inputClass} w-full resize-y font-mono`}
+              className={`${inputClass} w-full resize-y `}
             />
           </div>
         </div>
@@ -1633,20 +1633,20 @@ export default function ShowForm({
       </>
       )}
 
-      <div className="flex items-center justify-between pt-2 border-t border-[#E8E0D0]/10">
+      <div className="flex items-center justify-between pt-4 border-t border-surface-ink">
         {mode === 'edit' ? (
-          <button type="button" onClick={handleDelete} className="text-red-400/70 hover:text-red-400 text-sm">
+          <button type="button" onClick={handleDelete} className="text-accent-red cursor-pointer hover:underline text-body-3">
             Delete show
           </button>
         ) : (
           <span />
         )}
         <div className="flex items-center gap-3">
-          {saved && <span className="text-sm text-emerald-300">Saved ✓</span>}
+          {saved && <span role="status" className="text-body-3 font-bold">Saved ✓</span>}
           <button
             type="submit"
             disabled={submitting}
-            className="bg-[#E8E0D0] text-[#2A2420] border border-[#E8E0D0] rounded px-6 py-2 text-sm font-medium hover:bg-[#E8E0D0]/90 transition-colors disabled:opacity-50"
+            className={buttonClassName('primary', 's')}
           >
             {submitting ? 'Saving...' : mode === 'create' ? 'Create show' : 'Save changes'}
           </button>

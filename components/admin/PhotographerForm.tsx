@@ -141,7 +141,6 @@ export default function PhotographerForm({
         </div>
 
         <ImageUploadField
-          paper
           label="Photo"
           value={photo}
           onChange={setPhoto}

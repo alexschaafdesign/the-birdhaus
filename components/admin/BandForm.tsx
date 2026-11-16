@@ -221,7 +221,6 @@ export default function BandForm({
         </div>
 
         <ImageUploadField
-          paper
           label="Photo"
           value={photo}
           onChange={setPhoto}

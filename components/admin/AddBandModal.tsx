@@ -1,12 +1,13 @@
 'use client';
 
+import { FORM } from '@/components/night/form';
+import { FIELD_INLINE, buttonClassName } from './ui';
 import { useEffect, useState } from 'react';
 import ImageUploadField from './ImageUploadField';
 import type { BandMatch } from './BandNameInput';
 
-const inputClass =
-  'bg-transparent border border-[#E8E0D0]/30 rounded px-3 py-1.5 text-sm focus:outline-none focus:border-[#E8E0D0] placeholder:text-[#E8E0D0]/30';
-const labelClass = 'block text-xs uppercase tracking-wide text-[#E8E0D0]/40 mb-1';
+const inputClass = FORM.field;
+const labelClass = FORM.label;
 
 interface FeaturedLinkRow {
   url: string;
@@ -179,28 +180,28 @@ export default function AddBandModal({
         if (e.target === e.currentTarget && !submitting) onClose();
       }}
     >
-      <div className="my-8 w-full max-w-2xl rounded-lg border border-[#E8E0D0]/20 bg-[#171412] p-5 shadow-xl">
+      <div className="my-8 w-full max-w-2xl border-2 border-surface-ink bg-surface-paper p-5">
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold">
+          <h2 className="text-header-4 font-bold">
             {isEdit ? 'Edit band in Twin Scene' : 'Add a new band to Twin Scene'}
           </h2>
           <button
             type="button"
             onClick={onClose}
             disabled={submitting}
-            className="text-[#E8E0D0]/50 hover:text-[#E8E0D0] disabled:opacity-40"
+            className="cursor-pointer hover:text-accent-red disabled:opacity-40"
           >
             ✕
           </button>
         </div>
-        <p className="mb-4 text-xs text-[#E8E0D0]/40">
+        <p className="mb-4 text-data-caption-13 text-surface-ink/60">
           {isEdit
             ? "Editing this band's shared Twin Scene profile. Changes save to the directory both sites read. Only the name is required."
             : "This band isn't in the directory yet. Fill in what you know — it's created in Twin Scene's shared directory and linked here. Only the name is required."}
         </p>
 
         {loading ? (
-          <p className="py-8 text-center text-sm text-[#E8E0D0]/50">Loading band…</p>
+          <p className="py-8 text-center text-body-3 text-surface-ink/60">Loading band…</p>
         ) : (
           <div className="space-y-3">
             <div>
@@ -298,7 +299,7 @@ export default function AddBandModal({
                 <button
                   type="button"
                   onClick={() => setFeaturedLinks((prev) => [...prev, { url: '', label: '' }])}
-                  className="rounded border border-[#E8E0D0]/30 px-2 py-0.5 text-xs hover:bg-[#E8E0D0]/10"
+                  className="cursor-pointer border border-surface-ink px-2 py-0.5 text-data-caption-13 hover:bg-surface-paper-shade"
                 >
                   + add link
                 </button>
@@ -312,7 +313,7 @@ export default function AddBandModal({
                         setFeaturedLinks((prev) => prev.map((l, j) => (j === i ? { ...l, url: e.target.value } : l)))
                       }
                       placeholder="URL"
-                      className={`${inputClass} flex-1`}
+                      className={`${FIELD_INLINE} flex-1`}
                     />
                     <input
                       value={link.label}
@@ -320,12 +321,12 @@ export default function AddBandModal({
                         setFeaturedLinks((prev) => prev.map((l, j) => (j === i ? { ...l, label: e.target.value } : l)))
                       }
                       placeholder="Label"
-                      className={`${inputClass} flex-1`}
+                      className={`${FIELD_INLINE} flex-1`}
                     />
                     <button
                       type="button"
                       onClick={() => setFeaturedLinks((prev) => prev.filter((_, j) => j !== i))}
-                      className="px-2 text-sm text-red-400/70 hover:text-red-400"
+                      className="px-2 text-body-3 text-accent-red cursor-pointer hover:underline"
                     >
                       ✕
                     </button>
@@ -336,14 +337,18 @@ export default function AddBandModal({
           </div>
         )}
 
-        {error && <p className="mt-3 text-sm text-red-400">{error}</p>}
+        {error && (
+          <p role="alert" className={`${FORM.error} mt-3`}>
+            {error}
+          </p>
+        )}
 
         <div className="mt-5 flex justify-end gap-2">
           <button
             type="button"
             onClick={onClose}
             disabled={submitting}
-            className="rounded border border-[#E8E0D0]/30 px-4 py-1.5 text-sm hover:bg-[#E8E0D0]/10 disabled:opacity-40"
+            className={buttonClassName('secondary', 's')}
           >
             Cancel
           </button>
@@ -351,7 +356,7 @@ export default function AddBandModal({
             type="button"
             onClick={handleSubmit}
             disabled={submitting || loading}
-            className="rounded bg-[#E8E0D0] px-4 py-1.5 text-sm font-semibold text-[#2A2420] hover:bg-white disabled:opacity-40"
+            className={buttonClassName('primary', 's')}
           >
             {submitting ? (isEdit ? 'Saving…' : 'Creating…') : isEdit ? 'Save changes' : 'Create band'}
           </button>

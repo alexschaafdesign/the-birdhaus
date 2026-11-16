@@ -44,21 +44,21 @@ export default function ShareLinkBox({
   }
 
   return (
-    <div className="border border-[#E8E0D0]/15 rounded-lg p-4 space-y-2">
+    <div className="border border-surface-ink p-4 space-y-2">
       <div className="flex items-center justify-between gap-2">
-        <p className="text-xs uppercase tracking-wide text-[#E8E0D0]/60">
+        <p className="text-data-overline-11 font-bold leading-[1.3] tracking-[--spacing(0.625)] uppercase text-surface-ink/60">
           Share with bands &amp; sound engineer
         </p>
         <a
           href={url}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-xs text-[#E8E0D0]/50 hover:text-[#E8E0D0] underline"
+          className="text-data-caption-13 text-surface-ink/60 hover:text-accent-red underline"
         >
           Open ↗
         </a>
       </div>
-      <p className="text-xs text-[#E8E0D0]/40">
+      <p className="text-data-caption-13 text-surface-ink/60">
         A read-only show page — schedule, input needs, logistics, and RSVP headcount (no attendee info).
       </p>
       <div className="flex items-center gap-2 flex-wrap">
@@ -66,12 +66,12 @@ export default function ShareLinkBox({
           readOnly
           value={url}
           onFocus={(e) => e.target.select()}
-          className="flex-1 min-w-[16rem] bg-transparent border border-[#E8E0D0]/30 rounded px-3 py-1.5 text-sm text-[#E8E0D0]/80 focus:outline-none focus:border-[#E8E0D0]"
+          className="flex-1 min-w-[16rem] bg-transparent border border-surface-ink  px-3 py-1.5 text-body-3 text-surface-ink/80 focus:outline-none focus:border-accent-red"
         />
         <button
           type="button"
           onClick={copy}
-          className="border border-[#E8E0D0]/40 rounded px-4 py-1.5 text-sm hover:bg-[#E8E0D0]/10 transition-colors"
+          className="border border-surface-ink px-4 py-1.5 text-body-3 cursor-pointer hover:bg-surface-paper-shade"
         >
           {copied ? 'Copied!' : 'Copy'}
         </button>
@@ -79,12 +79,12 @@ export default function ShareLinkBox({
           type="button"
           onClick={regenerate}
           disabled={regenerating}
-          className="text-xs text-[#E8E0D0]/45 hover:text-[#E8E0D0] underline disabled:opacity-40"
+          className="text-data-caption-13 text-surface-ink/60 hover:text-accent-red underline disabled:opacity-40"
         >
           {regenerating ? 'Regenerating…' : 'Regenerate'}
         </button>
       </div>
-      {error && <p className="text-xs text-red-300">{error}</p>}
+      {error && <p className="text-data-caption-13 text-accent-red">{error}</p>}
     </div>
   );
 }
