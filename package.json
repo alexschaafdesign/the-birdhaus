@@ -4,8 +4,9 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "node scripts/check-no-select-star.mjs && node scripts/predeploy-migrate.mjs && node scripts/check-admin-guards.mjs && next build",
+    "build": "node scripts/check-no-select-star.mjs && node scripts/predeploy-migrate.mjs && node scripts/check-admin-guards.mjs && node scripts/check-admin-tokens.mjs && next build",
     "check:guards": "node scripts/check-admin-guards.mjs",
+    "check:admin-tokens": "node scripts/check-admin-tokens.mjs",
     "check:select-star": "node scripts/check-no-select-star.mjs",
     "start": "next start",
     "lint": "eslint",

@@ -177,7 +177,7 @@ export default function TvImagesList({ initialImages }: { initialImages: TvImage
               <img
                 src={img.url}
                 alt=""
-                className="w-24 h-16 object-cover  bg-black/40 flex-shrink-0"
+                className="w-24 h-16 object-cover bg-surface-paper-shade flex-shrink-0"
               />
               <input
                 value={captionValue(img)}

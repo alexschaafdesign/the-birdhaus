@@ -31,7 +31,6 @@ export default function CalendarView({
   availableDates,
   isAdmin,
   showHref = (show) => `/shows/${show.catalogueId || show.slug}`,
-  dark,
 }: {
   shows: CalendarShow[];
   today: string;
@@ -41,45 +40,24 @@ export default function CalendarView({
   // Overridable so a management view (e.g. admin shows page) can point every
   // cell at the edit page instead of the public show page.
   showHref?: (show: CalendarShow) => string;
-  // The admin dashboard still uses the old dark shell; public pages get the
-  // light paper/ink styling.
-  dark?: boolean;
 }) {
-  const c = dark
-    ? {
-        frame: 'rounded-lg border border-[#E8E0D0]/20',
-        navBtn: 'rounded p-1.5 text-[#E8E0D0]/60 transition-colors hover:bg-[#E8E0D0]/10 hover:text-[#E8E0D0]',
-        todayBtn: 'font-mono text-xs uppercase tracking-widest text-[#E8E0D0]/50 hover:text-[#E8E0D0]',
-        weekdays: 'text-[#E8E0D0]/40',
-        emptyDay: 'text-[#E8E0D0]/30',
-        todayText: 'text-[#E8E0D0]',
-        todayDot: 'bg-yellow-400',
-        showCell: 'rounded border-[#E8E0D0]/30 hover:border-yellow-400',
-        pastCell: 'rounded border-[#E8E0D0]/10 opacity-40 grayscale hover:opacity-90 hover:grayscale-0',
-        cellFill: 'bg-[#E8E0D0]/10',
-        draftCell: 'rounded border-dashed border-yellow-500/50 hover:border-yellow-400',
-        draftFill: 'bg-yellow-500/10',
-        draftChip: 'rounded bg-yellow-500 text-black',
-        availCell: 'rounded border-dotted border-green-500/40 text-[#E8E0D0]/40 hover:border-green-400 hover:text-[#E8E0D0]',
-        availDot: 'bg-green-500',
-      }
-    : {
-        frame: 'border-2 border-ink',
-        navBtn: 'p-1.5 text-ink/60 transition-colors hover:bg-ink/10 hover:text-ink',
-        todayBtn: 'font-mono text-xs uppercase tracking-widest text-ink/50 hover:text-ink',
-        weekdays: 'font-mono text-ink/40',
-        emptyDay: 'text-ink/30',
-        todayText: 'text-ink font-bold',
-        todayDot: 'bg-vhs-red',
-        showCell: 'border-ink/40 hover:border-vhs-red',
-        pastCell: 'border-ink/15 opacity-40 grayscale hover:opacity-90 hover:grayscale-0',
-        cellFill: 'bg-ink/10',
-        draftCell: 'border-dashed border-ink/50 hover:border-ink',
-        draftFill: 'bg-ink/5',
-        draftChip: 'bg-ink text-paper',
-        availCell: 'border-dotted border-vhs-green/50 text-ink/40 hover:border-vhs-green hover:text-ink',
-        availDot: 'bg-vhs-green',
-      };
+  const c = {
+    frame: 'border-2 border-ink',
+    navBtn: 'p-1.5 text-ink/60 transition-colors hover:bg-ink/10 hover:text-ink',
+    todayBtn: 'font-mono text-xs uppercase tracking-widest text-ink/50 hover:text-ink',
+    weekdays: 'font-mono text-ink/40',
+    emptyDay: 'text-ink/30',
+    todayText: 'text-ink font-bold',
+    todayDot: 'bg-vhs-red',
+    showCell: 'border-ink/40 hover:border-vhs-red',
+    pastCell: 'border-ink/15 opacity-40 grayscale hover:opacity-90 hover:grayscale-0',
+    cellFill: 'bg-ink/10',
+    draftCell: 'border-dashed border-ink/50 hover:border-ink',
+    draftFill: 'bg-ink/5',
+    draftChip: 'bg-ink text-paper',
+    availCell: 'border-dotted border-vhs-green/50 text-ink/40 hover:border-vhs-green hover:text-ink',
+    availDot: 'bg-vhs-green',
+  };
   const todayDate = parseLocalDate(today);
   const [cursor, setCursor] = useState({
     year: todayDate.getFullYear(),
