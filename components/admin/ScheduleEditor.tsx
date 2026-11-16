@@ -12,8 +12,8 @@ import type { ScheduleRow } from '@/lib/advance';
 const HOURS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
 const MINUTES = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55];
 
-// Colour-neutral (currentColor and opacity), so the editor reads right on both
-// the paper admin (TV screen) and the still-dark /hub that share it.
+// Colour-neutral (currentColor and opacity), so it takes the ink of whatever
+// page it sits on (the TV screen, the show portal).
 const inputClass =
   'bg-transparent border border-current/40  px-3 py-1.5 text-body-3 focus:outline-none focus:border-current placeholder:opacity-60';
 

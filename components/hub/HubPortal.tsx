@@ -103,7 +103,7 @@ export default function HubPortal({
     <div className="space-y-8">
       {/* Highlighted as the primary action so it isn't lost among the read-only
           sections — accent border/fill plus an explicit "action needed" cue. */}
-      <section className="rounded-xl border-2 border-[#cf5b47]/60 bg-[#cf5b47]/[0.10] p-5 space-y-4">
+      <section className="border-2 border-accent-red bg-accent-red/[0.10] p-5 space-y-4">
         <button
           type="button"
           onClick={() => setAdvanceOpen((open) => !open)}
@@ -111,15 +111,15 @@ export default function HubPortal({
           className="flex w-full items-start gap-3 text-left"
         >
           <div className="flex-1 space-y-2">
-            <h2 className="text-xl font-bold text-[#E8E0D0]">Submit your advance</h2>
+            <h2 className="text-header-4 font-bold text-surface-ink">Submit your advance</h2>
             {!advanceOpen && (
-              <p className="text-sm text-[#E8E0D0]/70 leading-relaxed">
+              <p className="text-body-3 text-surface-ink/80 leading-relaxed">
                 Tap to send us your stage plot / input list and a quick schedule check.
               </p>
             )}
           </div>
           <svg
-            className={`mt-1 h-5 w-5 shrink-0 text-[#E8E0D0]/70 transition-transform ${advanceOpen ? 'rotate-180' : ''}`}
+            className={`mt-1 h-5 w-5 shrink-0 text-surface-ink/80 transition-transform ${advanceOpen ? 'rotate-180' : ''}`}
             viewBox="0 0 20 20"
             fill="none"
             stroke="currentColor"
@@ -132,18 +132,18 @@ export default function HubPortal({
 
         {advanceOpen && (
           <>
-        <p className="text-sm text-[#E8E0D0]/70 leading-relaxed">
+        <p className="text-body-3 text-surface-ink/80 leading-relaxed">
           Before the show we need a few things from each band — your stage plot /
           input list and a quick schedule check. Please take a minute to fill
           this out.
         </p>
 
         {/* Identity step — everything below keys off who this is. */}
-        <fieldset className="rounded-lg border border-[#E8E0D0]/25 bg-[#2A2420]/40 p-4 space-y-3">
+        <fieldset className="border border-surface-ink bg-surface-paper/40 p-4 space-y-3">
           <legend className="sr-only">Choose your band</legend>
           <div>
-            <p className="text-base font-semibold text-[#E8E0D0]">Who are you?</p>
-            <p className="text-xs text-[#E8E0D0]/55">Pick your band so we know whose advance this is.</p>
+            <p className="text-body-1 font-bold text-surface-ink">Who are you?</p>
+            <p className="text-data-caption-13 text-surface-ink/60">Pick your band so we know whose advance this is.</p>
           </div>
           <div className="space-y-2">
             {identityOptions.map((opt) => {
@@ -151,10 +151,10 @@ export default function HubPortal({
               return (
                 <label
                   key={opt.value}
-                  className={`flex items-center gap-3 rounded-lg border px-3.5 py-2.5 cursor-pointer transition-colors ${
+                  className={`flex items-center gap-3  border px-3.5 py-2.5 cursor-pointer transition-colors ${
                     checked
-                      ? 'border-[#cf5b47]/70 bg-[#cf5b47]/[0.12]'
-                      : 'border-[#E8E0D0]/15 hover:border-[#E8E0D0]/40'
+                      ? 'border-accent-red bg-accent-red/[0.12]'
+                      : 'border-surface-ink/20 hover:border-accent-red'
                   }`}
                 >
                   <input
@@ -163,9 +163,9 @@ export default function HubPortal({
                     value={opt.value}
                     checked={checked}
                     onChange={() => onSelectChange(opt.value)}
-                    className="h-4 w-4 accent-[#cf5b47]"
+                    className="h-4 w-4 accent-surface-ink"
                   />
-                  <span className="text-sm text-[#E8E0D0]/90">{opt.label}</span>
+                  <span className="text-body-3 text-surface-ink/80">{opt.label}</span>
                 </label>
               );
             })}
@@ -176,12 +176,12 @@ export default function HubPortal({
             disabled (dimmed, non-interactive) until they pick a band above. */}
         <div className="pt-1">
           {selectedBand ? (
-            <p className="text-sm text-[#E8E0D0]/60 pb-4">
+            <p className="text-body-3 text-surface-ink/60 pb-4">
               A few quick things from{' '}
-              <span className="text-[#E8E0D0] font-medium">{selectedBand.name}</span>:
+              <span className="text-surface-ink font-bold">{selectedBand.name}</span>:
             </p>
           ) : (
-            <p className="text-sm text-[#E8E0D0]/60 pb-4">
+            <p className="text-body-3 text-surface-ink/60 pb-4">
               {isAdminPosting
                 ? 'Posting as the Birdhaus — pick a band above to submit a stage plot or input list on their behalf.'
                 : '👆 Pick your band above to fill this out. (You can still post to the message board below.)'}
@@ -215,8 +215,8 @@ export default function HubPortal({
 // Matches the read-only sections' card styling in app/hub/[token]/page.tsx.
 function Card({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="border border-[#E8E0D0]/15 rounded-xl p-5 space-y-4">
-      <h2 className="text-xs uppercase tracking-[0.12em] text-[#c8a26a] font-semibold">{title}</h2>
+    <section className="border border-surface-ink/20 p-5 space-y-4">
+      <h2 className="text-data-overline-11 font-bold leading-[1.3] tracking-[--spacing(0.625)] uppercase">{title}</h2>
       {children}
     </section>
   );

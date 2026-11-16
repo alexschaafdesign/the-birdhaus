@@ -14,14 +14,14 @@ import ScheduleEditor from '@/components/admin/ScheduleEditor';
 // goes through /api/admin/* routes which proxy.ts protects.
 
 const inputClass =
-  'bg-transparent border border-[#E8E0D0]/30 rounded px-3 py-1.5 text-sm focus:outline-none focus:border-[#E8E0D0] placeholder:text-[#E8E0D0]/30';
+  'bg-transparent border border-surface-ink px-3 py-1.5 text-body-3 focus:outline-none focus:border-accent-red placeholder:text-surface-ink/45';
 
 const buttonClass =
-  'border border-[#E8E0D0]/40 rounded px-3 py-1.5 text-xs hover:bg-[#E8E0D0]/10 transition-colors disabled:opacity-40';
+  'border border-surface-ink px-3 py-1.5 text-data-caption-13 hover:bg-surface-paper-shade transition-colors disabled:opacity-40';
 
 function AdminTag() {
   return (
-    <span className="text-[10px] uppercase tracking-[0.14em] font-semibold text-[#c8a26a] border border-[#c8a26a]/40 rounded px-1.5 py-0.5">
+    <span className="text-data-label-10-small uppercase tracking-[0.14em] font-bold text-accent-red border border-accent-red px-1.5 py-0.5">
       admin
     </span>
   );
@@ -97,27 +97,27 @@ export function HubAdminBar({ state }: { state: ShowAdvanceState }) {
   }
 
   return (
-    <div className="rounded-xl border border-[#c8a26a]/35 bg-[#c8a26a]/[0.06] p-4 space-y-3">
+    <div className="border border-accent-red bg-surface-paper-shade p-4 space-y-3">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div className="flex items-center gap-2.5 flex-wrap">
           <AdminTag />
           {state.status === 'sent' ? (
-            <span className="text-xs rounded-full border border-green-400/40 bg-green-400/10 text-green-300 px-2.5 py-0.5">
+            <span className="text-data-caption-13 border border-surface-ink text-surface-ink px-2.5 py-0.5">
               Invite sent
               {state.sentAt ? ` · ${new Date(state.sentAt).toLocaleDateString()}` : ''}
             </span>
           ) : (
-            <span className="text-xs rounded-full border border-[#E8E0D0]/25 text-[#E8E0D0]/55 px-2.5 py-0.5">
+            <span className="text-data-caption-13 border border-surface-ink text-surface-ink/60 px-2.5 py-0.5">
               Invite not sent yet
             </span>
           )}
-          <span className="text-xs text-[#E8E0D0]/50">
+          <span className="text-data-caption-13 text-surface-ink/60">
             {withEmail.length} of {state.recipients.length} bands have an email
           </span>
         </div>
         <Link
           href={`/admin/shows/${state.showId}`}
-          className="text-xs text-[#E8E0D0]/50 hover:text-[#E8E0D0] underline"
+          className="text-data-caption-13 text-surface-ink/60 hover:text-accent-red underline"
         >
           Show admin →
         </Link>
@@ -127,7 +127,7 @@ export function HubAdminBar({ state }: { state: ShowAdvanceState }) {
           type="button"
           onClick={sendInvite}
           disabled={sending || !canSend}
-          className="bg-[#E8E0D0] text-[#2A2420] border border-[#E8E0D0] rounded px-4 py-1.5 text-sm font-medium hover:bg-[#E8E0D0]/90 transition-colors disabled:opacity-50"
+          className="bg-surface-ink text-surface-paper border-2 border-surface-ink inline-flex h-9.5 items-center justify-center px-4.5 text-body-3 font-bold ui-hover:bg-accent-red ui-hover:border-accent-red transition-colors cursor-pointer focus-visible:outline-accent-red focus-visible:outline-2 focus-visible:outline-offset-2 disabled:opacity-50"
         >
           {sending
             ? 'Sending…'
@@ -142,32 +142,32 @@ export function HubAdminBar({ state }: { state: ShowAdvanceState }) {
           {copied ? 'Copied!' : 'Copy portal link'}
         </button>
         {!canSend && (
-          <span className="text-xs text-amber-300/80">
+          <span className="text-data-caption-13 text-surface-ink">
             No recipients have an email yet — add them in the admin section at the bottom.
           </span>
         )}
       </div>
-      <p className="text-xs text-[#E8E0D0]/45">
+      <p className="text-data-caption-13 text-surface-ink/60">
         The invite is a short email pointing everyone here. This page IS the portal — what you
         see below is what bands see, plus the admin edit controls.
       </p>
       {error && (
-        <div className="border border-red-400/40 bg-red-400/10 text-red-300 text-sm rounded px-3 py-1.5">
+        <div className="border border-accent-red text-accent-red text-body-3 px-3 py-1.5">
           {error}
         </div>
       )}
       {notice && (
-        <div className="border border-green-400/40 bg-green-400/10 text-green-200 text-sm rounded px-3 py-1.5">
+        <div className="border border-surface-ink text-surface-ink text-body-3 px-3 py-1.5">
           {notice}
         </div>
       )}
       {showPreview && (
-        <div className="rounded-lg border border-[#E8E0D0]/15 overflow-hidden">
-          <div className="border-b border-[#E8E0D0]/10 px-4 py-2 text-sm text-[#E8E0D0]/70">
-            <span className="text-[#E8E0D0]/40">Subject:</span> {state.preview.subject}
+        <div className="border border-surface-ink/20 overflow-hidden">
+          <div className="border-b border-surface-ink/20 px-4 py-2 text-body-3 text-surface-ink/80">
+            <span className="text-surface-ink/60">Subject:</span> {state.preview.subject}
           </div>
           <div
-            className="bg-[#f6f2e9] text-[#2A2420] px-6 py-5 text-sm leading-relaxed advance-preview"
+            className="bg-surface-paper-shade text-surface-ink px-6 py-5 text-body-3 leading-relaxed advance-preview"
             dangerouslySetInnerHTML={{ __html: state.preview.html }}
           />
         </div>
@@ -234,10 +234,10 @@ export function HubAdminScheduleEdit({ state }: { state: ShowAdvanceState }) {
   }
 
   return (
-    <div className="space-y-3 rounded-lg border border-[#c8a26a]/35 bg-[#c8a26a]/[0.05] p-4">
+    <div className="space-y-3 border border-accent-red bg-surface-paper-shade p-4">
       <div className="flex items-center gap-2">
         <AdminTag />
-        <span className="text-xs uppercase tracking-wide text-[#E8E0D0]/60">
+        <span className="text-data-overline-11 font-bold leading-[1.3] tracking-[--spacing(0.625)] uppercase text-surface-ink/60">
           Edit schedule &amp; notes
         </span>
       </div>
@@ -247,7 +247,7 @@ export function HubAdminScheduleEdit({ state }: { state: ShowAdvanceState }) {
         onChange={(rows) => setDraft((d) => (d ? { ...d, schedule: rows } : d))}
       />
       <div className="space-y-1">
-        <label className="block text-xs uppercase tracking-wide text-[#E8E0D0]/60">
+        <label className="block text-data-overline-11 font-bold leading-[1.3] tracking-[--spacing(0.625)] uppercase text-surface-ink/60">
           Soundcheck notes
         </label>
         <textarea
@@ -261,7 +261,7 @@ export function HubAdminScheduleEdit({ state }: { state: ShowAdvanceState }) {
         />
       </div>
       <div className="space-y-1">
-        <label className="block text-xs uppercase tracking-wide text-[#E8E0D0]/60">
+        <label className="block text-data-overline-11 font-bold leading-[1.3] tracking-[--spacing(0.625)] uppercase text-surface-ink/60">
           Sound engineer name
         </label>
         <input
@@ -273,7 +273,7 @@ export function HubAdminScheduleEdit({ state }: { state: ShowAdvanceState }) {
           className={`${inputClass} w-full`}
         />
       </div>
-      {error && <p className="text-xs text-red-300">{error}</p>}
+      {error && <p className="text-data-caption-13 text-accent-red">{error}</p>}
       <div className="flex items-center gap-2">
         <button type="button" onClick={save} disabled={saving} className={buttonClass}>
           {saving ? 'Saving…' : 'Save'}
@@ -281,7 +281,7 @@ export function HubAdminScheduleEdit({ state }: { state: ShowAdvanceState }) {
         <button
           type="button"
           onClick={() => setDraft(null)}
-          className="text-xs text-[#E8E0D0]/50 hover:text-[#E8E0D0] underline"
+          className="text-data-caption-13 text-surface-ink/60 hover:text-accent-red underline"
         >
           Cancel
         </button>
@@ -320,17 +320,17 @@ export function HubAdminPayEdit({ state }: { state: ShowAdvanceState }) {
           {state.vars.pay.trim() ? 'Edit pay override' : 'Override pay for this show'}
         </button>
         {state.vars.pay.trim() && (
-          <span className="text-xs text-amber-300/80">Overridden for this show.</span>
+          <span className="text-data-caption-13 text-surface-ink">Overridden for this show.</span>
         )}
       </div>
     );
   }
 
   return (
-    <div className="space-y-3 rounded-lg border border-[#c8a26a]/35 bg-[#c8a26a]/[0.05] p-4">
+    <div className="space-y-3 border border-accent-red bg-surface-paper-shade p-4">
       <div className="flex items-center gap-2">
         <AdminTag />
-        <span className="text-xs uppercase tracking-wide text-[#E8E0D0]/60">
+        <span className="text-data-overline-11 font-bold leading-[1.3] tracking-[--spacing(0.625)] uppercase text-surface-ink/60">
           Pay (this show only)
         </span>
       </div>
@@ -346,7 +346,7 @@ export function HubAdminPayEdit({ state }: { state: ShowAdvanceState }) {
           <button
             type="button"
             onClick={() => setDraft((d) => (d ? { ...d, pay: state.standardPay } : d))}
-            className="text-xs text-[#E8E0D0]/60 hover:text-[#E8E0D0] underline"
+            className="text-data-caption-13 text-surface-ink/60 hover:text-accent-red underline"
           >
             Start from the standard text
           </button>
@@ -355,13 +355,13 @@ export function HubAdminPayEdit({ state }: { state: ShowAdvanceState }) {
           <button
             type="button"
             onClick={() => setDraft((d) => (d ? { ...d, pay: '' } : d))}
-            className="text-xs text-[#E8E0D0]/60 hover:text-[#E8E0D0] underline"
+            className="text-data-caption-13 text-surface-ink/60 hover:text-accent-red underline"
           >
             Reset to standard
           </button>
         )}
       </div>
-      {error && <p className="text-xs text-red-300">{error}</p>}
+      {error && <p className="text-data-caption-13 text-accent-red">{error}</p>}
       <div className="flex items-center gap-2">
         <button type="button" onClick={save} disabled={saving} className={buttonClass}>
           {saving ? 'Saving…' : 'Save'}
@@ -369,12 +369,12 @@ export function HubAdminPayEdit({ state }: { state: ShowAdvanceState }) {
         <button
           type="button"
           onClick={() => setDraft(null)}
-          className="text-xs text-[#E8E0D0]/50 hover:text-[#E8E0D0] underline"
+          className="text-data-caption-13 text-surface-ink/60 hover:text-accent-red underline"
         >
           Cancel
         </button>
       </div>
-      <p className="text-xs text-[#E8E0D0]/40">Markdown is supported.</p>
+      <p className="text-data-caption-13 text-surface-ink/60">Markdown is supported.</p>
     </div>
   );
 }
@@ -444,29 +444,29 @@ export function HubAdminRecipients({ state }: { state: ShowAdvanceState }) {
   }
 
   return (
-    <section className="border border-[#c8a26a]/35 rounded-xl p-5 space-y-5 bg-[#c8a26a]/[0.04]">
+    <section className="border border-accent-red p-5 space-y-5 bg-surface-paper-shade">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div className="flex items-center gap-2">
           <AdminTag />
-          <h2 className="text-xs uppercase tracking-[0.12em] text-[#c8a26a] font-semibold">
+          <h2 className="text-data-overline-11 font-bold leading-[1.3] tracking-[--spacing(0.625)] uppercase">
             Recipients &amp; contacts
           </h2>
         </div>
-        <span className="text-xs text-[#E8E0D0]/45">Only you can see this section.</span>
+        <span className="text-data-caption-13 text-surface-ink/60">Only you can see this section.</span>
       </div>
 
       {error && (
-        <div className="border border-red-400/40 bg-red-400/10 text-red-300 text-sm rounded px-3 py-1.5">
+        <div className="border border-accent-red text-accent-red text-body-3 px-3 py-1.5">
           {error}
         </div>
       )}
       {notice && (
-        <div className="border border-green-400/40 bg-green-400/10 text-green-200 text-sm rounded px-3 py-1.5">
+        <div className="border border-surface-ink text-surface-ink text-body-3 px-3 py-1.5">
           {notice}
         </div>
       )}
 
-      <ul className="space-y-3 text-sm">
+      <ul className="space-y-3 text-body-3">
         {state.recipients.map((r) => (
           // Key on the saved values so a successful save (which changes them via
           // refresh) remounts the row with fresh, un-dirty state.
@@ -488,19 +488,19 @@ export function HubAdminRecipients({ state }: { state: ShowAdvanceState }) {
           />
         ))}
         {state.recipients.length === 0 && (
-          <li className="text-[#E8E0D0]/40">No bands on this show yet.</li>
+          <li className="text-surface-ink/60">No bands on this show yet.</li>
         )}
       </ul>
-      <p className="text-xs text-[#E8E0D0]/40 -mt-1">
+      <p className="text-data-caption-13 text-surface-ink/60 -mt-1">
         Email and payout handle save to the band&rsquo;s profile — the same values used on the
         settlement and every future show.
       </p>
 
-      <div className="space-y-2 border-t border-[#E8E0D0]/10 pt-4">
-        <p className="text-xs uppercase tracking-wide text-[#E8E0D0]/60">Sound engineer</p>
+      <div className="space-y-2 border-t border-surface-ink/20 pt-4">
+        <p className="text-data-overline-11 font-bold leading-[1.3] tracking-[--spacing(0.625)] uppercase text-surface-ink/60">Sound engineer</p>
         {state.soundEngineer ? (
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-[#E8E0D0]">{state.soundEngineer.name}</span>
+            <span className="text-surface-ink">{state.soundEngineer.name}</span>
             <input
               type="email"
               value={engineerEmail}
@@ -519,15 +519,15 @@ export function HubAdminRecipients({ state }: { state: ShowAdvanceState }) {
             </button>
           </div>
         ) : (
-          <p className="text-sm text-[#E8E0D0]/40">
+          <p className="text-body-3 text-surface-ink/60">
             No confirmed sound engineer on this show — confirm one on the show form to loop them
             in.
           </p>
         )}
       </div>
 
-      <div className="space-y-2 border-t border-[#E8E0D0]/10 pt-4">
-        <p className="text-xs uppercase tracking-wide text-[#E8E0D0]/60">
+      <div className="space-y-2 border-t border-surface-ink/20 pt-4">
+        <p className="text-data-overline-11 font-bold leading-[1.3] tracking-[--spacing(0.625)] uppercase text-surface-ink/60">
           Additional recipients
         </p>
         {extraEmails.length > 0 && (
@@ -573,20 +573,20 @@ export function HubAdminRecipients({ state }: { state: ShowAdvanceState }) {
             {savingExtras ? 'Saving…' : 'Save'}
           </button>
         </div>
-        <p className="text-xs text-[#E8E0D0]/40">
+        <p className="text-data-caption-13 text-surface-ink/60">
           Promoter, venue, tour manager, … — anyone here gets the invite and every emailed
           message.
         </p>
       </div>
 
-      <div className="flex items-center gap-4 flex-wrap border-t border-[#E8E0D0]/10 pt-4 text-xs">
-        <Link href="/admin/settings" className="text-[#E8E0D0]/50 hover:text-[#E8E0D0] underline">
+      <div className="flex items-center gap-4 flex-wrap border-t border-surface-ink/20 pt-4 text-data-caption-13">
+        <Link href="/admin/settings" className="text-surface-ink/60 hover:text-accent-red underline">
           Edit invite template →
         </Link>
-        <Link href="/admin/settings" className="text-[#E8E0D0]/50 hover:text-[#E8E0D0] underline">
+        <Link href="/admin/settings" className="text-surface-ink/60 hover:text-accent-red underline">
           Watchers →
         </Link>
-        <Link href="/admin/settings" className="text-[#E8E0D0]/50 hover:text-[#E8E0D0] underline">
+        <Link href="/admin/settings" className="text-surface-ink/60 hover:text-accent-red underline">
           Venue &amp; info text →
         </Link>
       </div>
@@ -643,7 +643,7 @@ function BandContactRow({
 
   return (
     <li className="space-y-1.5">
-      <span className="text-[#E8E0D0]">{name}</span>
+      <span className="text-surface-ink">{name}</span>
       <div className="flex items-center gap-2 flex-wrap">
         <input
           type="email"

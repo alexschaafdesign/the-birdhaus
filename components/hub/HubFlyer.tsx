@@ -35,9 +35,9 @@ export default function HubFlyer({ src, alt }: { src: string; alt: string }) {
         <img
           src={src}
           alt={alt}
-          className="w-24 sm:w-32 rounded-lg border border-[#E8E0D0]/15 transition-colors group-hover:border-[#c8a26a]/60"
+          className="w-24 sm:w-32 border border-surface-ink/20 transition-colors group-hover:border-accent-red"
         />
-        <span className="mt-1 block text-center text-[10px] text-[#E8E0D0]/40 group-hover:text-[#E8E0D0]/70 transition-colors">
+        <span className="mt-1 block text-center text-data-label-10-small text-surface-ink/60 group-hover:text-accent-red transition-colors">
           flyer ⤢
         </span>
       </button>
@@ -48,19 +48,19 @@ export default function HubFlyer({ src, alt }: { src: string; alt: string }) {
           aria-modal="true"
           aria-label={alt}
           onClick={() => setOpen(false)}
-          className="fixed inset-0 z-50 flex cursor-zoom-out items-center justify-center bg-black/85 p-4 sm:p-10"
+          className="fixed inset-0 z-50 flex cursor-zoom-out items-center justify-center bg-surface-ink/90 p-4 sm:p-10"
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={src}
             alt={alt}
-            className="max-h-full max-w-full rounded-lg shadow-2xl"
+            className="max-h-full max-w-full"
           />
           <button
             type="button"
             onClick={() => setOpen(false)}
             aria-label="Close flyer"
-            className="absolute right-4 top-4 rounded-full bg-[#E8E0D0]/10 px-3 py-1.5 text-sm text-[#E8E0D0]/80 hover:bg-[#E8E0D0]/20 hover:text-[#E8E0D0]"
+            className="absolute right-4 top-4 bg-surface-paper-shade px-3 py-1.5 text-body-3 text-surface-ink/80 hover:bg-surface-paper-shade hover:text-accent-red"
           >
             ✕ close
           </button>

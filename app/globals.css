@@ -20,8 +20,8 @@
 }
 
 /* 2027 light "lo-fi VHS" palette: warm paper + ink, straight corners, hard
-   shadows, primary-RGB accents. Back-of-house (admin, /hub, /door) still uses
-   the old dark shell colors, set locally on those routes. */
+   shadows, primary-RGB accents. Back-of-house (admin, /hub, /door) uses the
+   2027 tokens from app/redesign/tokens.css. */
 :root {
   --background: #F2EEE3;
   --foreground: #1A1712;
@@ -98,24 +98,24 @@ body {
 .advance-preview strong { font-weight: 700; }
 .advance-preview a { color: #1d4ed8; text-decoration: underline; }
 
-/* Prose formatting for remark-generated HTML on the dark /hub portal (the Pay
+/* Prose formatting for remark-generated HTML on the /hub portal (the Pay
    and Venue & info cards), which Tailwind's reset would otherwise flatten.
    Scoped so it can't leak into the app UI. */
 .hub-prose h2 {
   font-size: 0.95rem;
   font-weight: 700;
-  color: #E8E0D0;
+  color: var(--color-surface-ink);
   text-transform: uppercase;
   letter-spacing: 0.06em;
   margin: 1.7em 0 0.5em;
   padding-bottom: 0.35em;
-  border-bottom: 1px solid rgba(232, 224, 208, 0.15);
+  border-bottom: 1px solid color-mix(in srgb, var(--color-surface-ink) 20%, transparent);
 }
 .hub-prose h2:first-child { margin-top: 0; }
 .hub-prose h3 {
   font-size: 0.72rem;
   font-weight: 700;
-  color: #c8a26a;
+  color: var(--color-accent-red);
   text-transform: uppercase;
   letter-spacing: 0.08em;
   margin: 1.2em 0 0.3em;
@@ -126,9 +126,9 @@ body {
 .hub-prose ul { list-style: disc; padding-left: 1.4em; margin: 0.6em 0; }
 .hub-prose ol { list-style: decimal; padding-left: 1.4em; margin: 0.6em 0; }
 .hub-prose li { margin: 0.2em 0; }
-.hub-prose strong { font-weight: 700; color: #E8E0D0; }
-.hub-prose a { color: #c8a26a; text-decoration: underline; }
-.hub-prose hr { border: none; border-top: 1px solid rgba(232, 224, 208, 0.15); margin: 1.4em 0; }
+.hub-prose strong { font-weight: 700; color: var(--color-surface-ink); }
+.hub-prose a { color: var(--color-accent-red); text-decoration: underline; text-underline-offset: 4px; }
+.hub-prose hr { border: none; border-top: 1px solid color-mix(in srgb, var(--color-surface-ink) 20%, transparent); margin: 1.4em 0; }
 
 /* Let mobile users long-press a lightbox photo to save it. yet-another-react-
    lightbox disables the iOS "Save Image" callout and text selection on slide

@@ -5,19 +5,16 @@ import { usePathname } from 'next/navigation';
 import AdminNav from './AdminNav';
 import { AdminBar } from './AdminBar';
 import { AdminSidebar } from './AdminSidebar';
-import { isMigratedAdminPath } from './nav';
-import { AdminPaperProvider } from './AdminTheme';
+import { isDarkAdminPath } from './nav';
 
-// Picks the admin frame by route while pages move to the 2027 look one area
-// at a time (see isMigratedAdminPath in ./nav):
-//   migrated  paper + CommitMono, the AdminBar, then the left sidebar beside
-//             the page (a Menu bar on top below lg)
-//   legacy    the old dark shell: "Birdhaus Admin" and the two-row AdminNav
-// The legacy branch and this switch go away in the last phase.
+// The admin frame: paper + CommitMono, the AdminBar, then the left sidebar
+// beside the page (a Menu bar on top below lg). The old dark shell remains
+// only for the routes in isDarkAdminPath (./nav): the rehearsal admin, until
+// it moves to paper.
 export function AdminShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
 
-  if (isMigratedAdminPath(pathname)) {
+  if (!isDarkAdminPath(pathname)) {
     return (
       <div
         className="bg-surface-paper text-surface-ink font-commit-mono min-h-screen"
@@ -29,7 +26,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
         <div className="lg:grid lg:grid-cols-[13rem_minmax(0,1fr)]">
           <AdminSidebar />
           <div className="min-w-0">
-            <AdminPaperProvider value={true}>{children}</AdminPaperProvider>
+            {children}
           </div>
         </div>
       </div>

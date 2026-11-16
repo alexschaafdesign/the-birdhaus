@@ -1,5 +1,6 @@
 // The admin's sections, shared by the 2027 sidebar (AdminSidebar) and the old
-// dark two-row nav (AdminNav) while pages move over one area at a time.
+// dark two-row nav (AdminNav, kept only for the rehearsal admin; see
+// isDarkAdminPath below).
 
 export interface AdminNavLink {
   href: string;
@@ -68,35 +69,12 @@ export function activeAdminGroup(pathname: string) {
   return ADMIN_NAV.find((group) => group.links.some((link) => adminLinkActive(pathname, link.href)));
 }
 
-// Admin routes already on the 2027 paper shell. The layout gives these the
-// sidebar and leaves every other /admin page on the old dark shell. Each
-// redesign phase adds its routes here; the last phase deletes the list, the
-// legacy shell and AdminNav.
-const MIGRATED: RegExp[] = [
-  /^\/admin$/, // the crew home (everyone else is redirected to /admin/shows)
-  /^\/admin\/crew\/\d+\/preview$/, // the read-only preview of that home
-  // Phase 2: the directories.
-  /^\/admin\/(crew|sound-engineers|photographers|door-persons|bands)(\/.*)?$/,
-  // Phase 3: booking and intake.
-  /^\/admin\/(booking|submissions)(\/.*)?$/,
-  // Phase 4a: the shows list, the TV screen and a show's TV tab.
-  /^\/admin\/shows$/,
-  /^\/admin\/tv$/,
-  /^\/admin\/shows\/\d+\/tv$/,
-  // Phase 4b: the show form (a show's Details tab, new show, new event).
-  /^\/admin\/shows\/(\d+|new)$/,
-  /^\/admin\/events\/new$/,
-  // Phase 4c: a show's Contacts, Inputs and RSVPs tabs. (Portal renders the
-  // band-facing /hub view, so it moves with /hub in Phase 7.)
-  /^\/admin\/shows\/\d+\/(crew|inputs|rsvps)$/,
-  // Phase 5: money — a show's Settlement tab, the Settlements summary,
-  // Expenses, Year in Review and the Timesheet.
-  /^\/admin\/shows\/\d+\/settlement$/,
-  /^\/admin\/(settlements|expenses|year|timesheet)$/,
-  // Phase 6: Settings.
-  /^\/admin\/settings$/,
-];
+// Admin routes still on the old dark shell. Everything else under /admin is on
+// the 2027 paper frame. Only the rehearsal admin is left: it lives on the
+// rehearsal branch and moves to paper once that branch reaches main; then this
+// list, the dark branch in AdminShell and AdminNav all go.
+const STILL_DARK: RegExp[] = [/^\/admin\/rehearsal(\/.*)?$/];
 
-export function isMigratedAdminPath(pathname: string) {
-  return MIGRATED.some((re) => re.test(pathname));
+export function isDarkAdminPath(pathname: string) {
+  return STILL_DARK.some((re) => re.test(pathname));
 }

@@ -12,15 +12,12 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 
-const ROOTS = ['components/admin', 'app/admin'];
+const ROOTS = ['components/admin', 'app/admin', 'components/hub', 'components/door', 'app/hub', 'app/door'];
 
 const LEGACY = {
-  // Still render the dark frame for the Portal tab until /hub moves (Phase 7).
-  'components/admin/AdminNav.tsx': 'legacy dark nav (Portal tab)',
-  'components/admin/AdminShell.tsx': 'legacy dark shell (Portal tab)',
-  'components/admin/ShowTabs.tsx': 'dark variant for the Portal tab',
-  'components/admin/ShowPrevNav.tsx': 'dark variant for the Portal tab',
-  'components/admin/SoundEngineerNameInput.tsx': 'dark variant for the Portal tab',
+  // The old dark frame, kept only for the rehearsal admin (see isDarkAdminPath).
+  'components/admin/AdminNav.tsx': 'legacy dark nav (rehearsal admin)',
+  'components/admin/AdminShell.tsx': 'legacy dark shell (rehearsal admin)',
   // react-pdf documents take plain colour values, not Tailwind classes.
   'components/admin/SettlementPdfDocument.tsx': 'PDF',
   'components/admin/InputsPdfDocument.tsx': 'PDF',
