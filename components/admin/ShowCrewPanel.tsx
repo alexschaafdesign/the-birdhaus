@@ -5,11 +5,12 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import SoundEngineerNameInput, { type SoundEngineerMatch } from './SoundEngineerNameInput';
 import type { CrewAccountOption, ShowRecording } from '@/lib/show-rig';
+import { ADMIN_TYPE, FIELD_INLINE, buttonClassName } from './ui';
+import { FORM } from '@/components/night/form';
 
-const inputClass =
-  'bg-transparent border border-[#E8E0D0]/30 rounded px-3 py-1.5 text-sm focus:outline-none focus:border-[#E8E0D0] placeholder:text-[#E8E0D0]/30';
-const buttonClass =
-  'border border-[#E8E0D0]/40 rounded px-3 py-1.5 text-xs hover:bg-[#E8E0D0]/10 transition-colors disabled:opacity-40';
+const inputClass = FIELD_INLINE;
+const FORM_LABEL = FORM.label;
+const buttonClass = `${buttonClassName('secondary', 's')} disabled:opacity-40`;
 
 export interface CrewBand {
   bandId: number;
@@ -40,10 +41,10 @@ export interface CrewRegistryEntry {
 function Avatar({ name, photo }: { name: string; photo: string | null }) {
   if (photo) {
     // eslint-disable-next-line @next/next/no-img-element
-    return <img src={photo} alt="" className="h-10 w-10 shrink-0 rounded-full object-cover" />;
+    return <img src={photo} alt="" className="h-10 w-10 shrink-0 object-cover" />;
   }
   return (
-    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#E8E0D0]/10 text-sm font-semibold text-[#E8E0D0]/50">
+    <span className="flex h-10 w-10 shrink-0 items-center justify-center bg-surface-paper text-body-3 font-bold text-surface-ink/60">
       {name.trim().charAt(0).toUpperCase() || '?'}
     </span>
   );
@@ -61,11 +62,11 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <section className="rounded-xl border border-[#E8E0D0]/15 bg-[#E8E0D0]/[0.02] p-5 space-y-4">
+    <section className="border-surface-ink bg-surface-paper space-y-4 border p-4 sm:p-5">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h2 className="text-xs uppercase tracking-[0.12em] text-[#c8a26a] font-semibold">{title}</h2>
-          {subtitle && <p className="mt-1 text-xs text-[#E8E0D0]/40">{subtitle}</p>}
+          <h2 className={ADMIN_TYPE.overline}>{title}</h2>
+          {subtitle && <p className={`mt-1 ${ADMIN_TYPE.meta}`}>{subtitle}</p>}
         </div>
         {action}
       </div>
@@ -143,11 +144,11 @@ function ContactRow({
   }
 
   return (
-    <li className="rounded-lg bg-black/10 p-3">
+    <li className="bg-surface-paper-shade p-3">
       <div className="flex flex-wrap items-center gap-3">
         <Avatar name={name} photo={photo} />
         <div className="min-w-[8rem] flex-1 basis-40">
-          <span className="text-sm text-[#E8E0D0]">{name}</span>
+          <span className="text-body-3 font-bold">{name}</span>
           {badge && <span className="ml-2 align-middle">{badge}</span>}
         </div>
         <input
@@ -165,7 +166,7 @@ function ContactRow({
           className={`${inputClass} min-w-[11rem] flex-1`}
           aria-label={`${name} payout handle`}
         />
-        {saved && <span className="text-xs text-emerald-300 whitespace-nowrap">Saved ✓</span>}
+        {saved && <span className="text-data-caption-13 text-surface-ink whitespace-nowrap">Saved ✓</span>}
         <button type="button" onClick={save} disabled={saving || !dirty} className={buttonClass}>
           {saving ? 'Saving…' : 'Save'}
         </button>
@@ -173,14 +174,14 @@ function ContactRow({
           <button
             type="button"
             onClick={onRemove}
-            className="text-xs text-red-400/70 hover:text-red-400 px-1"
+            className="text-body-3 text-accent-red cursor-pointer underline-offset-4 hover:underline px-1"
             aria-label={`Remove ${name}`}
           >
             Remove
           </button>
         )}
       </div>
-      {error && <p className="mt-1.5 text-xs text-red-300">{error}</p>}
+      {error && <p className="mt-1.5 text-data-caption-13 text-accent-red">{error}</p>}
     </li>
   );
 }
@@ -283,7 +284,7 @@ function CrewEngineers({
   return (
     <div className="space-y-3">
       {error && (
-        <p className="text-xs text-red-300">{error}</p>
+        <p className="text-data-caption-13 text-accent-red">{error}</p>
       )}
       {engineers.length > 0 ? (
         <ul className="space-y-2">
@@ -301,10 +302,10 @@ function CrewEngineers({
                   onChange={(ev) => changeStatus(e.id, ev.target.value as CrewEngineer['status'])}
                   disabled={saving}
                   aria-label={`${e.name} status`}
-                  className={`${inputClass} py-0.5 text-xs capitalize disabled:opacity-50`}
+                  className={`${inputClass} capitalize disabled:opacity-50`}
                 >
                   {ENGINEER_STATUSES.map((s) => (
-                    <option key={s} value={s} className="text-[#2A2420] capitalize">
+                    <option key={s} value={s} className="capitalize">
                       {s}
                     </option>
                   ))}
@@ -315,7 +316,7 @@ function CrewEngineers({
           ))}
         </ul>
       ) : (
-        <p className="text-sm text-[#E8E0D0]/40">
+        <p className="text-body-3 text-surface-ink/60">
           No sound engineers yet — add whoever you&apos;ve reached out to and mark one confirmed.
         </p>
       )}
@@ -336,7 +337,7 @@ function CrewEngineers({
         >
           + Add
         </button>
-        {saving && <span className="text-xs text-[#E8E0D0]/50">Saving…</span>}
+        {saving && <span className="text-data-caption-13 text-surface-ink/60">Saving…</span>}
       </div>
     </div>
   );
@@ -423,8 +424,8 @@ function ShowRecordingSection({
     >
       <div className="space-y-4">
         <div className="flex flex-wrap items-end gap-4">
-          <label className="text-xs text-[#E8E0D0]/60">
-            <span className="mb-1 block uppercase tracking-wide text-[#E8E0D0]/40">Cameras</span>
+          <label>
+            <span className={FORM_LABEL}>Cameras</span>
             <input
               type="number"
               min={0}
@@ -435,8 +436,8 @@ function ShowRecordingSection({
               className={`${inputClass} w-20`}
             />
           </label>
-          <label className="text-xs text-[#E8E0D0]/60">
-            <span className="mb-1 block uppercase tracking-wide text-[#E8E0D0]/40">Channels</span>
+          <label>
+            <span className={FORM_LABEL}>Channels</span>
             <input
               type="number"
               min={0}
@@ -448,13 +449,13 @@ function ShowRecordingSection({
             />
           </label>
           {!hasRig && (
-            <p className="pb-2 text-xs text-[#E8E0D0]/40">Not saved yet — 18 channels is the usual rig.</p>
+            <p className="pb-2 text-data-caption-13 text-surface-ink/60">Not saved yet — 18 channels is the usual rig.</p>
           )}
         </div>
 
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-xs uppercase tracking-wide text-[#E8E0D0]/40">Camera operators</span>
+            <span className={ADMIN_TYPE.overline}>Camera operators</span>
             <button
               type="button"
               onClick={() =>
@@ -466,12 +467,12 @@ function ShowRecordingSection({
             </button>
           </div>
           {operators.length === 0 ? (
-            <p className="text-xs text-[#E8E0D0]/30">No camera operators listed.</p>
+            <p className="text-data-caption-13 text-surface-ink/60">No camera operators listed.</p>
           ) : (
             <ol className="space-y-2">
               {operators.map((op, i) => (
                 <li key={op.key} className="flex flex-wrap items-center gap-2">
-                  <span className="w-5 text-right text-xs tabular-nums text-[#E8E0D0]/40">{i + 1}</span>
+                  <span className="w-5 text-right text-data-caption-13 tabular-nums text-surface-ink/60">{i + 1}</span>
                   <input
                     placeholder="Name"
                     value={op.name}
@@ -490,11 +491,11 @@ function ShowRecordingSection({
                     className={`${inputClass} w-full sm:w-56`}
                     aria-label={`Camera operator ${i + 1} account`}
                   >
-                    <option value="" className="text-[#2A2420]">
+                    <option value="">
                       No linked account
                     </option>
                     {crewAccounts.map((a) => (
-                      <option key={a.id} value={a.id} className="text-[#2A2420]">
+                      <option key={a.id} value={a.id}>
                         {a.name} ({a.email})
                       </option>
                     ))}
@@ -521,7 +522,7 @@ function ShowRecordingSection({
                     <button
                       type="button"
                       onClick={() => setOperators((prev) => prev.filter((_, j) => j !== i))}
-                      className="px-2 text-sm text-red-400/70 hover:text-red-400"
+                      className="px-2 text-body-3 text-accent-red cursor-pointer underline-offset-4 hover:underline"
                     >
                       Remove
                     </button>
@@ -532,17 +533,17 @@ function ShowRecordingSection({
           )}
         </div>
 
-        <div className="flex items-center gap-3 border-t border-[#E8E0D0]/10 pt-3">
+        <div className="flex items-center gap-3 border-t border-surface-ink/20 pt-3">
           <button
             type="button"
             onClick={save}
             disabled={saving}
-            className="rounded border border-[#E8E0D0] bg-[#E8E0D0] px-4 py-1.5 text-xs font-medium text-[#2A2420] hover:bg-[#E8E0D0]/90 disabled:opacity-50"
+            className={`${buttonClassName('primary', 's')} disabled:opacity-50`}
           >
             {saving ? 'Saving…' : 'Save recording'}
           </button>
-          {saved && <span className="text-xs text-emerald-300">Saved ✓</span>}
-          {error && <span className="text-xs text-red-300">{error}</span>}
+          {saved && <span className="text-data-caption-13 text-surface-ink">Saved ✓</span>}
+          {error && <span className="text-data-caption-13 text-accent-red">{error}</span>}
         </div>
       </div>
     </Section>
@@ -636,7 +637,7 @@ export default function ShowCrewPanel({
 
   return (
     <div className="space-y-6">
-      <p className="text-sm text-[#E8E0D0]/50 max-w-2xl">
+      <p className="text-body-3 text-surface-ink/60 max-w-2xl">
         Everyone you contact or pay for this show. Email and payout handle save to each
         person&apos;s profile — the same values used on the settlement and every future show.
         Each row saves on its own.
@@ -646,13 +647,13 @@ export default function ShowCrewPanel({
         title="Bands"
         subtitle="Contact & payout for the lineup — saves to each band's profile. Add or reorder bands on Details."
         action={
-          <Link href={`/admin/shows/${showId}`} className="text-xs text-[#E8E0D0]/50 hover:text-[#E8E0D0] underline">
+          <Link href={`/admin/shows/${showId}`} className="text-data-caption-13 text-surface-ink/60 hover:text-accent-red underline underline-offset-4">
             Edit lineup →
           </Link>
         }
       >
         {bands.length === 0 ? (
-          <p className="text-sm text-[#E8E0D0]/40">No bands on this show yet — add them on Details.</p>
+          <p className="text-body-3 text-surface-ink/60">No bands on this show yet — add them on Details.</p>
         ) : (
           <ul className="space-y-2">
             {bands.map((b) => (
@@ -665,7 +666,7 @@ export default function ShowCrewPanel({
                 payout={b.payoutHandle}
                 badge={
                   b.excluded ? (
-                    <span className="rounded-full border border-[#E8E0D0]/25 px-1.5 text-[10px] text-[#E8E0D0]/45">
+                    <span className="border border-surface-ink px-1.5 text-data-label-10-small text-surface-ink/60">
                       excluded from payout
                     </span>
                   ) : undefined
@@ -680,7 +681,7 @@ export default function ShowCrewPanel({
         title="Sound engineers"
         subtitle="Everyone you've asked, and who's confirmed. At most one can be confirmed — picking a new one steps the others back to asked."
         action={
-          <Link href="/admin/crew" className="text-xs text-[#E8E0D0]/50 hover:text-[#E8E0D0] underline">
+          <Link href="/admin/crew" className="text-data-caption-13 text-surface-ink/60 hover:text-accent-red underline underline-offset-4">
             Manage roster →
           </Link>
         }
@@ -692,7 +693,7 @@ export default function ShowCrewPanel({
         title="Door person"
         subtitle="Working the door. Assignment saves to this show; pre-fills the settlement payee."
         action={
-          <Link href="/admin/crew" className="text-xs text-[#E8E0D0]/50 hover:text-[#E8E0D0] underline">
+          <Link href="/admin/crew" className="text-data-caption-13 text-surface-ink/60 hover:text-accent-red underline underline-offset-4">
             Manage roster →
           </Link>
         }
@@ -706,19 +707,19 @@ export default function ShowCrewPanel({
               className={`${inputClass} w-full sm:max-w-sm disabled:opacity-50`}
               aria-label="Assign door person"
             >
-              <option value="" className="text-[#2A2420]">Unassigned</option>
+              <option value="">Unassigned</option>
               {doorName && !doorMatch && (
-                <option value={doorName} className="text-[#2A2420]">{doorName}</option>
+                <option value={doorName}>{doorName}</option>
               )}
               {doorPersons.map((d) => (
-                <option key={d.id} value={d.name} className="text-[#2A2420]">
+                <option key={d.id} value={d.name}>
                   {d.name}
                 </option>
               ))}
             </select>
-            {savingDoor && <span className="text-xs text-[#E8E0D0]/50">Saving…</span>}
-            {doorSaved && <span className="text-xs text-emerald-300">Saved ✓</span>}
-            {doorError && <span className="text-xs text-red-300">{doorError}</span>}
+            {savingDoor && <span className="text-data-caption-13 text-surface-ink/60">Saving…</span>}
+            {doorSaved && <span className="text-data-caption-13 text-surface-ink">Saved ✓</span>}
+            {doorError && <span className="text-data-caption-13 text-accent-red">{doorError}</span>}
           </div>
           {doorMatch ? (
             <ul>
@@ -732,10 +733,10 @@ export default function ShowCrewPanel({
               />
             </ul>
           ) : doorName ? (
-            <p className="text-xs text-[#E8E0D0]/40">
+            <p className="text-data-caption-13 text-surface-ink/60">
               &ldquo;{doorName}&rdquo; isn&apos;t in the roster, so there&apos;s no profile to hold their
               contact info. Add them under{' '}
-              <Link href="/admin/crew" className="underline hover:text-[#E8E0D0]">
+              <Link href="/admin/crew" className="underline hover:text-accent-red">
                 Crew → Door people
               </Link>
               .
@@ -748,7 +749,7 @@ export default function ShowCrewPanel({
         title="Photographer"
         subtitle="Booked to shoot this show — shows up in their crew Queue. Assignment saves to this show."
         action={
-          <Link href="/admin/crew" className="text-xs text-[#E8E0D0]/50 hover:text-[#E8E0D0] underline">
+          <Link href="/admin/crew" className="text-data-caption-13 text-surface-ink/60 hover:text-accent-red underline underline-offset-4">
             Manage roster →
           </Link>
         }
@@ -765,16 +766,16 @@ export default function ShowCrewPanel({
               className={`${inputClass} w-full sm:max-w-sm disabled:opacity-50`}
               aria-label="Assign photographer"
             >
-              <option value="" className="text-[#2A2420]">Unassigned</option>
+              <option value="">Unassigned</option>
               {photographers.map((p) => (
-                <option key={p.id} value={p.id} className="text-[#2A2420]">
+                <option key={p.id} value={p.id}>
                   {p.name}
                 </option>
               ))}
             </select>
-            {savingPhotographer && <span className="text-xs text-[#E8E0D0]/50">Saving…</span>}
-            {photographerSaved && <span className="text-xs text-emerald-300">Saved ✓</span>}
-            {photographerError && <span className="text-xs text-red-300">{photographerError}</span>}
+            {savingPhotographer && <span className="text-data-caption-13 text-surface-ink/60">Saving…</span>}
+            {photographerSaved && <span className="text-data-caption-13 text-surface-ink">Saved ✓</span>}
+            {photographerError && <span className="text-data-caption-13 text-accent-red">{photographerError}</span>}
           </div>
           {assignedPhotographer && (
             <ul>
