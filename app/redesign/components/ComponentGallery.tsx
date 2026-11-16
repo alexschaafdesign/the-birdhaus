@@ -13,6 +13,17 @@ import { SeriesTick, type Series } from '@/components/ui/SeriesTick';
 import { CloseIcon, MobileMenuPanel, RailHeader } from '@/components/ui/RailHeader';
 import { activeRailItem } from '@/components/ui/RailNav';
 import { NAV, TAGLINE, FRESH_CUTS_NAV_PATH } from '@/components/night/nav';
+import {
+  Panel,
+  PageHeader,
+  StatusMark,
+  Field,
+  Input,
+  Select,
+  Checkbox,
+  Notice,
+  ADMIN_TABLE,
+} from '@/components/admin/ui';
 
 type Ctx = 'web' | 'print' | 'social' | 'tv' | 'mobile';
 
@@ -232,6 +243,89 @@ export default function ComponentGallery() {
                   </div>
                 </div>
               ))}
+            </div>
+          </section>
+
+          {/* ---- Admin primitives -------------------------------------- */}
+          <section>
+            <h2 className="text-header-3 mb-1">Admin primitives</h2>
+            <p className="text-body-3 text-surface-ink/70 mb-4 max-w-prose">
+              components/admin/ui, the 2027 admin on paper: page header, panel, status marks
+              (ok · attention · problem · neutral, no colours the DS lacks), fields and a table.
+              Sample data, not real shows.
+            </p>
+            <div className="border-surface-ink/20 border p-6">
+              <PageHeader
+                overline="Shows · 14 upcoming"
+                title="Shows"
+                actions={
+                  <Button size="s" arrow={false}>
+                    New show
+                  </Button>
+                }
+              />
+              <div className="flex flex-col gap-6">
+                <Panel title="Status marks">
+                  <div className="flex flex-wrap gap-4">
+                    <StatusMark tone="ok">Settled</StatusMark>
+                    <StatusMark tone="attention">Draft</StatusMark>
+                    <StatusMark tone="problem">No sound</StatusMark>
+                    <StatusMark tone="neutral">Upcoming</StatusMark>
+                  </div>
+                </Panel>
+                <Panel title="Fields" action={<Button size="s" variant="secondary" arrow={false}>Cancel</Button>}>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <Field label="Title">
+                      <Input defaultValue="Sample night" />
+                    </Field>
+                    <Field label="Door" error="Enter a time like 7:30pm.">
+                      <Input defaultValue="half seven" invalid />
+                    </Field>
+                    <Field label="Series" hint="Shown on the archive tick.">
+                      <Select defaultValue="bh">
+                        <option value="bh">Birdhaus</option>
+                        <option value="fc">Fresh Cuts</option>
+                      </Select>
+                    </Field>
+                    <div className="flex items-end">
+                      <Checkbox label="Hide from the calendar" />
+                    </div>
+                  </div>
+                  <Notice className="mt-4">Saved.</Notice>
+                </Panel>
+                <Panel title="Collapsible panel" collapsible>
+                  <p className="text-body-3">Hidden until opened.</p>
+                </Panel>
+                <table className={ADMIN_TABLE.table}>
+                  <thead className={ADMIN_TABLE.head}>
+                    <tr>
+                      <th className={ADMIN_TABLE.th}>Date</th>
+                      <th className={ADMIN_TABLE.th}>Bill</th>
+                      <th className={ADMIN_TABLE.th}>Sound</th>
+                      <th className={`${ADMIN_TABLE.th} ${ADMIN_TABLE.num}`}>Net</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {[
+                      ['Mon 1', 'Sample band A, Sample band B', 'ok', '$0'],
+                      ['Tue 2', 'Sample open night', 'problem', '—'],
+                    ].map(([date, bill, tone, net]) => (
+                      <tr key={date} className={ADMIN_TABLE.row}>
+                        <td className={ADMIN_TABLE.td}>{date}</td>
+                        <td className={ADMIN_TABLE.td}>{bill}</td>
+                        <td className={ADMIN_TABLE.td}>
+                          {tone === 'ok' ? (
+                            <StatusMark tone="ok">Booked</StatusMark>
+                          ) : (
+                            <StatusMark tone="problem">None</StatusMark>
+                          )}
+                        </td>
+                        <td className={`${ADMIN_TABLE.td} ${ADMIN_TABLE.num}`}>{net}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </section>
         </div>

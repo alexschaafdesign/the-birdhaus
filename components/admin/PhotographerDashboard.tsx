@@ -5,9 +5,11 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { downscaleImage } from '@/lib/downscale-image';
 import type { PhotographerQueueItem } from '@/lib/photographers';
+import { FORM } from '@/components/night/form';
+import { Panel, StatusMark, Input, Textarea, ADMIN_TABLE, ADMIN_TYPE, buttonClassName } from './ui';
 
-const inputClass =
-  'bg-transparent border border-[#E8E0D0]/30 rounded px-3 py-1.5 text-sm focus:outline-none focus:border-[#E8E0D0] placeholder:text-[#E8E0D0]/30';
+// Small secondary buttons; the <label> file pickers wear the same class.
+const smallButton = buttonClassName('secondary', 's');
 
 function formatDate(isoDate: string): string {
   const d = new Date(isoDate + 'T00:00:00');
@@ -134,23 +136,19 @@ export default function PhotographerDashboard({
   const initials = name.trim().charAt(0).toUpperCase() || '?';
 
   return (
-    <section className="rounded-lg border border-[#E8E0D0]/15 bg-[#E8E0D0]/[0.03] p-5">
-      <div className="mb-4 flex items-center justify-between gap-3">
-        <h3 className="text-base font-medium">Your photographer page</h3>
-        <Link
-          href={profileHref}
-          target="_blank"
-          className="text-xs text-[#E8E0D0]/60 underline decoration-dotted underline-offset-2 hover:text-[#E8E0D0]"
-        >
+    <Panel
+      title="Your photographer page"
+      action={
+        <Link href={profileHref} target="_blank" className={`text-data-caption-13 ${ADMIN_TYPE.link}`}>
           View public profile ↗
         </Link>
-      </div>
-
+      }
+    >
       {error && (
-        <div className="mb-4 flex items-center justify-between rounded border border-red-400/40 bg-red-400/10 px-3 py-2 text-sm text-red-300">
+        <div role="alert" className={`${FORM.error} mb-4 flex items-center justify-between gap-3`}>
           <span>{error}</span>
-          <button type="button" onClick={() => setError(null)} className="text-red-300/70 hover:text-red-300">
-            dismiss
+          <button type="button" onClick={() => setError(null)} className={`${ADMIN_TYPE.link} shrink-0`}>
+            Dismiss
           </button>
         </div>
       )}
@@ -160,9 +158,9 @@ export default function PhotographerDashboard({
         <div className="flex items-center gap-3">
           {photo ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={photo} alt="" className="h-16 w-16 rounded-full object-cover" />
+            <img src={photo} alt="" className="border-surface-ink size-16 border object-cover" />
           ) : (
-            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[#E8E0D0]/10 text-lg">
+            <div className="border-surface-ink bg-surface-paper-shade text-header-4 flex size-16 items-center justify-center border font-bold">
               {initials}
             </div>
           )}
@@ -170,7 +168,7 @@ export default function PhotographerDashboard({
             type="button"
             onClick={() => photoInputRef.current?.click()}
             disabled={photoBusy || readOnly}
-            className="text-xs border border-[#E8E0D0]/30 rounded px-2 py-1 hover:bg-[#E8E0D0]/10 disabled:opacity-50"
+            className={smallButton}
           >
             {photoBusy ? 'Uploading…' : 'Change photo'}
           </button>
@@ -188,66 +186,66 @@ export default function PhotographerDashboard({
         </div>
 
         <div className="flex-1 space-y-2">
-          <input
+          <Input
             value={instagram}
             onChange={(e) => setInstagram(e.target.value)}
             placeholder="Instagram (handle or URL)"
+            aria-label="Instagram"
             disabled={readOnly}
-            className={`${inputClass} w-full disabled:opacity-60`}
           />
-          <textarea
+          <Textarea
             value={bio}
             onChange={(e) => setBio(e.target.value)}
             placeholder="Short bio (optional)"
+            aria-label="Bio"
             rows={3}
             disabled={readOnly}
-            className={`${inputClass} w-full resize-y disabled:opacity-60`}
           />
           <div className="flex items-center gap-3">
             <button
               type="button"
               onClick={saveProfile}
               disabled={savingProfile || readOnly}
-              className="text-xs border border-[#E8E0D0]/30 rounded px-3 py-1.5 hover:bg-[#E8E0D0]/10 disabled:opacity-50"
+              className={buttonClassName('primary', 's')}
             >
               {savingProfile ? 'Saving…' : 'Save profile'}
             </button>
-            {profileMsg && <span className="text-xs text-[#E8E0D0]/50">{profileMsg}</span>}
+            {profileMsg && (
+              <span role="status" className={ADMIN_TYPE.meta}>
+                {profileMsg}
+              </span>
+            )}
           </div>
         </div>
       </div>
 
       {/* Queue */}
-      <div className="mt-6 border-t border-[#E8E0D0]/10 pt-4">
-        <h4 className="mb-3 text-sm font-medium">Your shows</h4>
+      <div className="border-surface-ink mt-6 border-t pt-4">
+        <h3 className={`${ADMIN_TYPE.overline} mb-2`}>Your shows</h3>
         {queue.length === 0 ? (
-          <p className="text-sm text-[#E8E0D0]/55">
+          <p className={`${ADMIN_TYPE.body} ${ADMIN_TYPE.muted}`}>
             No shows assigned to you yet. When Alex books you for a show, it&apos;ll show up here.
           </p>
         ) : (
-          <ul className="divide-y divide-[#E8E0D0]/10">
+          <ul className={ADMIN_TABLE.list}>
             {queue.map((item) => (
               <li key={item.showId} className="flex flex-wrap items-center justify-between gap-3 py-3">
                 <div className="min-w-0">
-                  <Link href={`/shows/${item.slug}`} className="font-medium hover:underline">
+                  <Link href={`/shows/${item.slug}`} className={`text-body-3 hover:text-accent-red font-bold underline-offset-4 hover:underline ${ADMIN_TYPE.focus}`}>
                     {item.title}
                   </Link>
-                  <p className="text-xs text-[#E8E0D0]/50">{formatDate(item.date)}</p>
+                  <p className={ADMIN_TYPE.meta}>{formatDate(item.date)}</p>
                 </div>
 
                 <div className="flex items-center gap-3">
                   {!item.isPast ? (
-                    <span className="rounded-full bg-[#E8E0D0]/10 px-2 py-0.5 text-xs text-[#E8E0D0]/70">
-                      Upcoming shoot
-                    </span>
+                    <StatusMark tone="neutral">Upcoming shoot</StatusMark>
                   ) : item.needsPhotos ? (
                     <>
-                      <span className="rounded-full bg-[#F5A3A3]/15 px-2 py-0.5 text-xs font-semibold text-[#F5A3A3]">
-                        Needs photos
-                      </span>
+                      <StatusMark tone="attention">Needs photos</StatusMark>
                       <label
-                        className={`cursor-pointer text-xs border border-[#E8E0D0]/30 rounded px-2 py-1 hover:bg-[#E8E0D0]/10 ${
-                          uploading || readOnly ? 'pointer-events-none opacity-50' : ''
+                        className={`${smallButton} cursor-pointer ${
+                          uploading || readOnly ? 'pointer-events-none opacity-30' : ''
                         }`}
                       >
                         {uploading?.showId === item.showId
@@ -268,9 +266,9 @@ export default function PhotographerDashboard({
                       </label>
                     </>
                   ) : (
-                    <span className="rounded-full bg-[#7bb98a]/15 px-2 py-0.5 text-xs font-semibold text-[#bfe6c8]">
+                    <StatusMark tone="ok">
                       {item.photoCount} photo{item.photoCount === 1 ? '' : 's'}
-                    </span>
+                    </StatusMark>
                   )}
                 </div>
               </li>
@@ -278,6 +276,6 @@ export default function PhotographerDashboard({
           </ul>
         )}
       </div>
-    </section>
+    </Panel>
   );
 }

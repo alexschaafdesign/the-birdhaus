@@ -15,7 +15,8 @@ type Me = { firstName: string };
 const LINK =
   'ui-hover:text-accent-brick focus-visible:outline-accent-brick underline-offset-4 ui-hover:underline focus-visible:outline-2 focus-visible:outline-offset-2';
 
-export function AdminBar() {
+// `fullWidth` lines it up with the 2027 sidebar shell instead of centring it.
+export function AdminBar({ fullWidth = false }: { fullWidth?: boolean }) {
   const router = useRouter();
   const [me, setMe] = useState<Me | null | undefined>(undefined);
 
@@ -43,7 +44,9 @@ export function AdminBar() {
 
   return (
     <div className="bg-surface-ink text-surface-paper font-commit-mono">
-      <div className="mx-auto flex min-h-12 max-w-6xl flex-wrap items-center justify-between gap-x-6 gap-y-2 px-6 py-2">
+      <div
+        className={`flex min-h-12 flex-wrap items-center justify-between gap-x-6 gap-y-2 py-2 ${fullWidth ? 'px-4' : 'mx-auto max-w-6xl px-6'}`}
+      >
         <Link href="/admin" aria-label="Birdhaus admin dashboard" className="flex items-center gap-3">
           <BirdhausWordmark layout="short-tail" className="text-surface-paper w-28" />
           <span className="bg-accent-red text-surface-paper text-data-overline-11 px-1.5 py-0.5 font-bold tracking-[--spacing(0.625)]">
