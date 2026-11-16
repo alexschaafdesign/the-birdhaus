@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 import ShowsList, { type ShowListItem } from './ShowsList';
 import CalendarView from '@/components/CalendarView';
+import { PageHeader, buttonClassName } from './ui';
 
 // Same List/Calendar toggle as the public upcoming-shows page's ShowsBrowser,
 // but List stays the existing management table (search/edit/delete) rather
@@ -28,16 +29,15 @@ export default function AdminShowsBrowser({
 
   return (
     <div>
+      <PageHeader overline="Shows" title="Shows" />
       <div className="mb-6 flex gap-2">
         {(['list', 'calendar'] as const).map((option) => (
           <button
             key={option}
+            type="button"
             onClick={() => setView(option)}
-            className={`rounded px-3 py-1.5 font-mono text-sm uppercase tracking-widest transition-colors ${
-              view === option
-                ? 'bg-[#E8E0D0] text-[#171412]'
-                : 'border border-[#E8E0D0]/30 text-[#E8E0D0]/60 hover:text-[#E8E0D0]'
-            }`}
+            aria-pressed={view === option}
+            className={`${buttonClassName(view === option ? 'primary' : 'secondary', 's')} uppercase`}
           >
             {option}
           </button>
@@ -52,7 +52,6 @@ export default function AdminShowsBrowser({
           draftShows={draftShows}
           today={today}
           isAdmin
-          dark
           showHref={(show) => `/admin/shows/${show.id}`}
         />
       )}

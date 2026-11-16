@@ -16,7 +16,7 @@ const UNIT: Record<PresetCategory, string> = {
 };
 
 const chip =
-  'text-xs border rounded px-3 py-1.5 transition-colors whitespace-nowrap disabled:opacity-40';
+  'text-data-caption-13 border  px-3 py-1.5 transition-colors whitespace-nowrap disabled:opacity-40';
 
 export default function TvPresetBar({
   category,
@@ -163,21 +163,21 @@ export default function TvPresetBar({
   }
 
   return (
-    <div className="rounded border border-[#E8E0D0]/15 bg-[#E8E0D0]/[0.03] p-3">
+    <div className=" border border-surface-ink/20 bg-surface-paper p-3">
       <div className="flex items-center justify-between gap-3 mb-2">
-        <span className="text-xs uppercase tracking-wide text-[#E8E0D0]/45">Presets</span>
+        <span className="text-data-overline-11 font-bold leading-[1.3] tracking-[--spacing(0.625)] uppercase text-surface-ink/60">Presets</span>
         <button
           type="button"
           onClick={saveCurrent}
           disabled={busy}
-          className={`${chip} border-[#E8E0D0]/30 text-[#E8E0D0]/70 hover:text-[#E8E0D0]`}
+          className={`${chip} border-surface-ink text-surface-ink/80 hover:text-accent-red`}
         >
           Save current…
         </button>
       </div>
-      {error && <p className="text-xs text-red-400 mb-2">{error}</p>}
+      {error && <p className="text-data-caption-13 text-accent-red mb-2">{error}</p>}
       {presets.length === 0 ? (
-        <p className="text-xs text-[#E8E0D0]/35">No saved presets yet.</p>
+        <p className="text-data-caption-13 text-surface-ink/60">No saved presets yet.</p>
       ) : (
         <ul className="space-y-1.5">
           {presets.map((p) => (
@@ -186,12 +186,12 @@ export default function TvPresetBar({
                 type="button"
                 onClick={() => apply(p)}
                 disabled={busy}
-                className={`${chip} border-[#E8E0D0] bg-[#E8E0D0]/10 text-[#E8E0D0]`}
+                className={`${chip} border-surface-ink bg-surface-paper-shade text-surface-ink`}
               >
                 Apply
               </button>
-              <span className="text-sm text-[#E8E0D0]">{p.name}</span>
-              <span className="text-xs text-[#E8E0D0]/40">
+              <span className="text-body-3 text-surface-ink">{p.name}</span>
+              <span className="text-data-caption-13 text-surface-ink/60">
                 {p.count} {UNIT[category]}
               </span>
               <span className="flex-1" />
@@ -201,7 +201,7 @@ export default function TvPresetBar({
                   onClick={() => exportPng(p)}
                   disabled={exportingId === p.id}
                   title="Download this schedule as a PNG (for the Roku loop)"
-                  className="text-xs text-[#E8E0D0]/45 hover:text-[#E8E0D0] disabled:opacity-40"
+                  className="text-data-caption-13 text-surface-ink/60 hover:text-accent-red disabled:opacity-40"
                 >
                   {exportingId === p.id ? 'exporting…' : 'export'}
                 </button>
@@ -209,14 +209,14 @@ export default function TvPresetBar({
               <button
                 type="button"
                 onClick={() => rename(p)}
-                className="text-xs text-[#E8E0D0]/45 hover:text-[#E8E0D0]"
+                className="text-data-caption-13 text-surface-ink/60 hover:text-accent-red"
               >
                 rename
               </button>
               <button
                 type="button"
                 onClick={() => remove(p)}
-                className="text-xs text-red-300/70 hover:text-red-300"
+                className="text-data-caption-13 text-accent-red cursor-pointer hover:underline"
               >
                 delete
               </button>

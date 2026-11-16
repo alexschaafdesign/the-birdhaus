@@ -1,6 +1,18 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { useAdminPaper } from './AdminTheme';
+
+// The suggestion dropdown on the paper shell or the old dark one (ShowCrewPanel
+// is still dark), picked from the frame it renders in.
+const MENU = {
+  paper: 'absolute z-10 mt-1 w-full max-h-48 overflow-auto border border-surface-ink bg-surface-paper',
+  dark: 'absolute z-10 mt-1 w-full max-h-48 overflow-auto rounded border border-[#E8E0D0]/30 bg-[#171412] shadow-lg',
+};
+const ITEM = {
+  paper: 'block w-full cursor-pointer text-left px-3 py-1.5 text-body-3 hover:bg-surface-paper-shade',
+  dark: 'block w-full text-left px-3 py-1.5 text-sm hover:bg-[#E8E0D0]/10',
+};
 
 export interface SoundEngineerMatch {
   id: number;
@@ -46,6 +58,8 @@ export default function SoundEngineerNameInput({
     };
   }, [value]);
 
+  const theme = useAdminPaper() ? 'paper' : 'dark';
+
   return (
     <div className="relative">
       <input
@@ -61,7 +75,7 @@ export default function SoundEngineerNameInput({
         autoComplete="off"
       />
       {open && value.trim().length >= 2 && matches.length > 0 && (
-        <div className="absolute z-10 mt-1 w-full max-h-48 overflow-auto rounded border border-[#E8E0D0]/30 bg-[#171412] shadow-lg">
+        <div className={MENU[theme]}>
           {matches.map((match) => (
             <button
               key={match.id}
@@ -72,7 +86,7 @@ export default function SoundEngineerNameInput({
                 onSelect(match);
                 setOpen(false);
               }}
-              className="block w-full text-left px-3 py-1.5 text-sm hover:bg-[#E8E0D0]/10"
+              className={ITEM[theme]}
             >
               {match.name}
             </button>

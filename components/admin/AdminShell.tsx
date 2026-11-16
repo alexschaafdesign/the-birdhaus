@@ -6,6 +6,7 @@ import AdminNav from './AdminNav';
 import { AdminBar } from './AdminBar';
 import { AdminSidebar } from './AdminSidebar';
 import { isMigratedAdminPath } from './nav';
+import { AdminPaperProvider } from './AdminTheme';
 
 // Picks the admin frame by route while pages move to the 2027 look one area
 // at a time (see isMigratedAdminPath in ./nav):
@@ -27,7 +28,9 @@ export function AdminShell({ children }: { children: ReactNode }) {
         <AdminBar fullWidth />
         <div className="lg:grid lg:grid-cols-[13rem_minmax(0,1fr)]">
           <AdminSidebar />
-          <div className="min-w-0">{children}</div>
+          <div className="min-w-0">
+            <AdminPaperProvider value={true}>{children}</AdminPaperProvider>
+          </div>
         </div>
       </div>
     );

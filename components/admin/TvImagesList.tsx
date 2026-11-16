@@ -14,7 +14,7 @@ import ShowFlyerPicker from './ShowFlyerPicker';
 const MAX_SIZE_BYTES = 8 * 1024 * 1024; // 8MB — mirrors app/api/admin/uploads/route.ts
 
 const btn =
-  'text-xs border border-[#E8E0D0]/30 rounded px-3 py-1.5 hover:bg-[#E8E0D0]/10 disabled:opacity-40 whitespace-nowrap';
+  'text-data-caption-13 border border-surface-ink  px-3 py-1.5 hover:bg-surface-paper-shade disabled:opacity-40 whitespace-nowrap';
 
 export default function TvImagesList({ initialImages }: { initialImages: TvImage[] }) {
   const [images, setImages] = useState<TvImage[]>(initialImages);
@@ -110,12 +110,12 @@ export default function TvImagesList({ initialImages }: { initialImages: TvImage
   const [pickerOpen, setPickerOpen] = useState(false);
 
   return (
-    <div className="text-[#E8E0D0]">
+    <div className="text-surface-ink">
       {pickerOpen && (
         <ShowFlyerPicker onClose={() => setPickerOpen(false)} onAdded={refresh} />
       )}
       <div className="flex items-start justify-between gap-4 flex-wrap mb-1">
-        <h2 className="text-xl font-bold">TV Screen — Idle Images</h2>
+        <h2 className="text-header-4 font-bold">Idle images</h2>
         <div className="flex items-center gap-2">
           <button type="button" onClick={() => setPickerOpen(true)} className={btn}>
             + From show flyers
@@ -146,7 +146,7 @@ export default function TvImagesList({ initialImages }: { initialImages: TvImage
           />
         </div>
       </div>
-      <p className="text-sm text-[#E8E0D0]/50 mb-4 max-w-2xl">
+      <p className="text-body-3 text-surface-ink/60 mb-4 max-w-2xl">
         These images are the in-venue TV’s screensaver: during idle stretches — nights
         with no show, before doors, and after the last set — one drifts and bounces
         around the tube, swapping to the next each time it hits an edge. They never
@@ -158,10 +158,10 @@ export default function TvImagesList({ initialImages }: { initialImages: TvImage
       <div className="mb-4">
         <TvPresetBar category="screensaver" />
       </div>
-      {error && <p className="text-sm text-red-400 mb-3">{error}</p>}
+      {error && <p className="text-body-3 text-accent-red mb-3">{error}</p>}
 
       {images.length === 0 ? (
-        <p className="text-sm text-[#E8E0D0]/40 border border-dashed border-[#E8E0D0]/20 rounded px-4 py-8 text-center">
+        <p className="text-body-3 text-surface-ink/60 border border-dashed border-surface-ink  px-4 py-8 text-center">
           No images yet. Add a few and they’ll fill the tube’s dead air.
         </p>
       ) : (
@@ -169,7 +169,7 @@ export default function TvImagesList({ initialImages }: { initialImages: TvImage
           {images.map((img, i) => (
             <li
               key={img.id}
-              className={`flex items-center gap-4 border border-[#E8E0D0]/20 rounded p-3 ${
+              className={`flex items-center gap-4 border border-surface-ink  p-3 ${
                 img.active ? '' : 'opacity-50'
               }`}
             >
@@ -177,7 +177,7 @@ export default function TvImagesList({ initialImages }: { initialImages: TvImage
               <img
                 src={img.url}
                 alt=""
-                className="w-24 h-16 object-cover rounded bg-black/40 flex-shrink-0"
+                className="w-24 h-16 object-cover  bg-black/40 flex-shrink-0"
               />
               <input
                 value={captionValue(img)}
@@ -189,7 +189,7 @@ export default function TvImagesList({ initialImages }: { initialImages: TvImage
                   const next = captionValue(img).trim();
                   if (next !== (img.caption ?? '')) patch(img.id, { caption: next });
                 }}
-                className="flex-1 min-w-0 bg-transparent border border-[#E8E0D0]/30 rounded px-3 py-1.5 text-sm focus:outline-none focus:border-[#E8E0D0] placeholder:text-[#E8E0D0]/30"
+                className="flex-1 min-w-0 bg-transparent border border-surface-ink  px-3 py-1.5 text-body-3 focus:outline-none focus:border-accent-red placeholder:text-surface-ink/45"
               />
               <div className="flex items-center gap-1 flex-shrink-0">
                 <button
@@ -220,7 +220,7 @@ export default function TvImagesList({ initialImages }: { initialImages: TvImage
                 <button
                   type="button"
                   onClick={() => remove(img.id)}
-                  className="text-xs border border-red-500/40 text-red-300 rounded px-3 py-1.5 hover:bg-red-500/10"
+                  className="text-data-caption-13 border border-accent-red text-accent-red  px-3 py-1.5 hover:bg-surface-paper-shade"
                 >
                   Delete
                 </button>

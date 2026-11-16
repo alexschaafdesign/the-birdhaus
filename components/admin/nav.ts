@@ -79,6 +79,10 @@ const MIGRATED: RegExp[] = [
   /^\/admin\/(crew|sound-engineers|photographers|door-persons|bands)(\/.*)?$/,
   // Phase 3: booking and intake.
   /^\/admin\/(booking|submissions)(\/.*)?$/,
+  // Phase 4a: the shows list, the TV screen and a show's TV tab.
+  /^\/admin\/shows$/,
+  /^\/admin\/tv$/,
+  /^\/admin\/shows\/\d+\/tv$/,
 ];
 
 export function isMigratedAdminPath(pathname: string) {

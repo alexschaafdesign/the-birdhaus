@@ -6,6 +6,8 @@ import { useRouter } from 'next/navigation';
 import type { ShowBandPaidStatus } from '@/lib/bands';
 import { PAID_METHODS, type PaidMethod } from '@/lib/settlements';
 import SoundEngineerNameInput from './SoundEngineerNameInput';
+import { FORM } from '@/components/night/form';
+import { Swatch, ADMIN_TYPE, buttonClassName } from './ui';
 
 export interface ShowListItem {
   id: number;
@@ -161,16 +163,27 @@ const PAST_CATEGORIES: IssueCategory[] = ['postShow'];
 // `action` the PaidTag "Mark paid" button.
 type ChipColor = 'rose' | 'sky' | 'violet' | 'fuchsia' | 'amber' | 'orange' | 'slate' | 'teal';
 
-const CHIP_CLASSES: Record<ChipColor, { pill: string; dismiss: string; action: string }> = {
-  rose: { pill: 'border-rose-400/40 text-rose-300', dismiss: 'text-rose-300/50 hover:text-rose-300', action: 'bg-rose-400/15 hover:bg-rose-400/25' },
-  sky: { pill: 'border-sky-400/40 text-sky-300', dismiss: 'text-sky-300/50 hover:text-sky-300', action: 'bg-sky-400/15 hover:bg-sky-400/25' },
-  violet: { pill: 'border-violet-400/40 text-violet-300', dismiss: 'text-violet-300/50 hover:text-violet-300', action: 'bg-violet-400/15 hover:bg-violet-400/25' },
-  fuchsia: { pill: 'border-fuchsia-400/40 text-fuchsia-300', dismiss: 'text-fuchsia-300/50 hover:text-fuchsia-300', action: 'bg-fuchsia-400/15 hover:bg-fuchsia-400/25' },
-  amber: { pill: 'border-amber-400/40 text-amber-300', dismiss: 'text-amber-300/50 hover:text-amber-300', action: 'bg-amber-400/15 hover:bg-amber-400/25' },
-  orange: { pill: 'border-orange-400/40 text-orange-300', dismiss: 'text-orange-300/50 hover:text-orange-300', action: 'bg-orange-400/15 hover:bg-orange-400/25' },
-  slate: { pill: 'border-slate-400/40 text-slate-300', dismiss: 'text-slate-300/50 hover:text-slate-300', action: 'bg-slate-400/15 hover:bg-slate-400/25' },
-  teal: { pill: 'border-teal-400/40 text-teal-300', dismiss: 'text-teal-300/50 hover:text-teal-300', action: 'bg-teal-400/15 hover:bg-teal-400/25' },
+// On paper every chip is an ink-bordered label; the category is told apart by a
+// small DS spectrum swatch (fill-only colours) at its start.
+const CHIP_PILL = 'border-surface-ink text-surface-ink';
+const CHIP_DISMISS = 'cursor-pointer text-surface-ink/60 hover:text-accent-red';
+const CHIP_ACTION = 'cursor-pointer bg-surface-paper-shade hover:bg-surface-ink hover:text-surface-paper';
+const CHIP_SWATCH: Record<ChipColor, string> = {
+  rose: 'bg-spectrum-red',
+  sky: 'bg-surface-ink',
+  violet: 'bg-spectrum-violet',
+  fuchsia: 'bg-spectrum-magenta',
+  amber: 'bg-spectrum-amber',
+  orange: 'bg-spectrum-orange',
+  slate: 'border border-surface-ink bg-surface-paper',
+  teal: 'bg-surface-ink/50',
 };
+const CHIP_CLASSES = Object.fromEntries(
+  (Object.keys(CHIP_SWATCH) as ChipColor[]).map((c) => [
+    c,
+    { pill: CHIP_PILL, dismiss: CHIP_DISMISS, action: CHIP_ACTION, swatch: CHIP_SWATCH[c] },
+  ]),
+) as Record<ChipColor, { pill: string; dismiss: string; action: string; swatch: string }>;
 
 const ISSUE_COLOR: Record<string, ChipColor> = {
   // Upcoming rows (statusRsvp + preShow) — all distinct:
@@ -192,8 +205,7 @@ function chipClasses(key: string) {
   return CHIP_CLASSES[ISSUE_COLOR[key] ?? 'amber'];
 }
 
-const inputClass =
-  'bg-transparent border border-[#E8E0D0]/30 rounded px-3 py-1.5 text-sm focus:outline-none focus:border-[#E8E0D0] placeholder:text-[#E8E0D0]/30';
+const inputClass = FORM.field;
 
 export default function ShowsList({ initialShows, today }: { initialShows: ShowListItem[]; today: string }) {
   const [shows, setShows] = useState<ShowListItem[]>(initialShows);
@@ -384,19 +396,19 @@ export default function ShowsList({ initialShows, today }: { initialShows: ShowL
   return (
     <div>
       {errorMessage && (
-        <div className="mb-4 border border-red-400/40 bg-red-400/10 text-red-300 text-sm rounded px-4 py-2 flex justify-between items-center">
+        <div role="alert" className={`${FORM.error} mb-4 flex items-center justify-between gap-3`}>
           <span>{errorMessage}</span>
-          <button onClick={() => setErrorMessage(null)} className="text-red-300/70 hover:text-red-300">
-            dismiss
+          <button type="button" onClick={() => setErrorMessage(null)} className={ADMIN_TYPE.link}>
+            Dismiss
           </button>
         </div>
       )}
 
       {flash && (
-        <div className="mb-4 border border-green-400/40 bg-green-400/10 text-green-300 text-sm rounded px-4 py-2 flex justify-between items-center">
+        <div role="status" className={`${FORM.notice} mb-4 flex items-center justify-between gap-3`}>
           <span>{flash}</span>
-          <button onClick={() => setFlash(null)} className="text-green-300/70 hover:text-green-300">
-            dismiss
+          <button type="button" onClick={() => setFlash(null)} className={ADMIN_TYPE.link}>
+            Dismiss
           </button>
         </div>
       )}
@@ -413,17 +425,14 @@ export default function ShowsList({ initialShows, today }: { initialShows: ShowL
           <button
             type="button"
             onClick={() => (selectMode ? exitSelectMode() : setSelectMode(true))}
-            className={`border rounded px-4 py-1.5 text-sm transition-colors ${
-              selectMode
-                ? 'border-[#E8E0D0] bg-[#E8E0D0]/10'
-                : 'border-[#E8E0D0]/40 hover:bg-[#E8E0D0]/10'
-            }`}
+            aria-pressed={selectMode}
+            className={buttonClassName(selectMode ? 'primary' : 'secondary', 's')}
           >
             {selectMode ? 'Cancel selection' : 'Ask an engineer…'}
           </button>
           <Link
             href="/admin/events/new"
-            className="border border-[#E8E0D0]/40 rounded px-4 py-1.5 text-sm hover:bg-[#E8E0D0]/10 transition-colors"
+            className={buttonClassName('primary', 's')}
           >
             + New event
           </Link>
@@ -431,8 +440,8 @@ export default function ShowsList({ initialShows, today }: { initialShows: ShowL
       </div>
 
       {selectMode && (
-        <div className="mb-4 flex flex-wrap items-center gap-3 rounded-lg border border-[#E8E0D0]/25 bg-[#E8E0D0]/[0.04] px-4 py-3">
-          <span className="text-sm text-[#E8E0D0]/70">
+        <div className="mb-4 flex flex-wrap items-center gap-3 border border-surface-ink bg-surface-paper-shade px-4 py-3">
+          <span className="text-body-3 text-surface-ink/80">
             {selectedIds.size === 0
               ? 'Check the upcoming shows you asked about, then pick the engineer.'
               : `${selectedIds.size} show${selectedIds.size === 1 ? '' : 's'} selected`}
@@ -451,7 +460,7 @@ export default function ShowsList({ initialShows, today }: { initialShows: ShowL
               type="button"
               onClick={applyAskedEngineer}
               disabled={applying || selectedIds.size === 0 || !engineerName.trim()}
-              className="bg-[#E8E0D0] text-[#2A2420] border border-[#E8E0D0] rounded px-4 py-1.5 text-sm font-medium hover:bg-[#E8E0D0]/90 transition-colors disabled:opacity-40"
+              className={buttonClassName('primary', 's')}
             >
               {applying ? 'Saving…' : 'Mark asked'}
             </button>
@@ -466,7 +475,7 @@ export default function ShowsList({ initialShows, today }: { initialShows: ShowL
         if (visibleDefs.length === 0) return null;
         return (
           <div className="flex flex-wrap items-center gap-2 mb-4">
-            <span className="text-xs uppercase tracking-wide text-[#E8E0D0]/40 mr-1">Needs</span>
+            <span className={`${ADMIN_TYPE.overline} text-surface-ink/60 mr-1`}>Needs</span>
             {visibleDefs.map((def) => {
               const active = activeFilters.has(def.key);
               return (
@@ -474,14 +483,15 @@ export default function ShowsList({ initialShows, today }: { initialShows: ShowL
                   key={def.key}
                   type="button"
                   onClick={() => toggleFilter(def.key)}
-                  className={`flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border transition-colors ${
+                  aria-pressed={active}
+                  className={`flex cursor-pointer items-center gap-1.5 text-data-caption-13 px-2.5 py-1 border ${
                     active
-                      ? 'border-amber-400/60 bg-amber-400/20 text-amber-200'
-                      : 'border-[#E8E0D0]/25 text-[#E8E0D0]/60 hover:bg-[#E8E0D0]/[0.06]'
+                      ? 'border-surface-ink bg-surface-ink text-surface-paper font-bold'
+                      : 'border-surface-ink hover:bg-surface-paper-shade'
                   }`}
                 >
                   {def.label}
-                  <span className={active ? 'text-amber-200/70' : 'text-[#E8E0D0]/35'}>
+                  <span className={active ? '' : 'text-surface-ink/60'}>
                     {filterCounts[def.key]}
                   </span>
                 </button>
@@ -491,7 +501,7 @@ export default function ShowsList({ initialShows, today }: { initialShows: ShowL
               <button
                 type="button"
                 onClick={() => setActiveFilters(new Set())}
-                className="text-xs text-[#E8E0D0]/50 hover:text-[#E8E0D0] underline underline-offset-2"
+                className={`text-data-caption-13 ${ADMIN_TYPE.link}`}
               >
                 Clear
               </button>
@@ -500,14 +510,14 @@ export default function ShowsList({ initialShows, today }: { initialShows: ShowL
         );
       })()}
 
-      <p className="text-xs text-[#E8E0D0]/40 mb-3">
+      <p className={`${ADMIN_TYPE.meta} mb-3`}>
         {activeFilters.size > 0
           ? `${upcoming.length + past.length} of ${shows.length} shows shown`
           : `${filtered.length} of ${shows.length} shows shown`}
       </p>
 
       {upcoming.length + past.length === 0 ? (
-        <p className="text-[#E8E0D0]/40 text-sm py-8 text-center">
+        <p className="text-surface-ink/60 text-body-3 py-8 text-center">
           No shows match {activeFilters.size > 0 ? 'these filters' : 'this search'}.
         </p>
       ) : (
@@ -568,8 +578,8 @@ function ShowGroup({
   if (shows.length === 0) return null;
   return (
     <section>
-      <h2 className="text-xs uppercase tracking-wide text-[#E8E0D0]/40 mb-3">
-        {title} <span className="text-[#E8E0D0]/25">({shows.length})</span>
+      <h2 className={`${ADMIN_TYPE.overline} mb-3`}>
+        {title} <span className="text-surface-ink/60">({shows.length})</span>
       </h2>
       <div className="space-y-2">
         {shows.map((show) => {
@@ -585,10 +595,8 @@ function ShowGroup({
               onClick={() =>
                 selectable ? onToggleSelect?.(show.id) : router.push(`/admin/shows/${show.id}`)
               }
-              className={`flex items-center justify-between gap-4 border rounded-lg px-4 py-3 cursor-pointer transition-colors ${
-                selectable && checked
-                  ? 'border-[#E8E0D0]/60 bg-[#E8E0D0]/[0.06]'
-                  : 'border-[#E8E0D0]/15 hover:bg-[#E8E0D0]/[0.04]'
+              className={`flex items-center justify-between gap-4 border border-surface-ink px-4 py-3 cursor-pointer ${
+                selectable && checked ? 'bg-surface-paper-shade' : 'bg-surface-paper hover:bg-surface-paper-shade'
               }`}
             >
               {selectable && (
@@ -597,28 +605,28 @@ function ShowGroup({
                   checked={checked}
                   onChange={() => onToggleSelect?.(show.id)}
                   onClick={(e) => e.stopPropagation()}
-                  className="shrink-0 h-4 w-4 accent-[#E8E0D0]"
+                  className="shrink-0 h-4 w-4 accent-surface-ink"
                   aria-label={`Select ${show.title}`}
                 />
               )}
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-3 flex-wrap">
-                  <span className="text-sm text-[#E8E0D0]/50 font-mono">{show.date}</span>
-                  <span className="font-semibold truncate">{show.title}</span>
+                  <span className="text-body-3 text-surface-ink/60 tabular-nums">{show.date}</span>
+                  <span className="font-bold truncate">{show.title}</span>
                   {show.announced ? (
                     // "Announced" is a pre-show publish state; drop it for past shows.
                     show.date >= today && (
-                      <span className="text-xs px-2 py-0.5 rounded-full border border-green-400/40 text-green-300">
+                      <span className="text-data-caption-13 px-2 py-0.5 border border-surface-ink text-surface-ink">
                         Announced
                       </span>
                     )
                   ) : (
-                    <span className="text-xs px-2 py-0.5 rounded-full border border-[#E8E0D0]/30 text-[#E8E0D0]/50">
+                    <span className="text-data-caption-13 px-2 py-0.5 border border-surface-ink text-surface-ink/60">
                       Draft
                     </span>
                   )}
                   {!!show.rsvp_count && (
-                    <span className="text-xs px-2 py-0.5 rounded-full border border-[#E8E0D0]/30 text-[#E8E0D0]/60 whitespace-nowrap">
+                    <span className="text-data-caption-13 px-2 py-0.5 border border-surface-ink text-surface-ink/60 whitespace-nowrap">
                       {show.rsvp_count} RSVP{show.rsvp_count === 1 ? '' : 's'} · {show.guest_count} guest
                       {show.guest_count === 1 ? '' : 's'}
                     </span>
@@ -636,10 +644,10 @@ function ShowGroup({
                       const soldOut = capped && effective >= (show.ticket_limit as number);
                       return (
                         <span
-                          className={`text-xs px-2 py-0.5 rounded-full border whitespace-nowrap ${
+                          className={`text-data-caption-13 px-2 py-0.5  border whitespace-nowrap ${
                             soldOut
-                              ? 'border-red-400/50 text-red-300'
-                              : 'border-amber-400/40 text-amber-300'
+                              ? 'border-accent-red text-accent-red'
+                              : 'border-surface-ink text-surface-ink'
                           }`}
                         >
                           {sold}
@@ -653,7 +661,7 @@ function ShowGroup({
                     })()}
                   {clusters.map((cluster, clusterIndex) => (
                     <span key={clusterIndex} className="flex items-center gap-1.5 flex-wrap">
-                      {clusterIndex > 0 && <span className="w-px h-4 bg-[#E8E0D0]/15" />}
+                      {clusterIndex > 0 && <span className="w-px h-4 bg-surface-ink/30" />}
                       {cluster.map((issue) =>
                         issue.key === 'bands-unpaid' ||
                         issue.key === 'sound-unpaid' ||
@@ -670,8 +678,9 @@ function ShowGroup({
                         ) : (
                           <span
                             key={issue.key}
-                            className={`flex items-center gap-1.5 text-xs pl-2 pr-1 py-0.5 rounded-full border whitespace-nowrap ${chipClasses(issue.key).pill}`}
+                            className={`flex items-center gap-1.5 text-data-caption-13 pl-2 pr-1 py-0.5  border whitespace-nowrap ${chipClasses(issue.key).pill}`}
                           >
+                            <Swatch className={chipClasses(issue.key).swatch} />
                             {issue.label}
                             <button
                               type="button"
@@ -719,7 +728,7 @@ function PaidMethodButtons({
         type="button"
         onClick={() => onChange(false, null)}
         title="Click to mark unpaid"
-        className="shrink-0 text-xs text-emerald-300 hover:text-emerald-200"
+        className="shrink-0 text-data-caption-13 text-surface-ink hover:text-accent-red"
       >
         ✓ {method ? PAID_METHOD_LABEL[method] : 'paid'}
       </button>
@@ -733,7 +742,7 @@ function PaidMethodButtons({
           type="button"
           onClick={() => onChange(true, m)}
           title={`Mark paid by ${PAID_METHOD_LABEL[m]}`}
-          className="rounded border border-[#E8E0D0]/25 px-1.5 py-0.5 text-[11px] text-[#E8E0D0]/60 hover:bg-[#E8E0D0]/10"
+          className="cursor-pointer border border-surface-ink px-1.5 py-0.5 text-data-label-10-small hover:bg-surface-paper-shade"
         >
           {PAID_METHOD_LABEL[m]}
         </button>
@@ -817,16 +826,17 @@ function PaidTag({
   return (
     // Stop clicks bubbling to the row (which navigates to the show's edit page).
     <span ref={containerRef} className="relative" onClick={(e) => e.stopPropagation()}>
-      <span className={`flex items-center gap-1.5 text-xs pl-2 pr-1 py-0.5 rounded-full border whitespace-nowrap ${color.pill}`}>
+      <span className={`flex items-center gap-1.5 text-data-caption-13 pl-2 pr-1 py-0.5  border whitespace-nowrap ${color.pill}`}>
+        <Swatch className={color.swatch} />
         {label}
         <button
           type="button"
           onClick={toggleOpen}
-          className={`flex items-center gap-0.5 rounded-full px-1.5 py-0.5 ${color.action}`}
+          className={`flex items-center gap-0.5  px-1.5 py-0.5 ${color.action}`}
           title="Mark paid"
         >
           Mark paid
-          <span className="text-[0.6rem] leading-none">▾</span>
+          <span className="text-data-label-10-small leading-none">▾</span>
         </button>
         <button
           type="button"
@@ -838,15 +848,15 @@ function PaidTag({
         </button>
       </span>
       {open && (
-        <div className="absolute z-20 mt-1 left-0 w-60 rounded-lg border border-[#E8E0D0]/20 bg-[#2A2420] p-3 shadow-xl text-[#E8E0D0]">
-          <p className="text-xs uppercase tracking-wide text-[#E8E0D0]/40 mb-2">
+        <div className="absolute z-20 mt-1 left-0 w-60  border border-surface-ink bg-surface-paper p-3  text-surface-ink">
+          <p className={`${ADMIN_TYPE.overline} text-surface-ink/60 mb-2`}>
             {isBands ? 'Band payouts' : 'Payout'}
           </p>
           {isBands ? (
             <>
-              {loading && <p className="text-xs text-[#E8E0D0]/40">Loading…</p>}
+              {loading && <p className="text-data-caption-13 text-surface-ink/60">Loading…</p>}
               {loadError && (
-                <p className="text-xs text-red-300">
+                <p className="text-data-caption-13 text-accent-red">
                   Failed to load.{' '}
                   <button type="button" onClick={loadBands} className="underline">
                     Retry
@@ -854,7 +864,7 @@ function PaidTag({
                 </p>
               )}
               {bands && bands.length === 0 && (
-                <p className="text-xs text-[#E8E0D0]/40">No bands linked to this show.</p>
+                <p className="text-data-caption-13 text-surface-ink/60">No bands linked to this show.</p>
               )}
               {bands && bands.length > 0 && (
                 <div className="space-y-1.5">
@@ -862,17 +872,17 @@ function PaidTag({
                     band.excluded ? (
                       <div
                         key={band.bandId}
-                        className="flex items-center justify-between gap-2 text-sm rounded px-1 py-0.5 opacity-50"
+                        className="flex items-center justify-between gap-2 text-body-3  px-1 py-0.5 opacity-50"
                       >
                         <span className="line-through">{band.name}</span>
-                        <span className="text-xs text-[#E8E0D0]/40">excluded</span>
+                        <span className="text-data-caption-13 text-surface-ink/60">excluded</span>
                       </div>
                     ) : (
                       <div
                         key={band.bandId}
-                        className="flex items-center justify-between gap-2 text-sm rounded px-1 py-0.5"
+                        className="flex items-center justify-between gap-2 text-body-3  px-1 py-0.5"
                       >
-                        <span className={`truncate ${band.paid ? 'text-[#E8E0D0]/50 line-through' : ''}`}>
+                        <span className={`truncate ${band.paid ? 'text-surface-ink/60 line-through' : ''}`}>
                           {band.name}
                         </span>
                         <PaidMethodButtons
@@ -889,7 +899,7 @@ function PaidTag({
           ) : (
             // The tag only renders while unpaid, so this row never needs the
             // paid/unmark state — picking a method marks paid and clears it.
-            <div className="flex items-center justify-between gap-2 text-sm rounded px-1 py-0.5">
+            <div className="flex items-center justify-between gap-2 text-body-3  px-1 py-0.5">
               <span className="truncate">{crewName}</span>
               <PaidMethodButtons
                 paid={false}
