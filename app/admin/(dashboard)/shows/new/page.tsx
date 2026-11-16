@@ -9,7 +9,7 @@ export default async function NewShowPage({
   const { date } = await searchParams;
   const nightDate = getNightDateCentral();
   return (
-    <main className="max-w-6xl mx-auto px-6 pb-16 pt-6">
+    <main className="mx-auto max-w-6xl px-4 pt-8 pb-16 sm:px-8">
       <ShowForm
         mode="create"
         initialValues={date ? { date } : undefined}

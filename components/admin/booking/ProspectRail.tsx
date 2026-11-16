@@ -87,7 +87,6 @@ export default function ProspectRail({
         <form onSubmit={handleAdd} className="mb-4 flex items-center gap-2">
           <div className="min-w-0 flex-1">
             <BandNameInput
-              paper
               value={addName}
               onChange={(value) => {
                 setAddName(value);

@@ -133,7 +133,6 @@ export default function SoundEngineerForm({
         </div>
 
         <ImageUploadField
-          paper
           label="Photo"
           value={photo}
           onChange={setPhoto}
