@@ -48,7 +48,7 @@ export function AdminBar({ fullWidth = false }: { fullWidth?: boolean }) {
         className={`flex min-h-12 flex-wrap items-center justify-between gap-x-6 gap-y-2 py-2 ${fullWidth ? 'px-4' : 'mx-auto max-w-6xl px-6'}`}
       >
         <Link href="/admin" aria-label="Birdhaus admin dashboard" className="flex items-center gap-3">
-          <BirdhausWordmark layout="short-tail" className="text-surface-paper w-28" />
+          <BirdhausWordmark layout="short-tail" onInk className="w-28" />
           <span className="bg-accent-red text-surface-paper text-data-overline-11 px-1.5 py-0.5 font-bold tracking-[--spacing(0.625)]">
             ADMIN
           </span>
