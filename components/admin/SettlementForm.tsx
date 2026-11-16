@@ -3,6 +3,7 @@
 import { useMemo, useState, type FormEvent, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import type { ShowBandPaidStatus } from '@/lib/bands';
+import { buttonClassName } from './ui';
 import {
   computeSettlementSummary,
   formatCurrency,
@@ -31,7 +32,7 @@ const inputClass =
 const numberInputClass = `${inputClass} [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none`;
 
 const ACCENT = {
-  neutral: 'bg-surface-paper-shade',
+  neutral: 'bg-surface-ink/30',
   income: 'bg-surface-ink',
   expense: 'bg-spectrum-amber',
   band: 'bg-spectrum-violet',
@@ -316,7 +317,7 @@ function PaidToggle({
         type="button"
         onClick={() => onChange(false, null)}
         title="Click to mark unpaid"
-        className="w-full border border-surface-ink px-2 py-1 text-data-caption-13 font-bold text-surface-ink transition-colors"
+        className="w-full border border-surface-ink bg-surface-ink px-2 py-1 text-data-caption-13 font-bold text-surface-paper transition-colors"
       >
         ✓ Paid{method ? ` · ${PAID_METHOD_LABEL[method]}` : ''}
       </button>
@@ -1498,7 +1499,7 @@ export default function SettlementForm({
         <button
           type="submit"
           disabled={submitting}
-          className="border border-surface-ink px-6 py-2 text-body-3 hover:bg-surface-ink hover:text-surface-paper transition-colors disabled:opacity-50"
+          className={`${buttonClassName('primary', 'm')} disabled:opacity-50`}
         >
           {submitting ? 'Saving...' : 'Save settlement'}
         </button>
