@@ -3,6 +3,10 @@
 import { useState } from 'react';
 import { FORM } from '@/components/night/form';
 
+// "What you sound like" is hidden for now; it's optional server-side, so
+// leads just come in without it. Flip to bring it back.
+const SHOW_GENRE = false;
+
 // "I'm interested" form on /rehearsal. Posts to /api/rehearsal/interest.
 // `website` is a honeypot: off-screen, out of the tab order, hidden from
 // screen readers; people never fill it.
@@ -185,21 +189,23 @@ export default function InterestForm() {
         {fieldError('frequency')}
       </fieldset>
 
-      <div>
-        <label htmlFor="ri-genre" className={FORM.label}>
-          What you sound like <span className="font-normal normal-case opacity-70">(genre, links)</span>
-        </label>
-        <textarea
-          id="ri-genre"
-          rows={2}
-          value={f.genreLinks}
-          onChange={set('genreLinks')}
-          placeholder="Garage pop · bandcamp.com/yourband"
-          className={field('genreLinks')}
-          {...aria('genreLinks')}
-        />
-        {fieldError('genreLinks')}
-      </div>
+      {SHOW_GENRE && (
+        <div>
+          <label htmlFor="ri-genre" className={FORM.label}>
+            What you sound like <span className="font-normal normal-case opacity-70">(genre, links)</span>
+          </label>
+          <textarea
+            id="ri-genre"
+            rows={2}
+            value={f.genreLinks}
+            onChange={set('genreLinks')}
+            placeholder="Garage pop · bandcamp.com/yourband"
+            className={field('genreLinks')}
+            {...aria('genreLinks')}
+          />
+          {fieldError('genreLinks')}
+        </div>
+      )}
       <div>
         <label htmlFor="ri-notes" className={FORM.label}>
           Anything else <span className="font-normal normal-case opacity-70">(optional)</span>
