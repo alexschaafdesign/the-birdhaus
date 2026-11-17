@@ -3,6 +3,7 @@
 import { useMemo, useState, type FormEvent, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import type { ShowBandPaidStatus } from '@/lib/bands';
+import { buttonClassName } from './ui';
 import {
   computeSettlementSummary,
   formatCurrency,
@@ -24,26 +25,26 @@ import {
 } from '@/lib/settlements';
 
 const inputClass =
-  'bg-[#E8E0D0]/[0.04] border border-[#E8E0D0]/30 rounded px-3 py-1.5 text-sm focus:outline-none focus:border-[#E8E0D0] placeholder:text-[#E8E0D0]/30 disabled:opacity-40';
+  'bg-surface-paper text-surface-ink border border-surface-ink rounded-none px-3 py-1.5 text-body-3 placeholder:text-surface-ink/45 focus-visible:outline-accent-red focus-visible:outline-2 focus-visible:outline-offset-2 disabled:opacity-40';
 
 // Hides the native up/down spinner on number inputs (Firefox + WebKit) — nudging
 // a dollar amount by $1 at a time isn't useful here.
 const numberInputClass = `${inputClass} [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none`;
 
 const ACCENT = {
-  neutral: 'bg-[#E8E0D0]/50',
-  income: 'bg-emerald-400',
-  expense: 'bg-amber-400',
-  band: 'bg-purple-400',
+  neutral: 'bg-surface-ink/30',
+  income: 'bg-surface-ink',
+  expense: 'bg-spectrum-amber',
+  band: 'bg-spectrum-violet',
 } as const;
 
 // Background/border for the whole card when `tint` is set — a wash of the accent
 // color; otherwise the neutral panel style.
 const TINT = {
-  neutral: 'border-[#E8E0D0]/15 bg-[#E8E0D0]/[0.03]',
-  income: 'border-emerald-400/20 bg-emerald-400/[0.04]',
-  expense: 'border-amber-400/20 bg-amber-400/[0.05]',
-  band: 'border-purple-400/20 bg-purple-400/[0.05]',
+  neutral: 'border-surface-ink bg-surface-paper',
+  income: 'border-surface-ink border-2 bg-surface-paper',
+  expense: 'border-surface-ink border-2 bg-surface-paper',
+  band: 'border-surface-ink border-2 bg-surface-paper',
 } as const;
 
 function SectionCard({
@@ -70,7 +71,7 @@ function SectionCard({
   const [collapsed, setCollapsed] = useState(defaultCollapsed);
   const showBody = !collapsible || !collapsed;
   return (
-    <div className={`rounded-lg border p-4 ${tint ? TINT[accent] : TINT.neutral}`}>
+    <div className={`border p-4 ${tint ? TINT[accent] : TINT.neutral}`}>
       <div className={`flex items-center justify-between gap-3 ${showBody ? 'mb-3' : ''}`}>
         {collapsible ? (
           <button
@@ -78,8 +79,8 @@ function SectionCard({
             onClick={() => setCollapsed((c) => !c)}
             className="group flex min-w-0 flex-1 items-center gap-3 text-left"
           >
-            <span className="flex shrink-0 items-center gap-2 text-sm font-semibold text-[#E8E0D0]/80 group-hover:text-[#E8E0D0]">
-              <span className={`h-1.5 w-1.5 rounded-full ${ACCENT[accent]}`} />
+            <span className="flex shrink-0 items-center gap-2 text-data-overline-11 font-bold leading-[1.3] tracking-[--spacing(0.625)] uppercase group-hover:text-accent-red">
+              <span aria-hidden className={`size-2.5 shrink-0 ${ACCENT[accent]}`} />
               {title}
               <svg
                 width="12"
@@ -88,18 +89,18 @@ function SectionCard({
                 fill="none"
                 stroke="currentColor"
                 strokeWidth="2"
-                className={`text-[#E8E0D0]/50 transition-transform ${collapsed ? '' : 'rotate-180'}`}
+                className={`text-surface-ink/60 transition-transform ${collapsed ? '' : 'rotate-180'}`}
               >
                 <path d="m6 9 6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             </span>
             {collapsed && summary != null && (
-              <span className="truncate text-xs text-[#E8E0D0]/50">{summary}</span>
+              <span className="truncate text-data-caption-13 text-surface-ink/60">{summary}</span>
             )}
           </button>
         ) : (
-          <h2 className="flex items-center gap-2 text-sm font-semibold text-[#E8E0D0]/80">
-            <span className={`h-1.5 w-1.5 rounded-full ${ACCENT[accent]}`} />
+          <h2 className="flex items-center gap-2 text-data-overline-11 font-bold leading-[1.3] tracking-[--spacing(0.625)] uppercase">
+            <span aria-hidden className={`size-2.5 shrink-0 ${ACCENT[accent]}`} />
             {title}
           </h2>
         )}
@@ -120,8 +121,8 @@ function Field({
   children: ReactNode;
 }) {
   return (
-    <div className="rounded-md bg-black/10 p-2.5">
-      <label className="block text-xs uppercase tracking-wide text-[#E8E0D0]/40 mb-1">
+    <div className="bg-surface-paper-shade p-2.5">
+      <label className="block text-data-overline-11 font-bold leading-[1.3] tracking-[--spacing(0.625)] uppercase text-surface-ink/60 mb-1">
         {label}
         {suffix}
       </label>
@@ -146,6 +147,7 @@ function Icon({ name, className = 'h-[18px] w-[18px]' }: { name: string; classNa
       );
     case 'venmo':
       return (
+        // admin-tokens-ok: Venmo's own brand colours for its logo mark.
         <svg {...svg}>
           <rect width="24" height="24" rx="5.5" fill="#008CFF" />
           <path d="M8 7.5 12 16.5 16 7.5" fill="none" stroke="#fff" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
@@ -235,20 +237,20 @@ function Icon({ name, className = 'h-[18px] w-[18px]' }: { name: string; classNa
 // Maps each money field to a colored, scannable icon. Payment methods keep a
 // consistent color everywhere they appear (income + fees); category icons are neutral.
 const FIELD_ICON: Partial<Record<NumericField, ReactNode>> = {
-  incomeSquare: <span className="text-[#E8E0D0]/85"><Icon name="square" /></span>,
+  incomeSquare: <span className="text-surface-ink/80"><Icon name="square" /></span>,
   incomeVenmo: <Icon name="venmo" />,
-  incomeCash: <span className="text-emerald-400/80"><Icon name="cash" /></span>,
+  incomeCash: <span className="text-surface-ink"><Icon name="cash" /></span>,
   beverageIncomeVenmo: <Icon name="venmo" />,
-  beverageIncomeCash: <span className="text-emerald-400/80"><Icon name="cash" /></span>,
-  expSquareFees: <span className="text-[#E8E0D0]/85"><Icon name="square" /></span>,
+  beverageIncomeCash: <span className="text-surface-ink"><Icon name="cash" /></span>,
+  expSquareFees: <span className="text-surface-ink/80"><Icon name="square" /></span>,
   expVenmoFees: <Icon name="venmo" />,
-  expSoundEngineer: <span className="text-[#E8E0D0]/45"><Icon name="mic" /></span>,
-  expPhotos: <span className="text-[#E8E0D0]/45"><Icon name="camera" /></span>,
-  expDoorPerson: <span className="text-[#E8E0D0]/45"><Icon name="door" /></span>,
-  expAdPrint: <span className="text-[#E8E0D0]/45"><Icon name="print" /></span>,
-  expAdOnline: <span className="text-[#E8E0D0]/45"><Icon name="online" /></span>,
-  expSnacks: <span className="text-[#E8E0D0]/45"><Icon name="snacks" /></span>,
-  expBeer: <span className="text-[#E8E0D0]/45"><Icon name="beer" /></span>,
+  expSoundEngineer: <span className="text-surface-ink/60"><Icon name="mic" /></span>,
+  expPhotos: <span className="text-surface-ink/60"><Icon name="camera" /></span>,
+  expDoorPerson: <span className="text-surface-ink/60"><Icon name="door" /></span>,
+  expAdPrint: <span className="text-surface-ink/60"><Icon name="print" /></span>,
+  expAdOnline: <span className="text-surface-ink/60"><Icon name="online" /></span>,
+  expSnacks: <span className="text-surface-ink/60"><Icon name="snacks" /></span>,
+  expBeer: <span className="text-surface-ink/60"><Icon name="beer" /></span>,
 };
 
 // Compact one-line money input: icon + label on the left, a narrow $-prefixed
@@ -271,16 +273,16 @@ function MoneyField({
   footer?: ReactNode;
 }) {
   return (
-    <div className="rounded-lg bg-black/10 p-3">
+    <div className="bg-surface-paper-shade p-3">
       <div className="flex items-center gap-2">
         {icon && <span className="flex h-[18px] w-[18px] shrink-0 items-center justify-center">{icon}</span>}
-        <span className="flex min-w-0 flex-1 items-center gap-1.5 text-sm text-[#E8E0D0]/80">
+        <span className="flex min-w-0 flex-1 items-center gap-1.5 text-body-3 text-surface-ink/80">
           <span className="truncate">{label}</span>
           {badge}
         </span>
       </div>
       <div className="relative mt-2 w-32">
-        <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-sm text-[#E8E0D0]/40">$</span>
+        <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-body-3 text-surface-ink/60">$</span>
         <input
           type="number"
           step="0.01"
@@ -316,7 +318,7 @@ function PaidToggle({
         type="button"
         onClick={() => onChange(false, null)}
         title="Click to mark unpaid"
-        className="w-full rounded border border-emerald-400/50 bg-emerald-400/15 px-2 py-1 text-xs font-medium text-emerald-300 transition-colors"
+        className="w-full border border-surface-ink bg-surface-ink px-2 py-1 text-data-caption-13 font-bold text-surface-paper transition-colors"
       >
         ✓ Paid{method ? ` · ${PAID_METHOD_LABEL[method]}` : ''}
       </button>
@@ -330,7 +332,7 @@ function PaidToggle({
           type="button"
           onClick={() => onChange(true, m)}
           title={`Mark as paid by ${PAID_METHOD_LABEL[m]}`}
-          className="flex-1 rounded border border-[#E8E0D0]/25 px-1 py-1 text-xs font-medium text-[#E8E0D0]/60 transition-colors hover:bg-[#E8E0D0]/10"
+          className="flex-1 border border-surface-ink px-1 py-1 text-data-caption-13 font-bold text-surface-ink/60 transition-colors hover:bg-surface-paper-shade"
         >
           Paid {PAID_METHOD_LABEL[m]}
         </button>
@@ -359,7 +361,7 @@ function SubGroup({
   const show = !collapsible || !collapsed;
   const header = (
     <>
-      <span className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-[#E8E0D0]/70">
+      <span className="flex items-center gap-2 text-data-caption-13 font-bold uppercase tracking-wide text-surface-ink/80">
         {collapsible && (
           <svg
             width="12"
@@ -368,30 +370,30 @@ function SubGroup({
             fill="none"
             stroke="currentColor"
             strokeWidth="2.5"
-            className={`text-[#E8E0D0]/50 transition-transform ${collapsed ? '-rotate-90' : ''}`}
+            className={`text-surface-ink/60 transition-transform ${collapsed ? '-rotate-90' : ''}`}
           >
             <path d="m6 9 6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         )}
         {title}
       </span>
-      {summary != null && <span className="text-xs tabular-nums text-[#E8E0D0]/45">{summary}</span>}
+      {summary != null && <span className="text-data-caption-13 tabular-nums text-surface-ink/60">{summary}</span>}
     </>
   );
   return (
-    <div className="overflow-hidden rounded-lg border border-[#E8E0D0]/10 bg-black/20">
+    <div className="overflow-hidden border border-surface-ink/20 bg-surface-paper-shade">
       {collapsible ? (
         <button
           type="button"
           onClick={() => setCollapsed((c) => !c)}
-          className={`flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left transition-colors hover:bg-[#E8E0D0]/[0.04] ${
-            show ? 'border-b border-[#E8E0D0]/10' : ''
+          className={`flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left transition-colors hover:bg-surface-paper ${
+            show ? 'border-b border-surface-ink/20' : ''
           }`}
         >
           {header}
         </button>
       ) : (
-        <div className="flex items-center justify-between gap-2 border-b border-[#E8E0D0]/10 px-3 py-2.5">
+        <div className="flex items-center justify-between gap-2 border-b border-surface-ink/20 px-3 py-2.5">
           {header}
         </div>
       )}
@@ -907,66 +909,66 @@ export default function SettlementForm({
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       {error && (
-        <div className="border border-red-400/40 bg-red-400/10 text-red-300 text-sm rounded px-4 py-2 flex justify-between items-center">
+        <div className="border border-accent-red text-accent-red text-body-3 px-4 py-2 flex justify-between items-center">
           <span>{error}</span>
-          <button type="button" onClick={() => setError(null)} className="text-red-300/70 hover:text-red-300">
+          <button type="button" onClick={() => setError(null)} className="text-accent-red cursor-pointer hover:underline">
             dismiss
           </button>
         </div>
       )}
 
-      <div className="rounded-lg border border-[#E8E0D0]/25 bg-[#E8E0D0]/[0.06] p-4 shadow-[0_0_0_1px_rgba(232,224,208,0.03)]">
-        <h2 className="text-sm font-semibold text-[#E8E0D0]/90 mb-3">Summary</h2>
-        <dl className="grid gap-x-6 gap-y-1.5 sm:grid-cols-2 text-sm">
+      <div className="border border-surface-ink bg-surface-paper p-4 shadow-[0_0_0_1px_rgba(232,224,208,0.03)]">
+        <h2 className="text-body-3 font-bold text-surface-ink/80 mb-3">Summary</h2>
+        <dl className="grid gap-x-6 gap-y-1.5 sm:grid-cols-2 text-body-3">
           <div className="flex justify-between">
-            <dt className="text-emerald-300/70">Total income</dt>
-            <dd className="text-emerald-300/90">{formatCurrency(summary.totalIncome)}</dd>
+            <dt className="text-surface-ink">Total income</dt>
+            <dd className="text-surface-ink">{formatCurrency(summary.totalIncome)}</dd>
           </div>
           <div className="flex justify-between">
-            <dt className="text-[#E8E0D0]/60">Artist pool</dt>
+            <dt className="text-surface-ink/60">Artist pool</dt>
             <dd>{formatCurrency(summary.artistPool)}</dd>
           </div>
           <div className="flex justify-between">
-            <dt className="text-[#E8E0D0]/60">Per band ({payoutBandCount})</dt>
+            <dt className="text-surface-ink/60">Per band ({payoutBandCount})</dt>
             <dd>{formatCurrency(summary.perBand)}</dd>
           </div>
           {summary.bandPayoutSavings !== 0 && (
             <div className="flex justify-between">
-              <dt className="text-[#E8E0D0]/60">
+              <dt className="text-surface-ink/60">
                 {summary.bandPayoutSavings > 0 ? 'Kept from band payouts' : 'Extra paid to bands'}
               </dt>
-              <dd className={summary.bandPayoutSavings > 0 ? 'text-emerald-300/90' : 'text-amber-300/90'}>
+              <dd className={summary.bandPayoutSavings > 0 ? 'text-surface-ink' : 'text-surface-ink'}>
                 {summary.bandPayoutSavings > 0 ? '+' : '−'}
                 {formatCurrency(Math.abs(summary.bandPayoutSavings))}
               </dd>
             </div>
           )}
           <div className="flex justify-between">
-            <dt className="text-amber-300/70">Total expenses</dt>
-            <dd className="text-amber-300/90">{formatCurrency(summary.totalExpenses)}</dd>
+            <dt className="text-surface-ink">Total expenses</dt>
+            <dd className="text-surface-ink">{formatCurrency(summary.totalExpenses)}</dd>
           </div>
           <div className="flex justify-between">
-            <dt className="text-[#E8E0D0]/60">Venue split</dt>
+            <dt className="text-surface-ink/60">Venue split</dt>
             <dd>{formatCurrency(summary.venueSplit)}</dd>
           </div>
           <div className="flex justify-between">
-            <dt className="text-emerald-300/70">Venue additional income</dt>
-            <dd className="text-emerald-300/90">{formatCurrency(summary.venueAdditionalIncome)}</dd>
+            <dt className="text-surface-ink">Venue additional income</dt>
+            <dd className="text-surface-ink">{formatCurrency(summary.venueAdditionalIncome)}</dd>
           </div>
           {summary.venueRedirect !== 0 && (
             <div className="flex justify-between">
-              <dt className="text-amber-300/70">Venue redirect ({formatPct(Number(form.venueRedirectPct) || 0)}%)</dt>
-              <dd className="text-amber-300/90">−{formatCurrency(summary.venueRedirect)}</dd>
+              <dt className="text-surface-ink">Venue redirect ({formatPct(Number(form.venueRedirectPct) || 0)}%)</dt>
+              <dd className="text-surface-ink">−{formatCurrency(summary.venueRedirect)}</dd>
             </div>
           )}
         </dl>
         <div
-          className={`mt-3 flex justify-between items-center rounded-md px-3 py-2 font-semibold ${
-            summary.venueNet >= 0 ? 'bg-emerald-400/10 text-emerald-300' : 'bg-rose-400/10 text-rose-300'
+          className={`mt-3 flex justify-between items-center  px-3 py-2 font-bold ${
+            summary.venueNet >= 0 ? 'bg-surface-ink text-surface-paper' : 'bg-accent-red text-surface-paper'
           }`}
         >
           <span>Venue net</span>
-          <span className="text-base">{formatCurrency(summary.venueNet)}</span>
+          <span className="text-body-1">{formatCurrency(summary.venueNet)}</span>
         </div>
       </div>
 
@@ -1009,7 +1011,7 @@ export default function SettlementForm({
               onChange={(e) => set('venueRedirectPct', e.target.value)}
               className={`${numberInputClass} w-full`}
             />
-            <p className="mt-1 text-[10px] normal-case tracking-normal text-[#E8E0D0]/40">
+            <p className="mt-1 text-data-label-10-small normal-case tracking-normal text-surface-ink/60">
               Share of the venue split sent to an outside party (e.g. charity), deducted after expenses.
             </p>
           </Field>
@@ -1032,15 +1034,15 @@ export default function SettlementForm({
                 onChange={(v) => setIncome(key, v)}
                 footer={
                   showAdvanceHint && (
-                    <p className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px] text-[#E8E0D0]/40">
+                    <p className="mt-2 flex flex-wrap items-center gap-1.5 text-data-label-10-small text-surface-ink/60">
                       <span>Advance sales: {formatCurrency(advanceTicketSalesDollars!)}</span>
                       {advanceMatches ? (
-                        <span className="text-emerald-400/70">✓</span>
+                        <span className="text-surface-ink">✓</span>
                       ) : (
                         <button
                           type="button"
                           onClick={() => setIncome('incomeSquare', advanceTicketSalesDollars!.toFixed(2))}
-                          className="text-[#E8E0D0]/70 underline decoration-dotted underline-offset-2 hover:text-[#E8E0D0]"
+                          className="text-surface-ink/80 underline decoration-dotted underline-offset-2 hover:text-accent-red"
                         >
                           apply
                         </button>
@@ -1053,9 +1055,9 @@ export default function SettlementForm({
           })}
           {/* Official attendance — a headcount, not money, but it's recorded at
               the same moment as the night's income so it lives alongside it. */}
-          <div className="rounded-lg bg-black/10 p-3">
+          <div className="bg-surface-paper-shade p-3">
             <div className="flex items-center gap-2">
-              <span className="flex min-w-0 flex-1 items-center gap-1.5 text-sm text-[#E8E0D0]/80">
+              <span className="flex min-w-0 flex-1 items-center gap-1.5 text-body-3 text-surface-ink/80">
                 <span className="truncate">Official attendance</span>
               </span>
             </div>
@@ -1073,15 +1075,15 @@ export default function SettlementForm({
               />
             </div>
             {doorAttendance != null && (
-              <p className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px] text-[#E8E0D0]/40">
+              <p className="mt-2 flex flex-wrap items-center gap-1.5 text-data-label-10-small text-surface-ink/60">
                 <span>Door check-ins: {doorAttendance}</span>
                 {parseAttendance(form.attendance) === doorAttendance ? (
-                  <span className="text-emerald-400/70">✓</span>
+                  <span className="text-surface-ink">✓</span>
                 ) : (
                   <button
                     type="button"
                     onClick={() => set('attendance', String(doorAttendance))}
-                    className="text-[#E8E0D0]/70 underline decoration-dotted underline-offset-2 hover:text-[#E8E0D0]"
+                    className="text-surface-ink/80 underline decoration-dotted underline-offset-2 hover:text-accent-red"
                   >
                     apply
                   </button>
@@ -1141,19 +1143,19 @@ export default function SettlementForm({
                       );
                       const payeePhoto = registry?.photos[name.trim().toLowerCase()];
                       return (
-                        <div key={key} className="flex flex-col items-center rounded-lg bg-black/10 p-3 text-center">
+                        <div key={key} className="flex flex-col items-center bg-surface-paper-shade p-3 text-center">
                           {payeePhoto ? (
                             // eslint-disable-next-line @next/next/no-img-element
-                            <img src={payeePhoto} alt="" className="h-16 w-16 shrink-0 rounded-full object-cover" />
+                            <img src={payeePhoto} alt="" className="h-16 w-16 shrink-0 object-cover" />
                           ) : (
-                            <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-[#E8E0D0]/10 text-[#E8E0D0]/45">
+                            <span className="flex h-16 w-16 shrink-0 items-center justify-center bg-surface-paper-shade text-surface-ink/60">
                               <Icon name={CREW_ICON[key] ?? 'sound'} className="h-7 w-7" />
                             </span>
                           )}
 
                           {payee && registry ? (
                             <>
-                              <span className="mt-2 text-[11px] uppercase tracking-wide text-[#E8E0D0]/35">
+                              <span className="mt-2 text-data-label-10-small uppercase tracking-wide text-surface-ink/60">
                                 {roleLabel}
                               </span>
                               <select
@@ -1161,23 +1163,23 @@ export default function SettlementForm({
                                 onChange={(e) => set(payee.nameKey, e.target.value)}
                                 className={`${inputClass} mt-1 w-full text-center`}
                               >
-                                <option value="" className="text-[#2A2420]">Unassigned</option>
+                                <option value="">Unassigned</option>
                                 {name && !matched && (
-                                  <option value={name} className="text-[#2A2420]">{name}</option>
+                                  <option value={name}>{name}</option>
                                 )}
                                 {registry.list.map((entry) => (
-                                  <option key={entry.name} value={entry.name} className="text-[#2A2420]">
+                                  <option key={entry.name} value={entry.name}>
                                     {entry.name}
                                   </option>
                                 ))}
                               </select>
                             </>
                           ) : (
-                            <span className="mt-2 text-sm font-medium leading-tight">{roleLabel}</span>
+                            <span className="mt-2 text-body-3 font-bold leading-tight">{roleLabel}</span>
                           )}
 
                           <div className="relative mt-3 w-full">
-                            <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-sm text-[#E8E0D0]/40">
+                            <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-body-3 text-surface-ink/60">
                               $
                             </span>
                             <input
@@ -1194,9 +1196,9 @@ export default function SettlementForm({
                               mirroring the band cards — on hand when paying out. */}
                           {payee && name.trim() && (
                             matched?.paymentMethod ? (
-                              <span className="mt-1 text-xs text-[#E8E0D0]/45">{matched.paymentMethod}</span>
+                              <span className="mt-1 text-data-caption-13 text-surface-ink/60">{matched.paymentMethod}</span>
                             ) : (
-                              <span className="mt-1 text-xs text-[#E8E0D0]/25">no payout handle</span>
+                              <span className="mt-1 text-data-caption-13 text-surface-ink/60">no payout handle</span>
                             )
                           )}
 
@@ -1227,7 +1229,7 @@ export default function SettlementForm({
                           label={label}
                           badge={
                             feeLink && (
-                              <span className="shrink-0 rounded-full bg-emerald-400/10 px-1.5 py-0.5 text-[10px] text-emerald-300/70">
+                              <span className="shrink-0 px-1.5 py-0.5 text-data-label-10-small text-surface-ink">
                                 auto {(feeLink.rate * 100).toFixed(1)}%
                               </span>
                             )
@@ -1247,37 +1249,37 @@ export default function SettlementForm({
 
       <SectionCard title="Band payouts" accent="band" tint>
         {bandPayError && (
-          <div className="mb-3 border border-red-400/40 bg-red-400/10 text-red-300 text-xs rounded px-3 py-2 flex justify-between items-center">
+          <div className="mb-3 border border-accent-red text-accent-red text-data-caption-13 px-3 py-2 flex justify-between items-center">
             <span>{bandPayError}</span>
             <button
               type="button"
               onClick={() => setBandPayError(null)}
-              className="text-red-300/70 hover:text-red-300"
+              className="text-accent-red cursor-pointer hover:underline"
             >
               dismiss
             </button>
           </div>
         )}
         {bands.length === 0 ? (
-          <p className="text-xs text-[#E8E0D0]/30">No bands linked to this show.</p>
+          <p className="text-data-caption-13 text-surface-ink/60">No bands linked to this show.</p>
         ) : (
           <div className="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(150px,1fr))]">
             {bands.map((band) => (
               <div
                 key={band.bandId}
-                className={`flex flex-col items-center rounded-lg bg-black/10 p-3 text-center ${
+                className={`flex flex-col items-center  bg-surface-paper-shade p-3 text-center ${
                   band.excluded ? 'opacity-50' : ''
                 }`}
               >
                 {band.photo ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={band.photo} alt="" className="h-16 w-16 shrink-0 rounded-full object-cover" />
+                  <img src={band.photo} alt="" className="h-16 w-16 shrink-0 object-cover" />
                 ) : (
-                  <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-[#E8E0D0]/10 text-xl font-semibold text-[#E8E0D0]/50">
+                  <span className="flex h-16 w-16 shrink-0 items-center justify-center bg-surface-paper-shade text-header-4 font-bold text-surface-ink/60">
                     {band.name.charAt(0).toUpperCase()}
                   </span>
                 )}
-                <span className={`mt-2 text-sm font-medium leading-tight ${band.excluded ? 'line-through' : ''}`}>
+                <span className={`mt-2 text-body-3 font-bold leading-tight ${band.excluded ? 'line-through' : ''}`}>
                   {band.name}
                 </span>
                 {/* Editable payment handle — saved to the band itself, so it's
@@ -1298,21 +1300,21 @@ export default function SettlementForm({
                       e.currentTarget.blur();
                     }
                   }}
-                  className={`${inputClass} mt-1 w-full px-2 py-0.5 text-center text-xs ${
-                    band.paymentMethod ? 'text-[#E8E0D0]/70' : 'placeholder:text-[#E8E0D0]/25'
+                  className={`${inputClass} mt-1 w-full px-2 py-0.5 text-center text-data-caption-13 ${
+                    band.paymentMethod ? 'text-surface-ink/80' : 'placeholder:text-surface-ink/45'
                   }`}
                 />
 
                 <div className="mt-3 w-full space-y-2">
                   {band.excluded ? (
-                    <p className="py-1 text-xs text-[#E8E0D0]/40">Excluded from split</p>
+                    <p className="py-1 text-data-caption-13 text-surface-ink/60">Excluded from split</p>
                   ) : (
                     <>
                       {/* The star: the dollar amount to send. Defaults to what the
                           band is due (its % of the pool); edit to record a different
                           amount actually paid, and the difference is kept by the venue. */}
                       <div className="relative">
-                        <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-sm text-[#E8E0D0]/45">
+                        <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-body-3 text-surface-ink/60">
                           $
                         </span>
                         <input
@@ -1339,15 +1341,15 @@ export default function SettlementForm({
                               e.currentTarget.blur();
                             }
                           }}
-                          className={`${numberInputClass} w-full pl-6 pr-2 text-right text-lg font-semibold ${
-                            band.payoutOverride !== null ? 'border-amber-400/60' : ''
+                          className={`${numberInputClass} w-full pl-6 pr-2 text-right text-header-4 font-bold ${
+                            band.payoutOverride !== null ? 'border-accent-red' : ''
                           }`}
                         />
                       </div>
 
                       {/* The required driver, kept visually secondary: percentage of
                           the pool. Empty it to fall back to the even split. */}
-                      <div className="flex items-center justify-center gap-1 text-[11px] text-[#E8E0D0]/50">
+                      <div className="flex items-center justify-center gap-1 text-data-label-10-small text-surface-ink/60">
                         <input
                           type="number"
                           step="0.01"
@@ -1370,8 +1372,8 @@ export default function SettlementForm({
                               e.currentTarget.blur();
                             }
                           }}
-                          className={`${numberInputClass} w-14 rounded border border-[#E8E0D0]/20 bg-transparent px-1 py-0.5 text-right ${
-                            band.payoutPct !== null ? 'text-amber-300/90' : ''
+                          className={`${numberInputClass} w-14  border border-surface-ink bg-transparent px-1 py-0.5 text-right ${
+                            band.payoutPct !== null ? 'text-accent-red' : ''
                           }`}
                         />
                         <span>% of pool</span>
@@ -1381,13 +1383,13 @@ export default function SettlementForm({
                           the due amount for reference plus a note explaining why. */}
                       {band.payoutOverride !== null && (
                         <div className="space-y-1">
-                          <div className="flex items-center justify-center gap-2 text-[10px] text-[#E8E0D0]/45">
+                          <div className="flex items-center justify-center gap-2 text-data-label-10-small text-surface-ink/60">
                             <span>due {formatCurrency(bandDue(summary, band.payoutPct))}</span>
                             <button
                               type="button"
                               onClick={() => resetBandOverride(band.bandId)}
                               title="Reset to the amount due"
-                              className="underline decoration-dotted hover:text-[#E8E0D0]"
+                              className="underline decoration-dotted hover:text-accent-red"
                             >
                               reset
                             </button>
@@ -1405,7 +1407,7 @@ export default function SettlementForm({
                                 e.currentTarget.blur();
                               }
                             }}
-                            className={`${inputClass} w-full px-2 py-1 text-[11px]`}
+                            className={`${inputClass} w-full px-2 py-1 text-data-label-10-small`}
                           />
                         </div>
                       )}
@@ -1419,7 +1421,7 @@ export default function SettlementForm({
                   <button
                     type="button"
                     onClick={() => toggleBandExcluded(band.bandId, !band.excluded)}
-                    className="w-full rounded border border-[#E8E0D0]/25 px-2 py-1 text-xs text-[#E8E0D0]/60 hover:bg-[#E8E0D0]/10"
+                    className="w-full border border-surface-ink px-2 py-1 text-data-caption-13 text-surface-ink/60 hover:bg-surface-paper-shade"
                   >
                     {band.excluded ? 'Include in split' : 'Exclude from split'}
                   </button>
@@ -1436,7 +1438,7 @@ export default function SettlementForm({
           <button
             type="button"
             onClick={addExtraItem}
-            className="text-xs border border-[#E8E0D0]/30 rounded px-2 py-1 hover:bg-[#E8E0D0]/10"
+            className="text-data-caption-13 border border-surface-ink px-2 py-1 hover:bg-surface-paper-shade"
           >
             + add extra item
           </button>
@@ -1446,7 +1448,7 @@ export default function SettlementForm({
           {form.extraLineItems.map((item, index) => (
             <div
               key={index}
-              className="grid gap-2 sm:grid-cols-[auto_1fr_auto_auto] items-center rounded-md bg-black/10 p-2"
+              className="grid gap-2 sm:grid-cols-[auto_1fr_auto_auto] items-center bg-surface-paper-shade p-2"
             >
               <select
                 value={item.type}
@@ -1472,14 +1474,14 @@ export default function SettlementForm({
               <button
                 type="button"
                 onClick={() => removeExtraItem(index)}
-                className="text-red-400/70 hover:text-red-400 text-sm px-2"
+                className="text-accent-red cursor-pointer hover:underline text-body-3 px-2"
               >
                 Remove
               </button>
             </div>
           ))}
           {form.extraLineItems.length === 0 && (
-            <p className="text-xs text-[#E8E0D0]/30">No extra items added yet.</p>
+            <p className="text-data-caption-13 text-surface-ink/60">No extra items added yet.</p>
           )}
         </div>
       </SectionCard>
@@ -1493,12 +1495,12 @@ export default function SettlementForm({
         />
       </SectionCard>
 
-      <div className="flex items-center justify-end gap-3 pt-2 border-t border-[#E8E0D0]/10">
-        {saved && <span className="text-sm text-emerald-300">Saved ✓</span>}
+      <div className="flex items-center justify-end gap-3 pt-2 border-t border-surface-ink/20">
+        {saved && <span className="text-body-3 text-surface-ink">Saved ✓</span>}
         <button
           type="submit"
           disabled={submitting}
-          className="border border-[#E8E0D0] rounded px-6 py-2 text-sm hover:bg-[#E8E0D0] hover:text-[#2A2420] transition-colors disabled:opacity-50"
+          className={`${buttonClassName('primary', 'm')} disabled:opacity-50`}
         >
           {submitting ? 'Saving...' : 'Save settlement'}
         </button>

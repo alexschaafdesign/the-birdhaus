@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { buttonClassName } from '@/components/admin/ui';
 
 // Subscribe-in-Apple-Calendar control for the booking toolbar. The URL is a
 // secret (see lib/booking-feed.ts), so it stays tucked behind a toggle.
@@ -38,23 +39,21 @@ export default function CalendarSubscribe({ initialUrl }: { initialUrl: string }
   return (
     <div className="relative ml-auto">
       <button
+        type="button"
         onClick={() => setOpen((prev) => !prev)}
-        className={`rounded px-3 py-1.5 font-mono text-sm uppercase tracking-widest transition-colors ${
-          open
-            ? 'bg-[#E8E0D0] text-[#171412]'
-            : 'border border-[#E8E0D0]/30 text-[#E8E0D0]/60 hover:text-[#E8E0D0]'
-        }`}
+        aria-expanded={open}
+        className={buttonClassName(open ? 'primary' : 'secondary', 's')}
       >
         📅 Subscribe
       </button>
       {open && (
-        <div className="absolute right-0 z-30 mt-2 w-[min(22rem,calc(100vw-2rem))] space-y-3 rounded-lg border border-[#E8E0D0]/20 bg-[#171412] p-4 text-sm shadow-2xl">
-          <p className="text-[#E8E0D0]/70">
+        <div className="absolute right-0 z-30 mt-2 w-[min(22rem,calc(100vw-2rem))] space-y-3  border border-surface-ink bg-surface-paper p-4 text-body-3 ">
+          <p className="text-surface-ink/80">
             Shows and day titles/notes, refreshed hourly. Anyone with this link can see them — keep it private.
           </p>
           <a
             href={webcalUrl}
-            className="block rounded border border-yellow-400/50 px-3 py-2 text-center text-yellow-300 hover:bg-yellow-400/10"
+            className="block  border border-surface-ink px-3 py-2 text-center text-surface-ink hover:bg-surface-paper-shade"
           >
             Open in Apple Calendar
           </a>
@@ -64,26 +63,26 @@ export default function CalendarSubscribe({ initialUrl }: { initialUrl: string }
               value={url}
               onFocus={(e) => e.target.select()}
               aria-label="Calendar feed URL"
-              className="min-w-0 flex-1 rounded border border-[#E8E0D0]/30 bg-transparent px-2 py-1 font-mono text-xs text-[#E8E0D0]/70"
+              className="min-w-0 flex-1  border border-surface-ink bg-transparent px-2 py-1  text-data-caption-13 text-surface-ink/80"
             />
             <button
               onClick={copy}
-              className="rounded border border-[#E8E0D0]/30 px-2 py-1 text-xs hover:bg-[#E8E0D0]/10"
+              className="cursor-pointer border border-surface-ink px-2 py-1 text-data-caption-13 hover:bg-surface-paper-shade"
             >
               {copied ? 'Copied' : 'Copy'}
             </button>
           </div>
-          <p className="text-xs text-[#E8E0D0]/40">
+          <p className="text-data-caption-13 text-surface-ink/60">
             On iPhone: Settings → Calendar → Accounts → Add Account → Other → Add Subscribed Calendar, then paste the link.
           </p>
           <button
             onClick={reset}
             disabled={resetting}
-            className="text-xs text-[#E8E0D0]/50 underline hover:text-red-400 disabled:opacity-40"
+            className="text-data-caption-13 text-surface-ink/60 underline hover:text-accent-red disabled:opacity-40"
           >
             {resetting ? 'Resetting…' : 'Reset link'}
           </button>
-          {error && <p className="text-xs text-red-400">{error}</p>}
+          {error && <p className="text-data-caption-13 text-accent-red">{error}</p>}
         </div>
       )}
     </div>

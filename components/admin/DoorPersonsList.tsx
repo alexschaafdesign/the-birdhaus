@@ -2,6 +2,8 @@
 
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
+import { FORM } from '@/components/night/form';
+import { PageHeader, ADMIN_TYPE, buttonClassName } from './ui';
 
 export interface DoorPersonListItem {
   id: number;
@@ -12,8 +14,7 @@ export interface DoorPersonListItem {
   show_count: number;
 }
 
-const inputClass =
-  'bg-transparent border border-[#E8E0D0]/30 rounded px-3 py-1.5 text-sm focus:outline-none focus:border-[#E8E0D0] placeholder:text-[#E8E0D0]/30';
+const inputClass = FORM.field;
 
 export default function DoorPersonsList({
   initialDoorPersons,
@@ -48,21 +49,21 @@ export default function DoorPersonsList({
 
   return (
     <div>
-      <div className="flex items-center justify-between gap-4 mb-4">
-        <h1 className="text-2xl font-bold">Door people</h1>
-        <Link
-          href="/admin/door-persons/new"
-          className="border border-[#E8E0D0]/40 rounded px-4 py-1.5 text-sm hover:bg-[#E8E0D0]/10 transition-colors whitespace-nowrap"
-        >
-          + New door person
-        </Link>
-      </div>
+      <PageHeader
+        overline="Crew"
+        title="Door people"
+        actions={
+          <Link href="/admin/door-persons/new" className={buttonClassName('primary', 's')}>
+            + New door person
+          </Link>
+        }
+      />
 
       {errorMessage && (
-        <div className="mb-4 border border-red-400/40 bg-red-400/10 text-red-300 text-sm rounded px-4 py-2 flex justify-between items-center">
+        <div role="alert" className={`${FORM.error} mb-4 flex items-center justify-between gap-3`}>
           <span>{errorMessage}</span>
-          <button onClick={() => setErrorMessage(null)} className="text-red-300/70 hover:text-red-300">
-            dismiss
+          <button type="button" onClick={() => setErrorMessage(null)} className={ADMIN_TYPE.link}>
+            Dismiss
           </button>
         </div>
       )}
@@ -75,7 +76,7 @@ export default function DoorPersonsList({
         className={`${inputClass} w-full max-w-sm mb-3`}
       />
 
-      <p className="text-xs text-[#E8E0D0]/40 mb-3">
+      <p className={`${ADMIN_TYPE.meta} mb-3`}>
         {filtered.length} of {doorPersons.length} door people shown
       </p>
 
@@ -83,35 +84,35 @@ export default function DoorPersonsList({
         {filtered.map((doorPerson) => (
           <div
             key={doorPerson.id}
-            className="flex items-center justify-between gap-4 border border-[#E8E0D0]/15 bg-[#E8E0D0]/[0.03] rounded-lg px-4 py-3"
+            className="flex items-center justify-between gap-4 border border-surface-ink bg-surface-paper hover:bg-surface-paper-shade px-4 py-3"
           >
             <div className="min-w-0 flex-1 flex items-center gap-3">
               {doorPerson.photo ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={doorPerson.photo} alt="" className="w-8 h-8 rounded-full object-cover flex-shrink-0" />
+                <img src={doorPerson.photo} alt="" className="w-8 h-8  object-cover flex-shrink-0" />
               ) : (
-                <div className="w-8 h-8 rounded-full bg-[#E8E0D0]/10 flex-shrink-0 flex items-center justify-center text-xs font-semibold text-[#E8E0D0]/50">
+                <div className="w-8 h-8  bg-surface-paper-shade flex-shrink-0 flex items-center justify-center text-data-caption-13 font-bold text-surface-ink/60">
                   {doorPerson.name.charAt(0).toUpperCase()}
                 </div>
               )}
-              <span className="font-semibold truncate">{doorPerson.name}</span>
-              <span className="text-xs px-2 py-0.5 rounded-full border border-[#E8E0D0]/30 text-[#E8E0D0]/50 flex-shrink-0">
+              <span className="font-bold truncate">{doorPerson.name}</span>
+              <span className="text-data-caption-13 px-2 py-0.5  border border-surface-ink text-surface-ink/60 flex-shrink-0">
                 {doorPerson.show_count} show{doorPerson.show_count === 1 ? '' : 's'}
               </span>
               {doorPerson.contact_email && (
-                <span className="text-xs text-[#E8E0D0]/40 truncate hidden sm:inline">{doorPerson.contact_email}</span>
+                <span className="text-data-caption-13 text-surface-ink/60 truncate hidden sm:inline">{doorPerson.contact_email}</span>
               )}
             </div>
-            <div className="flex items-center gap-3 flex-shrink-0 text-sm">
+            <div className="flex items-center gap-3 flex-shrink-0 text-body-3">
               <Link
                 href={`/admin/door-persons/${doorPerson.id}`}
-                className="text-[#E8E0D0]/80 hover:text-[#E8E0D0] underline"
+                className={ADMIN_TYPE.link}
               >
                 Edit
               </Link>
               <button
                 onClick={() => handleDelete(doorPerson.id, doorPerson.name)}
-                className="text-red-400/70 hover:text-red-400"
+                className="text-accent-red cursor-pointer underline-offset-4 hover:underline"
               >
                 Delete
               </button>
@@ -119,7 +120,7 @@ export default function DoorPersonsList({
           </div>
         ))}
         {filtered.length === 0 && (
-          <p className="text-[#E8E0D0]/40 text-sm py-8 text-center">No door people match this search.</p>
+          <p className="text-surface-ink/60 text-body-3 py-8 text-center">No door people match this search.</p>
         )}
       </div>
     </div>

@@ -1,5 +1,6 @@
 'use client';
 
+import { FIELD_INLINE } from './ui';
 import { useEffect, useState } from 'react';
 import ScheduleEditor from './ScheduleEditor';
 import TvPresetBar from './TvPresetBar';
@@ -68,10 +69,9 @@ function resolveLive(program: TvProgram): { mode: TvMode; source: 'override' | '
   return { mode, source };
 }
 
-const inputClass =
-  'bg-transparent border border-[#E8E0D0]/30 rounded px-3 py-1.5 text-sm focus:outline-none focus:border-[#E8E0D0] [&>option]:bg-[#2A2420]';
+const inputClass = FIELD_INLINE;
 const chip =
-  'text-sm border rounded px-3 py-1.5 transition-colors whitespace-nowrap disabled:opacity-40';
+  'text-body-3 border  px-3 py-1.5 transition-colors whitespace-nowrap disabled:opacity-40';
 
 export default function TvProgramControl({
   initialProgram,
@@ -174,32 +174,32 @@ export default function TvProgramControl({
   }));
 
   return (
-    <div className="text-[#E8E0D0] space-y-8">
+    <div className="text-surface-ink space-y-8">
       {/* What's live now + override */}
       <section>
         <div className="flex items-baseline gap-3 flex-wrap">
-          <h3 className="text-sm uppercase tracking-wide text-[#E8E0D0]/50">On the tube now</h3>
-          <span className="text-lg font-bold">{MODE_LABEL[live.mode]}</span>
-          <span className="text-xs text-[#E8E0D0]/40">
+          <h3 className="text-data-overline-11 font-bold leading-[1.3] tracking-[--spacing(0.625)] uppercase text-surface-ink/60">On the tube now</h3>
+          <span className="text-header-4 font-bold">{MODE_LABEL[live.mode]}</span>
+          <span className="text-data-caption-13 text-surface-ink/60">
             {live.source === 'override'
               ? '· forced'
               : live.source === 'schedule'
                 ? '· from schedule'
                 : '· default'}
           </span>
-          {saving && <span className="text-xs text-[#E8E0D0]/40">saving…</span>}
+          {saving && <span className="text-data-caption-13 text-surface-ink/60">saving…</span>}
         </div>
         {overrideRedirected ? (
-          <p className="text-xs text-[#E8E0D0]/45 mt-1 mb-3">
+          <p className="text-data-caption-13 text-surface-ink/60 mt-1 mb-3">
             Tonight{' '}
-            <span className="text-[#E8E0D0]/75">{liveTube?.title || 'a show'}</span> has its own
+            <span className="text-surface-ink/80">{liveTube?.title || 'a show'}</span> has its own
             program, which is what’s live on the tube — so these controls act on{' '}
-            <span className="text-[#E8E0D0]/75">it</span>, not the global default. Force a mode now
+            <span className="text-surface-ink/80">it</span>, not the global default. Force a mode now
             (wins over its schedule until you clear it), or Auto to follow its schedule/default.
             Reaches the TV within ~60s.
           </p>
         ) : (
-          <p className="text-xs text-[#E8E0D0]/45 mt-1 mb-3">
+          <p className="text-data-caption-13 text-surface-ink/60 mt-1 mb-3">
             Force a mode now (wins over the schedule until you clear it), or leave it on Auto to
             follow the schedule/default. Changes reach the TV within ~60s.
           </p>
@@ -216,8 +216,8 @@ export default function TvProgramControl({
                 }
                 className={`${chip} ${
                   on
-                    ? 'border-[#E8E0D0] bg-[#E8E0D0]/10 text-[#E8E0D0]'
-                    : 'border-[#E8E0D0]/30 text-[#E8E0D0]/70 hover:text-[#E8E0D0]'
+                    ? 'border-surface-ink bg-surface-paper-shade text-surface-ink'
+                    : 'border-surface-ink text-surface-ink/80 hover:text-accent-red'
                 }`}
               >
                 Force {MODE_LABEL[m]}
@@ -230,14 +230,14 @@ export default function TvProgramControl({
               saveOverride({ overrideMode: null }, { overrideMode: null, overrideExpiresAt: null })
             }
             disabled={!overrideOn(oProgram)}
-            className={`${chip} border-[#E8E0D0]/30 text-[#E8E0D0]/70 hover:text-[#E8E0D0]`}
+            className={`${chip} border-surface-ink text-surface-ink/80 hover:text-accent-red`}
           >
             Auto (clear override)
           </button>
         </div>
 
         {overrideOn(oProgram) && (
-          <div className="flex items-center gap-2 flex-wrap mt-2 text-xs text-[#E8E0D0]/60">
+          <div className="flex items-center gap-2 flex-wrap mt-2 text-data-caption-13 text-surface-ink/60">
             <span>Auto-clear:</span>
             {[
               { label: '1h', mins: 60 },
@@ -253,7 +253,7 @@ export default function TvProgramControl({
                     { overrideExpiresAt: new Date(Date.now() + mins * 60_000).toISOString() }
                   )
                 }
-                className="border border-[#E8E0D0]/25 rounded px-2 py-1 hover:bg-[#E8E0D0]/10"
+                className="border border-surface-ink  px-2 py-1 hover:bg-surface-paper-shade"
               >
                 +{label}
               </button>
@@ -262,12 +262,12 @@ export default function TvProgramControl({
               type="button"
               onClick={() => saveOverride({ overrideExpireInMinutes: null }, { overrideExpiresAt: null })}
               disabled={!oProgram.overrideExpiresAt}
-              className="border border-[#E8E0D0]/25 rounded px-2 py-1 hover:bg-[#E8E0D0]/10 disabled:opacity-40"
+              className="border border-surface-ink  px-2 py-1 hover:bg-surface-paper-shade disabled:opacity-40"
             >
               Off
             </button>
             {oProgram.overrideExpiresAt && (
-              <span className="text-[#E8E0D0]/45">
+              <span className="text-surface-ink/60">
                 clears in{' '}
                 {Math.max(
                   0,
@@ -278,14 +278,14 @@ export default function TvProgramControl({
             )}
           </div>
         )}
-        {error && <p className="text-sm text-red-400 mt-2">{error}</p>}
+        {error && <p className="text-body-3 text-accent-red mt-2">{error}</p>}
       </section>
 
       {/* Default mode + schedule windows */}
       <section>
-        <h3 className="text-sm uppercase tracking-wide text-[#E8E0D0]/50 mb-2">Schedule</h3>
-        <label className="flex items-center gap-2 text-sm mb-4">
-          <span className="text-[#E8E0D0]/60">Default mode</span>
+        <h3 className="text-data-overline-11 font-bold leading-[1.3] tracking-[--spacing(0.625)] uppercase text-surface-ink/60 mb-2">Schedule</h3>
+        <label className="flex items-center gap-2 text-body-3 mb-4">
+          <span className="text-surface-ink/60">Default mode</span>
           <select
             value={program.defaultMode}
             onChange={(e) => save({ defaultMode: e.target.value }, { defaultMode: e.target.value as TvMode })}
@@ -297,13 +297,13 @@ export default function TvProgramControl({
               </option>
             ))}
           </select>
-          <span className="text-xs text-[#E8E0D0]/40">shown before the first window</span>
+          <span className="text-data-caption-13 text-surface-ink/60">shown before the first window</span>
         </label>
 
         <div className="space-y-2">
           {program.schedule.map((w, i) => (
             <div key={i} className="flex items-center gap-2 flex-wrap">
-              <span className="text-xs text-[#E8E0D0]/50 w-10">at</span>
+              <span className="text-data-caption-13 text-surface-ink/60 w-10">at</span>
               <input
                 type="time"
                 value={w.from}
@@ -315,7 +315,7 @@ export default function TvProgramControl({
                 }}
                 className={inputClass}
               />
-              <span className="text-xs text-[#E8E0D0]/50">show</span>
+              <span className="text-data-caption-13 text-surface-ink/60">show</span>
               <select
                 value={w.mode}
                 onChange={(e) => {
@@ -338,7 +338,7 @@ export default function TvProgramControl({
                   const next = program.schedule.filter((_, idx) => idx !== i);
                   save({ schedule: next }, { schedule: next });
                 }}
-                className="text-[#E8E0D0]/40 hover:text-red-300 text-sm px-1"
+                className="text-surface-ink/60 hover:text-accent-red text-body-3 px-1"
                 aria-label="Remove window"
               >
                 ✕
@@ -351,7 +351,7 @@ export default function TvProgramControl({
               const next: ScheduleWindow[] = [...program.schedule, { from: '19:00', mode: 'board' }];
               save({ schedule: next }, { schedule: next });
             }}
-            className="text-sm text-[#E8E0D0]/55 hover:text-[#E8E0D0] border border-[#E8E0D0]/25 rounded px-3 py-1.5"
+            className="text-body-3 text-surface-ink/60 hover:text-accent-red border border-surface-ink  px-3 py-1.5"
           >
             + Add window
           </button>
@@ -360,10 +360,10 @@ export default function TvProgramControl({
 
       {/* Board mode content */}
       <section>
-        <h3 className="text-sm uppercase tracking-wide text-[#E8E0D0]/50 mb-1">
+        <h3 className="text-data-overline-11 font-bold leading-[1.3] tracking-[--spacing(0.625)] uppercase text-surface-ink/60 mb-1">
           Schedule board content
         </h3>
-        <p className="text-xs text-[#E8E0D0]/45 mb-3">
+        <p className="text-data-caption-13 text-surface-ink/60 mb-3">
           The run-of-show shown on the tube in “Schedule board” mode.
         </p>
         <div className="mb-3">

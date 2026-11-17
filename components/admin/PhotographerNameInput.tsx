@@ -92,7 +92,7 @@ export default function PhotographerNameInput({
         autoComplete="off"
       />
       {open && trimmed.length >= 2 && (matches.length > 0 || !hasExactMatch) && (
-        <div className="absolute z-10 mt-1 w-full max-h-48 overflow-auto rounded border border-[#E8E0D0]/30 bg-[#171412] shadow-lg">
+        <div className="absolute z-10 mt-1 w-full max-h-48 overflow-auto  border border-surface-ink bg-surface-paper ">
           {matches.map((match) => (
             <button
               key={match.id}
@@ -103,7 +103,7 @@ export default function PhotographerNameInput({
                 onSelect(match);
                 setOpen(false);
               }}
-              className="block w-full text-left px-3 py-1.5 text-sm hover:bg-[#E8E0D0]/10"
+              className="block w-full text-left px-3 py-1.5 text-body-3 hover:bg-surface-paper-shade"
             >
               {match.name}
             </button>
@@ -115,7 +115,7 @@ export default function PhotographerNameInput({
                 e.preventDefault();
                 createNew();
               }}
-              className="block w-full text-left px-3 py-1.5 text-sm italic text-[#E8E0D0]/70 hover:bg-[#E8E0D0]/10"
+              className="block w-full text-left px-3 py-1.5 text-body-3 italic text-surface-ink/80 hover:bg-surface-paper-shade"
             >
               {creating ? 'Adding…' : `+ Add “${trimmed}” as a new photographer`}
             </button>

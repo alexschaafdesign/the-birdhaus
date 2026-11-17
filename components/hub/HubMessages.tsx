@@ -80,7 +80,7 @@ export default function HubMessages({
 
   return (
     <div className="space-y-4">
-      <p className="text-xs text-[#E8E0D0]/45">
+      <p className="text-data-caption-13 text-surface-ink/60">
         Posts here are shared with everyone on the bill — the whole lineup, the
         sound engineer, and the Birdhaus can all see them.
       </p>
@@ -92,15 +92,15 @@ export default function HubMessages({
           onChange={(e) => setDraft(e.target.value)}
           rows={3}
           placeholder="Post to the whole bill…"
-          className="w-full resize-y bg-transparent border border-[#E8E0D0]/30 rounded px-3 py-2 text-sm focus:outline-none focus:border-[#E8E0D0] placeholder:text-[#E8E0D0]/30"
+          className="w-full resize-y bg-transparent border border-surface-ink px-3 py-2 text-body-3 focus:outline-none focus:border-accent-red placeholder:text-surface-ink/45"
         />
         {error && (
-          <div className="border border-red-400/40 bg-red-400/10 text-red-200 text-sm rounded px-3 py-1.5">
+          <div className="border border-accent-red text-accent-red text-body-3 px-3 py-1.5">
             {error}
           </div>
         )}
         {notice && (
-          <div className="border border-green-400/40 bg-green-400/10 text-green-200 text-sm rounded px-3 py-1.5">
+          <div className="border border-surface-ink text-surface-ink text-body-3 px-3 py-1.5">
             {notice}
           </div>
         )}
@@ -109,17 +109,17 @@ export default function HubMessages({
             type="button"
             onClick={send}
             disabled={sending || !draft.trim()}
-            className="bg-[#E8E0D0] text-[#2A2420] border border-[#E8E0D0] rounded px-5 py-2 text-sm font-medium hover:bg-[#E8E0D0]/90 transition-colors disabled:opacity-50"
+            className="bg-surface-ink text-surface-paper border-2 border-surface-ink inline-flex h-9.5 items-center justify-center px-4.5 text-body-3 font-bold ui-hover:bg-accent-red ui-hover:border-accent-red transition-colors cursor-pointer focus-visible:outline-accent-red focus-visible:outline-2 focus-visible:outline-offset-2 disabled:opacity-50"
           >
             {sending ? 'Posting…' : emailOption && emailToo ? 'Post + email' : 'Post'}
           </button>
           {emailOption && (
-            <label className="flex items-center gap-1.5 text-xs text-[#E8E0D0]/60 cursor-pointer">
+            <label className="flex items-center gap-1.5 text-data-caption-13 text-surface-ink/60 cursor-pointer">
               <input
                 type="checkbox"
                 checked={emailToo}
                 onChange={(e) => setEmailToo(e.target.checked)}
-                className="accent-[#E8E0D0]"
+                className="accent-surface-ink"
               />
               Also email everyone on the advance
             </label>
@@ -128,7 +128,7 @@ export default function HubMessages({
       </div>
 
       {messages.length === 0 ? (
-        <p className="text-sm text-[#E8E0D0]/40">
+        <p className="text-body-3 text-surface-ink/60">
           No posts yet. Introduce yourself, or ask the group about load-in, gear,
           or timing — everyone on this show will see it.
         </p>
@@ -139,17 +139,17 @@ export default function HubMessages({
             return (
               <li
                 key={m.id}
-                className={`rounded-lg border p-3 ${
+                className={` border p-3 ${
                   fromBirdhaus
-                    ? 'border-[#c8a26a]/30 bg-[#c8a26a]/[0.06]'
-                    : 'border-[#E8E0D0]/15 bg-[#E8E0D0]/[0.03]'
+                    ? 'border-accent-red bg-surface-paper-shade'
+                    : 'border-surface-ink/20 bg-surface-paper'
                 }`}
               >
                 <div className="mb-1 flex items-baseline justify-between gap-3">
-                  <span className="text-xs font-semibold text-[#E8E0D0]">{m.senderName}</span>
-                  <span className="text-[10px] text-[#E8E0D0]/35">{formatWhen(m.createdAt)}</span>
+                  <span className="text-data-caption-13 font-bold text-surface-ink">{m.senderName}</span>
+                  <span className="text-data-label-10-small text-surface-ink/60">{formatWhen(m.createdAt)}</span>
                 </div>
-                <p className="whitespace-pre-wrap text-sm text-[#E8E0D0]/85">{m.body}</p>
+                <p className="whitespace-pre-wrap text-body-3 text-surface-ink/80">{m.body}</p>
               </li>
             );
           })}

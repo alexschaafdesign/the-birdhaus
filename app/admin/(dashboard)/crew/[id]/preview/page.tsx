@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { getMemberById } from '@/lib/accounts/members';
 import { getPhotographerByUserId } from '@/lib/photographers';
 import CrewHome from '@/components/admin/CrewHome';
+import { ADMIN_TYPE } from '@/components/admin/ui';
 
 export const dynamic = 'force-dynamic';
 
@@ -27,22 +28,24 @@ export default async function CrewHomePreviewPage({
 
   return (
     <div>
-      <div className="mx-auto max-w-6xl px-6 pt-6">
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[#E8E0D0]/20 bg-[#E8E0D0]/[0.05] px-4 py-2 text-sm text-[#E8E0D0]/70">
+      <div className="mx-auto max-w-6xl px-4 pt-6 sm:px-8">
+        <div
+          role="status"
+          className={`${ADMIN_TYPE.body} bg-surface-ink text-surface-paper flex flex-wrap items-center justify-between gap-3 px-4 py-2`}
+        >
           <span>
-            Read-only preview of <span className="font-medium text-[#E8E0D0]">{member.name}</span>&apos;s
-            home.
+            Read-only preview of <span className="font-bold">{member.name}</span>&apos;s home.
           </span>
           <span className="flex items-center gap-4">
             {photographer && (
               <Link
                 href={`/admin/photographers/${photographer.id}`}
-                className="underline hover:text-[#E8E0D0]"
+                className="hover:text-accent-brick underline underline-offset-4"
               >
                 Edit their profile
               </Link>
             )}
-            <Link href="/admin/crew" className="underline hover:text-[#E8E0D0]">
+            <Link href="/admin/crew" className="hover:text-accent-brick underline underline-offset-4">
               Back to crew
             </Link>
           </span>

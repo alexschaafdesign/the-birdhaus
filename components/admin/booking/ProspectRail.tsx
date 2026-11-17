@@ -2,12 +2,12 @@
 
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
-import Section from '@/components/admin/Section';
+import { FORM } from '@/components/night/form';
+import { Panel, ADMIN_TYPE, buttonClassName } from '@/components/admin/ui';
 import BandNameInput from '@/components/admin/BandNameInput';
 import type { BookingDay, BookingProspect } from '@/lib/booking';
 
-const inputClass =
-  'bg-transparent border border-[#E8E0D0]/30 rounded px-3 py-1.5 text-sm focus:outline-none focus:border-[#E8E0D0] placeholder:text-[#E8E0D0]/30';
+const inputClass = FORM.field;
 
 function parseLocalDate(dateStr: string) {
   const [year, month, day] = dateStr.split('-').map(Number);
@@ -80,9 +80,9 @@ export default function ProspectRail({
 
   return (
     <div className="min-w-0 space-y-4">
-      <Section
+      <Panel
         title="Wishlist"
-        action={<span className="text-xs text-[#E8E0D0]/40">{prospects.length} artists</span>}
+        action={<span className={ADMIN_TYPE.meta}>{prospects.length} artists</span>}
       >
         <form onSubmit={handleAdd} className="mb-4 flex items-center gap-2">
           <div className="min-w-0 flex-1">
@@ -105,46 +105,46 @@ export default function ProspectRail({
           <button
             type="submit"
             disabled={!addName.trim()}
-            className="rounded border border-[#E8E0D0]/30 px-3 py-1.5 text-sm hover:bg-[#E8E0D0]/10 disabled:opacity-40"
+            className={buttonClassName('secondary', 's')}
           >
             + Add
           </button>
         </form>
 
         {visible.length === 0 && (
-          <p className="text-xs text-[#E8E0D0]/30">No artists yet — add the ones you want here someday.</p>
+          <p className={ADMIN_TYPE.meta}>No artists yet — add the ones you want here someday.</p>
         )}
 
         <ul className="space-y-3">
           {visible.map((prospect) => {
             const mentions = mentionsById.get(prospect.id) ?? [];
             return (
-              <li key={prospect.id} className="rounded border border-[#E8E0D0]/15 p-3">
+              <li key={prospect.id} className="border border-surface-ink p-3">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
-                    <span className="text-sm font-semibold">{prospect.name}</span>
+                    <span className="text-body-3 font-bold">{prospect.name}</span>
                     {prospect.band_id !== null && (
                       <Link
                         href={`/admin/bands/${prospect.band_id}`}
-                        className="ml-2 text-xs text-[#E8E0D0]/40 hover:text-[#E8E0D0] hover:underline"
+                        className={`ml-2 text-data-caption-13 ${ADMIN_TYPE.link}`}
                       >
                         artist ↗
                       </Link>
                     )}
                   </div>
-                  <div className="flex shrink-0 items-center gap-1 text-xs text-[#E8E0D0]/50">
+                  <div className="flex shrink-0 items-center gap-1 text-data-caption-13">
                     <button
                       onClick={() => onUpdate(prospect.id, { priority: prospect.priority + 1 })}
                       title="Raise priority"
-                      className="rounded border border-[#E8E0D0]/20 px-1.5 hover:bg-[#E8E0D0]/10"
+                      className="cursor-pointer border border-surface-ink px-1.5 hover:bg-surface-paper-shade"
                     >
                       ▲
                     </button>
-                    <span className="w-4 text-center font-mono">{prospect.priority}</span>
+                    <span className="w-4 text-center tabular-nums">{prospect.priority}</span>
                     <button
                       onClick={() => onUpdate(prospect.id, { priority: prospect.priority - 1 })}
                       title="Lower priority"
-                      className="rounded border border-[#E8E0D0]/20 px-1.5 hover:bg-[#E8E0D0]/10"
+                      className="cursor-pointer border border-surface-ink px-1.5 hover:bg-surface-paper-shade"
                     >
                       ▼
                     </button>
@@ -153,7 +153,7 @@ export default function ProspectRail({
                         if (window.confirm(`Remove “${prospect.name}” from the wishlist?`)) onDelete(prospect.id);
                       }}
                       aria-label={`Remove ${prospect.name}`}
-                      className="ml-1 px-1 text-[#E8E0D0]/30 hover:text-red-400"
+                      className="ml-1 cursor-pointer px-1 hover:text-accent-red"
                     >
                       ×
                     </button>
@@ -162,12 +162,12 @@ export default function ProspectRail({
 
                 {mentions.length > 0 && (
                   <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                    <span className="text-xs text-[#E8E0D0]/40">Mentioned on</span>
+                    <span className={ADMIN_TYPE.meta}>Mentioned on</span>
                     {mentions.map((date) => (
                       <button
                         key={date}
                         onClick={() => onSelectDate(date)}
-                        className={`rounded-full border border-[#E8E0D0]/25 px-2 py-0.5 text-xs text-[#E8E0D0]/80 hover:bg-[#E8E0D0]/10 ${
+                        className={`cursor-pointer border border-surface-ink px-2 py-0.5 text-data-caption-13 hover:bg-surface-paper-shade ${
                           date < today ? 'opacity-50' : ''
                         }`}
                       >
@@ -186,13 +186,13 @@ export default function ProspectRail({
                     const notes = e.target.value;
                     if (notes !== prospect.notes) onUpdate(prospect.id, { notes });
                   }}
-                  className={`${inputClass} mt-2 w-full resize-y text-xs`}
+                  className={`${inputClass} mt-2 w-full resize-y text-data-caption-13`}
                 />
               </li>
             );
           })}
         </ul>
-      </Section>
+      </Panel>
     </div>
   );
 }

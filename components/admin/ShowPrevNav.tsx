@@ -3,6 +3,14 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
+// Classes for the prev/next box.
+const CLS = {
+  link: 'flex min-w-0 items-center gap-1 text-data-caption-13 hover:text-accent-red',
+  end: 'flex items-center gap-1 text-data-caption-13 text-surface-ink/40 cursor-default',
+  box: 'inline-flex shrink-0 items-center gap-2 border border-surface-ink px-2.5 py-1',
+  sep: 'text-surface-ink/30',
+};
+
 export interface ShowNeighbor {
   id: number;
   label: string;
@@ -25,13 +33,12 @@ export default function ShowPrevNav({
   const suffix = pathname.startsWith(base) ? pathname.slice(base.length) : '';
   const linkTo = (id: number) => `/admin/shows/${id}${suffix}`;
 
-  const linkCls =
-    'flex min-w-0 items-center gap-1 text-xs text-[#E8E0D0]/60 hover:text-[#E8E0D0] transition-colors';
-  const endCls = 'flex items-center gap-1 text-xs text-[#E8E0D0]/25 cursor-default';
+  const linkCls = CLS.link;
+  const endCls = CLS.end;
   const labelCls = 'truncate max-w-[9rem] sm:max-w-[11rem]';
 
   return (
-    <div className="inline-flex shrink-0 items-center gap-2 rounded-lg border border-[#E8E0D0]/12 bg-[#E8E0D0]/[0.03] px-2.5 py-1">
+    <div className={CLS.box}>
       {prev ? (
         <Link href={linkTo(prev.id)} className={linkCls} title={prev.label}>
           <span aria-hidden>←</span>
@@ -42,7 +49,7 @@ export default function ShowPrevNav({
           <span aria-hidden>←</span> Earliest
         </span>
       )}
-      <span aria-hidden className="text-[#E8E0D0]/15">|</span>
+      <span aria-hidden className={CLS.sep}>|</span>
       {next ? (
         <Link href={linkTo(next.id)} className={linkCls} title={next.label}>
           <span className={labelCls}>{next.label}</span>

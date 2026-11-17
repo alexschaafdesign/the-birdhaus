@@ -6,10 +6,12 @@ import Link from 'next/link';
 
 type Tone = 'done' | 'todo' | 'neutral';
 
+// Done is ink, to-do the amber attention fill, neutral an empty ink box (the
+// paper admin has no green; see StatusMark).
 const DOT: Record<Tone, string> = {
-  done: 'bg-emerald-400',
-  todo: 'bg-amber-400',
-  neutral: 'bg-[#E8E0D0]/40',
+  done: 'bg-surface-ink',
+  todo: 'bg-spectrum-amber',
+  neutral: 'border border-surface-ink/40',
 };
 
 export interface ShowOverviewProps {
@@ -40,23 +42,23 @@ function Item({
 }) {
   const inner = (
     <>
-      <span className={`mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full ${DOT[tone]}`} />
+      <span className={`mt-1.5 h-1.5 w-1.5 shrink-0  ${DOT[tone]}`} />
       <span className="min-w-0">
-        <span className="block text-[10px] uppercase tracking-wide text-[#E8E0D0]/40">{label}</span>
-        <span className="block text-sm text-[#E8E0D0]/90 leading-snug">{value}</span>
+        <span className="block text-data-label-10-small uppercase tracking-wide text-surface-ink/60">{label}</span>
+        <span className="block text-body-3 text-surface-ink/80 leading-snug">{value}</span>
       </span>
     </>
   );
-  const base = 'flex items-start gap-2 rounded-lg border px-3 py-2';
+  const base = 'flex items-start gap-2  border px-3 py-2';
   return href ? (
     <Link
       href={href}
-      className={`${base} border-[#E8E0D0]/12 bg-[#E8E0D0]/[0.02] hover:border-[#E8E0D0]/35 transition-colors`}
+      className={`${base} border-surface-ink bg-surface-paper hover:border-accent-red transition-colors`}
     >
       {inner}
     </Link>
   ) : (
-    <div className={`${base} border-[#E8E0D0]/12 bg-[#E8E0D0]/[0.02]`}>{inner}</div>
+    <div className={`${base} border-surface-ink bg-surface-paper`}>{inner}</div>
   );
 }
 
@@ -134,8 +136,8 @@ export default function ShowOverview({
   ];
 
   return (
-    <section className="rounded-xl border border-[#E8E0D0]/15 bg-[#E8E0D0]/[0.02] p-4">
-      <h2 className="mb-3 text-xs uppercase tracking-[0.12em] text-[#c8a26a] font-semibold">
+    <section className="border border-surface-ink bg-surface-paper p-4">
+      <h2 className="mb-3 text-data-overline-11 font-bold leading-[1.3] tracking-[--spacing(0.625)] uppercase">
         Overview
       </h2>
       <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">

@@ -3,9 +3,16 @@
 import { useRef, useState } from 'react';
 import type { UploadFolder } from '@/lib/r2';
 import { downscaleImage } from '@/lib/downscale-image';
+import { FORM } from '@/components/night/form';
+import { buttonClassName } from '@/components/ui/Button';
 
-const inputClass =
-  'bg-transparent border border-[#E8E0D0]/30 rounded px-3 py-1.5 text-sm focus:outline-none focus:border-[#E8E0D0] placeholder:text-[#E8E0D0]/30';
+// The 2027 paper look (FORM fields, DS secondary button, plain red error).
+const ui = {
+  label: FORM.label,
+  input: FORM.field,
+  button: buttonClassName('secondary', 's'),
+  error: FORM.fieldError,
+};
 
 const MAX_SIZE_BYTES = 8 * 1024 * 1024; // 8MB — mirrors the server-side limit in app/api/admin/uploads/route.ts
 
@@ -15,7 +22,7 @@ export default function ImageUploadField({
   onChange,
   folder,
   placeholder,
-  previewClassName = 'mt-2 max-w-xs rounded',
+  previewClassName = 'mt-2 max-w-xs',
 }: {
   label?: string;
   value: string;
@@ -62,20 +69,20 @@ export default function ImageUploadField({
   return (
     <div>
       {label && (
-        <label className="block text-xs uppercase tracking-wide text-[#E8E0D0]/40 mb-1">{label}</label>
+        <label className={ui.label}>{label}</label>
       )}
       <div className="flex items-center gap-2">
         <input
           placeholder={placeholder}
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className={`${inputClass} w-full`}
+          className={ui.input}
         />
         <button
           type="button"
           onClick={() => fileInputRef.current?.click()}
           disabled={uploading}
-          className="text-xs border border-[#E8E0D0]/30 rounded px-3 py-1.5 hover:bg-[#E8E0D0]/10 disabled:opacity-50 whitespace-nowrap flex-shrink-0"
+          className={ui.button}
         >
           {uploading ? 'Uploading...' : 'Upload'}
         </button>
@@ -91,7 +98,11 @@ export default function ImageUploadField({
           }}
         />
       </div>
-      {error && <p className="text-xs text-red-400 mt-1">{error}</p>}
+      {error && (
+        <p role="alert" className={ui.error}>
+          {error}
+        </p>
+      )}
       {value && (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={value} alt="" className={previewClassName} />

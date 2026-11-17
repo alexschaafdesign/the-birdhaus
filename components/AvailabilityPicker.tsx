@@ -25,15 +25,15 @@ export default function AvailabilityPicker({
 
   const labelClass =
     size === 'sm'
-      ? 'text-xs text-[#E8E0D0]/40 w-10 flex-shrink-0'
-      : 'text-sm text-[#E8E0D0]/50 w-12 flex-shrink-0';
+      ? 'text-data-caption-13 text-surface-ink/60 w-10 flex-shrink-0'
+      : 'text-body-3 text-surface-ink/60 w-12 flex-shrink-0';
   const buttonClass =
     size === 'sm'
-      ? 'text-xs border border-[#E8E0D0]/30 rounded px-2 py-1 hover:bg-[#E8E0D0]/10'
-      : 'text-sm border border-[#E8E0D0]/30 rounded px-3 py-1.5 hover:bg-[#E8E0D0]/10';
-  const removeClass = size === 'sm' ? 'text-red-400/70 hover:text-red-400 text-xs' : 'text-red-400/70 hover:text-red-400 text-sm';
-  const sepClass = size === 'sm' ? 'text-[#E8E0D0]/40 text-sm' : 'text-[#E8E0D0]/40';
-  const emptyClass = size === 'sm' ? 'text-xs text-[#E8E0D0]/30' : 'text-sm text-[#E8E0D0]/40';
+      ? 'text-data-caption-13 border border-surface-ink px-2 py-1 cursor-pointer hover:bg-surface-paper-shade'
+      : 'text-body-3 border border-surface-ink px-3 py-1.5 cursor-pointer hover:bg-surface-paper-shade';
+  const removeClass = size === 'sm' ? 'text-accent-red cursor-pointer hover:underline text-data-caption-13' : 'text-accent-red cursor-pointer hover:underline text-body-3';
+  const sepClass = size === 'sm' ? 'text-surface-ink/60 text-body-3' : 'text-surface-ink/60';
+  const emptyClass = size === 'sm' ? 'text-data-caption-13 text-surface-ink/60' : 'text-body-3 text-surface-ink/60';
 
   return (
     <div className="space-y-2">

@@ -26,13 +26,13 @@ function StepButton({
   variant?: 'plain' | 'accent';
 }) {
   const base =
-    'flex items-center justify-center rounded-full h-16 w-16 text-3xl leading-none select-none transition-colors disabled:opacity-25 active:scale-95';
+    'flex items-center justify-center h-16 w-16 text-header-2 leading-none select-none transition-colors disabled:opacity-25 active:scale-95';
   const style =
     sign === '+'
       ? variant === 'accent'
-        ? 'bg-[#c8a26a] text-[#171412] font-bold'
-        : 'bg-sky-400/20 text-sky-200 border border-sky-400/40'
-      : 'border border-[#E8E0D0]/25 text-[#E8E0D0]/70';
+        ? 'bg-accent-red text-surface-paper font-bold'
+        : 'bg-surface-paper-shade text-surface-ink border border-surface-ink'
+      : 'border border-surface-ink text-surface-ink/80';
   return (
     <button
       type="button"
@@ -115,63 +115,63 @@ export default function DoorCheckIn({ token, data }: { token: string; data: Door
   }
 
   return (
-    <main className="min-h-screen bg-[#171412] text-[#E8E0D0]">
+    <main className="min-h-screen bg-surface-paper text-surface-ink">
       {/* Working banner for the door person (this page is no longer guest-facing) */}
-      <div className="bg-[#c8a26a] text-[#171412] text-center px-5 py-4">
-        <div className="text-2xl sm:text-3xl font-extrabold tracking-tight leading-none">
+      <div className="bg-accent-red text-surface-paper text-center px-5 py-4">
+        <div className="text-header-3 sm:text-header-2 font-bold tracking-tight leading-none">
           Door check-in
         </div>
-        <div className="text-sm sm:text-base font-semibold mt-1.5">
+        <div className="text-body-3 sm:text-body-1 font-bold mt-1.5">
           Tap + on a name for each person arriving · ✓ means they’ve already paid
         </div>
       </div>
 
       {/* Sticky header with the live show total */}
-      <header className="sticky top-0 z-10 bg-[#171412]/95 backdrop-blur border-b border-[#E8E0D0]/10 px-5 py-4">
+      <header className="sticky top-0 z-10 bg-surface-paper/95 backdrop-blur border-b border-surface-ink/20 px-5 py-4">
         <div className="max-w-3xl mx-auto flex items-end justify-between gap-4">
           <div className="min-w-0">
-            <div className="text-[10px] uppercase tracking-[0.2em] text-[#c8a26a] font-semibold">
+            <div className="text-data-label-10-small uppercase tracking-[0.2em] text-accent-red font-bold">
               the birdhaus · door
             </div>
-            <h1 className="text-xl font-bold leading-tight truncate">{data.title}</h1>
-            <p className="text-sm text-[#E8E0D0]/60">
+            <h1 className="text-header-4 font-bold leading-tight truncate">{data.title}</h1>
+            <p className="text-body-3 text-surface-ink/60">
               {formatDate(data.date)}
               {data.doorsTime && <> · Doors {data.doorsTime}</>}
             </p>
           </div>
           <div className="text-right shrink-0">
             <div className="text-5xl font-bold tabular-nums leading-none">{total}</div>
-            <div className="text-[11px] uppercase tracking-wide text-[#E8E0D0]/50 mt-1">
+            <div className="text-data-label-10-small uppercase tracking-wide text-surface-ink/60 mt-1">
               in the house
             </div>
           </div>
         </div>
-        <div className="max-w-3xl mx-auto mt-2 flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-[#E8E0D0]/50">
+        <div className="max-w-3xl mx-auto mt-2 flex flex-wrap gap-x-4 gap-y-0.5 text-data-caption-13 text-surface-ink/60">
           <span>
-            <span className="text-sky-300">{rsvpHeads}</span> from {partiesHere} RSVP
+            <span className="text-surface-ink">{rsvpHeads}</span> from {partiesHere} RSVP
             {partiesHere === 1 ? '' : 's'}
           </span>
           <span>
-            <span className="text-[#c8a26a]">{walkins}</span> walk-in{walkins === 1 ? '' : 's'}
+            <span className="text-accent-red">{walkins}</span> walk-in{walkins === 1 ? '' : 's'}
           </span>
         </div>
       </header>
 
       <div className="max-w-3xl mx-auto px-5 py-5 space-y-5">
         {error && (
-          <div className="border border-red-400/40 bg-red-400/10 text-red-300 text-sm rounded-lg px-4 py-2 flex justify-between items-center">
+          <div className="border border-accent-red text-accent-red text-body-3 px-4 py-2 flex justify-between items-center">
             <span>{error}</span>
-            <button type="button" onClick={() => setError(null)} className="text-red-300/70 px-2">
+            <button type="button" onClick={() => setError(null)} className="text-accent-red px-2">
               ✕
             </button>
           </div>
         )}
 
         {/* Walk-in tally — for anyone who didn't RSVP. No name needed. */}
-        <section className="border border-[#c8a26a]/40 bg-[#c8a26a]/[0.06] rounded-2xl px-5 py-4 flex items-center justify-between gap-4">
+        <section className="border border-accent-red bg-surface-paper-shade px-5 py-4 flex items-center justify-between gap-4">
           <div className="min-w-0">
-            <div className="text-xl sm:text-2xl font-semibold">Walk-ins</div>
-            <div className="text-base sm:text-lg text-[#E8E0D0]/70">
+            <div className="text-header-4 sm:text-header-3 font-bold">Walk-ins</div>
+            <div className="text-body-1 sm:text-header-4 text-surface-ink/80">
               Tap + for each person arriving without an RSVP
             </div>
           </div>
@@ -189,15 +189,15 @@ export default function DoorCheckIn({ token, data }: { token: string; data: Door
                 }
               }}
               disabled={walkins === 0}
-              className={`flex items-center justify-center rounded-full h-16 text-2xl leading-none select-none transition-all disabled:opacity-25 active:scale-95 ${
+              className={`flex items-center justify-center  h-16 text-header-3 leading-none select-none transition-all disabled:opacity-25 active:scale-95 ${
                 walkinMinusArmed
-                  ? 'w-28 bg-red-500 text-white font-semibold text-lg'
-                  : 'w-16 border border-[#E8E0D0]/25 text-[#E8E0D0]/70'
+                  ? 'w-28 bg-accent-red text-surface-paper font-bold text-header-4'
+                  : 'w-16 border border-surface-ink text-surface-ink/80'
               }`}
             >
               {walkinMinusArmed ? 'Remove?' : '−'}
             </button>
-            <span className="text-4xl font-bold tabular-nums w-12 text-center">{walkins}</span>
+            <span className="text-header-1 font-bold tabular-nums w-12 text-center">{walkins}</span>
             <StepButton label="Add a walk-in" sign="+" variant="accent" onClick={() => bumpWalkin(1)} />
           </div>
         </section>
@@ -207,7 +207,7 @@ export default function DoorCheckIn({ token, data }: { token: string; data: Door
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search names…"
-          className="w-full bg-[#2A2420] border border-[#E8E0D0]/20 rounded-xl px-4 py-3 text-lg focus:outline-none focus:border-[#E8E0D0]/50 placeholder:text-[#E8E0D0]/30"
+          className="w-full bg-surface-paper border border-surface-ink px-4 py-3 text-header-4 focus:outline-none focus:border-accent-red placeholder:text-surface-ink/45"
         />
 
         {/* RSVP list — tap your name once per person in your group */}
@@ -218,17 +218,17 @@ export default function DoorCheckIn({ token, data }: { token: string; data: Door
             return (
               <div
                 key={r.id}
-                className={`rounded-2xl border px-4 py-3 flex items-center justify-between gap-3 transition-colors ${
+                className={` border px-4 py-3 flex items-center justify-between gap-3 transition-colors ${
                   here
-                    ? 'border-sky-400/50 bg-sky-400/10'
-                    : 'border-[#E8E0D0]/15 bg-[#2A2420]'
+                    ? 'border-surface-ink bg-surface-paper-shade'
+                    : 'border-surface-ink/20 bg-surface-paper'
                 }`}
               >
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-x-2 gap-y-1 min-w-0">
-                    <div className="text-lg font-semibold leading-tight break-words">{r.name}</div>
+                    <div className="text-header-4 font-bold leading-tight break-words">{r.name}</div>
                     {prepaid && (
-                      <span className="shrink-0 rounded-full bg-emerald-400/15 border border-emerald-400/50 text-emerald-300 text-[11px] font-bold uppercase tracking-wide px-2.5 py-1 leading-none">
+                      <span className="shrink-0 border border-surface-ink text-surface-ink text-data-label-10-small font-bold uppercase tracking-wide px-2.5 py-1 leading-none">
                         ✓{' '}
                         {r.ticketsBought > 0
                           ? `${r.ticketsBought} ticket${r.ticketsBought === 1 ? '' : 's'}`
@@ -236,9 +236,9 @@ export default function DoorCheckIn({ token, data }: { token: string; data: Door
                       </span>
                     )}
                   </div>
-                  <div className="text-xs text-[#E8E0D0]/45">
+                  <div className="text-data-caption-13 text-surface-ink/60">
                     {here ? (
-                      <span className="text-sky-300">
+                      <span className="text-surface-ink">
                         {r.arrivedCount} here{r.guests > 1 ? ` of ${r.guests}` : ''}
                       </span>
                     ) : (
@@ -253,7 +253,7 @@ export default function DoorCheckIn({ token, data }: { token: string; data: Door
                     onClick={() => bumpRsvp(r.id, -1)}
                     disabled={!here}
                   />
-                  <span className="text-2xl font-bold tabular-nums w-8 text-center">
+                  <span className="text-header-3 font-bold tabular-nums w-8 text-center">
                     {r.arrivedCount}
                   </span>
                   <StepButton label={`Check in one for ${r.name}`} sign="+" onClick={() => bumpRsvp(r.id, 1)} />
@@ -264,12 +264,12 @@ export default function DoorCheckIn({ token, data }: { token: string; data: Door
         </div>
 
         {filtered.length === 0 && (
-          <p className="text-center text-[#E8E0D0]/40 py-10">
+          <p className="text-center text-surface-ink/60 py-10">
             {rsvps.length === 0 ? 'No RSVPs for this show.' : 'No names match your search.'}
           </p>
         )}
 
-        <p className="text-center text-xs text-[#E8E0D0]/30 pt-2 pb-8">
+        <p className="text-center text-data-caption-13 text-surface-ink/60 pt-2 pb-8">
           Tap + once for each person in the party. No ✓ = collect at the door.
         </p>
       </div>

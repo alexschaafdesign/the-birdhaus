@@ -17,7 +17,7 @@ async function getDoorPersons(): Promise<DoorPersonListItem[]> {
 export default async function AdminDoorPersonsPage() {
   const doorPersons = await getDoorPersons();
   return (
-    <main className="max-w-6xl mx-auto px-6 pb-16 pt-6">
+    <main className="mx-auto max-w-6xl px-4 pt-8 pb-16 sm:px-8">
       <DoorPersonsList initialDoorPersons={doorPersons} />
     </main>
   );

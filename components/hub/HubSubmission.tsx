@@ -10,9 +10,9 @@ type Attachment = HubBand['stagePlotAttachments'][number];
 type ScheduleRows = ShowHubData['schedule'];
 
 const inputClass =
-  'bg-transparent border border-[#E8E0D0]/30 rounded px-2.5 py-1.5 text-sm focus:outline-none focus:border-[#E8E0D0] placeholder:text-[#E8E0D0]/30';
+  'bg-transparent border border-surface-ink px-2.5 py-1.5 text-body-3 focus:outline-none focus:border-accent-red placeholder:text-surface-ink/45';
 const saveBtnClass =
-  'bg-[#E8E0D0] text-[#2A2420] border border-[#E8E0D0] rounded px-5 py-2 text-sm font-medium hover:bg-[#E8E0D0]/90 transition-colors disabled:opacity-50';
+  'bg-surface-ink text-surface-paper border-2 border-surface-ink inline-flex h-9.5 items-center justify-center px-4.5 text-body-3 font-bold ui-hover:bg-accent-red ui-hover:border-accent-red transition-colors cursor-pointer focus-visible:outline-accent-red focus-visible:outline-2 focus-visible:outline-offset-2 disabled:opacity-50';
 
 interface EditItem {
   uid: string;
@@ -171,12 +171,12 @@ export default function HubSubmission({
       className={`space-y-6 ${disabled ? 'opacity-45 select-none' : ''}`}
     >
       {error && (
-        <div className="border border-red-400/40 bg-red-400/10 text-red-200 text-sm rounded px-4 py-2">
+        <div className="border border-accent-red text-accent-red text-body-3 px-4 py-2">
           {error}
         </div>
       )}
       {notice && (
-        <div className="border border-emerald-400/40 bg-emerald-400/10 text-emerald-100 text-sm rounded px-4 py-2">
+        <div className="border border-surface-ink text-surface-ink text-body-3 px-4 py-2">
           {notice}
         </div>
       )}
@@ -184,21 +184,21 @@ export default function HubSubmission({
       {/* Stage plot upload */}
       <div className="space-y-3">
         <div>
-          <h3 className="text-sm font-semibold text-[#E8E0D0]">Stage plot / input list file</h3>
-          <p className="text-xs text-[#E8E0D0]/50">
+          <h3 className="text-body-3 font-bold text-surface-ink">Stage plot / input list file</h3>
+          <p className="text-data-caption-13 text-surface-ink/60">
             Upload a PDF or image (or a photo of a hand-drawn one). Max 15MB.
           </p>
         </div>
         {files.length > 0 && (
           <ul className="space-y-1.5">
             {files.map((f, i) => (
-              <li key={i} className="flex items-center gap-2 text-sm">
+              <li key={i} className="flex items-center gap-2 text-body-3">
                 <span aria-hidden>{f.contentType === 'application/pdf' ? '📄' : '🖼️'}</span>
                 <a
                   href={f.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="min-w-0 flex-1 truncate text-[#c8a26a] hover:text-[#E8E0D0] underline"
+                  className="min-w-0 flex-1 truncate text-accent-red cursor-pointer hover:underline underline"
                 >
                   {f.filename || 'stage plot'}
                 </a>
@@ -206,7 +206,7 @@ export default function HubSubmission({
             ))}
           </ul>
         )}
-        <label className="inline-flex cursor-pointer items-center gap-2 text-sm border border-[#E8E0D0]/30 rounded px-3 py-1.5 hover:bg-[#E8E0D0]/10 transition-colors">
+        <label className="inline-flex cursor-pointer items-center gap-2 text-body-3 border border-surface-ink px-3 py-1.5 hover:bg-surface-paper-shade transition-colors">
           {uploading ? 'Uploading…' : files.length > 0 ? '+ Add another file' : '+ Upload a file'}
           <input
             type="file"
@@ -225,10 +225,10 @@ export default function HubSubmission({
       {/* Input-list builder */}
       <div className="space-y-3">
         <div>
-          <h3 className="text-sm font-semibold text-[#E8E0D0]">
-            Build your input list <span className="text-[#c8a26a]">*</span>
+          <h3 className="text-body-3 font-bold text-surface-ink">
+            Build your input list <span className="text-accent-red">*</span>
           </h3>
-          <p className="text-xs text-[#E8E0D0]/50">
+          <p className="text-data-caption-13 text-surface-ink/60">
             Required — list everything you need on stage (mics, DIs, amps, etc.). We&apos;ve
             started you off with a vocal mic; adjust it and add the rest, then save.
           </p>
@@ -250,11 +250,11 @@ export default function HubSubmission({
                       className={`${inputClass} w-16 tabular-nums`}
                       aria-label="Quantity"
                     />
-                    <span className="text-[#E8E0D0]/40 text-sm">×</span>
+                    <span className="text-surface-ink/60 text-body-3">×</span>
                     <select
                       value={row.itemType}
                       onChange={(e) => updateRow(row.uid, { itemType: e.target.value })}
-                      className={`${inputClass} [&>option]:bg-[#2A2420]`}
+                      className={`${inputClass} `}
                       aria-label="Item type"
                     >
                       {INPUT_CATALOG.map((c) => (
@@ -282,19 +282,19 @@ export default function HubSubmission({
                     <button
                       type="button"
                       onClick={() => removeRow(row.uid)}
-                      className="text-[#E8E0D0]/40 hover:text-red-300 text-sm px-1"
+                      className="text-surface-ink/60 hover:text-accent-red text-body-3 px-1"
                       aria-label="Remove item"
                     >
                       ✕
                     </button>
                   </div>
                   {houseHint && (
-                    <label className="flex items-start gap-2 pl-[4.5rem] text-xs text-[#c8a26a]/90 cursor-pointer">
+                    <label className="flex items-start gap-2 pl-[4.5rem] text-data-caption-13 text-accent-red cursor-pointer">
                       <input
                         type="checkbox"
                         checked={row.useHouse}
                         onChange={(e) => updateRow(row.uid, { useHouse: e.target.checked })}
-                        className="mt-0.5 accent-[#c8a26a]"
+                        className="mt-0.5 accent-surface-ink"
                       />
                       <span>{houseHint}</span>
                     </label>
@@ -309,7 +309,7 @@ export default function HubSubmission({
           <button
             type="button"
             onClick={addRow}
-            className="text-sm text-[#E8E0D0]/55 hover:text-[#E8E0D0] border border-[#E8E0D0]/25 rounded px-3 py-1.5 transition-colors"
+            className="text-body-3 text-surface-ink/60 hover:text-accent-red border border-surface-ink px-3 py-1.5 transition-colors"
           >
             + Add item
           </button>
@@ -317,23 +317,23 @@ export default function HubSubmission({
             type="button"
             onClick={saveInputs}
             disabled={saving || !dirty}
-            className="bg-[#E8E0D0] text-[#2A2420] border border-[#E8E0D0] rounded px-5 py-2 text-sm font-medium hover:bg-[#E8E0D0]/90 transition-colors disabled:opacity-50"
+            className="bg-surface-ink text-surface-paper border-2 border-surface-ink inline-flex h-9.5 items-center justify-center px-4.5 text-body-3 font-bold ui-hover:bg-accent-red ui-hover:border-accent-red transition-colors cursor-pointer focus-visible:outline-accent-red focus-visible:outline-2 focus-visible:outline-offset-2 disabled:opacity-50"
           >
             {saving ? 'Saving…' : 'Save input list'}
           </button>
-          {dirty && <span className="text-xs text-[#E8E0D0]/40">Unsaved changes</span>}
+          {dirty && <span className="text-data-caption-13 text-surface-ink/60">Unsaved changes</span>}
         </div>
       </div>
 
       {/* Payout handle */}
-      <div className="space-y-2 border-t border-[#E8E0D0]/10 pt-5">
-        <h3 className="text-sm font-semibold text-[#E8E0D0]">Your payout handle</h3>
+      <div className="space-y-2 border-t border-surface-ink/20 pt-5">
+        <h3 className="text-body-3 font-bold text-surface-ink">Your payout handle</h3>
         <PayoutTask token={token} bandId={band.bandId} />
       </div>
 
       {/* Schedule sign-off */}
-      <div className="space-y-2 border-t border-[#E8E0D0]/10 pt-5">
-        <h3 className="text-sm font-semibold text-[#E8E0D0]">The schedule</h3>
+      <div className="space-y-2 border-t border-surface-ink/20 pt-5">
+        <h3 className="text-body-3 font-bold text-surface-ink">The schedule</h3>
         <ScheduleTask token={token} bandId={band.bandId} schedule={schedule} />
       </div>
     </fieldset>
@@ -343,9 +343,9 @@ export default function HubSubmission({
 function Notice({ kind, children }: { kind: 'error' | 'ok'; children: React.ReactNode }) {
   const cls =
     kind === 'error'
-      ? 'border-red-400/40 bg-red-400/10 text-red-200'
-      : 'border-emerald-400/40 bg-emerald-400/10 text-emerald-100';
-  return <div className={`border ${cls} text-sm rounded px-3 py-1.5`}>{children}</div>;
+      ? 'border-accent-red text-accent-red'
+      : 'border-surface-ink text-surface-ink';
+  return <div className={`border ${cls} text-body-3  px-3 py-1.5`}>{children}</div>;
 }
 
 // Venmo / payout handle → bands.payment_method (write-only from the shared link;
@@ -380,7 +380,7 @@ function PayoutTask({ token, bandId }: { token: string; bandId: number }) {
 
   return (
     <div className="space-y-2">
-      <p className="text-xs text-[#E8E0D0]/50">
+      <p className="text-data-caption-13 text-surface-ink/60">
         How should we pay you? Venmo (or other) handle. Private — goes straight to the Birdhaus.
       </p>
       {error && <Notice kind="error">{error}</Notice>}
@@ -451,18 +451,18 @@ function ScheduleTask({
       {/* max-content time column so long ranges never wrap — matches the
           Schedule card in ShowHubView. */}
       {schedule.length > 0 ? (
-        <ul className="grid grid-cols-[max-content_1fr] gap-x-3 gap-y-1 rounded-lg bg-[#E8E0D0]/[0.04] p-3">
+        <ul className="grid grid-cols-[max-content_1fr] gap-x-3 gap-y-1 bg-surface-paper p-3">
           {schedule.map((row, i) => (
-            <li key={i} className="contents text-sm">
-              <span className="whitespace-nowrap font-semibold tabular-nums text-sm text-[#E8E0D0]">
+            <li key={i} className="contents text-body-3">
+              <span className="whitespace-nowrap font-bold tabular-nums text-body-3 text-surface-ink">
                 {normalizeScheduleTime(row.time)}
               </span>
-              <span className="text-sm text-[#E8E0D0]/85">{row.label}</span>
+              <span className="text-body-3 text-surface-ink/80">{row.label}</span>
             </li>
           ))}
         </ul>
       ) : (
-        <p className="text-xs text-[#E8E0D0]/50">The schedule isn&apos;t posted yet — check back soon.</p>
+        <p className="text-data-caption-13 text-surface-ink/60">The schedule isn&apos;t posted yet — check back soon.</p>
       )}
 
       {error && <Notice kind="error">{error}</Notice>}
@@ -473,7 +473,7 @@ function ScheduleTask({
       )}
 
       <div className="space-y-2">
-        <label className="flex items-center gap-2 text-sm text-[#E8E0D0]/85">
+        <label className="flex items-center gap-2 text-body-3 text-surface-ink/80">
           <input
             type="radio"
             name={`sched-${bandId}`}
@@ -485,7 +485,7 @@ function ScheduleTask({
           />
           The schedule looks good
         </label>
-        <label className="flex items-center gap-2 text-sm text-[#E8E0D0]/85">
+        <label className="flex items-center gap-2 text-body-3 text-surface-ink/80">
           <input
             type="radio"
             name={`sched-${bandId}`}
@@ -503,7 +503,7 @@ function ScheduleTask({
             onChange={(e) => setChanges(e.target.value)}
             rows={3}
             placeholder="e.g. we can't load in until 6:30…"
-            className="w-full resize-y bg-transparent border border-[#E8E0D0]/30 rounded px-3 py-2 text-sm focus:outline-none focus:border-[#E8E0D0] placeholder:text-[#E8E0D0]/30"
+            className="w-full resize-y bg-transparent border border-surface-ink px-3 py-2 text-body-3 focus:outline-none focus:border-accent-red placeholder:text-surface-ink/45"
           />
         )}
       </div>

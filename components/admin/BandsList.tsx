@@ -3,7 +3,8 @@
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import Section from './Section';
+import { FORM } from '@/components/night/form';
+import { Panel, PageHeader, StatusMark, Checkbox, ADMIN_TYPE, buttonClassName } from './ui';
 
 export interface BandListItem {
   id: number;
@@ -20,8 +21,7 @@ export interface BandListItem {
   twin_scene_band_id: string | number | null;
 }
 
-const inputClass =
-  'bg-transparent border border-[#E8E0D0]/30 rounded px-3 py-1.5 text-sm focus:outline-none focus:border-[#E8E0D0] placeholder:text-[#E8E0D0]/30';
+const inputClass = FORM.field;
 
 export default function BandsList({ initialBands }: { initialBands: BandListItem[] }) {
   const router = useRouter();
@@ -130,26 +130,34 @@ export default function BandsList({ initialBands }: { initialBands: BandListItem
 
   return (
     <div>
+      <PageHeader
+        overline="Bands"
+        title="Bands"
+        actions={
+          <Link href="/admin/bands/new" className={buttonClassName('primary', 's')}>
+            + New band
+          </Link>
+        }
+      />
+
       {errorMessage && (
-        <div className="mb-4 border border-red-400/40 bg-red-400/10 text-red-300 text-sm rounded px-4 py-2 flex justify-between items-center">
+        <div role="alert" className={`${FORM.error} mb-4 flex items-center justify-between gap-3`}>
           <span>{errorMessage}</span>
-          <button onClick={() => setErrorMessage(null)} className="text-red-300/70 hover:text-red-300">
-            dismiss
+          <button type="button" onClick={() => setErrorMessage(null)} className={ADMIN_TYPE.link}>
+            Dismiss
           </button>
         </div>
       )}
 
-      <Section className="mb-3">
+      <Panel className="mb-3">
         <div className="flex gap-2">
           {(['all', 'unreviewed'] as const).map((option) => (
             <button
               key={option}
+              type="button"
               onClick={() => setFilter(option)}
-              className={`rounded px-3 py-1.5 font-mono text-sm uppercase tracking-widest transition-colors ${
-                filter === option
-                  ? 'bg-[#E8E0D0] text-[#171412]'
-                  : 'border border-[#E8E0D0]/30 text-[#E8E0D0]/60 hover:text-[#E8E0D0]'
-              }`}
+              aria-pressed={filter === option}
+              className={buttonClassName(filter === option ? 'primary' : 'secondary', 's')}
             >
               {option === 'all' ? 'All' : `Unreviewed (${unreviewedCount})`}
             </button>
@@ -168,7 +176,7 @@ export default function BandsList({ initialBands }: { initialBands: BandListItem
             <button
               onClick={() => handlePush()}
               disabled={pushingId !== null}
-              className="ml-auto border border-[#E8E0D0]/40 rounded px-4 py-1.5 text-sm hover:bg-[#E8E0D0]/10 transition-colors disabled:opacity-50"
+              className={`ml-auto ${buttonClassName('secondary', 's')}`}
               title="Create these bands in Twin Scene and link them"
             >
               {pushingId === 'all' ? 'Pushing…' : `Push ${unlinkedWithShows.length} unlinked to Twin Scene`}
@@ -177,27 +185,27 @@ export default function BandsList({ initialBands }: { initialBands: BandListItem
           <button
             onClick={handleSyncTwinScene}
             disabled={syncing}
-            className={`${unlinkedWithShows.length > 0 ? '' : 'ml-auto '}border border-[#E8E0D0]/40 rounded px-4 py-1.5 text-sm hover:bg-[#E8E0D0]/10 transition-colors disabled:opacity-50`}
+            className={`${unlinkedWithShows.length > 0 ? '' : 'ml-auto '}${buttonClassName('secondary', 's')}`}
           >
             {syncing ? 'Syncing…' : 'Sync from Twin Scene'}
           </button>
-          <Link
-            href="/admin/bands/new"
-            className="border border-[#E8E0D0]/40 rounded px-4 py-1.5 text-sm hover:bg-[#E8E0D0]/10 transition-colors"
-          >
-            + New band
-          </Link>
         </div>
 
-        <label className="mt-3 flex items-center gap-2 text-sm text-[#E8E0D0]/60 select-none w-fit">
-          <input type="checkbox" checked={showAll} onChange={(e) => setShowAll(e.target.checked)} />
-          Show all Twin Cities bands (in-progress)
-        </label>
+        <Checkbox
+          className="mt-3 select-none"
+          checked={showAll}
+          onChange={(e) => setShowAll(e.target.checked)}
+          label="Show all Twin Cities bands (in-progress)"
+        />
 
-        {syncStatus && <p className="mt-2 text-xs text-[#E8E0D0]/50">{syncStatus}</p>}
-      </Section>
+        {syncStatus && (
+          <p role="status" className={`${ADMIN_TYPE.meta} mt-2`}>
+            {syncStatus}
+          </p>
+        )}
+      </Panel>
 
-      <p className="text-xs text-[#E8E0D0]/40 mb-3">
+      <p className={`${ADMIN_TYPE.meta} mb-3`}>
         {filtered.length} of {scoped.length} bands shown
       </p>
 
@@ -205,35 +213,33 @@ export default function BandsList({ initialBands }: { initialBands: BandListItem
         {filtered.map((band) => (
           <div
             key={band.id}
-            className="flex items-center justify-between gap-4 border border-[#E8E0D0]/15 bg-[#E8E0D0]/[0.03] rounded-lg px-4 py-3"
+            className="flex items-center justify-between gap-4 border border-surface-ink bg-surface-paper hover:bg-surface-paper-shade px-4 py-3"
           >
             <div className="min-w-0 flex-1 flex items-center gap-3">
               {band.photo ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={band.photo} alt="" className="w-8 h-8 rounded-full object-cover flex-shrink-0" />
+                <img src={band.photo} alt="" className="w-8 h-8  object-cover flex-shrink-0" />
               ) : (
-                <div className="w-8 h-8 rounded-full bg-[#E8E0D0]/10 flex-shrink-0" />
+                <div className="w-8 h-8  bg-surface-paper-shade flex-shrink-0" />
               )}
-              <span className="font-semibold truncate">{band.name}</span>
-              <span className="text-xs px-2 py-0.5 rounded-full border border-[#E8E0D0]/30 text-[#E8E0D0]/50 flex-shrink-0">
+              <span className="font-bold truncate">{band.name}</span>
+              <span className="text-data-caption-13 px-2 py-0.5  border border-surface-ink text-surface-ink/60 flex-shrink-0">
                 {band.show_count} show{band.show_count === 1 ? '' : 's'}
               </span>
               {band.is_touring && (
-                <span className="text-xs px-2 py-0.5 rounded-full border border-[#E8E0D0]/30 text-[#E8E0D0]/50 flex-shrink-0">
+                <span className="text-data-caption-13 px-2 py-0.5  border border-surface-ink text-surface-ink/60 flex-shrink-0">
                   Touring{band.hometown ? ` · ${band.hometown}` : ''}
                 </span>
               )}
               {band.unreviewed && (
-                <span className="text-xs px-2 py-0.5 rounded-full border border-yellow-400/40 text-yellow-300/80 flex-shrink-0">
-                  Unreviewed
-                </span>
+                <StatusMark tone="attention">Unreviewed</StatusMark>
               )}
             </div>
-            <div className="flex items-center gap-3 flex-shrink-0 text-sm">
+            <div className="flex items-center gap-3 flex-shrink-0 text-body-3">
               {band.unreviewed && (
                 <button
                   onClick={() => handleMarkReviewed(band.id)}
-                  className="text-[#E8E0D0]/80 hover:text-[#E8E0D0] underline"
+                  className={ADMIN_TYPE.link}
                 >
                   Mark reviewed
                 </button>
@@ -242,21 +248,21 @@ export default function BandsList({ initialBands }: { initialBands: BandListItem
                 <button
                   onClick={() => handlePush(band.id)}
                   disabled={pushingId !== null}
-                  className="text-[#E8E0D0]/80 hover:text-[#E8E0D0] underline disabled:opacity-50"
+                  className={`${ADMIN_TYPE.link} disabled:opacity-50`}
                   title="Create in Twin Scene and link"
                 >
                   {pushingId === band.id ? 'Pushing…' : 'Push to Twin Scene'}
                 </button>
               )}
-              <Link href={`/bands/${band.slug}`} target="_blank" className="text-[#E8E0D0]/50 hover:text-[#E8E0D0]">
+              <Link href={`/bands/${band.slug}`} target="_blank" className={ADMIN_TYPE.link}>
                 View
               </Link>
-              <Link href={`/admin/bands/${band.id}`} className="text-[#E8E0D0]/80 hover:text-[#E8E0D0] underline">
+              <Link href={`/admin/bands/${band.id}`} className={ADMIN_TYPE.link}>
                 Edit
               </Link>
               <button
                 onClick={() => handleDelete(band.id, band.name)}
-                className="text-red-400/70 hover:text-red-400"
+                className="text-accent-red cursor-pointer underline-offset-4 hover:underline"
               >
                 Delete
               </button>
@@ -264,7 +270,7 @@ export default function BandsList({ initialBands }: { initialBands: BandListItem
           </div>
         ))}
         {filtered.length === 0 && (
-          <p className="text-[#E8E0D0]/40 text-sm py-8 text-center">No bands match this search.</p>
+          <p className="text-surface-ink/60 text-body-3 py-8 text-center">No bands match this search.</p>
         )}
       </div>
     </div>

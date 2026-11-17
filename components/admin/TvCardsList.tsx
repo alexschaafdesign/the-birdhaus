@@ -11,9 +11,9 @@ import TvPresetBar from './TvPresetBar';
 
 const MAX_SIZE_BYTES = 8 * 1024 * 1024;
 const btn =
-  'text-xs border border-[#E8E0D0]/30 rounded px-3 py-1.5 hover:bg-[#E8E0D0]/10 disabled:opacity-40 whitespace-nowrap';
+  'text-data-caption-13 border border-surface-ink  px-3 py-1.5 hover:bg-surface-paper-shade disabled:opacity-40 whitespace-nowrap';
 const field =
-  'bg-transparent border border-[#E8E0D0]/30 rounded px-3 py-1.5 text-sm focus:outline-none focus:border-[#E8E0D0] placeholder:text-[#E8E0D0]/30';
+  'bg-transparent border border-surface-ink  px-3 py-1.5 text-body-3 focus:outline-none focus:border-accent-red placeholder:text-surface-ink/45';
 
 export default function TvCardsList({
   initialCards,
@@ -94,23 +94,23 @@ export default function TvCardsList({
     setEdits((prev) => ({ ...prev, [id]: { ...prev[id], [k]: v } }));
 
   return (
-    <div className="text-[#E8E0D0]">
+    <div className="text-surface-ink">
       <div className="flex items-center justify-between gap-4 mb-1">
-        <h3 className="text-sm uppercase tracking-wide text-[#E8E0D0]/50">Announcement cards</h3>
+        <h3 className="text-data-overline-11 font-bold leading-[1.3] tracking-[--spacing(0.625)] uppercase text-surface-ink/60">Announcement cards</h3>
         <button type="button" onClick={addCard} className={btn}>
           + Add card
         </button>
       </div>
-      <p className="text-xs text-[#E8E0D0]/45 mb-4 max-w-2xl">
+      <p className="text-data-caption-13 text-surface-ink/60 mb-4 max-w-2xl">
         Rotated on the tube in “Announcement cards” mode — a headline, optional subtext, optional image.
       </p>
       <div className="mb-4">
         <TvPresetBar category="cards" showId={showId} />
       </div>
-      {error && <p className="text-sm text-red-400 mb-3">{error}</p>}
+      {error && <p className="text-body-3 text-accent-red mb-3">{error}</p>}
 
       {cards.length === 0 ? (
-        <p className="text-sm text-[#E8E0D0]/40 border border-dashed border-[#E8E0D0]/20 rounded px-4 py-6 text-center">
+        <p className="text-body-3 text-surface-ink/60 border border-dashed border-surface-ink  px-4 py-6 text-center">
           No cards yet.
         </p>
       ) : (
@@ -118,22 +118,22 @@ export default function TvCardsList({
           {cards.map((c, i) => (
             <li
               key={c.id}
-              className={`flex items-start gap-4 border border-[#E8E0D0]/20 rounded p-3 ${
+              className={`flex items-start gap-4 border border-surface-ink  p-3 ${
                 c.active ? '' : 'opacity-50'
               }`}
             >
               <div className="flex-shrink-0">
                 {c.image ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={c.image} alt="" className="w-24 h-16 object-cover rounded bg-black/40" />
+                  <img src={c.image} alt="" className="w-24 h-16 object-cover bg-surface-paper-shade" />
                 ) : (
-                  <div className="w-24 h-16 rounded bg-black/20 border border-dashed border-[#E8E0D0]/20" />
+                  <div className="w-24 h-16 bg-surface-paper-shade border border-dashed border-surface-ink" />
                 )}
                 <button
                   type="button"
                   onClick={() => fileInputs.current[c.id]?.click()}
                   disabled={busyId === c.id}
-                  className="text-[10px] text-[#E8E0D0]/50 hover:text-[#E8E0D0] mt-1 w-24 text-center block"
+                  className="text-data-label-10-small text-surface-ink/60 hover:text-accent-red mt-1 w-24 text-center block"
                 >
                   {busyId === c.id ? 'Uploading…' : c.image ? 'Replace image' : 'Add image'}
                 </button>
@@ -160,7 +160,7 @@ export default function TvCardsList({
                     const next = val(c, 'headline').trim();
                     if (next && next !== c.headline) patch(c.id, { headline: next });
                   }}
-                  className={`${field} w-full font-semibold`}
+                  className={`${field} w-full font-bold`}
                 />
                 <input
                   value={val(c, 'subtext')}
@@ -198,7 +198,7 @@ export default function TvCardsList({
                 <button
                   type="button"
                   onClick={() => remove(c.id)}
-                  className="text-xs border border-red-500/40 text-red-300 rounded px-3 py-1.5 hover:bg-red-500/10"
+                  className="text-data-caption-13 border border-accent-red text-accent-red  px-3 py-1.5 hover:bg-surface-paper-shade"
                 >
                   Delete
                 </button>

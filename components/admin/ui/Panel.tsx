@@ -1,15 +1,14 @@
 'use client';
 
 import { useState, type ReactNode } from 'react';
+import { ADMIN_TYPE } from './styles';
 
-// The canonical admin card: a subtly-tinted bordered container with an optional
-// title/action header. Shared across the admin forms and list toolbars so the
-// dashboard reads as one system. Omit `title` to use it as a plain grouping card
-// (e.g. a list's filter toolbar).
-//
-// Pass `collapsible` to make the title a show/hide toggle; `defaultOpen`
-// controls the initial state (collapsed by default).
-export default function Section({
+// The 2027 admin card, in place of the old dark Section: paper ground, a 1px
+// ink border, square corners, an optional overline title plus an action slot.
+// It keeps Section's props (title / action / collapsible / defaultOpen), so a
+// page moves over by swapping the import. Omit `title` to get a plain grouping
+// box (a list's filter toolbar, say). Tokens only.
+export function Panel({
   title,
   action,
   className = '',
@@ -28,25 +27,23 @@ export default function Section({
   const expanded = collapsible ? open : true;
 
   return (
-    <section className={`rounded-lg border border-[#E8E0D0]/15 bg-[#E8E0D0]/[0.03] p-4 sm:p-5 ${className}`}>
+    <section className={`border-surface-ink bg-surface-paper border p-4 sm:p-5 ${className}`}>
       {(title || action) && (
         <div className={`flex items-center justify-between gap-3 ${expanded ? 'mb-4' : ''}`}>
           {collapsible && title ? (
             <button
               type="button"
               onClick={() => setOpen((v) => !v)}
-              className="flex items-center gap-2 text-sm font-semibold text-[#E8E0D0]/90 hover:text-[#E8E0D0]"
+              aria-expanded={open}
+              className={`${ADMIN_TYPE.overline} ${ADMIN_TYPE.focus} ui-hover:text-accent-red flex cursor-pointer items-center gap-2`}
             >
-              <span
-                className={`inline-block transition-transform ${open ? 'rotate-90' : ''}`}
-                aria-hidden
-              >
+              <span aria-hidden className={`inline-block transition-transform ${open ? 'rotate-90' : ''}`}>
                 ▸
               </span>
               {title}
             </button>
           ) : title ? (
-            <h2 className="text-sm font-semibold text-[#E8E0D0]/90">{title}</h2>
+            <h2 className={ADMIN_TYPE.overline}>{title}</h2>
           ) : (
             <span />
           )}
@@ -57,3 +54,5 @@ export default function Section({
     </section>
   );
 }
+
+export default Panel;

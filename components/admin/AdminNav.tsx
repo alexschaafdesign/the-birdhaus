@@ -2,69 +2,10 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { ADMIN_NAV as GROUPS, adminLinkActive as linkActive } from './nav';
 
-interface NavLink {
-  href: string;
-  label: string;
-}
-
-interface NavGroup {
-  label: string;
-  links: NavLink[];
-}
-
-const GROUPS: NavGroup[] = [
-  {
-    label: 'Shows',
-    links: [
-      { href: '/admin/shows', label: 'Shows' },
-      { href: '/admin/booking', label: 'Booking' },
-      { href: '/admin/submissions', label: 'Submissions' },
-      { href: '/admin/tv', label: 'TV Screen' },
-    ],
-  },
-  {
-    label: 'Bands',
-    links: [{ href: '/admin/bands', label: 'Bands' }],
-  },
-  {
-    // Money joins with its phase.
-    label: 'Rehearsal',
-    links: [
-      { href: '/admin/rehearsal/requests', label: 'Requests' },
-      { href: '/admin/rehearsal/calendar', label: 'Calendar' },
-      { href: '/admin/rehearsal/bands', label: 'Bands' },
-      { href: '/admin/rehearsal/leads', label: 'Leads' },
-      { href: '/admin/rehearsal/settings', label: 'Settings' },
-    ],
-  },
-  {
-    label: 'Money',
-    links: [
-      { href: '/admin/settlements', label: 'Settlements' },
-      { href: '/admin/expenses', label: 'Expenses' },
-      { href: '/admin/year', label: 'Year in Review' },
-    ],
-  },
-  {
-    label: 'Crew',
-    links: [
-      { href: '/admin/crew', label: 'Crew' },
-      { href: '/admin/sound-engineers', label: 'Sound Engineers' },
-      { href: '/admin/photographers', label: 'Photographers' },
-      { href: '/admin/door-persons', label: 'Door People' },
-      { href: '/admin/timesheet', label: 'Timesheet' },
-    ],
-  },
-  {
-    label: 'Settings',
-    links: [{ href: '/admin/settings', label: 'Settings' }],
-  },
-];
-
-function linkActive(pathname: string, href: string) {
-  return pathname === href || pathname.startsWith(`${href}/`);
-}
+// The old dark two-row nav, kept only for the rehearsal admin until it moves
+// to the 2027 sidebar (see isDarkAdminPath in ./nav); then it's deleted.
 
 const rowClass =
   'flex gap-4 text-sm uppercase tracking-wide overflow-x-auto whitespace-nowrap -mx-6 px-6 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden';

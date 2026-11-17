@@ -98,20 +98,20 @@ export default async function ShowLayout({
   // max-w-6xl matches the dashboard shell's nav width so the show workspace
   // lines up with the admin nav links above it.
   return (
-    <main className="max-w-6xl mx-auto px-6 pb-16 pt-6 space-y-6">
+    <main className="mx-auto max-w-6xl space-y-6 px-4 pt-8 pb-16 sm:px-8">
       <div className="space-y-3">
         <div className="flex items-center justify-between gap-3">
           <Link
             href="/admin/shows"
-            className="inline-flex items-center gap-1 text-sm text-[#E8E0D0]/55 hover:text-[#E8E0D0] transition-colors"
+            className="inline-flex items-center gap-1 text-body-3 opacity-60 hover:underline hover:opacity-100"
           >
             ← Back to shows
           </Link>
           <ShowPrevNav currentId={showId} prev={prev} next={next} />
         </div>
         <div>
-          <h1 className="text-2xl font-bold">{show.title}</h1>
-          {prettyDate && <p className="text-sm text-[#E8E0D0]/50">{prettyDate}</p>}
+          <h1 className="text-header-3 font-bold leading-tight">{show.title}</h1>
+          {prettyDate && <p className="text-body-3 opacity-60">{prettyDate}</p>}
         </div>
         <ShowTabs id={showId} badges={badges} />
       </div>

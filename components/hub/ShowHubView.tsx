@@ -86,7 +86,7 @@ export default function ShowHubView({
           )}
         </div>
       </div>
-      <footer className="text-center text-xs text-[#E8E0D0]/40 pt-4">
+      <footer className="text-center text-data-caption-13 text-surface-ink/60 pt-4">
         the BIRDHAUS · show details for the lineup &amp; crew
       </footer>
     </div>
@@ -113,7 +113,7 @@ function itemLabel(item: InputItem): string {
 // stray label would sit next to cards from the other column.
 function ColumnLabel({ children }: { children: React.ReactNode }) {
   return (
-    <p className="hidden lg:block text-[10px] uppercase tracking-[0.2em] text-[#c8a26a]/70 font-semibold">
+    <p className="hidden lg:block text-data-label-10-small uppercase tracking-[0.2em] text-accent-red font-bold">
       {children}
     </p>
   );
@@ -121,8 +121,8 @@ function ColumnLabel({ children }: { children: React.ReactNode }) {
 
 function Card({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="border border-[#E8E0D0]/15 rounded-xl p-5 space-y-3">
-      <h2 className="text-xs uppercase tracking-[0.12em] text-[#c8a26a] font-semibold">{title}</h2>
+    <section className="border border-surface-ink bg-surface-paper p-5 space-y-3">
+      <h2 className="text-data-overline-11 font-bold leading-[1.3] tracking-[--spacing(0.625)] uppercase">{title}</h2>
       {children}
     </section>
   );
@@ -141,11 +141,11 @@ function Expandable({
 }) {
   return (
     <details className={`group ${tone === 'row' ? 'py-1' : ''}`}>
-      <summary className="cursor-pointer select-none list-none flex items-center justify-between gap-3 py-2 text-sm text-[#E8E0D0]/85 hover:text-[#E8E0D0]">
-        <span className="font-medium">{summary}</span>
+      <summary className="cursor-pointer select-none list-none flex items-center justify-between gap-3 py-2 text-body-3 text-surface-ink/80 hover:text-accent-red">
+        <span className="font-bold">{summary}</span>
         <span
           aria-hidden
-          className="text-[#c8a26a]/70 text-xs transition-transform group-open:rotate-90"
+          className="text-accent-red text-data-caption-13 transition-transform group-open:rotate-90"
         >
           ▸
         </span>
@@ -183,21 +183,21 @@ function QuickFacts({ data }: { data: ShowHubData }) {
       {facts.map((f) => {
         const inner = (
           <>
-            <div className="text-[10px] uppercase tracking-[0.12em] text-[#c8a26a]/80 font-semibold">
+            <div className="text-data-label-10-small uppercase tracking-[0.12em] text-accent-red font-bold">
               {f.label}
             </div>
-            <div className="text-sm text-[#E8E0D0]/90 leading-snug">{f.value}</div>
+            <div className="text-body-3 text-surface-ink/80 leading-snug">{f.value}</div>
           </>
         );
         const cls =
-          'rounded-lg border border-[#E8E0D0]/15 bg-[#E8E0D0]/[0.03] px-3.5 py-2.5 space-y-0.5';
+          ' border border-surface-ink/20 bg-surface-paper px-3.5 py-2.5 space-y-0.5';
         return f.href ? (
           <a
             key={f.label}
             href={f.href}
             target={f.href.startsWith('http') ? '_blank' : undefined}
             rel={f.href.startsWith('http') ? 'noopener noreferrer' : undefined}
-            className={`${cls} hover:border-[#c8a26a]/50 transition-colors`}
+            className={`${cls} hover:border-accent-red transition-colors`}
           >
             {inner}
           </a>
@@ -221,27 +221,27 @@ function Header({ data }: { data: ShowHubData }) {
     <header className="flex items-start gap-5">
       {show.flyer && <HubFlyer src={show.flyer} alt={`${show.title} flyer`} />}
       <div className="min-w-0 space-y-4">
-        <div className="text-[10px] uppercase tracking-[0.2em] text-[#c8a26a] font-semibold">
+        <div className="text-data-label-10-small uppercase tracking-[0.2em] text-accent-red font-bold">
           the birdhaus
         </div>
-        <h1 className="text-3xl font-bold leading-tight">{show.title}</h1>
-        <div className="flex flex-wrap gap-x-5 gap-y-1 text-sm text-[#E8E0D0]/70">
+        <h1 className="text-header-2 font-bold leading-tight">{show.title}</h1>
+        <div className="flex flex-wrap gap-x-5 gap-y-1 text-body-3 text-surface-ink/80">
           {date && <span>{date}</span>}
           {show.doorsTime && <span>Doors {show.doorsTime}</span>}
           {show.showTime && <span>Music {show.showTime}</span>}
         </div>
         {soundEngineerName && (
-          <p className="text-sm text-[#E8E0D0]/60">Sound: {soundEngineerName}</p>
+          <p className="text-body-3 text-surface-ink/60">Sound: {soundEngineerName}</p>
         )}
         {/* RSVPs + tickets as one unit: the live headcount (party sizes
             summed, so +1s count) as the headline chip, with the public RSVP
             link alongside. */}
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-          <span className="inline-flex items-baseline gap-1.5 rounded-full border border-[#8fb98f]/50 bg-[#8fb98f]/10 px-3.5 py-1 text-[#8fb98f]">
-            <span className="text-xl font-bold tabular-nums text-[#8fb98f]">
+          <span className="inline-flex items-baseline gap-1.5 border border-surface-ink bg-surface-paper-shade px-3.5 py-1 text-surface-ink">
+            <span className="text-header-4 font-bold tabular-nums text-surface-ink">
               {data.rsvp.expected}
             </span>
-            <span className="text-sm font-medium">
+            <span className="text-body-3 font-bold">
               RSVP{data.rsvp.expected === 1 ? '' : 's'}
             </span>
           </span>
@@ -250,7 +250,7 @@ function Header({ data }: { data: ShowHubData }) {
               href={show.ticketUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-sm text-[#c8a26a] underline transition-colors hover:text-[#E8E0D0]"
+              className="text-body-3 text-accent-red underline underline-offset-4 transition-colors hover:text-surface-ink"
             >
               Ticket / RSVP page →
             </a>
@@ -280,22 +280,22 @@ function ScheduleSection({
           const time = normalizeScheduleTime(row.time.trim());
           const label = row.label.trim();
           return (
-            <li key={i} className="contents text-sm">
-              <span className="whitespace-nowrap font-semibold tabular-nums text-sm text-[#E8E0D0]">
+            <li key={i} className="contents text-body-3">
+              <span className="whitespace-nowrap font-bold tabular-nums text-body-3 text-surface-ink">
                 {time}
               </span>
-              <span className="text-sm text-[#E8E0D0]/85">{label}</span>
+              <span className="text-body-3 text-surface-ink/80">{label}</span>
             </li>
           );
         })}
       </ul>
       {data.soundcheckNotes && (
-        <div className="rounded-lg border-l-4 border-[#7ea6d9] bg-[#7ea6d9]/10 px-4 py-3 text-sm text-[#E8E0D0]/85 whitespace-pre-wrap">
+        <div className="border-l-4 border-surface-ink bg-surface-paper-shade px-4 py-3 text-body-3 text-surface-ink/80 whitespace-pre-wrap">
           {data.soundcheckNotes}
         </div>
       )}
       {data.schedule.length === 0 && !data.soundcheckNotes && adminState && (
-        <p className="text-sm text-[#E8E0D0]/40">No schedule yet.</p>
+        <p className="text-body-3 text-surface-ink/60">No schedule yet.</p>
       )}
       {adminState && <HubAdminScheduleEdit state={adminState} />}
     </Card>
@@ -307,14 +307,14 @@ function InputsSection({ data }: { data: ShowHubData }) {
   return (
     <Card title="Input needs">
       {bandsWithItems.length > 0 && (
-        <div className="divide-y divide-[#E8E0D0]/10">
+        <div className="divide-y divide-surface-ink/20">
           {bandsWithItems.map((band) => (
             <Expandable
               key={band.bandId}
               summary={
                 <>
                   {band.name}{' '}
-                  <span className="text-[#E8E0D0]/40 font-normal">
+                  <span className="text-surface-ink/60 font-normal">
                     · {band.items.length} item{band.items.length === 1 ? '' : 's'}
                   </span>
                 </>
@@ -322,11 +322,11 @@ function InputsSection({ data }: { data: ShowHubData }) {
             >
               <ul className="space-y-0.5">
                 {band.items.map((item, i) => (
-                  <li key={i} className="flex items-baseline gap-2 text-sm text-[#E8E0D0]/75">
-                    <span className="w-7 text-right font-semibold tabular-nums">{item.quantity}×</span>
+                  <li key={i} className="flex items-baseline gap-2 text-body-3 text-surface-ink/80">
+                    <span className="w-7 text-right font-bold tabular-nums">{item.quantity}×</span>
                     <span>
                       {itemLabel(item)}
-                      {item.note && <span className="text-[#E8E0D0]/45"> — {item.note}</span>}
+                      {item.note && <span className="text-surface-ink/60"> — {item.note}</span>}
                     </span>
                   </li>
                 ))}
@@ -350,14 +350,14 @@ function PaySection({
   return (
     <Card title="Pay / door deal">
       <div
-        className="hub-prose text-sm text-[#E8E0D0]/85 leading-relaxed"
+        className="hub-prose text-body-3 text-surface-ink/80 leading-relaxed"
         dangerouslySetInnerHTML={{ __html: introHtml }}
       />
       {detailsHtml && (
-        <div className="border-t border-[#E8E0D0]/10">
+        <div className="border-t border-surface-ink/20">
           <Expandable summary="Payout examples & the fine print">
             <div
-              className="hub-prose text-sm text-[#E8E0D0]/75 leading-relaxed"
+              className="hub-prose text-body-3 text-surface-ink/80 leading-relaxed"
               dangerouslySetInnerHTML={{ __html: detailsHtml }}
             />
           </Expandable>
@@ -365,7 +365,7 @@ function PaySection({
       )}
       {askHtml && (
         <div
-          className="hub-prose rounded-lg border-l-4 border-[#c8a26a] bg-[#c8a26a]/10 px-4 py-3 text-sm text-[#E8E0D0]/90 leading-relaxed"
+          className="hub-prose border-l-4 border-accent-red bg-surface-paper-shade px-4 py-3 text-body-3 text-surface-ink/80 leading-relaxed"
           dangerouslySetInnerHTML={{ __html: askHtml }}
         />
       )}

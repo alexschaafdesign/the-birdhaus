@@ -3,6 +3,16 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
+// The tabs are a small rail: accent-red on the active tab, as the public RailNav.
+const CLS = {
+  nav: 'flex gap-5 overflow-x-auto text-body-3 border-b-2 border-surface-ink',
+  active: 'pb-2 -mb-0.5 border-b-4 border-accent-red text-accent-red font-bold flex shrink-0 items-center',
+  idle: 'pb-2 -mb-0.5 border-b-4 border-transparent hover:text-accent-red flex shrink-0 items-center',
+  badge: 'ml-1.5 inline-flex items-center border px-1.5 text-data-label-10-small font-bold leading-4 tabular-nums',
+  good: 'border-surface-ink bg-surface-ink text-surface-paper',
+  neutral: 'border-surface-ink text-surface-ink',
+};
+
 // Progress signals shown as small pills next to the tab labels, so the tab bar
 // doubles as a where-am-I checklist for the show.
 export interface ShowTabBadges {
@@ -20,14 +30,9 @@ function Badge({
   children: React.ReactNode;
   tone?: 'neutral' | 'good';
 }) {
-  const cls =
-    tone === 'good'
-      ? 'border-green-400/40 bg-green-400/10 text-green-300'
-      : 'border-[#E8E0D0]/25 bg-[#E8E0D0]/[0.06] text-[#E8E0D0]/60';
+  const cls = tone === 'good' ? CLS.good : CLS.neutral;
   return (
-    <span
-      className={`ml-1.5 inline-flex items-center rounded-full border px-1.5 text-[10px] font-medium leading-4 tabular-nums ${cls}`}
-    >
+    <span className={`${CLS.badge} ${cls}`}>
       {children}
     </span>
   );
@@ -78,18 +83,15 @@ export default function ShowTabs({ id, badges }: { id: number; badges?: ShowTabB
   ];
 
   return (
-    <nav className="flex gap-5 text-sm border-b border-[#E8E0D0]/15">
+    <nav aria-label="Show sections" className={CLS.nav}>
       {tabs.map(({ href, label, exact, badge }) => {
         const active = exact ? pathname === href : pathname.startsWith(href);
         return (
           <Link
             key={href}
             href={href}
-            className={
-              active
-                ? 'pb-2 -mb-px border-b-2 border-[#E8E0D0] text-[#E8E0D0] font-medium flex items-center'
-                : 'pb-2 -mb-px border-b-2 border-transparent text-[#E8E0D0]/55 hover:text-[#E8E0D0] transition-colors flex items-center'
-            }
+            aria-current={active ? 'page' : undefined}
+            className={active ? CLS.active : CLS.idle}
           >
             {label}
             {badge}

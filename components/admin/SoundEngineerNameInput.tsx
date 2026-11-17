@@ -2,6 +2,10 @@
 
 import { useEffect, useRef, useState } from 'react';
 
+// The suggestion dropdown.
+const MENU = 'absolute z-10 mt-1 w-full max-h-48 overflow-auto border border-surface-ink bg-surface-paper';
+const ITEM = 'block w-full cursor-pointer text-left px-3 py-1.5 text-body-3 hover:bg-surface-paper-shade';
+
 export interface SoundEngineerMatch {
   id: number;
   name: string;
@@ -46,6 +50,7 @@ export default function SoundEngineerNameInput({
     };
   }, [value]);
 
+
   return (
     <div className="relative">
       <input
@@ -61,7 +66,7 @@ export default function SoundEngineerNameInput({
         autoComplete="off"
       />
       {open && value.trim().length >= 2 && matches.length > 0 && (
-        <div className="absolute z-10 mt-1 w-full max-h-48 overflow-auto rounded border border-[#E8E0D0]/30 bg-[#171412] shadow-lg">
+        <div className={MENU}>
           {matches.map((match) => (
             <button
               key={match.id}
@@ -72,7 +77,7 @@ export default function SoundEngineerNameInput({
                 onSelect(match);
                 setOpen(false);
               }}
-              className="block w-full text-left px-3 py-1.5 text-sm hover:bg-[#E8E0D0]/10"
+              className={ITEM}
             >
               {match.name}
             </button>

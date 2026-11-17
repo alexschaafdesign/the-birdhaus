@@ -8,12 +8,15 @@ import {
 import {
   DATE_OFFER_STATUSES,
   DATE_OFFER_LABELS,
-  DATE_OFFER_COLORS,
+  DATE_OFFER_SWATCH,
   type DateOffer,
   type DateOfferStatus,
 } from '@/lib/date-offers';
 
-const NEW_COLOR = '#E8E0D0';
+import { Swatch } from './ui';
+
+// Not-contacted reads as the empty swatch, like New on the Submissions board.
+const NEW_SWATCH = 'border border-surface-ink bg-surface-paper';
 
 // Surfaces "who's said they're available on this date, and have I contacted
 // them yet" right on the show form, instead of making the operator cross-
@@ -88,12 +91,12 @@ export default function ShowDateAvailability({ date }: { date: string }) {
   );
 
   return (
-    <div className="border border-[#E8E0D0]/15 rounded-lg p-4">
+    <div className="border border-surface-ink p-4">
       <div className="flex items-center justify-between">
         <button
           type="button"
           onClick={() => setExpanded((v) => !v)}
-          className="flex items-center gap-2 text-sm font-semibold text-[#E8E0D0]/80 hover:text-[#E8E0D0]"
+          className="flex items-center gap-2 text-body-3 font-bold text-surface-ink/80 hover:text-accent-red"
         >
           <span
             className={`inline-block transition-transform ${expanded ? 'rotate-90' : ''}`}
@@ -103,22 +106,22 @@ export default function ShowDateAvailability({ date }: { date: string }) {
           </span>
           Bands available this date
           {submissions !== null && matches.length > 0 && (
-            <span className="text-xs font-normal text-[#E8E0D0]/40">({matches.length})</span>
+            <span className="text-data-caption-13 font-normal text-surface-ink/60">({matches.length})</span>
           )}
         </button>
-        <a href="/admin/submissions" className="text-xs text-[#E8E0D0]/50 hover:text-[#E8E0D0] underline">
+        <a href="/admin/submissions" className="text-data-caption-13 text-surface-ink/60 hover:text-accent-red underline">
           Open Submissions board →
         </a>
       </div>
 
       {expanded && (
         <div className="mt-3">
-          {error && <p className="text-xs text-red-300 mb-2">{error}</p>}
+          {error && <p className="text-data-caption-13 text-accent-red mb-2">{error}</p>}
 
           {submissions === null ? (
-            <p className="text-xs text-[#E8E0D0]/30">Loading…</p>
+            <p className="text-data-caption-13 text-surface-ink/60">Loading…</p>
           ) : matches.length === 0 ? (
-            <p className="text-xs text-[#E8E0D0]/30">
+            <p className="text-data-caption-13 text-surface-ink/60">
               No submissions have marked {date} as available.
             </p>
           ) : (
@@ -126,35 +129,37 @@ export default function ShowDateAvailability({ date }: { date: string }) {
               {matches.map((s) => {
             const offer = dateOffers.find((o) => o.submission_id === s.id && o.date === date);
             const status: DateOfferStatus | 'new' = offer?.status ?? 'new';
-            const color = status === 'new' ? NEW_COLOR : DATE_OFFER_COLORS[status];
+            const swatch = status === 'new' ? NEW_SWATCH : DATE_OFFER_SWATCH[status];
             return (
               <div
                 key={s.id}
-                className="flex flex-wrap items-center justify-between gap-2 rounded border px-3 py-2"
-                style={{ borderColor: `${color}55` }}
+                className="border-surface-ink flex flex-wrap items-center justify-between gap-2 border px-3 py-2"
               >
                 <div className="min-w-0">
-                  <p className="text-sm font-medium">{s.band_name}</p>
-                  <div className="text-xs text-[#E8E0D0]/50 flex flex-wrap gap-x-2">
+                  <p className="text-body-3 font-bold">{s.band_name}</p>
+                  <div className="text-data-caption-13 text-surface-ink/60 flex flex-wrap gap-x-2">
                     {s.genre && <span>{s.genre}</span>}
                     {s.email && <span>{s.email}</span>}
                   </div>
                 </div>
+                <span className="flex items-center gap-2">
+                <Swatch className={swatch} />
                 <select
                   value={status}
                   onChange={(e) => setOfferStatus(s.id, e.target.value)}
-                  className="bg-transparent text-xs rounded px-2 py-1 border focus:outline-none"
-                  style={{ borderColor: color, color }}
+                  aria-label={`Contact status for ${s.band_name}`}
+                  className="border-surface-ink bg-surface-paper text-data-caption-13 cursor-pointer border px-2 py-1 focus-visible:outline-accent-red focus-visible:outline-2"
                 >
-                  <option value="new" className="text-[#2A2420]">
+                  <option value="new">
                     Not contacted
                   </option>
                   {DATE_OFFER_STATUSES.map((offerStatus) => (
-                    <option key={offerStatus} value={offerStatus} className="text-[#2A2420]">
+                    <option key={offerStatus} value={offerStatus}>
                       {DATE_OFFER_LABELS[offerStatus]}
                     </option>
                   ))}
                 </select>
+                </span>
               </div>
             );
           })}

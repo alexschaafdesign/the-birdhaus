@@ -23,8 +23,8 @@ function filterLabel(filter: Filter): string {
 }
 
 const inputClass =
-  'bg-transparent border border-[#E8E0D0]/30 rounded px-2.5 py-1.5 text-sm focus:outline-none focus:border-[#E8E0D0]';
-const cardClass = 'border border-[#E8E0D0]/15 rounded-lg p-4';
+  'bg-surface-paper text-surface-ink border border-surface-ink rounded-none px-2.5 py-1.5 text-body-3 placeholder:text-surface-ink/45 focus-visible:outline-accent-red focus-visible:outline-2 focus-visible:outline-offset-2';
+const cardClass = 'border border-surface-ink bg-surface-paper p-4';
 
 type ShowOption = { id: number; title: string; date: string | null };
 
@@ -230,13 +230,14 @@ export default function ExpensesView({
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h2 className="text-xl font-medium">Expenses</h2>
-          <p className="mt-1 text-xs text-[#E8E0D0]/50">
+          <p className="text-data-overline-11 font-bold leading-[1.3] tracking-[--spacing(0.625)] uppercase text-accent-red mb-1">Money</p>
+          <h1 className="text-header-3 font-bold leading-tight">Expenses</h1>
+          <p className="mt-1 text-body-3 text-surface-ink/60">
             General business expenses for year-end tax totals. Separate from per-show Settlements.
             Totals are cash-basis by expense date.
           </p>
         </div>
-        <label className="flex items-center gap-2 text-xs text-[#E8E0D0]/50">
+        <label className="flex items-center gap-2 text-data-caption-13 text-surface-ink/60">
           Tax year
           <select
             value={year}
@@ -255,8 +256,8 @@ export default function ExpensesView({
       {/* Year-end summary: total + per-division / per-category breakdown */}
       <div className={cardClass}>
         <div className="flex items-baseline justify-between">
-          <p className="text-xs uppercase tracking-wide text-[#E8E0D0]/40">{year} total</p>
-          <p className="text-2xl font-bold tabular-nums">{formatCents(yearTotal)}</p>
+          <p className="text-data-overline-11 font-bold leading-[1.3] tracking-[--spacing(0.625)] uppercase text-surface-ink/60">{year} total</p>
+          <p className="text-header-3 font-bold tabular-nums">{formatCents(yearTotal)}</p>
         </div>
         {divisions.length > 0 && (
           <div className="mt-4 space-y-4">
@@ -265,14 +266,14 @@ export default function ExpensesView({
                 <button
                   type="button"
                   onClick={() => toggleDivision(division)}
-                  className={`flex w-full items-baseline justify-between gap-3 rounded border-b border-[#E8E0D0]/10 px-2 py-1 text-left transition hover:bg-[#E8E0D0]/[0.04] ${
-                    filter.kind === 'division' && filter.value === division ? 'bg-[#E8E0D0]/[0.06]' : ''
+                  className={`flex w-full items-baseline justify-between gap-3  border-b border-surface-ink/20 px-2 py-1 text-left transition hover:bg-surface-paper ${
+                    filter.kind === 'division' && filter.value === division ? 'bg-surface-paper' : ''
                   }`}
                 >
-                  <span className="text-xs font-semibold uppercase tracking-wide text-[#E8E0D0]/60">
+                  <span className="text-data-caption-13 font-bold uppercase tracking-wide text-surface-ink/60">
                     {division}
                   </span>
-                  <span className="text-sm font-semibold tabular-nums text-[#E8E0D0]">
+                  <span className="text-body-3 font-bold tabular-nums text-surface-ink">
                     {formatCents(subtotal)}
                   </span>
                 </button>
@@ -282,12 +283,12 @@ export default function ExpensesView({
                       key={category}
                       type="button"
                       onClick={() => toggleCategory(category)}
-                      className={`flex items-baseline justify-between gap-3 rounded px-2 py-1 text-left text-sm transition hover:bg-[#E8E0D0]/[0.04] ${
-                        filter.kind === 'category' && filter.value === category ? 'bg-[#E8E0D0]/[0.06]' : ''
+                      className={`flex items-baseline justify-between gap-3  px-2 py-1 text-left text-body-3 transition hover:bg-surface-paper ${
+                        filter.kind === 'category' && filter.value === category ? 'bg-surface-paper' : ''
                       }`}
                     >
-                      <span className="text-[#E8E0D0]/70">{category}</span>
-                      <span className="tabular-nums text-[#E8E0D0]/90">{formatCents(cents)}</span>
+                      <span className="text-surface-ink/80">{category}</span>
+                      <span className="tabular-nums text-surface-ink/80">{formatCents(cents)}</span>
                     </button>
                   ))}
                 </div>
@@ -299,11 +300,11 @@ export default function ExpensesView({
 
       {/* Add / edit form */}
       <form onSubmit={submit} className={cardClass}>
-        <h3 className="mb-3 text-sm font-semibold text-[#E8E0D0]/80">
+        <h3 className="mb-3 text-body-3 font-bold text-surface-ink/80">
           {editingId ? 'Edit expense' : 'Add expense'}
         </h3>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <label className="flex flex-col gap-1 text-xs text-[#E8E0D0]/50">
+          <label className="flex flex-col gap-1 text-data-caption-13 text-surface-ink/60">
             Date
             <input
               type="date"
@@ -313,7 +314,7 @@ export default function ExpensesView({
               className={inputClass}
             />
           </label>
-          <label className="flex flex-col gap-1 text-xs text-[#E8E0D0]/50">
+          <label className="flex flex-col gap-1 text-data-caption-13 text-surface-ink/60">
             Amount ($)
             <input
               type="number"
@@ -326,7 +327,7 @@ export default function ExpensesView({
               placeholder="0.00"
             />
           </label>
-          <label className="flex flex-col gap-1 text-xs text-[#E8E0D0]/50">
+          <label className="flex flex-col gap-1 text-data-caption-13 text-surface-ink/60">
             Category
             <select
               value={form.category}
@@ -344,7 +345,7 @@ export default function ExpensesView({
               ))}
             </select>
           </label>
-          <label className="flex flex-col gap-1 text-xs text-[#E8E0D0]/50">
+          <label className="flex flex-col gap-1 text-data-caption-13 text-surface-ink/60">
             Vendor
             <input
               type="text"
@@ -354,7 +355,7 @@ export default function ExpensesView({
               placeholder="Where it was bought"
             />
           </label>
-          <label className="flex flex-col gap-1 text-xs text-[#E8E0D0]/50">
+          <label className="flex flex-col gap-1 text-data-caption-13 text-surface-ink/60">
             Payment method
             <input
               type="text"
@@ -364,7 +365,7 @@ export default function ExpensesView({
               placeholder="Card, cash, Venmo…"
             />
           </label>
-          <label className="flex flex-col gap-1 text-xs text-[#E8E0D0]/50">
+          <label className="flex flex-col gap-1 text-data-caption-13 text-surface-ink/60">
             Show (optional)
             <select
               value={form.showId}
@@ -380,7 +381,7 @@ export default function ExpensesView({
               ))}
             </select>
           </label>
-          <label className="flex flex-col gap-1 text-xs text-[#E8E0D0]/50 sm:col-span-2 lg:col-span-2">
+          <label className="flex flex-col gap-1 text-data-caption-13 text-surface-ink/60 sm:col-span-2 lg:col-span-2">
             Notes (optional)
             <input
               type="text"
@@ -389,7 +390,7 @@ export default function ExpensesView({
               className={inputClass}
             />
           </label>
-          <div className="flex flex-col gap-1 text-xs text-[#E8E0D0]/50 sm:col-span-2 lg:col-span-4">
+          <div className="flex flex-col gap-1 text-data-caption-13 text-surface-ink/60 sm:col-span-2 lg:col-span-4">
             Receipt (optional — image or PDF)
             {form.receiptUrl ? (
               <div className="flex items-center gap-3">
@@ -397,14 +398,14 @@ export default function ExpensesView({
                   href={form.receiptUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-sm text-[#E8E0D0] underline"
+                  className="text-body-3 text-surface-ink underline"
                 >
                   {form.receiptFilename ?? 'View receipt'}
                 </a>
                 <button
                   type="button"
                   onClick={clearReceipt}
-                  className="text-xs text-[#E8E0D0]/40 hover:text-[#F5A3A3]"
+                  className="text-data-caption-13 text-surface-ink/60 hover:text-accent-red"
                 >
                   Remove
                 </button>
@@ -419,10 +420,10 @@ export default function ExpensesView({
                   const file = e.target.files?.[0];
                   if (file) uploadReceipt(file);
                 }}
-                className="text-sm text-[#E8E0D0]/70 file:mr-3 file:rounded file:border file:border-[#E8E0D0]/30 file:bg-transparent file:px-3 file:py-1 file:text-xs file:text-[#E8E0D0] hover:file:bg-[#E8E0D0]/[0.04]"
+                className="text-body-3 text-surface-ink/80 file:mr-3 file:border file:border-surface-ink file:bg-transparent file:px-3 file:py-1 file:text-data-caption-13 file:text-surface-ink hover:file:bg-surface-paper"
               />
             )}
-            {uploading && <span className="text-[#E8E0D0]/50">Uploading…</span>}
+            {uploading && <span className="text-surface-ink/60">Uploading…</span>}
           </div>
         </div>
 
@@ -430,7 +431,7 @@ export default function ExpensesView({
           <button
             type="submit"
             disabled={busy || uploading}
-            className="rounded-md bg-[#E8E0D0] px-3.5 py-1.5 text-sm font-semibold text-[#2A2420] transition hover:bg-white disabled:opacity-50"
+            className="bg-surface-ink px-3.5 py-1.5 text-body-3 font-bold text-surface-paper transition hover:bg-accent-red disabled:opacity-50"
           >
             {busy ? 'Saving…' : editingId ? 'Save changes' : '+ Add expense'}
           </button>
@@ -438,25 +439,25 @@ export default function ExpensesView({
             <button
               type="button"
               onClick={resetForm}
-              className="text-sm text-[#E8E0D0]/50 hover:text-[#E8E0D0]"
+              className="text-body-3 text-surface-ink/60 hover:text-accent-red"
             >
               Cancel
             </button>
           )}
-          {error && <span className="text-xs text-[#F5A3A3]">{error}</span>}
+          {error && <span className="text-data-caption-13 text-accent-red">{error}</span>}
         </div>
       </form>
 
       {/* Ledger */}
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-[#E8E0D0]/80">
+        <h3 className="text-data-overline-11 font-bold leading-[1.3] tracking-[--spacing(0.625)] uppercase">
           {filterLabel(filter)} · {year}
         </h3>
         {filter.kind !== 'all' && (
           <button
             type="button"
             onClick={() => setFilter({ kind: 'all' })}
-            className="text-xs text-[#E8E0D0]/50 hover:text-[#E8E0D0]"
+            className="text-data-caption-13 text-surface-ink/60 hover:text-accent-red"
           >
             Clear filter ✕
           </button>
@@ -464,12 +465,12 @@ export default function ExpensesView({
       </div>
 
       {visible.length === 0 ? (
-        <p className="text-sm text-[#E8E0D0]/50">No expenses logged for this filter.</p>
+        <p className="text-body-3 text-surface-ink/60">No expenses logged for this filter.</p>
       ) : (
         <div className={`${cardClass} overflow-x-auto`}>
-          <table className="w-full text-sm">
+          <table className="w-full text-body-3">
             <thead>
-              <tr className="border-b border-[#E8E0D0]/10 text-left text-xs uppercase tracking-wide text-[#E8E0D0]/40">
+              <tr className="border-b border-surface-ink/20 text-left text-data-overline-11 font-bold leading-[1.3] tracking-[--spacing(0.625)] uppercase text-surface-ink/60">
                 <th className="py-2 pr-3">Date</th>
                 <th className="py-2 pr-3">Vendor</th>
                 <th className="py-2 pr-3">Category</th>
@@ -481,17 +482,17 @@ export default function ExpensesView({
             </thead>
             <tbody>
               {visible.map((e) => (
-                <tr key={e.id} className="border-b border-[#E8E0D0]/5">
+                <tr key={e.id} className="border-b border-surface-ink/20">
                   <td className="whitespace-nowrap py-2 pr-3">{formatDate(e.expense_date)}</td>
                   <td className="py-2 pr-3">
-                    {e.vendor || <span className="text-[#E8E0D0]/30">—</span>}
-                    {e.notes && <span className="block text-xs text-[#E8E0D0]/40">{e.notes}</span>}
+                    {e.vendor || <span className="text-surface-ink/60">—</span>}
+                    {e.notes && <span className="block text-data-caption-13 text-surface-ink/60">{e.notes}</span>}
                   </td>
-                  <td className="py-2 pr-3 text-[#E8E0D0]/70">{e.category}</td>
-                  <td className="py-2 pr-3 text-[#E8E0D0]/70">
-                    {e.show_title || <span className="text-[#E8E0D0]/30">—</span>}
+                  <td className="py-2 pr-3 text-surface-ink/80">{e.category}</td>
+                  <td className="py-2 pr-3 text-surface-ink/80">
+                    {e.show_title || <span className="text-surface-ink/60">—</span>}
                   </td>
-                  <td className="py-2 pr-3 text-right font-medium tabular-nums">
+                  <td className="py-2 pr-3 text-right font-bold tabular-nums">
                     {formatCents(e.amount_cents)}
                   </td>
                   <td className="py-2 pr-3 text-center">
@@ -500,19 +501,19 @@ export default function ExpensesView({
                         href={e.receipt_url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-xs text-[#E8E0D0]/70 underline hover:text-[#E8E0D0]"
+                        className="text-data-caption-13 text-surface-ink/80 underline hover:text-accent-red"
                       >
                         View
                       </a>
                     ) : (
-                      <span className="text-[#E8E0D0]/25">—</span>
+                      <span className="text-surface-ink/60">—</span>
                     )}
                   </td>
                   <td className="whitespace-nowrap py-2 pr-3 text-right">
                     <button
                       type="button"
                       onClick={() => startEdit(e)}
-                      className="text-xs text-[#E8E0D0]/60 hover:text-[#E8E0D0]"
+                      className="text-data-caption-13 text-surface-ink/60 hover:text-accent-red"
                     >
                       Edit
                     </button>
@@ -521,14 +522,14 @@ export default function ExpensesView({
                         <button
                           type="button"
                           onClick={() => remove(e.id)}
-                          className="text-xs font-medium text-[#F5A3A3]"
+                          className="text-data-caption-13 font-bold text-accent-red"
                         >
                           Confirm
                         </button>
                         <button
                           type="button"
                           onClick={() => setConfirmDelete(null)}
-                          className="text-xs text-[#E8E0D0]/50 hover:text-[#E8E0D0]"
+                          className="text-data-caption-13 text-surface-ink/60 hover:text-accent-red"
                         >
                           Cancel
                         </button>
@@ -537,7 +538,7 @@ export default function ExpensesView({
                       <button
                         type="button"
                         onClick={() => setConfirmDelete(e.id)}
-                        className="ml-2 text-xs text-[#E8E0D0]/40 hover:text-[#F5A3A3]"
+                        className="ml-2 text-data-caption-13 text-surface-ink/60 hover:text-accent-red"
                       >
                         Delete
                       </button>

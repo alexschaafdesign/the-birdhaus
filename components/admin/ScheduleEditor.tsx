@@ -12,11 +12,13 @@ import type { ScheduleRow } from '@/lib/advance';
 const HOURS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
 const MINUTES = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55];
 
+// Colour-neutral (currentColor and opacity), so it takes the ink of whatever
+// page it sits on (the TV screen, the show portal).
 const inputClass =
-  'bg-transparent border border-[#E8E0D0]/30 rounded px-3 py-1.5 text-sm focus:outline-none focus:border-[#E8E0D0] placeholder:text-[#E8E0D0]/30';
+  'bg-transparent border border-current/40  px-3 py-1.5 text-body-3 focus:outline-none focus:border-current placeholder:opacity-60';
 
 const timeSelectClass =
-  'bg-transparent border border-[#E8E0D0]/30 rounded px-1 py-1 text-sm focus:outline-none focus:border-[#E8E0D0] [&>option]:bg-[#2A2420]';
+  'bg-transparent border border-current/40  px-1 py-1 text-body-3 focus:outline-none focus:border-current [&>option]:bg-surface-paper [&>option]:text-surface-ink';
 
 interface ParsedTime {
   startH: number | null;
@@ -95,7 +97,7 @@ function TimeSelects({
           </option>
         ))}
       </select>
-      <span className="text-[#E8E0D0]/30 px-0.5">:</span>
+      <span className="opacity-60 px-0.5">:</span>
       <select
         value={minute}
         onChange={(e) => onMinute(Number(e.target.value))}
@@ -129,7 +131,7 @@ function TimeField({ value, onChange }: { value: string; onChange: (t: string) =
       />
       {t.endH !== null ? (
         <>
-          <span className="text-[#E8E0D0]/30 text-xs">–</span>
+          <span className="opacity-60 text-data-caption-13">–</span>
           <TimeSelects
             hour={t.endH}
             minute={t.endM}
@@ -140,7 +142,7 @@ function TimeField({ value, onChange }: { value: string; onChange: (t: string) =
           <button
             type="button"
             onClick={() => emit({ endH: null, endM: 0 })}
-            className="text-[#E8E0D0]/40 hover:text-red-300 text-xs px-0.5"
+            className="opacity-60 hover:text-accent-red text-data-caption-13 px-0.5"
             aria-label="Remove end time"
           >
             ✕
@@ -151,13 +153,13 @@ function TimeField({ value, onChange }: { value: string; onChange: (t: string) =
           <button
             type="button"
             onClick={() => emit({ endH: t.startH, endM: t.startM })}
-            className="text-xs text-[#E8E0D0]/40 hover:text-[#E8E0D0] whitespace-nowrap"
+            className="text-data-caption-13 opacity-60 hover:opacity-100 whitespace-nowrap"
           >
             +range
           </button>
         )
       )}
-      <span className="text-[10px] text-[#E8E0D0]/30">pm</span>
+      <span className="text-data-label-10-small opacity-60">pm</span>
     </div>
   );
 }
@@ -316,7 +318,7 @@ export default function ScheduleEditor({
           {rows.map((row, i) => (
             <div key={i} className="flex items-center gap-2 flex-wrap">
               <TimeField value={row.time} onChange={(t) => update(i, { time: t })} />
-              <span className="text-[#E8E0D0]/30 text-sm shrink-0">—</span>
+              <span className="opacity-60 text-body-3 shrink-0">—</span>
               <input
                 value={row.label}
                 onChange={(e) => update(i, { label: e.target.value })}
@@ -326,24 +328,24 @@ export default function ScheduleEditor({
               />
               {tvBoard && (
                 <label
-                  className="flex items-center gap-1 text-xs text-[#E8E0D0]/50 shrink-0 cursor-pointer select-none"
+                  className="flex items-center gap-1 text-data-caption-13 opacity-60 shrink-0 cursor-pointer select-none"
                   title="Show this row smaller and muted on the tube (doors, house clear, notes)"
                 >
                   <input
                     type="checkbox"
                     checked={!!row.secondary}
                     onChange={(e) => update(i, { secondary: e.target.checked })}
-                    className="accent-[#E8E0D0]"
+                    className="accent-current"
                   />
                   secondary
                 </label>
               )}
-              <div className="flex items-center shrink-0 text-[#E8E0D0]/40">
+              <div className="flex items-center shrink-0 opacity-60">
                 <button
                   type="button"
                   onClick={() => move(i, -1)}
                   disabled={i === 0}
-                  className="px-1 hover:text-[#E8E0D0] disabled:opacity-30"
+                  className="px-1 hover:text-accent-red disabled:opacity-30"
                   aria-label="Move up"
                 >
                   ↑
@@ -352,7 +354,7 @@ export default function ScheduleEditor({
                   type="button"
                   onClick={() => move(i, 1)}
                   disabled={i === rows.length - 1}
-                  className="px-1 hover:text-[#E8E0D0] disabled:opacity-30"
+                  className="px-1 hover:text-accent-red disabled:opacity-30"
                   aria-label="Move down"
                 >
                   ↓
@@ -360,7 +362,7 @@ export default function ScheduleEditor({
                 <button
                   type="button"
                   onClick={() => remove(i)}
-                  className="px-1 hover:text-red-300"
+                  className="px-1 hover:text-accent-red"
                   aria-label="Remove row"
                 >
                   ✕
@@ -374,7 +376,7 @@ export default function ScheduleEditor({
         <button
           type="button"
           onClick={add}
-          className="text-sm text-[#E8E0D0]/55 hover:text-[#E8E0D0] border border-[#E8E0D0]/25 rounded px-3 py-1.5 transition-colors"
+          className="text-body-3 opacity-60 hover:opacity-100 border border-current/40  px-3 py-1.5"
         >
           + Add row
         </button>
@@ -382,7 +384,7 @@ export default function ScheduleEditor({
           <button
             type="button"
             onClick={prefill}
-            className="text-xs text-[#E8E0D0]/45 hover:text-[#E8E0D0] underline"
+            className="text-data-caption-13 opacity-60 hover:opacity-100 underline"
           >
             {usePortal ? 'Prefill from Portal schedule' : 'Prefill from lineup'}
           </button>

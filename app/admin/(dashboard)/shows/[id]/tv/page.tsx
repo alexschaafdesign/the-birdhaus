@@ -35,13 +35,13 @@ export default async function ShowTvPage({ params }: { params: Promise<{ id: str
 
   return (
     <div className="space-y-10">
-      <p className="text-sm text-[#E8E0D0]/50 max-w-2xl">
+      <p className="text-body-3 text-surface-ink/60 max-w-2xl">
         This night’s TV program. On this show’s date the tube uses what you set here instead of the{' '}
-        <Link href="/admin/tv" className="underline hover:text-[#E8E0D0]">
+        <Link href="/admin/tv" className="underline underline-offset-4 hover:text-accent-red">
           global default
         </Link>
         . The screensaver image pool is shared across all nights — edit it in the global{' '}
-        <Link href="/admin/tv" className="underline hover:text-[#E8E0D0]">
+        <Link href="/admin/tv" className="underline underline-offset-4 hover:text-accent-red">
           TV Screen
         </Link>{' '}
         settings.
@@ -54,11 +54,11 @@ export default async function ShowTvPage({ params }: { params: Promise<{ id: str
         portalSchedule={portalSchedule}
       />
 
-      <div className="border-t border-[#E8E0D0]/15 pt-8">
+      <div className="border-t border-surface-ink pt-8">
         <TvPreview showId={showId} />
       </div>
 
-      <div className="border-t border-[#E8E0D0]/15 pt-8">
+      <div className="border-t border-surface-ink pt-8">
         <TvCardsList initialCards={cards} showId={showId} />
       </div>
     </div>

@@ -4,11 +4,12 @@ import { useMemo, useState } from 'react';
 import type { ShowInputsState, InputBand } from '@/lib/inputs';
 import type { InputCatalogItem } from '@/lib/input-catalog';
 import { htmlToText, splitReplyQuote } from '@/lib/reply-text';
+import { FORM } from '@/components/night/form';
+import { ADMIN_TYPE, FIELD_INLINE, buttonClassName } from './ui';
 
 const OTHER_KEY = 'other';
 
-const inputClass =
-  'bg-transparent border border-[#E8E0D0]/30 rounded px-2.5 py-1.5 text-sm focus:outline-none focus:border-[#E8E0D0] placeholder:text-[#E8E0D0]/30';
+const inputClass = FIELD_INLINE;
 
 // Editable row in the panel. A client-only uid keeps React keys stable across
 // edits; ids aren't round-tripped since save replaces the whole set.
@@ -211,15 +212,15 @@ export default function ShowInputsPanel({
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-2">
-        <h2 className="text-lg font-semibold">Input needs</h2>
+        <h2 className={ADMIN_TYPE.heading}>Input needs</h2>
         <div className="flex items-center gap-3">
-          {dirty && <span className="text-xs text-[#E8E0D0]/40">Unsaved changes</span>}
+          {dirty && <span className="text-data-caption-13 text-surface-ink/60">Unsaved changes</span>}
           <a
             href={`/api/admin/shows/${initial.showId}/inputs/pdf`}
             target="_blank"
             rel="noopener noreferrer"
             title={dirty ? 'PDF reflects the last saved version — save first' : 'Printable PDF'}
-            className="flex items-center gap-1.5 text-sm border border-[#E8E0D0]/30 rounded px-3 py-1.5 hover:bg-[#E8E0D0]/10 transition-colors"
+            className={buttonClassName('secondary', 's')}
           >
             Printable PDF
           </a>
@@ -227,7 +228,7 @@ export default function ShowInputsPanel({
             type="button"
             onClick={save}
             disabled={saving || !dirty}
-            className="bg-[#E8E0D0] text-[#2A2420] border border-[#E8E0D0] rounded px-5 py-2 text-sm font-medium hover:bg-[#E8E0D0]/90 transition-colors disabled:opacity-50"
+            className={`${buttonClassName('primary', 's')} disabled:opacity-50`}
           >
             {saving ? 'Saving…' : 'Save'}
           </button>
@@ -235,35 +236,35 @@ export default function ShowInputsPanel({
       </div>
 
       {error && (
-        <div className="border border-red-400/40 bg-red-400/10 text-red-300 text-sm rounded px-4 py-2">
+        <div role="alert" className={`${FORM.error} border-accent-red border-2 p-3`}>
           {error}
         </div>
       )}
       {notice && (
-        <div className="border border-green-400/40 bg-green-400/10 text-green-200 text-sm rounded px-4 py-2">
+        <div className={FORM.notice}>
           {notice}
         </div>
       )}
 
       {/* Total needed */}
-      <div className="border border-[#E8E0D0]/25 rounded-lg p-4 bg-[#E8E0D0]/[0.03]">
-        <p className="text-xs uppercase tracking-wide text-[#E8E0D0]/60 mb-2">
-          Total needed <span className="text-[#E8E0D0]/35">· peak across the lineup (gear is reused between sets)</span>
+      <div className="border-surface-ink bg-surface-paper border p-4">
+        <p className={`${ADMIN_TYPE.overline} mb-2`}>
+          Total needed <span className="text-surface-ink/60 font-normal normal-case tracking-normal">· peak across the lineup (gear is reused between sets)</span>
         </p>
         {total.length === 0 ? (
-          <p className="text-sm text-[#E8E0D0]/40">
+          <p className="text-body-3 text-surface-ink/60">
             No items yet — add each band&apos;s needs below and the total builds here.
           </p>
         ) : (
           <ul className="grid gap-x-6 gap-y-1.5 sm:grid-cols-2">
             {total.map((line) => (
-              <li key={`${line.key}:${line.label}`} className="flex items-baseline gap-2 text-sm">
-                <span className="tabular-nums font-semibold text-[#E8E0D0] w-7 text-right">
+              <li key={`${line.key}:${line.label}`} className="flex items-baseline gap-2 text-body-3">
+                <span className="tabular-nums font-bold text-surface-ink w-7 text-right">
                   {line.quantity}×
                 </span>
-                <span className="text-[#E8E0D0]/90">{line.label}</span>
+                <span className="text-surface-ink/80">{line.label}</span>
                 {line.houseLabel && line.houseCount > 0 && (
-                  <span className="text-xs text-emerald-300/70">
+                  <span className="text-data-caption-13 text-surface-ink">
                     · {line.houseCount} using {line.houseLabel}
                     {line.ownCount > 0 && `, ${line.ownCount} bringing own`}
                   </span>
@@ -276,7 +277,7 @@ export default function ShowInputsPanel({
 
       {/* Per-band entry */}
       {bands.length === 0 ? (
-        <p className="text-sm text-[#E8E0D0]/40">No bands on this show yet.</p>
+        <p className="text-body-3 text-surface-ink/60">No bands on this show yet.</p>
       ) : (
         <div className="space-y-5">
           {bands.map((band) => (
@@ -312,15 +313,15 @@ function BandInputs({
   onRemove: (uid: string) => void;
 }) {
   return (
-    <div className="border border-[#E8E0D0]/15 rounded-lg p-4 space-y-3">
+    <div className="border-surface-ink space-y-3 border p-4">
       <div className="flex items-center justify-between flex-wrap gap-2">
-        <h3 className="font-medium text-[#E8E0D0]">{band.name}</h3>
+        <h3 className={ADMIN_TYPE.heading}>{band.name}</h3>
         {band.twinSceneStagePlotUrl && (
           <a
             href={band.twinSceneStagePlotUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-xs text-[#E8E0D0]/45 hover:text-[#E8E0D0] underline"
+            className="text-data-caption-13 text-surface-ink/60 hover:text-accent-red underline underline-offset-4"
           >
             Twin Scene plot ↗
           </a>
@@ -342,11 +343,11 @@ function BandInputs({
                 className={`${inputClass} w-16 tabular-nums`}
                 aria-label="Quantity"
               />
-              <span className="text-[#E8E0D0]/40 text-sm">×</span>
+              <span className="text-surface-ink/60 text-body-3">×</span>
               <select
                 value={row.itemType}
                 onChange={(e) => onUpdate(row.uid, { itemType: e.target.value })}
-                className={`${inputClass} [&>option]:bg-[#2A2420]`}
+                className={`${inputClass} w-auto`}
                 aria-label="Item type"
               >
                 {catalog.map((c) => (
@@ -375,12 +376,12 @@ function BandInputs({
                 const houseLabel = catalog.find((c) => c.key === row.itemType)?.houseLabel;
                 if (!houseLabel) return null;
                 return (
-                  <label className="flex items-center gap-1.5 text-xs text-[#E8E0D0]/60 whitespace-nowrap cursor-pointer">
+                  <label className="flex items-center gap-1.5 text-data-caption-13 text-surface-ink/60 whitespace-nowrap cursor-pointer">
                     <input
                       type="checkbox"
                       checked={row.useHouse}
                       onChange={(e) => onUpdate(row.uid, { useHouse: e.target.checked })}
-                      className="accent-emerald-400"
+                      className="accent-surface-ink size-4"
                     />
                     Will use {houseLabel}
                   </label>
@@ -389,7 +390,7 @@ function BandInputs({
               <button
                 type="button"
                 onClick={() => onRemove(row.uid)}
-                className="text-[#E8E0D0]/40 hover:text-red-300 text-sm px-1"
+                className="text-surface-ink/60 hover:text-accent-red text-body-3 px-1"
                 aria-label="Remove item"
               >
                 ✕
@@ -402,7 +403,7 @@ function BandInputs({
       <button
         type="button"
         onClick={onAdd}
-        className="text-sm text-[#E8E0D0]/55 hover:text-[#E8E0D0] border border-[#E8E0D0]/25 rounded px-3 py-1.5 transition-colors"
+        className={buttonClassName('secondary', 's')}
       >
         + Add item
       </button>
@@ -427,14 +428,14 @@ function BandReference({ band }: { band: InputBand }) {
   if (replyTexts.length === 0 && band.stagePlotAttachments.length === 0) return null;
 
   return (
-    <div className="rounded-md border border-[#E8E0D0]/12 bg-[#E8E0D0]/[0.02] p-3 space-y-2">
-      <p className="text-[10px] uppercase tracking-wide text-[#E8E0D0]/40">
+    <div className="bg-surface-paper-shade space-y-2 p-3">
+      <p className={`${ADMIN_TYPE.overline} text-surface-ink/60`}>
         From their advance reply
       </p>
       {replyTexts.map((text, i) => (
         <p
           key={i}
-          className="whitespace-pre-wrap text-sm text-[#E8E0D0]/70 border-l-2 border-[#E8E0D0]/15 pl-3"
+          className="whitespace-pre-wrap text-body-3 text-surface-ink/80 border-l-2 border-surface-ink/20 pl-3"
         >
           {text}
         </p>
@@ -459,17 +460,17 @@ function PlotPreview({
   const name = attachment.filename || (isPdf ? 'stage plot.pdf' : 'stage plot');
 
   return (
-    <div className="rounded border border-[#E8E0D0]/15">
+    <div className="border border-surface-ink/20 bg-surface-paper">
       <div className="flex items-center gap-2 px-2.5 py-1.5">
-        <span aria-hidden className="text-[#E8E0D0]/55 text-sm">
+        <span aria-hidden className="text-surface-ink/60 text-body-3">
           {isPdf ? '📄' : isImage ? '🖼️' : '📎'}
         </span>
-        <span className="min-w-0 flex-1 truncate text-sm text-[#E8E0D0]/80">{name}</span>
+        <span className="min-w-0 flex-1 truncate text-body-3 text-surface-ink/80">{name}</span>
         {previewable && (
           <button
             type="button"
             onClick={() => setOpen((v) => !v)}
-            className="shrink-0 text-xs text-[#E8E0D0]/50 hover:text-[#E8E0D0] underline"
+            className="shrink-0 text-data-caption-13 text-surface-ink/60 hover:text-accent-red underline underline-offset-4"
           >
             {open ? 'Hide' : 'Preview'}
           </button>
@@ -478,18 +479,18 @@ function PlotPreview({
           href={attachment.url}
           target="_blank"
           rel="noopener noreferrer"
-          className="shrink-0 text-xs text-[#E8E0D0]/50 hover:text-[#E8E0D0] underline"
+          className="shrink-0 text-data-caption-13 text-surface-ink/60 hover:text-accent-red underline underline-offset-4"
         >
           Open ↗
         </a>
       </div>
       {open && previewable && (
-        <div className="border-t border-[#E8E0D0]/10 bg-white/[0.02] p-2">
+        <div className="border-t border-surface-ink/20 bg-surface-paper-shade p-2">
           {isPdf ? (
-            <iframe src={attachment.url} title={name} className="h-[60vh] w-full rounded bg-white" />
+            <iframe src={attachment.url} title={name} className="h-[60vh] w-full bg-surface-paper" />
           ) : (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={attachment.url} alt={name} className="max-h-[60vh] w-auto max-w-full rounded" />
+            <img src={attachment.url} alt={name} className="max-h-[60vh] w-auto max-w-full" />
           )}
         </div>
       )}

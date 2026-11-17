@@ -25,19 +25,19 @@ export default async function EditPhotographerPage({ params }: { params: Promise
   const crewOptions = crew.map((c) => ({ id: c.id, name: c.name, email: c.email }));
 
   return (
-    <main className="max-w-6xl mx-auto px-6 pb-16 pt-6">
+    <main className="mx-auto max-w-6xl px-4 pt-8 pb-16 sm:px-8">
       <div className="mb-4 flex flex-wrap gap-4">
         <Link
           href={`/photos/${photographerSlug(photographer.name)}`}
           target="_blank"
-          className="text-sm text-[#E8E0D0]/60 underline decoration-dotted underline-offset-2 hover:text-[#E8E0D0]"
+          className="text-body-3 hover:text-accent-red underline underline-offset-4"
         >
           View public profile ↗
         </Link>
         {photographer.userId != null && (
           <Link
             href={`/admin/crew/${photographer.userId}/preview`}
-            className="text-sm text-[#E8E0D0]/60 underline decoration-dotted underline-offset-2 hover:text-[#E8E0D0]"
+            className="text-body-3 hover:text-accent-red underline underline-offset-4"
           >
             Preview their dashboard
           </Link>
