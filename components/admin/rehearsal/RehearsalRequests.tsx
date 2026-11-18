@@ -3,6 +3,8 @@
 import Link from 'next/link';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { ADMIN_TYPE, StatusMark, buttonClassName } from '@/components/admin/ui';
+import { FORM } from '@/components/night/form';
 
 export interface RowView {
   id: number;
@@ -30,11 +32,12 @@ export interface RowView {
   repeat: string | null;
 }
 
-const btn = 'rounded border px-3 py-1 text-xs disabled:opacity-40';
-const primary = `${btn} bg-[#E8E0D0] text-[#2A2420] border-[#E8E0D0] hover:bg-[#E8E0D0]/90`;
-const ghost = `${btn} border-[#E8E0D0]/30 hover:border-[#E8E0D0]/60`;
-const danger = `${btn} border-red-400/40 text-red-300 hover:border-red-300`;
-const tag = 'rounded px-1.5 py-0.5 text-[11px] uppercase tracking-wide';
+const primary = buttonClassName('primary', 's');
+const ghost = buttonClassName('secondary', 's');
+// Declining is the destructive one: a red text link, per DESIGN.md.
+const danger = 'text-body-3 text-accent-red cursor-pointer underline underline-offset-4 hover:no-underline disabled:opacity-40';
+// A repeat label: a category, not a status, so plain ink.
+const tag = `${ADMIN_TYPE.overline} whitespace-nowrap`;
 
 function sum(rows: RowView[]) {
   const c = rows.reduce((s, r) => s + r.priceCents, 0);
@@ -99,10 +102,8 @@ export default function RehearsalRequests({
     <div className="space-y-10">
       {message && (
         <div
-          role="status"
-          className={`rounded border px-4 py-2 text-sm ${
-            message.ok ? 'border-emerald-400/40 bg-emerald-400/10 text-emerald-200' : 'border-red-400/40 bg-red-400/10 text-red-300'
-          }`}
+          role={message.ok ? 'status' : 'alert'}
+          className={message.ok ? FORM.notice : 'border-accent-red text-body-3 text-accent-red border-2 p-3'}
         >
           {message.text}
         </div>
@@ -110,48 +111,48 @@ export default function RehearsalRequests({
 
       {/* Requests */}
       <section className="space-y-4">
-        <h2 className="text-xl font-bold">Requests {requests.length > 0 && <span className="text-[#E8E0D0]/50">({requests.length})</span>}</h2>
-        {requests.length === 0 && <p className="text-sm text-[#E8E0D0]/50">No requests waiting.</p>}
+        <h2 className={ADMIN_TYPE.heading}>Requests {requests.length > 0 && <span className="text-surface-ink/60">({requests.length})</span>}</h2>
+        {requests.length === 0 && <p className="text-body-3 text-surface-ink/60">No requests waiting.</p>}
         {requests.map((group) => {
           const first = group[0];
           const live = group.filter((r) => r.live);
           const key = `req-${first.id}`;
           return (
-            <article key={key} className="space-y-3 rounded-lg border border-[#E8E0D0]/15 p-4">
+            <article key={key} className="space-y-3 border border-surface-ink p-4">
               <header className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                <Link href={`/admin/rehearsal/bands/${first.bandId}`} className="font-semibold hover:underline">
+                <Link href={`/admin/rehearsal/bands/${first.bandId}`} className="font-bold hover:text-accent-red underline-offset-4 hover:underline">
                   {first.bandName}
                 </Link>
-                {first.rateNotes && <span className="text-sm text-amber-200/80">{first.rateNotes}</span>}
+                {first.rateNotes && <span className="text-body-3 font-bold">{first.rateNotes}</span>}
                 {[...new Set(group.map((r) => r.usualRate).filter(Boolean))].map((u) => (
-                  <span key={u} className="text-sm text-[#E8E0D0]/50">
+                  <span key={u} className="text-body-3 text-surface-ink/60">
                     {u}
                   </span>
                 ))}
-                <span className="text-sm text-[#E8E0D0]/50">
+                <span className="text-body-3 text-surface-ink/60">
                   requested {first.requested} · expires {first.expires}
                   {paymentsEnabled && ` · ${sum(group)} · pays by ${first.paymentMethod}`}
                 </span>
                 {[...new Set(group.map((r) => r.repeat).filter(Boolean))].map((label) => (
-                  <span key={label} className={`${tag} bg-sky-400/15 text-sky-200`}>
+                  <span key={label} className={tag}>
                     ↻ {label}
                   </span>
                 ))}
-                {first.calendarUnchecked && <span className={`${tag} bg-amber-400/15 text-amber-200`}>calendar not checked</span>}
-                {!first.adminEmailed && <span className={`${tag} bg-[#E8E0D0]/10 text-[#E8E0D0]/60`}>no email to you</span>}
+                {first.calendarUnchecked && <StatusMark tone="attention">calendar not checked</StatusMark>}
+                {!first.adminEmailed && <StatusMark tone="neutral">no email to you</StatusMark>}
               </header>
-              <ul className="divide-y divide-[#E8E0D0]/10 text-sm">
+              <ul className="divide-y divide-surface-ink/20 text-body-3">
                 {group.map((r) => (
                   <li key={r.id} className="flex flex-wrap items-center gap-x-4 gap-y-1 py-2">
-                    <span className="w-24 text-[#E8E0D0]/50">{r.catalogueId}</span>
-                    <span className="min-w-56 font-medium">{r.when}</span>
+                    <span className="w-24 text-surface-ink/60">{r.catalogueId}</span>
+                    <span className="min-w-56 font-bold">{r.when}</span>
                     {paymentsEnabled && <span>{r.price}</span>}
                     {r.repeat && group.some((x) => x.repeat !== r.repeat) && (
-                      <span className="text-xs text-sky-200/80">↻ {r.repeat}</span>
+                      <span className="text-data-caption-13 text-surface-ink/70">↻ {r.repeat}</span>
                     )}
-                    {!r.live && <span className={`${tag} bg-[#E8E0D0]/10 text-[#E8E0D0]/60`}>expired</span>}
+                    {!r.live && <StatusMark tone="neutral">expired</StatusMark>}
                     {r.clash.length > 0 && (
-                      <span className={`${tag} bg-red-400/15 text-red-300`}>{r.clash.join(', ')}</span>
+                      <StatusMark tone="problem">{r.clash.join(', ')}</StatusMark>
                     )}
                     {group.length > 1 && (
                       <button
@@ -167,7 +168,7 @@ export default function RehearsalRequests({
                 ))}
               </ul>
               {(first.gear || first.note) && (
-                <div className="space-y-1 text-sm text-[#E8E0D0]/80">
+                <div className="text-body-3 text-surface-ink/80 space-y-1">
                   {first.gear && <p>Gear: {first.gear}</p>}
                   {first.note && <p className="whitespace-pre-line">Note: {first.note}</p>}
                 </div>
@@ -206,11 +207,11 @@ export default function RehearsalRequests({
       {/* Outstanding (only when payments are tracked) */}
       {paymentsEnabled && (
       <section className="space-y-3">
-        <h2 className="text-xl font-bold">
-          Outstanding {outstanding.length > 0 && <span className="text-[#E8E0D0]/50">({sum(outstanding)})</span>}
+        <h2 className={ADMIN_TYPE.heading}>
+          Outstanding {outstanding.length > 0 && <span className="text-surface-ink/60">({sum(outstanding)})</span>}
         </h2>
         {outstanding.length === 0 ? (
-          <p className="text-sm text-[#E8E0D0]/50">Nothing owed.</p>
+          <p className="text-body-3 text-surface-ink/60">Nothing owed.</p>
         ) : (
           <PaymentTable rows={outstanding} busy={busy} pay={pay} resend={resend} paymentsEnabled />
         )}
@@ -219,9 +220,9 @@ export default function RehearsalRequests({
 
       {/* Upcoming */}
       <section className="space-y-3">
-        <h2 className="text-xl font-bold">Upcoming confirmed</h2>
+        <h2 className={ADMIN_TYPE.heading}>Upcoming confirmed</h2>
         {upcoming.length === 0 ? (
-          <p className="text-sm text-[#E8E0D0]/50">No confirmed sessions coming up.</p>
+          <p className="text-body-3 text-surface-ink/60">No confirmed sessions coming up.</p>
         ) : (
           <PaymentTable rows={upcoming} busy={busy} pay={pay} resend={resend} paymentsEnabled={paymentsEnabled} />
         )}
@@ -244,19 +245,19 @@ function PaymentTable({
   resend: (ids: number[], key: string) => void;
 }) {
   return (
-    <ul className="divide-y divide-[#E8E0D0]/10 rounded-lg border border-[#E8E0D0]/15 text-sm">
+    <ul className="divide-y divide-surface-ink/20 border border-surface-ink text-body-3">
       {rows.map((r) => (
         <li key={r.id} className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-2">
-          <span className="w-24 text-[#E8E0D0]/50">{r.catalogueId}</span>
-          <span className="min-w-56 font-medium">{r.when}</span>
-          <Link href={`/admin/rehearsal/bands/${r.bandId}`} className="min-w-32 hover:underline">
+          <span className="w-24 text-surface-ink/60">{r.catalogueId}</span>
+          <span className="min-w-56 font-bold">{r.when}</span>
+          <Link href={`/admin/rehearsal/bands/${r.bandId}`} className="min-w-32 hover:text-accent-red underline-offset-4 hover:underline">
             {r.bandName}
           </Link>
-          {r.rateNotes && <span className="text-amber-200/80">{r.rateNotes}</span>}
-          {r.usualRate && <span className="text-[#E8E0D0]/50">{r.usualRate}</span>}
+          {r.rateNotes && <span className="font-bold">{r.rateNotes}</span>}
+          {r.usualRate && <span className="text-surface-ink/60">{r.usualRate}</span>}
           {paymentsEnabled && <span>{r.price}</span>}
-          {r.gear && <span className="text-[#E8E0D0]/60">{r.gear}</span>}
-          {r.clash.length > 0 && <span className={`${tag} bg-red-400/15 text-red-300`}>{r.clash.join(', ')}</span>}
+          {r.gear && <span className="text-surface-ink/60">{r.gear}</span>}
+          {r.clash.length > 0 && <StatusMark tone="problem">{r.clash.join(', ')}</StatusMark>}
           {!r.bandEmailed && (
             <button type="button" disabled={busy !== null} onClick={() => resend([r.id], `rs-${r.id}`)} className={ghost}>
               Resend confirmation
@@ -275,10 +276,8 @@ function PaymentTable({
               </>
             ) : (
               <>
-                <span className={`${tag} ${r.paymentStatus === 'paid' ? 'bg-emerald-400/15 text-emerald-200' : 'bg-[#E8E0D0]/10 text-[#E8E0D0]/70'}`}>
-                  {r.paymentStatus}
-                </span>
-                <button type="button" disabled={busy !== null} onClick={() => pay(r.id, 'unpaid')} className="text-xs text-[#E8E0D0]/50 underline">
+                <StatusMark tone={r.paymentStatus === 'paid' ? 'ok' : 'neutral'}>{r.paymentStatus}</StatusMark>
+                <button type="button" disabled={busy !== null} onClick={() => pay(r.id, 'unpaid')} className={`text-data-caption-13 ${ADMIN_TYPE.link}`}>
                   undo
                 </button>
               </>

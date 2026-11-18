@@ -14,6 +14,8 @@ import { clashesFor } from '@/lib/rehearsal/availability-data';
 import { lengthLabel, usualRateFor } from '@/lib/rehearsal/estimate';
 import { getRehearsalSettings } from '@/lib/rehearsal/settings';
 import { money, sessionLabel, shortDay } from '@/lib/rehearsal/format';
+import { PageHeader, StatusMark } from '@/components/admin/ui';
+import { FORM } from '@/components/night/form';
 
 export const dynamic = 'force-dynamic';
 
@@ -61,13 +63,17 @@ export default async function RehearsalRequestsPage() {
   });
 
   return (
-    <main className="max-w-6xl mx-auto px-6 pb-16 pt-6 space-y-10">
-      <RunDailyButton />
-      {!settings.address && (
-        <p className="rounded border border-amber-400/40 bg-amber-400/10 px-4 py-2 text-sm text-amber-200">
-          No address in Rehearsal Settings yet — confirmations will go out without one.
-        </p>
-      )}
+    <main className="mx-auto max-w-6xl space-y-10 px-4 pt-8 pb-16 sm:px-8">
+      <div className="space-y-4">
+        <PageHeader overline="Rehearsal" title="Requests" />
+        <RunDailyButton />
+        {!settings.address && (
+          <p className={`${FORM.notice} flex flex-wrap items-baseline gap-2`}>
+            <StatusMark tone="attention">No address</StatusMark>
+            No address in Rehearsal Settings yet — confirmations will go out without one.
+          </p>
+        )}
+      </div>
       <RehearsalRequests
         requests={groupByRequest(pending).map((g) => g.map(view))}
         outstanding={outstanding.map(view)}

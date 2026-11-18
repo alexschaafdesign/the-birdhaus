@@ -1,14 +1,14 @@
 'use client';
 
 import { useState } from 'react';
+import { FORM } from '@/components/night/form';
 
 // The public /rehearsal page's switch, copy and photos, inside the rehearsal
 // Settings form (saved with it). Photos upload to R2 ('rehearsal' folder).
 
-const label = 'block text-xs uppercase tracking-wide text-[#E8E0D0]/60';
-const hint = 'normal-case tracking-normal text-[#E8E0D0]/40';
-const area =
-  'w-full min-h-[7rem] rounded border border-[#E8E0D0]/30 bg-[#171412] px-3 py-2 text-sm leading-relaxed focus:outline-none focus:border-[#E8E0D0]/60';
+const label = FORM.label;
+const hint = 'font-normal normal-case tracking-normal text-surface-ink/60';
+const area = `${FORM.field} min-h-28 leading-relaxed`;
 
 export interface PublicPageValue {
   publicPageEnabled: boolean;
@@ -61,9 +61,9 @@ export default function PublicPageSettings({
 
   return (
     <div className="space-y-4">
-      <label className="flex items-center gap-2 text-sm">
+      <label className="text-body-3 flex cursor-pointer flex-wrap items-center gap-2">
         <input
-          type="checkbox"
+          type="checkbox" className="accent-surface-ink size-4"
           checked={value.publicPageEnabled}
           onChange={(e) => onChange({ publicPageEnabled: e.target.checked })}
         />
@@ -84,7 +84,7 @@ export default function PublicPageSettings({
           value={value.publicFactsLine}
           maxLength={300}
           onChange={(e) => onChange({ publicFactsLine: e.target.value })}
-          className="w-full rounded border border-[#E8E0D0]/30 bg-[#171412] px-3 py-2 text-sm focus:outline-none focus:border-[#E8E0D0]/60"
+          className={FORM.field}
         />
       </label>
       <label className="block space-y-1.5">
@@ -102,8 +102,8 @@ export default function PublicPageSettings({
             {value.photoUrls.map((u, i) => (
               <li key={u} className="space-y-1">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={u} alt="" className="aspect-[4/3] w-full rounded object-cover" />
-                <div className="flex gap-3 text-xs text-[#E8E0D0]/60">
+                <img src={u} alt="" className="aspect-[4/3] w-full object-cover" />
+                <div className="flex gap-3 text-data-caption-13 text-surface-ink/60">
                   <button type="button" onClick={() => move(i, -1)} disabled={i === 0} className="underline disabled:opacity-30">
                     ←
                   </button>
@@ -118,7 +118,7 @@ export default function PublicPageSettings({
                   <button
                     type="button"
                     onClick={() => onChange({ photoUrls: value.photoUrls.filter((x) => x !== u) })}
-                    className="ml-auto underline hover:text-red-300"
+                    className="text-accent-red ml-auto cursor-pointer underline underline-offset-4 hover:no-underline"
                   >
                     Remove
                   </button>
@@ -136,11 +136,11 @@ export default function PublicPageSettings({
             upload(e.target.files);
             e.target.value = '';
           }}
-          className="block text-sm text-[#E8E0D0]/70 file:mr-3 file:rounded file:border file:border-[#E8E0D0]/30 file:bg-transparent file:px-3 file:py-1 file:text-[#E8E0D0]"
+          className="block text-body-3 text-surface-ink/70 file:mr-3 file:cursor-pointer file:border file:border-surface-ink file:bg-transparent file:px-3 file:py-1 file:text-surface-ink"
         />
-        {uploading && <p className="text-xs text-[#E8E0D0]/60">Uploading…</p>}
-        {error && <p className="text-xs text-red-300">{error}</p>}
-        <p className={`text-xs ${hint}`}>Photos and text save with the Save settings button below.</p>
+        {uploading && <p className="text-data-caption-13 text-surface-ink/60">Uploading…</p>}
+        {error && <p role="alert" className={FORM.error}>{error}</p>}
+        <p className={`text-data-caption-13 ${hint}`}>Photos and text save with the Save settings button below.</p>
       </div>
     </div>
   );

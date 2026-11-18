@@ -11,12 +11,14 @@ import { chicagoDate } from '@/lib/rehearsal/availability';
 import { money, sessionLabel } from '@/lib/rehearsal/format';
 import RehearsalBandEditor from '@/components/admin/rehearsal/RehearsalBandEditor';
 import PaymentButtons from '@/components/rehearsal/PaymentButtons';
+import { ADMIN_TYPE, PageHeader, StatusMark, type StatusTone } from '@/components/admin/ui';
 
 export const dynamic = 'force-dynamic';
 
-const STATUS_STYLE: Record<string, string> = {
-  confirmed: 'text-emerald-300',
-  pending: 'text-amber-200',
+const STATUS_TONE: Record<string, StatusTone> = {
+  confirmed: 'ok',
+  pending: 'attention',
+  declined: 'problem',
 };
 
 export default async function RehearsalBandPage({ params }: { params: Promise<{ id: string }> }) {
@@ -33,12 +35,15 @@ export default async function RehearsalBandPage({ params }: { params: Promise<{ 
   const now = new Date();
 
   return (
-    <main className="max-w-6xl mx-auto px-6 pb-16 pt-6 space-y-10">
-      <p className="text-sm">
-        <Link href="/admin/rehearsal/bands" className="text-[#E8E0D0]/60 hover:text-[#E8E0D0] underline">
-          ← All rehearsal bands
-        </Link>
-      </p>
+    <main className="mx-auto max-w-6xl space-y-10 px-4 pt-8 pb-16 sm:px-8">
+      <div>
+        <p className="text-body-3 mb-4">
+          <Link href="/admin/rehearsal/bands" className={ADMIN_TYPE.link}>
+            ← All rehearsal bands
+          </Link>
+        </p>
+        <PageHeader overline="Rehearsal · Band" title={band.name} />
+      </div>
 
       <section className={`grid gap-4 ${settings.paymentsEnabled ? 'sm:grid-cols-4' : 'sm:grid-cols-2'}`}>
         {[
@@ -51,9 +56,9 @@ export default async function RehearsalBandPage({ params }: { params: Promise<{ 
               ]
             : []),
         ].map(([label, value]) => (
-          <div key={label} className="rounded-lg border border-[#E8E0D0]/15 px-4 py-3">
-            <p className="text-xs uppercase tracking-wide text-[#E8E0D0]/50">{label}</p>
-            <p className="text-2xl font-bold">{value}</p>
+          <div key={label} className="border border-surface-ink px-4 py-3">
+            <p className={`${ADMIN_TYPE.overline} text-surface-ink/60`}>{label}</p>
+            <p className="text-header-3 font-bold tabular-nums">{value}</p>
           </div>
         ))}
       </section>
@@ -75,8 +80,8 @@ export default async function RehearsalBandPage({ params }: { params: Promise<{ 
 
       {series.length > 0 && (
         <section className="space-y-3">
-          <h2 className="text-xl font-bold">Repeating bookings</h2>
-          <div className="rounded-lg border border-[#E8E0D0]/15">
+          <h2 className={ADMIN_TYPE.heading}>Repeating bookings</h2>
+          <div className="border border-surface-ink">
             <SeriesList
               series={series.map((s) => ({
                 id: s.id,
@@ -94,24 +99,26 @@ export default async function RehearsalBandPage({ params }: { params: Promise<{ 
       )}
 
       <section className="space-y-3">
-        <h2 className="text-xl font-bold">History</h2>
+        <h2 className={ADMIN_TYPE.heading}>History</h2>
         {history.length === 0 ? (
-          <p className="text-sm text-[#E8E0D0]/50">No bookings yet.</p>
+          <p className="text-body-3 text-surface-ink/60">No bookings yet.</p>
         ) : (
-          <ul className="divide-y divide-[#E8E0D0]/10 rounded-lg border border-[#E8E0D0]/15 text-sm">
+          <ul className="divide-y divide-surface-ink/20 border border-surface-ink text-body-3">
             {history.map((b) => {
               const status = displayStatus(b, now);
               return (
                 <li key={b.id} className="flex flex-wrap items-baseline gap-x-4 gap-y-1 px-4 py-2">
-                  <span className="w-24 text-[#E8E0D0]/50">{b.catalogueId}</span>
-                  <span className="min-w-56 font-medium">{sessionLabel(b.startsAt, b.endsAt)}</span>
-                  <span className={`w-20 uppercase text-xs tracking-wide ${STATUS_STYLE[status] ?? 'text-[#E8E0D0]/50'}`}>{status}</span>
+                  <span className="w-24 text-surface-ink/60">{b.catalogueId}</span>
+                  <span className="min-w-56 font-bold">{sessionLabel(b.startsAt, b.endsAt)}</span>
+                  <span className="w-24">
+                    <StatusMark tone={STATUS_TONE[status] ?? 'neutral'}>{status}</StatusMark>
+                  </span>
                   {settings.paymentsEnabled && <span>{money(b.priceCents)}</span>}
                   {settings.paymentsEnabled && status === 'confirmed' && b.paymentProvider && b.paymentStatus === 'paid' && (
-                    <span className="text-[#E8E0D0]/60">via {b.paymentProvider}</span>
+                    <span className="text-surface-ink/60">via {b.paymentProvider}</span>
                   )}
-                  {repeatLabel(b) && <span className="text-xs text-sky-200/80">↻ {repeatLabel(b)}</span>}
-                  {b.declineReason && <span className="text-[#E8E0D0]/50">“{b.declineReason}”</span>}
+                  {repeatLabel(b) && <span className="text-data-caption-13 text-surface-ink/70">↻ {repeatLabel(b)}</span>}
+                  {b.declineReason && <span className="text-surface-ink/60">“{b.declineReason}”</span>}
                   {(status === 'confirmed' || status === 'pending') && (
                     <GearEdit id={b.id} options={settings.gearOptions} gearNeeded={b.gearNeeded} gearNotes={b.gearNotes} />
                   )}

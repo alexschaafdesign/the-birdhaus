@@ -5,15 +5,16 @@ import { useRouter } from 'next/navigation';
 import type { FeedEdit, RehearsalSettingsForAdmin } from '@/lib/rehearsal/settings';
 import FeedCheck from './FeedCheck';
 import PublicPageSettings from './PublicPageSettings';
+import { ADMIN_TYPE, FIELD_INLINE, buttonClassName } from '@/components/admin/ui';
+import { FORM } from '@/components/night/form';
 
 // Rehearsal settings. Prices are typed in dollars and sent as cents. Calendar
 // feeds arrive masked; a stored feed is kept by its index, a new one is sent
 // as a URL (and is masked once saved).
 
-const label = 'block text-xs uppercase tracking-wide text-[#E8E0D0]/60';
-const hint = 'normal-case tracking-normal text-[#E8E0D0]/40';
-const input =
-  'w-full rounded border border-[#E8E0D0]/30 bg-[#171412] px-3 py-2 text-sm focus:outline-none focus:border-[#E8E0D0]/60 [color-scheme:dark]';
+const label = FORM.label;
+const hint = 'font-normal normal-case tracking-normal text-surface-ink/60';
+const input = FORM.field;
 const area = `${input} min-h-[6rem] leading-relaxed`;
 
 type FeedRow = { kind: 'stored'; index: number; masked: string } | { kind: 'new'; url: string };
@@ -42,8 +43,8 @@ function Field({ title, note, children }: { title: string; note?: string; childr
 
 function Group({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <fieldset className="space-y-4 rounded-lg border border-[#E8E0D0]/15 p-4">
-      <legend className="px-1 text-sm font-semibold uppercase tracking-wide">{title}</legend>
+    <fieldset className="space-y-4 border border-surface-ink p-4">
+      <legend className={`${ADMIN_TYPE.overline} px-1`}>{title}</legend>
       {children}
     </fieldset>
   );
@@ -182,18 +183,18 @@ export default function RehearsalSettingsForm({ initial }: { initial: RehearsalS
         </Group>
 
         <Group title="Show days">
-          <div className="space-y-2 text-sm">
-            <label className="flex items-center gap-2">
+          <div className="space-y-2 text-body-3">
+            <label className="flex cursor-pointer flex-wrap items-center gap-2">
               <input
-                type="radio"
+                type="radio" className="accent-surface-ink size-4"
                 checked={s.showDayRule === 'whole_day'}
                 onChange={() => set('showDayRule', 'whole_day')}
               />
               Block the whole day
             </label>
-            <label className="flex items-center gap-2">
+            <label className="flex cursor-pointer flex-wrap items-center gap-2">
               <input
-                type="radio"
+                type="radio" className="accent-surface-ink size-4"
                 checked={s.showDayRule === 'from_time'}
                 onChange={() => set('showDayRule', 'from_time')}
               />
@@ -203,35 +204,35 @@ export default function RehearsalSettingsForm({ initial }: { initial: RehearsalS
                 value={s.showDayFrom}
                 onChange={(e) => set('showDayFrom', e.target.value)}
                 disabled={s.showDayRule !== 'from_time'}
-                className="rounded border border-[#E8E0D0]/30 bg-[#171412] px-2 py-1 text-sm [color-scheme:dark] disabled:opacity-40"
+                className={`${FIELD_INLINE} w-auto disabled:opacity-40`}
               />
               onward
             </label>
           </div>
-          <p className="text-xs text-[#E8E0D0]/40">
+          <p className="text-data-caption-13 text-surface-ink/60">
             Any show that isn&apos;t cancelled or postponed counts, announced or not. Days marked Not available in
             Booking are blacked out too.
           </p>
         </Group>
 
         <Group title="Calendar feeds (busy times)">
-          <p className="text-xs text-[#E8E0D0]/40">
+          <p className="text-data-caption-13 text-surface-ink/60">
             Private .ics links from Apple Calendar. Only start and end times are used; titles are never stored.
             Saved links are shown shortened.
           </p>
-          {feeds.length === 0 && <p className="text-sm text-[#E8E0D0]/40">No feeds yet.</p>}
+          {feeds.length === 0 && <p className="text-body-3 text-surface-ink/60">No feeds yet.</p>}
           <ul className="space-y-2">
             {feeds.map((f, i) => (
-              <li key={i} className="flex items-center gap-2 text-sm">
-                <code className="flex-1 truncate text-[#E8E0D0]/80">{f.kind === 'stored' ? f.masked : f.url}</code>
-                {f.kind === 'new' && <span className="text-xs text-[#E8E0D0]/40">unsaved</span>}
+              <li key={i} className="flex items-center gap-2 text-body-3">
+                <code className="flex-1 truncate text-surface-ink/80">{f.kind === 'stored' ? f.masked : f.url}</code>
+                {f.kind === 'new' && <span className="text-data-caption-13 text-surface-ink/60">unsaved</span>}
                 <button
                   type="button"
                   onClick={() => {
                     setFeeds(feeds.filter((_, j) => j !== i));
                     setSavedAt(null);
                   }}
-                  className="text-xs text-[#E8E0D0]/50 underline hover:text-red-300"
+                  className="text-data-caption-13 text-accent-red cursor-pointer underline underline-offset-4 hover:no-underline"
                 >
                   Remove
                 </button>
@@ -249,7 +250,7 @@ export default function RehearsalSettingsForm({ initial }: { initial: RehearsalS
               type="button"
               onClick={addFeed}
               disabled={!newFeed.trim()}
-              className="rounded border border-[#E8E0D0]/30 px-3 text-sm hover:border-[#E8E0D0]/60 disabled:opacity-40"
+              className={`${buttonClassName('secondary', 's')} disabled:opacity-40`}
             >
               Add
             </button>
@@ -258,8 +259,8 @@ export default function RehearsalSettingsForm({ initial }: { initial: RehearsalS
         </Group>
 
         <Group title="Payments">
-          <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={s.paymentsEnabled} onChange={(e) => set('paymentsEnabled', e.target.checked)} />
+          <label className="text-body-3 flex cursor-pointer items-center gap-2">
+            <input type="checkbox" className="accent-surface-ink size-4" checked={s.paymentsEnabled} onChange={(e) => set('paymentsEnabled', e.target.checked)} />
             Track payments
           </label>
           {s.paymentsEnabled ? (
@@ -267,7 +268,7 @@ export default function RehearsalSettingsForm({ initial }: { initial: RehearsalS
               <input {...txt('venmoHandle')} className={input} />
             </Field>
           ) : (
-            <p className="text-xs text-[#E8E0D0]/40">
+            <p className="text-data-caption-13 text-surface-ink/60">
               Off: no prices, totals, Venmo or paid/outstanding anywhere — on the site, in emails or in admin. Keep each
               band&apos;s rate in its &ldquo;Rate &amp; payment notes&rdquo; on the band page.
             </p>
@@ -275,7 +276,7 @@ export default function RehearsalSettingsForm({ initial }: { initial: RehearsalS
         </Group>
 
         <Group title="House gear">
-          <p className="text-xs text-[#E8E0D0]/40">
+          <p className="text-data-caption-13 text-surface-ink/60">
             The gear list on the public page and the &ldquo;gear needed&rdquo; checkboxes bands see when they request.
             Removing an item keeps it on bookings that already asked for it.
           </p>
@@ -283,7 +284,7 @@ export default function RehearsalSettingsForm({ initial }: { initial: RehearsalS
             {s.gearOptions.map((g, i) => (
               <li
                 key={g}
-                className="inline-flex items-center gap-1.5 rounded border border-[#E8E0D0]/30 px-2 py-1 text-sm"
+                className="inline-flex items-center gap-1.5 border border-surface-ink px-2 py-1 text-body-3"
               >
                 {g}
                 {i > 0 && (
@@ -295,7 +296,7 @@ export default function RehearsalSettingsForm({ initial }: { initial: RehearsalS
                       set('gearOptions', next);
                     }}
                     aria-label={`Move ${g} earlier`}
-                    className="text-[#E8E0D0]/50 hover:text-[#E8E0D0]"
+                    className="text-surface-ink/60 cursor-pointer hover:text-accent-red"
                   >
                     ←
                   </button>
@@ -304,7 +305,7 @@ export default function RehearsalSettingsForm({ initial }: { initial: RehearsalS
                   type="button"
                   onClick={() => set('gearOptions', s.gearOptions.filter((_, j) => j !== i))}
                   aria-label={`Remove ${g}`}
-                  className="text-[#E8E0D0]/50 hover:text-red-300"
+                  className="text-surface-ink/60 cursor-pointer hover:text-accent-red"
                 >
                   ×
                 </button>
@@ -329,7 +330,7 @@ export default function RehearsalSettingsForm({ initial }: { initial: RehearsalS
               type="button"
               onClick={addGear}
               disabled={!newGear.trim()}
-              className="rounded border border-[#E8E0D0]/30 px-3 text-sm hover:border-[#E8E0D0]/60 disabled:opacity-40"
+              className={`${buttonClassName('secondary', 's')} disabled:opacity-40`}
             >
               Add
             </button>
@@ -366,12 +367,12 @@ export default function RehearsalSettingsForm({ initial }: { initial: RehearsalS
       </Group>
 
       <Group title="Emails to bands">
-        <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" checked={s.reminderEmailsEnabled} onChange={(e) => set('reminderEmailsEnabled', e.target.checked)} />
+        <label className="text-body-3 flex cursor-pointer items-center gap-2">
+          <input type="checkbox" className="accent-surface-ink size-4" checked={s.reminderEmailsEnabled} onChange={(e) => set('reminderEmailsEnabled', e.target.checked)} />
           Send the day-before reminder
         </label>
-        <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" checked={s.lapsedEmailsEnabled} onChange={(e) => set('lapsedEmailsEnabled', e.target.checked)} />
+        <label className="text-body-3 flex cursor-pointer items-center gap-2">
+          <input type="checkbox" className="accent-surface-ink size-4" checked={s.lapsedEmailsEnabled} onChange={(e) => set('lapsedEmailsEnabled', e.target.checked)} />
           Tell bands when an unanswered request lapses
         </label>
       </Group>
@@ -394,7 +395,7 @@ export default function RehearsalSettingsForm({ initial }: { initial: RehearsalS
       </Group>
 
       {error && (
-        <div className="border border-red-400/40 bg-red-400/10 text-red-300 text-sm rounded px-4 py-2">{error}</div>
+        <div role="alert" className="border-accent-red text-body-3 text-accent-red border-2 p-3">{error}</div>
       )}
 
       <div className="flex items-center gap-4">
@@ -402,11 +403,11 @@ export default function RehearsalSettingsForm({ initial }: { initial: RehearsalS
           type="button"
           onClick={save}
           disabled={saving}
-          className="bg-[#E8E0D0] text-[#2A2420] border border-[#E8E0D0] rounded px-6 py-2 text-sm font-medium hover:bg-[#E8E0D0]/90 transition-colors disabled:opacity-50"
+          className={buttonClassName('primary', 'm')}
         >
           {saving ? 'Saving…' : 'Save settings'}
         </button>
-        {savedAt && <span className="text-sm text-[#E8E0D0]/50">Saved at {savedAt}</span>}
+        {savedAt && <span className="text-body-3 text-surface-ink/60">Saved at {savedAt}</span>}
       </div>
     </div>
   );

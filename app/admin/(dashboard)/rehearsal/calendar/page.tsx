@@ -9,6 +9,8 @@ import { getRehearsalSettings } from '@/lib/rehearsal/settings';
 import { timeRange, shortDay } from '@/lib/rehearsal/format';
 import BlackoutPanel from '@/components/admin/rehearsal/BlackoutPanel';
 import CalendarDayDrawer, { type DrawerDay } from '@/components/admin/rehearsal/CalendarDayDrawer';
+import { ADMIN_TYPE, PageHeader, StatusMark } from '@/components/admin/ui';
+import { FORM } from '@/components/night/form';
 
 export const dynamic = 'force-dynamic';
 
@@ -121,78 +123,82 @@ export default async function RehearsalCalendarPage({ searchParams }: { searchPa
       }
     : null;
 
-  const nav = 'text-sm text-[#E8E0D0]/60 hover:text-[#E8E0D0] underline';
+  const nav = `text-body-3 ${ADMIN_TYPE.link}`;
   return (
-    <main className="max-w-6xl mx-auto px-6 pb-16 pt-6 space-y-6">
-      <div className="flex flex-wrap items-baseline justify-between gap-3">
-        <h2 className="text-xl font-bold">
-          Rehearsal calendar <span className="text-[#E8E0D0]/50 text-base">{shortDay(spanStart)} – {shortDay(new Date(spanEnd.getTime() - 1))}</span>
-        </h2>
-        <div className="flex gap-4">
-          <Link href={`?from=${addDays(first, -28)}`} className={nav}>← 4 weeks</Link>
-          <Link href="?" className={nav}>This week</Link>
-          <Link href={`?from=${addDays(first, 28)}`} className={nav}>4 weeks →</Link>
-        </div>
-      </div>
+    <main className="mx-auto max-w-6xl space-y-6 px-4 pt-8 pb-16 sm:px-8">
+      <PageHeader
+        overline="Rehearsal"
+        title="Calendar"
+        description={`${shortDay(spanStart)} – ${shortDay(new Date(spanEnd.getTime() - 1))}`}
+        actions={
+          <div className="flex gap-4">
+            <Link href={`?from=${addDays(first, -28)}`} className={nav}>← 4 weeks</Link>
+            <Link href="?" className={nav}>This week</Link>
+            <Link href={`?from=${addDays(first, 28)}`} className={nav}>4 weeks →</Link>
+          </div>
+        }
+      />
 
-      <ul className="flex flex-wrap gap-x-5 gap-y-1 text-xs text-[#E8E0D0]/70">
-        <li><span className="mr-1.5 inline-block size-3 bg-red-500/30 align-middle" />Show day</li>
-        <li><span className="mr-1.5 inline-block size-3 bg-[#E8E0D0]/15 align-middle" />Not available (Booking)</li>
-        <li><span className="mr-1.5 inline-block size-3 border border-[#E8E0D0]/60 bg-black/60 align-middle" />Block</li>
-        <li><span className="text-amber-200">busy</span> = your calendar (times only)</li>
-        <li className="text-[#E8E0D0]/50">Click a date to block time</li>
-        <li><span className="text-emerald-300">confirmed</span> · <span className="text-amber-200">requested</span> · <span className="text-red-300">⚠ conflict</span></li>
+      {/* Legend. Fills and edges only, ink text (DESIGN.md: spectrum is fill-only on paper). */}
+      <ul className="text-data-caption-13 flex flex-wrap items-center gap-x-5 gap-y-2">
+        <li><span className="bg-accent-red/15 border-accent-red mr-1.5 inline-block size-3 border align-middle" />Show day</li>
+        <li><span className="bg-surface-paper-shade border-surface-ink/20 mr-1.5 inline-block size-3 border align-middle" />Not available (Booking)</li>
+        <li><span className="bg-surface-ink/15 border-surface-ink mr-1.5 inline-block size-3 border align-middle" />Block</li>
+        <li><span className="border-spectrum-amber mr-1.5 border-l-4 pl-1">busy</span>= your calendar (times only)</li>
+        <li><span className="border-surface-ink border px-1">confirmed</span> · <span className="border-surface-ink border border-dashed px-1">requested</span> · <span className="border-accent-red text-accent-red border-2 px-1 font-bold">⚠ conflict</span></li>
+        <li className="text-surface-ink/60">Click a date to block time</li>
       </ul>
       {!busy.busy.checked && (
-        <p className="rounded border border-amber-400/40 bg-amber-400/10 px-4 py-2 text-sm text-amber-200">
+        <p className={`${FORM.notice} flex flex-wrap items-baseline gap-2`}>
+          <StatusMark tone="attention">Calendar</StatusMark>
           Couldn&apos;t read a calendar feed — busy times may be missing.
         </p>
       )}
 
       <div className="overflow-x-auto">
-        <div className="grid min-w-[56rem] grid-cols-7 border-l border-t border-[#E8E0D0]/15 text-xs">
+        <div className="text-data-caption-13 grid min-w-[56rem] grid-cols-7 border-t border-l border-surface-ink">
           {WEEKDAYS.map((w) => (
-            <div key={w} className="border-b border-r border-[#E8E0D0]/15 px-2 py-1 font-semibold uppercase tracking-wide text-[#E8E0D0]/60">
+            <div key={w} className={`${ADMIN_TYPE.overline} border-surface-ink border-r border-b-2 px-2 py-1`}>
               {w}
             </div>
           ))}
           {days.map((d) => {
-            const tint = d.shows.length ? 'bg-red-500/15' : d.away ? 'bg-[#E8E0D0]/[0.07]' : d.blackouts.some((b) => b.label === 'all day') ? 'bg-black/50' : '';
+            const tint = d.shows.length ? 'bg-accent-red/15' : d.away ? 'bg-surface-paper-shade' : d.blackouts.some((b) => b.label === 'all day') ? 'bg-surface-ink/15' : '';
             return (
               <div
                 key={d.date}
-                className={`min-h-28 space-y-1 border-b border-r border-[#E8E0D0]/15 p-1.5 ${tint} ${d.date < today ? 'opacity-50' : ''}`}
+                className={`min-h-28 space-y-1 border-b border-r border-surface-ink p-1.5 ${tint} ${d.date < today ? 'opacity-50' : ''}`}
               >
                 <Link
                   href={dayHref(d.date)}
                   scroll={false}
                   title="Open this day: block time, see what's on"
-                  className="-m-0.5 flex items-baseline justify-between gap-1 rounded p-0.5 hover:bg-[#E8E0D0]/10"
+                  className={`-m-0.5 flex items-baseline justify-between gap-1 p-0.5 hover:bg-surface-paper-shade hover:text-accent-red ${ADMIN_TYPE.focus}`}
                 >
-                  <span className={`font-semibold ${d.date === today ? 'rounded bg-[#E8E0D0] px-1 text-[#171412]' : ''}`}>
+                  <span className={`font-bold ${d.date === today ? 'bg-surface-ink text-surface-paper px-1' : ''}`}>
                     {Number(d.date.slice(8))}
                     {d.date.slice(8) === '01' || d.date === first
                       ? ` ${new Date(`${d.date}T12:00:00Z`).toLocaleDateString('en-US', { month: 'short', timeZone: 'UTC' })}`
                       : ''}
                   </span>
-                  <span className="text-[#E8E0D0]/40">+</span>
+                  <span className="text-surface-ink/60">+</span>
                 </Link>
                 {d.open.length > 0 && (
-                  <p className="truncate text-[#E8E0D0]/45" title={`Open ${d.open.join(', ')}`}>
+                  <p className="truncate text-surface-ink/60" title={`Open ${d.open.join(', ')}`}>
                     open {d.open.join(', ')}
                   </p>
                 )}
                 {d.shows.map((t) => (
-                  <p key={t} className="truncate text-red-200" title={t}>Show: {t}</p>
+                  <p key={t} className="text-accent-red truncate font-bold" title={t}>Show: {t}</p>
                 ))}
-                {d.away !== undefined && <p className="truncate text-[#E8E0D0]/60">Not available{d.away ? `: ${d.away}` : ''}</p>}
+                {d.away !== undefined && <p className="truncate text-surface-ink/60">Not available{d.away ? `: ${d.away}` : ''}</p>}
                 {d.blackouts.map((b, i) => (
-                  <p key={i} className="truncate text-[#E8E0D0]/80" title={b.note}>
+                  <p key={i} className="truncate text-surface-ink/80" title={b.note}>
                     ■ {b.label}{b.note ? ` · ${b.note}` : ''}
                   </p>
                 ))}
                 {d.busy.map((t, i) => (
-                  <p key={i} className="text-amber-200/80">busy {t}</p>
+                  <p key={i} className="border-spectrum-amber border-l-4 pl-1">busy {t}</p>
                 ))}
                 {d.bookings.map((b) => {
                   const status = displayStatus(b, now);
@@ -201,18 +207,18 @@ export default async function RehearsalCalendarPage({ searchParams }: { searchPa
                       key={b.id}
                       href={`/admin/rehearsal/bands/${b.bandId}`}
                       title={`${b.catalogueId} · ${[b.gearNeeded.join(', '), b.gearNotes].filter(Boolean).join(' — ') || 'no gear'}`}
-                      className={`block truncate rounded border px-1 py-0.5 hover:underline ${
+                      className={`bg-surface-paper block truncate px-1 py-0.5 underline-offset-2 hover:underline ${
                         b.conflict
-                          ? 'border-red-400 text-red-200'
+                          ? 'border-accent-red text-accent-red border-2 font-bold'
                           : status === 'confirmed'
-                            ? 'border-emerald-400/50 text-emerald-200'
-                            : 'border-dashed border-amber-300/60 text-amber-200'
+                            ? 'border-surface-ink border'
+                            : 'border-surface-ink border border-dashed'
                       }`}
                     >
                       {b.conflict ? '⚠ ' : ''}
                       {timeRange(b.startsAt, b.endsAt)} ({lengthLabel(b.startsAt, b.endsAt)}) {b.bandName}
                       {b.gearNeeded.length > 0 && (
-                        <span className="block truncate text-[10px] opacity-70">{b.gearNeeded.join(', ')}</span>
+                        <span className="block truncate text-data-label-10-small opacity-70">{b.gearNeeded.join(', ')}</span>
                       )}
                     </Link>
                   );

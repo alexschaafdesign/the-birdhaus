@@ -4,8 +4,8 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 // A band's repeating bookings with "End series": on the band's booking page
-// (paper look, respects the cancel cutoff) and the admin band page (dark
-// look, no cutoff). Ending from a date cancels the sessions on or after it;
+// (paper look, respects the cancel cutoff) and the admin band page (admin
+// look: the 2027 admin's conventions, no cutoff). Ending from a date cancels the sessions on or after it;
 // "after the last booked session" just stops new dates being added.
 
 export interface SeriesView {
@@ -42,12 +42,12 @@ const LOOKS = {
     error: 'text-accent-red',
   },
   admin: {
-    row: 'flex flex-col gap-2 border-b border-[#E8E0D0]/10 px-4 py-3 text-sm',
-    meta: 'text-[#E8E0D0]/60',
-    link: 'text-xs text-[#E8E0D0]/60 underline hover:text-[#E8E0D0] disabled:opacity-40',
-    select: 'rounded border border-[#E8E0D0]/30 bg-[#171412] px-2 py-1 text-sm [color-scheme:dark]',
-    danger: 'rounded border border-red-400/40 px-3 py-1 text-xs text-red-300 hover:border-red-300 disabled:opacity-40',
-    error: 'text-red-300',
+    row: 'text-body-3 flex flex-col gap-2 border-b border-surface-ink/20 px-4 py-3 last:border-b-0',
+    meta: 'text-surface-ink/60',
+    link: 'text-data-caption-13 hover:text-accent-red cursor-pointer underline underline-offset-4 disabled:opacity-40',
+    select: 'bg-surface-paper text-surface-ink text-body-3 border-surface-ink cursor-pointer border px-3 py-2',
+    danger: 'text-body-3 text-accent-red cursor-pointer underline underline-offset-4 hover:no-underline disabled:opacity-40',
+    error: 'text-accent-red',
   },
 } as const;
 

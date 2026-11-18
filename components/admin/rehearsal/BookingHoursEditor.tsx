@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { BookingRules, DayWindow } from '@/lib/rehearsal/settings';
+import { ADMIN_TYPE, FIELD_INLINE, buttonClassName } from '@/components/admin/ui';
+import { FORM } from '@/components/night/form';
 
 // Booking hours: one broad window per weekday (an outer limit — everything
 // inside is open unless a show, block, busy time or booking takes it), plus
@@ -18,9 +20,8 @@ const DAYS: Array<{ weekday: number; label: string }> = [
   { weekday: 0, label: 'Sun' },
 ];
 
-const label = 'block text-xs uppercase tracking-wide text-[#E8E0D0]/60';
-const select =
-  'rounded border border-[#E8E0D0]/30 bg-[#171412] px-2 py-1 text-sm [color-scheme:dark] disabled:opacity-40';
+const label = FORM.label;
+const select = `${FIELD_INLINE} cursor-pointer disabled:opacity-40`;
 
 const pad = (n: number) => String(n).padStart(2, '0');
 const HALF_HOURS = Array.from({ length: 49 }, (_, i) => (i === 48 ? '24:00' : `${pad(Math.floor(i / 2))}:${i % 2 ? '30' : '00'}`));
@@ -94,15 +95,15 @@ export default function BookingHoursEditor({ initialWindows, initialRules }: { i
 
   return (
     <div className="space-y-5">
-      <div className="divide-y divide-[#E8E0D0]/10 rounded-lg border border-[#E8E0D0]/15">
+      <div className="divide-y divide-surface-ink/20 border border-surface-ink">
         {DAYS.map(({ weekday, label: day }) => {
           const w = windows.find((x) => x.weekday === weekday);
           if (!w) return null;
           return (
-            <div key={weekday} className="flex flex-wrap items-center gap-3 px-4 py-2.5 text-sm">
-              <span className="w-12 font-semibold uppercase tracking-wide">{day}</span>
-              <label className="flex items-center gap-2">
-                <input type="checkbox" checked={!w.closed} onChange={(e) => setDay(weekday, { closed: !e.target.checked })} />
+            <div key={weekday} className="flex flex-wrap items-center gap-3 px-4 py-2.5 text-body-3">
+              <span className={`${ADMIN_TYPE.overline} w-12`}>{day}</span>
+              <label className="flex cursor-pointer items-center gap-2">
+                <input type="checkbox" className="accent-surface-ink size-4" checked={!w.closed} onChange={(e) => setDay(weekday, { closed: !e.target.checked })} />
                 Open
               </label>
               <select
@@ -118,7 +119,7 @@ export default function BookingHoursEditor({ initialWindows, initialRules }: { i
                   </option>
                 ))}
               </select>
-              <span className="text-[#E8E0D0]/50">to</span>
+              <span className="text-surface-ink/60">to</span>
               <select
                 aria-label={`${day} closes`}
                 value={w.closes}
@@ -132,7 +133,7 @@ export default function BookingHoursEditor({ initialWindows, initialRules }: { i
                   </option>
                 ))}
               </select>
-              <button type="button" onClick={() => copyToAll(weekday)} className="ml-auto text-xs text-[#E8E0D0]/50 underline hover:text-[#E8E0D0]">
+              <button type="button" onClick={() => copyToAll(weekday)} className={`ml-auto text-data-caption-13 ${ADMIN_TYPE.link}`}>
                 Copy to every day
               </button>
             </div>
@@ -185,13 +186,13 @@ export default function BookingHoursEditor({ initialWindows, initialRules }: { i
 
       <fieldset className="space-y-2">
         <legend className={label}>Lengths bands can pick</legend>
-        <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm">
+        <div className="flex flex-wrap gap-x-5 gap-y-2 text-body-3">
           {LENGTH_CHOICES.map((m) => {
             const outside = m < rules.minMinutes || m > rules.maxMinutes;
             return (
               <label key={m} className={`flex items-center gap-2 ${outside ? 'opacity-40' : ''}`}>
                 <input
-                  type="checkbox"
+                  type="checkbox" className="accent-surface-ink size-4"
                   disabled={outside}
                   checked={rules.allowedLengths.includes(m) && !outside}
                   onChange={(e) =>
@@ -208,7 +209,7 @@ export default function BookingHoursEditor({ initialWindows, initialRules }: { i
             );
           })}
         </div>
-        <p className="text-xs text-[#E8E0D0]/40">
+        <p className="text-data-caption-13 text-surface-ink/60">
           Bands only see lengths that fit from the start time they pick. Existing bookings and approved repeats keep their
           times.
         </p>
@@ -219,12 +220,12 @@ export default function BookingHoursEditor({ initialWindows, initialRules }: { i
           type="button"
           onClick={save}
           disabled={saving}
-          className="bg-[#E8E0D0] text-[#2A2420] border border-[#E8E0D0] rounded px-6 py-2 text-sm font-medium hover:bg-[#E8E0D0]/90 transition-colors disabled:opacity-50"
+          className={buttonClassName('primary', 's')}
         >
           {saving ? 'Saving…' : 'Save booking hours'}
         </button>
-        {savedAt && <span className="text-sm text-[#E8E0D0]/50">Saved at {savedAt}</span>}
-        {error && <span className="text-sm text-red-300">{error}</span>}
+        {savedAt && <span className="text-body-3 text-surface-ink/60">Saved at {savedAt}</span>}
+        {error && <span role="alert" className={FORM.error}>{error}</span>}
       </div>
     </div>
   );

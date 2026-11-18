@@ -2,6 +2,9 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
+import { StatusMark, buttonClassName } from '@/components/admin/ui';
+import { ADMIN_TYPE } from '@/components/admin/ui';
+import { FORM } from '@/components/night/form';
 
 interface BandRow {
   id: number;
@@ -13,9 +16,8 @@ interface BandRow {
   url: string | null;
 }
 
-const input =
-  'w-full rounded border border-[#E8E0D0]/30 bg-[#171412] px-3 py-2 text-sm focus:outline-none focus:border-[#E8E0D0]/60';
-const small = 'text-xs text-[#E8E0D0]/60 underline hover:text-[#E8E0D0] disabled:opacity-40';
+const input = FORM.field;
+const small = `text-data-caption-13 ${ADMIN_TYPE.link} disabled:opacity-40`;
 
 export default function RehearsalBands({ initial }: { initial: BandRow[] }) {
   const [bands, setBands] = useState(initial);
@@ -62,7 +64,7 @@ export default function RehearsalBands({ initial }: { initial: BandRow[] }) {
 
   return (
     <div className="space-y-6">
-      <form onSubmit={add} className="grid gap-3 rounded-lg border border-[#E8E0D0]/15 p-4 sm:grid-cols-5">
+      <form onSubmit={add} className="grid gap-3 border border-surface-ink p-4 sm:grid-cols-5">
         <input
           required
           placeholder="Band / project"
@@ -93,30 +95,30 @@ export default function RehearsalBands({ initial }: { initial: BandRow[] }) {
         <button
           type="submit"
           disabled={busy === 'add'}
-          className="bg-[#E8E0D0] text-[#2A2420] rounded px-4 py-2 text-sm font-medium hover:bg-[#E8E0D0]/90 disabled:opacity-50"
+          className={buttonClassName('primary', 's')}
         >
           {busy === 'add' ? 'Adding…' : 'Add band'}
         </button>
       </form>
 
       {error && (
-        <div className="border border-red-400/40 bg-red-400/10 text-red-300 text-sm rounded px-4 py-2">{error}</div>
+        <div role="alert" className="border-accent-red text-body-3 text-accent-red border-2 p-3">{error}</div>
       )}
 
       {bands.length === 0 ? (
-        <p className="text-sm text-[#E8E0D0]/50">No bands yet.</p>
+        <p className="text-body-3 text-surface-ink/60">No bands yet.</p>
       ) : (
-        <ul className="divide-y divide-[#E8E0D0]/10 rounded-lg border border-[#E8E0D0]/15">
+        <ul className="divide-y divide-surface-ink/20 border border-surface-ink">
           {bands.map((b) => (
             <li key={b.id} className="flex flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3">
               <div className="min-w-48 flex-1">
-                <p className="font-semibold">
-                  <Link href={`/admin/rehearsal/bands/${b.id}`} className="hover:underline">
+                <p className="font-bold">
+                  <Link href={`/admin/rehearsal/bands/${b.id}`} className="hover:text-accent-red underline-offset-4 hover:underline">
                     {b.name}
                   </Link>{' '}
-                  {b.archived && <span className="text-xs text-[#E8E0D0]/40">(archived)</span>}
+                  {b.archived && <StatusMark tone="neutral">archived</StatusMark>}
                 </p>
-                <p className="text-sm text-[#E8E0D0]/55">
+                <p className="text-body-3 text-surface-ink/60">
                   {[b.contactName, b.email, b.phone].filter(Boolean).join(' · ')}
                 </p>
               </div>
@@ -131,7 +133,7 @@ export default function RehearsalBands({ initial }: { initial: BandRow[] }) {
                     </button>
                   </>
                 ) : (
-                  <span className="text-xs text-amber-300">No active link</span>
+                  <StatusMark tone="attention">No active link</StatusMark>
                 )}
                 <button
                   type="button"
@@ -154,7 +156,7 @@ export default function RehearsalBands({ initial }: { initial: BandRow[] }) {
                         call(`revoke-${b.id}`, `/api/admin/rehearsal/bands/${b.id}/link`, { method: 'DELETE' });
                       }
                     }}
-                    className="text-xs text-red-300/80 underline hover:text-red-300 disabled:opacity-40"
+                    className="text-data-caption-13 text-accent-red cursor-pointer underline underline-offset-4 hover:no-underline disabled:opacity-40"
                   >
                     Revoke
                   </button>

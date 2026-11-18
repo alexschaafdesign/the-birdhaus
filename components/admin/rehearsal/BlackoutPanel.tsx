@@ -2,12 +2,13 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { ADMIN_TYPE, FIELD_INLINE, buttonClassName } from '@/components/admin/ui';
+import { FORM } from '@/components/night/form';
 
 // Add / remove rehearsal blackouts. Adding one over a confirmed booking flags
 // it (never cancels) and lists it here so Alex can get in touch.
 
-const input =
-  'rounded border border-[#E8E0D0]/30 bg-[#171412] px-2 py-1 text-sm focus:outline-none focus:border-[#E8E0D0]/60 [color-scheme:dark]';
+const input = `${FIELD_INLINE} disabled:opacity-40`;
 
 export default function BlackoutPanel({ blackouts }: { blackouts: Array<{ id: number; label: string; note: string }> }) {
   const router = useRouter();
@@ -47,47 +48,47 @@ export default function BlackoutPanel({ blackouts }: { blackouts: Array<{ id: nu
 
   return (
     <section className="space-y-3">
-      <h2 className="text-xl font-bold">Block a date range</h2>
-      <p className="text-sm text-[#E8E0D0]/55">For one day, click the date on the calendar instead.</p>
-      <form onSubmit={add} className="flex flex-wrap items-end gap-3 rounded-lg border border-[#E8E0D0]/15 p-4 text-sm">
+      <h2 className={ADMIN_TYPE.heading}>Block a date range</h2>
+      <p className="text-body-3 text-surface-ink/60">For one day, click the date on the calendar instead.</p>
+      <form onSubmit={add} className="text-body-3 flex flex-wrap items-end gap-3 border border-surface-ink p-4">
         <label className="space-y-1">
-          <span className="block text-xs uppercase tracking-wide text-[#E8E0D0]/60">From</span>
+          <span className={FORM.label}>From</span>
           <input required type="date" value={f.fromDate} onChange={(e) => setF({ ...f, fromDate: e.target.value })} className={input} />
         </label>
         <label className="space-y-1">
-          <span className="block text-xs uppercase tracking-wide text-[#E8E0D0]/60">To</span>
+          <span className={FORM.label}>To</span>
           <input type="date" value={f.toDate} min={f.fromDate} onChange={(e) => setF({ ...f, toDate: e.target.value })} className={input} />
         </label>
-        <label className="flex items-center gap-2 pb-1.5">
-          <input type="checkbox" checked={f.allDay} onChange={(e) => setF({ ...f, allDay: e.target.checked })} />
+        <label className="flex cursor-pointer items-center gap-2 pb-2.5">
+          <input type="checkbox" className="accent-surface-ink size-4" checked={f.allDay} onChange={(e) => setF({ ...f, allDay: e.target.checked })} />
           All day
         </label>
         {!f.allDay && (
           <>
             <input type="time" step={900} value={f.fromTime} onChange={(e) => setF({ ...f, fromTime: e.target.value })} aria-label="Start time" className={input} />
-            <span className="pb-1.5">to</span>
+            <span className="pb-2.5">to</span>
             <input type="time" step={900} value={f.toTime} onChange={(e) => setF({ ...f, toTime: e.target.value })} aria-label="End time" className={input} />
           </>
         )}
         <input placeholder="Note (only you see it)" maxLength={500} value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} className={`${input} min-w-48 flex-1`} />
-        <button type="submit" disabled={busy} className="rounded bg-[#E8E0D0] px-4 py-1.5 text-[#2A2420] hover:bg-[#E8E0D0]/90 disabled:opacity-50">
+        <button type="submit" disabled={busy} className={buttonClassName('primary', 's')}>
           {busy ? 'Adding…' : 'Block'}
         </button>
       </form>
       {msg && (
-        <p className={`rounded border px-4 py-2 text-sm ${msg.ok ? 'border-emerald-400/40 text-emerald-200' : 'border-red-400/40 bg-red-400/10 text-red-300'}`}>
+        <p role={msg.ok ? 'status' : 'alert'} className={msg.ok ? FORM.notice : FORM.error}>
           {msg.text}
         </p>
       )}
       {blackouts.length === 0 ? (
-        <p className="text-sm text-[#E8E0D0]/50">No blackouts in these weeks.</p>
+        <p className="text-body-3 text-surface-ink/60">No blackouts in these weeks.</p>
       ) : (
-        <ul className="divide-y divide-[#E8E0D0]/10 rounded-lg border border-[#E8E0D0]/15 text-sm">
+        <ul className="divide-y divide-surface-ink/20 border border-surface-ink text-body-3">
           {blackouts.map((b) => (
             <li key={b.id} className="flex items-center gap-4 px-4 py-2">
-              <span className="font-medium">{b.label}</span>
-              {b.note && <span className="text-[#E8E0D0]/60">{b.note}</span>}
-              <button type="button" onClick={() => remove(b.id)} className="ml-auto text-xs text-red-300/80 underline hover:text-red-300">
+              <span className="font-bold">{b.label}</span>
+              {b.note && <span className="text-surface-ink/60">{b.note}</span>}
+              <button type="button" onClick={() => remove(b.id)} className="ml-auto text-data-caption-13 text-accent-red cursor-pointer underline underline-offset-4 hover:no-underline disabled:opacity-40">
                 Remove
               </button>
             </li>

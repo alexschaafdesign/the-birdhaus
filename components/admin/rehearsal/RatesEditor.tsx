@@ -4,13 +4,14 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { RateCard } from '@/lib/rehearsal/settings';
 import { estimateLine } from '@/lib/rehearsal/estimate';
+import { ADMIN_TYPE, buttonClassName } from '@/components/admin/ui';
+import { FORM } from '@/components/night/form';
 
 // The informal rate card. Display-only: shown on /rehearsal and in the invite,
 // and as soft "usual rate" lines on the review sheet and to Alex. Never a bill.
 
-const label = 'block text-xs uppercase tracking-wide text-[#E8E0D0]/60';
-const input =
-  'w-full rounded border border-[#E8E0D0]/30 bg-[#171412] px-3 py-2 text-sm focus:outline-none focus:border-[#E8E0D0]/60 [color-scheme:dark]';
+const label = FORM.label;
+const input = FORM.field;
 
 function dollars(cents: number): string {
   return (cents / 100).toFixed(cents % 100 === 0 ? 0 : 2);
@@ -97,7 +98,7 @@ export default function RatesEditor({ initial }: { initial: RateCard }) {
           <div className="space-y-1.5">
             <span className={label}>Packages</span>
             {pkgs.map((p, i) => (
-              <div key={i} className="flex items-center gap-2 text-sm">
+              <div key={i} className="flex items-center gap-2 text-body-3">
                 <input
                   aria-label="Package hours"
                   value={p.hours}
@@ -105,7 +106,7 @@ export default function RatesEditor({ initial }: { initial: RateCard }) {
                   inputMode="decimal"
                   className={`${input} max-w-20`}
                 />
-                <span className="text-[#E8E0D0]/50">hours for $</span>
+                <span className="text-surface-ink/60">hours for $</span>
                 <input
                   aria-label="Package price"
                   value={p.price}
@@ -116,7 +117,7 @@ export default function RatesEditor({ initial }: { initial: RateCard }) {
                 <button
                   type="button"
                   onClick={() => setPkgs(pkgs.filter((_, j) => j !== i))}
-                  className="text-xs text-[#E8E0D0]/50 underline hover:text-[#E8E0D0]"
+                  className="text-data-caption-13 text-accent-red cursor-pointer underline underline-offset-4 hover:no-underline disabled:opacity-40"
                 >
                   Remove
                 </button>
@@ -126,14 +127,14 @@ export default function RatesEditor({ initial }: { initial: RateCard }) {
               <button
                 type="button"
                 onClick={() => setPkgs([...pkgs, { hours: '', price: '' }])}
-                className="text-xs text-[#E8E0D0]/60 underline hover:text-[#E8E0D0]"
+                className={`text-data-caption-13 ${ADMIN_TYPE.link}`}
               >
                 + Add a package
               </button>
             )}
           </div>
-          <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={estimates} onChange={(e) => setEstimates(e.target.checked)} />
+          <label className="text-body-3 flex cursor-pointer items-center gap-2">
+            <input type="checkbox" className="accent-surface-ink size-4" checked={estimates} onChange={(e) => setEstimates(e.target.checked)} />
             Show a soft &ldquo;usual rate&rdquo; line on the review sheet and to you
           </label>
         </div>
@@ -150,7 +151,7 @@ export default function RatesEditor({ initial }: { initial: RateCard }) {
       </div>
 
       {typeof preview !== 'string' && (
-        <p className="text-xs text-[#E8E0D0]/50">
+        <p className="text-data-caption-13 text-surface-ink/60">
           Estimates: {[60, 120, 180, 240, 360].map((m) => estimateLine(m, null, preview).replace('Usual rate for ', '')).join(' · ')} ·{' '}
           weekly 3 h → {estimateLine(180, 'weekly', preview).replace('Regular rate: ', '')}. Cheapest mix of packages and
           hourly; a weekly slot pays for 3 of every 4.
@@ -162,12 +163,12 @@ export default function RatesEditor({ initial }: { initial: RateCard }) {
           type="button"
           onClick={save}
           disabled={saving}
-          className="bg-[#E8E0D0] text-[#2A2420] border border-[#E8E0D0] rounded px-6 py-2 text-sm font-medium hover:bg-[#E8E0D0]/90 transition-colors disabled:opacity-50"
+          className={buttonClassName('primary', 's')}
         >
           {saving ? 'Saving…' : 'Save rates'}
         </button>
-        {savedAt && <span className="text-sm text-[#E8E0D0]/50">Saved at {savedAt}</span>}
-        {error && <span className="text-sm text-red-300">{error}</span>}
+        {savedAt && <span className="text-body-3 text-surface-ink/60">Saved at {savedAt}</span>}
+        {error && <span role="alert" className={FORM.error}>{error}</span>}
       </div>
     </div>
   );

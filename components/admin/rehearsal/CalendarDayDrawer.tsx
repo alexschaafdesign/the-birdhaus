@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { ADMIN_TYPE, FIELD_INLINE, buttonClassName } from '@/components/admin/ui';
+import { FORM } from '@/components/night/form';
 
 // The admin Calendar's day drawer: what's on the day, its open stretches, and
 // "Block time" (from/to or all day, private note) which saves a blackout.
@@ -19,9 +21,8 @@ export interface DrawerDay {
   bookings: Array<{ id: number; bandId: number; label: string; status: string; conflict: boolean }>;
 }
 
-const label = 'block text-xs uppercase tracking-wide text-[#E8E0D0]/60';
-const input =
-  'rounded border border-[#E8E0D0]/30 bg-[#171412] px-2 py-1 text-sm focus:outline-none focus:border-[#E8E0D0]/60 [color-scheme:dark]';
+const label = FORM.label;
+const input = `${FIELD_INLINE} disabled:opacity-40`;
 
 const pad = (n: number) => String(n).padStart(2, '0');
 const TIMES = Array.from({ length: 48 }, (_, i) => `${pad(Math.floor(i / 2))}:${i % 2 ? '30' : '00'}`);
@@ -81,32 +82,32 @@ export default function CalendarDayDrawer({ day, closeHref }: { day: DrawerDay; 
 
   return (
     <>
-      <Link href={closeHref} scroll={false} aria-label="Close" className="fixed inset-0 z-40 bg-black/50" />
+      <Link href={closeHref} scroll={false} aria-label="Close" className="bg-surface-ink/60 fixed inset-0 z-40" />
       <aside
         role="dialog"
         aria-label={day.title}
-        className="fixed inset-y-0 right-0 z-50 w-full max-w-md space-y-5 overflow-y-auto border-l border-[#E8E0D0]/20 bg-[#1d1916] p-5 text-sm"
+        className="fixed inset-y-0 right-0 z-50 w-full max-w-md space-y-5 overflow-y-auto border-l-2 border-surface-ink bg-surface-paper p-5 text-body-3"
       >
         <div className="flex items-baseline justify-between gap-4">
-          <h3 className="text-lg font-bold">{day.title}</h3>
-          <Link href={closeHref} scroll={false} className="text-[#E8E0D0]/60 underline hover:text-[#E8E0D0]">
+          <h3 className={ADMIN_TYPE.heading}>{day.title}</h3>
+          <Link href={closeHref} scroll={false} className={ADMIN_TYPE.link}>
             Close
           </Link>
         </div>
 
         <div className="space-y-1">
           <span className={label}>Open to bands</span>
-          <p>{day.open.length ? day.open.join(' · ') : <span className="text-[#E8E0D0]/50">Nothing open</span>}</p>
+          <p>{day.open.length ? day.open.join(' · ') : <span className="text-surface-ink/60">Nothing open</span>}</p>
         </div>
 
         {(day.shows.length > 0 || day.away !== null || day.busy.length > 0) && (
           <ul className="space-y-1">
             {day.shows.map((t) => (
-              <li key={t} className="text-red-200">Show: {t}</li>
+              <li key={t} className="text-accent-red font-bold">Show: {t}</li>
             ))}
-            {day.away !== null && <li className="text-[#E8E0D0]/70">Not available (Booking){day.away ? `: ${day.away}` : ''}</li>}
+            {day.away !== null && <li className="text-surface-ink/70">Not available (Booking){day.away ? `: ${day.away}` : ''}</li>}
             {day.busy.map((t, i) => (
-              <li key={i} className="text-amber-200/80">Busy on your calendar: {t}</li>
+              <li key={i} className="border-spectrum-amber border-l-4 pl-2">Busy on your calendar: {t}</li>
             ))}
           </ul>
         )}
@@ -119,7 +120,7 @@ export default function CalendarDayDrawer({ day, closeHref }: { day: DrawerDay; 
                 <li key={b.id}>
                   <Link
                     href={`/admin/rehearsal/bands/${b.bandId}`}
-                    className={`hover:underline ${b.conflict ? 'text-red-200' : b.status === 'confirmed' ? 'text-emerald-200' : 'text-amber-200'}`}
+                    className={`underline-offset-4 hover:underline ${b.conflict ? 'text-accent-red font-bold' : b.status === 'confirmed' ? '' : 'text-surface-ink/70'}`}
                   >
                     {b.conflict ? '⚠ ' : ''}
                     {b.label} · {b.status}
@@ -133,16 +134,16 @@ export default function CalendarDayDrawer({ day, closeHref }: { day: DrawerDay; 
         <div className="space-y-2">
           <span className={label}>Blocks</span>
           {day.blocks.length === 0 ? (
-            <p className="text-[#E8E0D0]/50">None.</p>
+            <p className="text-surface-ink/60">None.</p>
           ) : (
             <ul className="space-y-1">
               {day.blocks.map((b) => (
                 <li key={b.id} className="flex items-baseline justify-between gap-3">
                   <span>
                     ■ {b.label}
-                    {b.note && <span className="text-[#E8E0D0]/60"> · {b.note}</span>}
+                    {b.note && <span className="text-surface-ink/60"> · {b.note}</span>}
                   </span>
-                  <button type="button" onClick={() => remove(b.id, b.multiDay)} className="text-xs text-[#E8E0D0]/60 underline hover:text-[#E8E0D0]">
+                  <button type="button" onClick={() => remove(b.id, b.multiDay)} className="text-data-caption-13 text-accent-red cursor-pointer underline underline-offset-4 hover:no-underline">
                     Remove
                   </button>
                 </li>
@@ -151,10 +152,10 @@ export default function CalendarDayDrawer({ day, closeHref }: { day: DrawerDay; 
           )}
         </div>
 
-        <form onSubmit={block} className="space-y-3 rounded-lg border border-[#E8E0D0]/15 p-4">
+        <form onSubmit={block} className="space-y-3 border border-surface-ink p-4">
           <span className={label}>Block time</span>
-          <label className="flex items-center gap-2">
-            <input type="checkbox" checked={allDay} onChange={(e) => setAllDay(e.target.checked)} />
+          <label className="flex cursor-pointer items-center gap-2">
+            <input type="checkbox" className="accent-surface-ink size-4" checked={allDay} onChange={(e) => setAllDay(e.target.checked)} />
             All day
           </label>
           {!allDay && (
@@ -186,12 +187,12 @@ export default function CalendarDayDrawer({ day, closeHref }: { day: DrawerDay; 
           <button
             type="submit"
             disabled={saving}
-            className="rounded border border-[#E8E0D0] bg-[#E8E0D0] px-4 py-1.5 text-[#2A2420] hover:bg-[#E8E0D0]/90 disabled:opacity-50"
+            className={buttonClassName('primary', 's')}
           >
             {saving ? 'Blocking…' : 'Block time'}
           </button>
           {msg && (
-            <p className={`rounded border px-3 py-2 ${msg.ok ? 'border-emerald-400/40 text-emerald-200' : 'border-red-400/40 bg-red-400/10 text-red-300'}`}>
+            <p role={msg.ok ? 'status' : 'alert'} className={msg.ok ? FORM.notice : FORM.error}>
               {msg.text}
             </p>
           )}

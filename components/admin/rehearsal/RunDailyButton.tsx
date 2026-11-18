@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { buttonClassName } from '@/components/admin/ui';
 
 // Runs the rehearsal daily job on demand (staging has no cron) and shows
 // what it did.
@@ -31,16 +32,16 @@ export default function RunDailyButton() {
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-3 text-sm">
+    <div className="flex flex-wrap items-center gap-3 text-body-3">
       <button
         type="button"
         onClick={run}
         disabled={busy}
-        className="rounded border border-[#E8E0D0]/30 px-3 py-1 text-xs hover:border-[#E8E0D0]/60 disabled:opacity-40"
+        className={`${buttonClassName('secondary', 's')} disabled:opacity-40`}
       >
         {busy ? 'Running…' : 'Run daily job now'}
       </button>
-      <span className="text-[#E8E0D0]/50">{result ?? 'Runs by itself every morning ~7am on production.'}</span>
+      <span className="text-surface-ink/60">{result ?? 'Runs by itself every morning ~7am on production.'}</span>
     </div>
   );
 }
