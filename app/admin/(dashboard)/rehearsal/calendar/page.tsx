@@ -229,7 +229,12 @@ export default async function RehearsalCalendarPage({ searchParams }: { searchPa
         </div>
       </div>
 
-      {drawerDay && <CalendarDayDrawer key={drawerDay.date} day={drawerDay} closeHref={closeHref} />}
+      {/* Wrapped so main's space-y margin lands on the div, not on the fixed scrim and panel. */}
+      {drawerDay && (
+        <div>
+          <CalendarDayDrawer key={drawerDay.date} day={drawerDay} closeHref={closeHref} />
+        </div>
+      )}
 
       <BlackoutPanel
         blackouts={blackouts.map((b) => ({
