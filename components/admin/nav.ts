@@ -1,6 +1,4 @@
-// The admin's sections, shared by the 2027 sidebar (AdminSidebar) and the old
-// dark two-row nav (AdminNav, kept only for the rehearsal admin; see
-// isDarkAdminPath below).
+// The admin's sections, for the 2027 sidebar (AdminSidebar).
 
 export interface AdminNavLink {
   href: string;
@@ -27,7 +25,6 @@ export const ADMIN_NAV: AdminNavGroup[] = [
     links: [{ href: '/admin/bands', label: 'Bands' }],
   },
   {
-    // Money joins with its phase.
     label: 'Rehearsal',
     links: [
       { href: '/admin/rehearsal/requests', label: 'Requests' },
@@ -67,14 +64,4 @@ export function adminLinkActive(pathname: string, href: string) {
 
 export function activeAdminGroup(pathname: string) {
   return ADMIN_NAV.find((group) => group.links.some((link) => adminLinkActive(pathname, link.href)));
-}
-
-// Admin routes still on the old dark shell. Everything else under /admin is on
-// the 2027 paper frame. Only the rehearsal admin is left: it lives on the
-// rehearsal branch and moves to paper once that branch reaches main; then this
-// list, the dark branch in AdminShell and AdminNav all go.
-const STILL_DARK: RegExp[] = [/^\/admin\/rehearsal(\/.*)?$/];
-
-export function isDarkAdminPath(pathname: string) {
-  return STILL_DARK.some((re) => re.test(pathname));
 }

@@ -2,6 +2,8 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { ADMIN_TYPE, buttonClassName } from '@/components/admin/ui';
+import { FORM } from '@/components/night/form';
 
 // Inline gear editor for one session (admin band page history).
 export default function GearEdit({
@@ -42,18 +44,18 @@ export default function GearEdit({
 
   if (!open) {
     return (
-      <button type="button" onClick={() => setOpen(true)} className="text-left text-xs text-[#E8E0D0]/60 hover:text-[#E8E0D0]">
+      <button type="button" onClick={() => setOpen(true)} className="text-left text-data-caption-13 text-surface-ink/60 cursor-pointer hover:text-accent-red">
         {summary ? `Gear: ${summary}` : 'No gear'} <span className="underline">edit</span>
       </button>
     );
   }
   return (
-    <div className="basis-full space-y-2 rounded border border-[#E8E0D0]/15 p-3 text-xs">
+    <div className="basis-full space-y-2 border border-surface-ink p-3 text-data-caption-13">
       <div className="flex flex-wrap gap-x-4 gap-y-1">
         {all.map((g) => (
           <label key={g} className="flex items-center gap-1.5">
             <input
-              type="checkbox"
+              type="checkbox" className="accent-surface-ink size-4"
               checked={picked.includes(g)}
               onChange={(e) => setPicked(e.target.checked ? [...picked, g] : picked.filter((x) => x !== g))}
             />
@@ -66,16 +68,16 @@ export default function GearEdit({
         onChange={(e) => setNotes(e.target.value)}
         maxLength={500}
         placeholder="Gear notes"
-        className="w-full rounded border border-[#E8E0D0]/30 bg-[#171412] px-2 py-1"
+        className={FORM.field}
       />
       <div className="flex items-center gap-3">
-        <button type="button" disabled={busy} onClick={save} className="rounded bg-[#E8E0D0] px-3 py-1 text-[#2A2420] disabled:opacity-40">
+        <button type="button" disabled={busy} onClick={save} className={buttonClassName('primary', 's')}>
           {busy ? 'Saving…' : 'Save gear'}
         </button>
-        <button type="button" onClick={() => setOpen(false)} className="text-[#E8E0D0]/60 underline">
-          cancel
+        <button type="button" onClick={() => setOpen(false)} className={ADMIN_TYPE.link}>
+          Cancel
         </button>
-        {error && <span className="text-red-300">{error}</span>}
+        {error && <span role="alert" className={FORM.error}>{error}</span>}
       </div>
     </div>
   );

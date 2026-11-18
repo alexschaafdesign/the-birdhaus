@@ -6,19 +6,20 @@ import { useRouter } from 'next/navigation';
 // One-click payment status for a confirmed session: "Mark paid (venmo)" /
 // "Comp" while unpaid, else the status with an undo. Posts to the admin route
 // (requireAdmin), so it only works for a signed-in admin; pages render it
-// only then. `look` matches the page: the dark admin shell or the 2027 paper.
+// only then. `look` matches the page: the 2027 admin or the public paper pages.
 
 type Status = 'unpaid' | 'paid' | 'comped' | 'refunded';
 
 const LOOKS = {
   admin: {
     primary:
-      'rounded border border-[#E8E0D0] bg-[#E8E0D0] px-3 py-1 text-xs text-[#2A2420] hover:bg-[#E8E0D0]/90 disabled:opacity-40',
-    ghost: 'rounded border border-[#E8E0D0]/30 px-3 py-1 text-xs hover:border-[#E8E0D0]/60 disabled:opacity-40',
-    paid: 'rounded bg-emerald-400/15 px-1.5 py-0.5 text-[11px] uppercase tracking-wide text-emerald-200',
-    other: 'rounded bg-[#E8E0D0]/10 px-1.5 py-0.5 text-[11px] uppercase tracking-wide text-[#E8E0D0]/70',
-    undo: 'text-xs text-[#E8E0D0]/50 underline disabled:opacity-40',
-    error: 'text-xs text-red-300',
+      'bg-surface-ink text-surface-paper ui-hover:bg-accent-red text-body-3 cursor-pointer px-3 py-1 font-bold disabled:opacity-40',
+    ghost:
+      'border-surface-ink text-body-3 ui-hover:bg-surface-ink ui-hover:text-surface-paper cursor-pointer border px-3 py-1 font-bold disabled:opacity-40',
+    paid: 'text-data-overline-11 text-surface-ink font-bold tracking-[--spacing(0.25)] uppercase',
+    other: 'text-data-overline-11 text-surface-ink/60 font-bold tracking-[--spacing(0.25)] uppercase',
+    undo: 'text-data-caption-13 hover:text-accent-red cursor-pointer underline underline-offset-4 disabled:opacity-40',
+    error: 'text-data-caption-13 text-accent-red',
   },
   paper: {
     primary:

@@ -58,6 +58,13 @@ weight as well as colour. It reads in greyscale and on a printout:
   - An overridden payout: red border. An overridden percentage: red text.
   - Settlement section markers: income ink, expenses amber, bands violet,
     everything else ink/30.
+- **Rehearsal calendar** (`/admin/rehearsal/calendar`):
+  - Show day: accent-red/15 cell. Not available: paper-shade. All-day block:
+    ink/15.
+  - Busy times from your calendar: a 4px spectrum-amber edge.
+  - Bookings: confirmed has a solid ink border, requested a dashed one, and a
+    conflict a 2px red border with ⚠.
+  - Today: ink fill with paper text.
 - **Charts** (Year in Review):
   - Series: Square violet, Venmo orange, Cash amber, as CSS variables
     (`var(--color-spectrum-violet)`).
@@ -156,18 +163,8 @@ Import everything from `components/admin/ui`.
   emails, the RSVP door-list print window, the invite email preview) keeps its
   own document styling.
 
-### The one dark leftover
-
-The rehearsal admin (`/admin/rehearsal/*`) is still on the old dark shell. It
-lives on the `rehearsal` branch.
-
-- **How it stays dark:** `STILL_DARK` in `components/admin/nav.ts` routes it to
-  the dark branch of `AdminShell` and to `AdminNav`.
-- **When the branch reaches main:**
-  1. Move those pages to paper.
-  2. Delete `STILL_DARK`, the dark branch, `AdminNav`, and the rehearsal
-     exemptions in `scripts/check-admin-tokens.mjs`.
-  3. Keep `AdminSidebar` and add the Rehearsal group to `ADMIN_NAV`.
+Every admin route is on this frame, the rehearsal admin included. The old
+dark shell and its two-row nav are gone.
 
 ## Guard
 
@@ -183,7 +180,6 @@ lives on the `rehearsal` branch.
   - CSS inside a `<style>` block
   - lines right after an `admin-tokens-ok` comment, for brand marks such as the
     Venmo logo
-  - the rehearsal leftovers
 
 If the guard fails, use a token. Exempt a line only when an outside brand or
 document format needs a literal colour.
