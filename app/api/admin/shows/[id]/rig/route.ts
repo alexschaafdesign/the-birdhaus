@@ -7,7 +7,7 @@ function parseId(id: string): number | null {
   return Number.isInteger(n) ? n : null;
 }
 
-// Saves the Recording section of the Contacts tab: rig counts (show_rig) and
+// Saves the Recording section of the Crew tab: rig counts (show_rig) and
 // the ordered camera operators (show_credits, role 'camera'), all at once.
 export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const denied = await requireAdmin();
