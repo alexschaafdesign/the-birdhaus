@@ -9,7 +9,7 @@ import PhotographerNameInput, { type PhotographerMatch } from './PhotographerNam
 import ImageUploadField from './ImageUploadField';
 import ShowDateAvailability from './ShowDateAvailability';
 import { FORM } from '@/components/night/form';
-import { Panel as Section, PageHeader, ADMIN_TYPE, FIELD_INLINE, buttonClassName } from './ui';
+import { Panel as Section, PageHeader, ADMIN_TYPE, FIELD_INLINE, StatusMark, buttonClassName } from './ui';
 import { downscaleImage } from '@/lib/downscale-image';
 
 const inputClass = FORM.field;
@@ -1148,38 +1148,44 @@ export default function ShowForm({
         </div>
       )}
 
-      <div role="group" aria-label="Form section" className="flex flex-wrap gap-2">
-        {([
-          ['show', 'Show & lineup'],
-          ['public', 'Public page & tickets'],
-        ] as const).map(([value, label]) => (
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
+        <div role="group" aria-label="Form section" className="flex flex-wrap gap-2">
+          {([
+            ['show', 'Show & lineup'],
+            ['public', 'Public page & tickets'],
+          ] as const).map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => setView(value)}
+              aria-pressed={view === value}
+              className={buttonClassName(view === value ? 'primary' : 'secondary', 's')}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {/* Announced = listed on the public site. It's a form field like the
+            rest: flipping it here takes effect on Save. */}
+        <div className="flex items-center gap-3">
+          <StatusMark tone={form.announced ? 'ok' : 'neutral'}>
+            {form.announced ? 'Announced · public' : 'Draft · hidden'}
+          </StatusMark>
           <button
-            key={value}
             type="button"
-            onClick={() => setView(value)}
-            aria-pressed={view === value}
-            className={buttonClassName(view === value ? 'primary' : 'secondary', 's')}
+            onClick={() => set('announced', !form.announced)}
+            aria-pressed={form.announced}
+            className={buttonClassName(form.announced ? 'ghost' : 'secondary', 's')}
           >
-            {label}
+            {form.announced ? 'Unannounce' : 'Announce'}
           </button>
-        ))}
+        </div>
       </div>
 
       {view === 'show' && (
       <>
-      <Section
-        title="Show details"
-        action={
-          <label className="flex items-center gap-1.5 text-data-caption-13 text-surface-ink/80 whitespace-nowrap">
-            <input
-              type="checkbox"
-              checked={form.announced}
-              onChange={(e) => set('announced', e.target.checked)}
-            />
-            Announced
-          </label>
-        }
-      >
+      <Section title="Show details">
       <div className="grid gap-3 sm:grid-cols-2">
         <div>
           <label className={FORM.label}>Title*</label>

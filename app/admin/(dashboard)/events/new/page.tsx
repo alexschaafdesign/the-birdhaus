@@ -1,5 +1,4 @@
 import type { Metadata } from 'next';
-import { PageHeader } from '@/components/admin/ui';
 import ShowForm from '@/components/admin/ShowForm';
 import { ISO_DATE_RE, getNightDateCentral } from '@/lib/shows';
 
@@ -21,7 +20,6 @@ export default async function NewEventPage({
 
   return (
     <main className="mx-auto max-w-6xl px-4 pt-8 pb-16 sm:px-8">
-      <PageHeader overline="Shows" title="New event" />
       <ShowForm
         mode="create"
         initialValues={date ? { date } : undefined}
