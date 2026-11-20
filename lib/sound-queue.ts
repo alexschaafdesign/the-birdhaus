@@ -39,7 +39,9 @@ async function getSoundCoverageRecipients(excludeUserId: number | null) {
 // Call after the save commits (from `after()`), only when the flag went from
 // off to on. Re-checks the show so a stale call never emails about a show that
 // no longer needs anyone. Errors are logged, never thrown: a failed notice
-// must not fail the save.
+// must not fail the save. Every outcome logs one `[sound-queue]` line (show id,
+// reason or recipient count; never addresses) so "did Ty get one?" can be
+// answered from the Vercel logs.
 export async function notifySoundEngineerNeeded(showId: number, actorUserId: number | null): Promise<void> {
   try {
     const [show] = await sql<
@@ -64,14 +66,17 @@ export async function notifySoundEngineerNeeded(showId: number, actorUserId: num
       from shows s
       where s.id = ${showId}
     `;
-    if (!show) return;
-    if (!show.needs_sound_engineer || show.sound_engineer_name || show.status !== 'scheduled') return;
-    if (show.date < getTodayCentral()) return;
+    const skip = (reason: string) => console.log(`[sound-queue] skipped show=${showId} reason=${reason}`);
+    if (!show) return skip('not-found');
+    if (!show.needs_sound_engineer) return skip('flag-off');
+    if (show.sound_engineer_name) return skip('engineer-confirmed');
+    if (show.status !== 'scheduled') return skip(`status-${show.status}`);
+    if (show.date < getTodayCentral()) return skip('past');
 
     const recipients = await getSoundCoverageRecipients(actorUserId);
-    if (recipients.length === 0) return;
+    if (recipients.length === 0) return skip('no-recipients');
 
-    if (!(await claimAlertSlot(`sound-queue:${showId}`, RESEND_WINDOW_MS))) return;
+    if (!(await claimAlertSlot(`sound-queue:${showId}`, RESEND_WINDOW_MS))) return skip('sent-recently');
 
     const from = process.env.RESEND_FROM_EMAIL;
     if (!from) throw new Error('RESEND_FROM_EMAIL is not set');
@@ -118,6 +123,7 @@ export async function notifySoundEngineerNeeded(showId: number, actorUserId: num
       recipients.map((r) => ({ from, to: r.email, subject, html, text }))
     );
     if (error) throw new Error(`Resend send failed: ${JSON.stringify(error)}`);
+    console.log(`[sound-queue] sent show=${showId} recipients=${recipients.length}`);
   } catch (error) {
     console.error('[sound-queue] notify failed', { showId, error });
   }

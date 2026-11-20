@@ -227,6 +227,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         select needs_sound_engineer from shows where id = ${showId}
       `;
       needsSoundEngineerTurnedOn = Boolean(current) && !current.needs_sound_engineer;
+      if (!needsSoundEngineerTurnedOn) {
+        console.log(`[sound-queue] no notice show=${showId} reason=already-flagged`);
+      }
     }
     updates.push({ column: 'needs_sound_engineer', value: next });
   }
