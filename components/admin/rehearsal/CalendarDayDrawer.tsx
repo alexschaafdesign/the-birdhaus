@@ -6,7 +6,9 @@ import { useRouter } from 'next/navigation';
 import { ADMIN_TYPE, FIELD_INLINE, buttonClassName } from '@/components/admin/ui';
 import { FORM } from '@/components/night/form';
 
-// The admin Calendar's day drawer: what's on the day, its open stretches, and
+// The admin Calendar's day drawer: what's on the day, its open stretches,
+// "Add a rehearsal" (a band + time, confirmed straight away: future ones can
+// email the band, past ones are a record and can be marked paid), and
 // "Block time" (from/to or all day, private note) which saves a blackout.
 // A block over a confirmed booking flags it — never cancels it.
 
@@ -34,8 +36,66 @@ function clock(hhmm: string): string {
   return m === 0 ? `${h12}${suffix}` : `${h12}:${pad(m)}${suffix}`;
 }
 
-export default function CalendarDayDrawer({ day, closeHref }: { day: DrawerDay; closeHref: string }) {
+const PAID: Array<[string, string]> = [
+  ['', 'Not yet'],
+  ['venmo', 'Paid · Venmo'],
+  ['cash', 'Paid · Cash'],
+  ['square', 'Paid · Card'],
+  ['comped', 'Comped'],
+];
+
+export default function CalendarDayDrawer({
+  day,
+  closeHref,
+  bands,
+  past,
+}: {
+  day: DrawerDay;
+  closeHref: string;
+  bands: Array<{ id: number; name: string }>;
+  past: boolean; // the day is before today
+}) {
   const router = useRouter();
+  // Add a rehearsal
+  const [bandId, setBandId] = useState('');
+  const [rFrom, setRFrom] = useState('18:00');
+  const [rTo, setRTo] = useState('21:00');
+  const [rNote, setRNote] = useState('');
+  const [sendEmail, setSendEmail] = useState(!past);
+  const [paid, setPaid] = useState('');
+  const [adding, setAdding] = useState(false);
+  const [addMsg, setAddMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const bandName = bands.find((b) => String(b.id) === bandId)?.name;
+
+  async function addRehearsal(e: React.FormEvent) {
+    e.preventDefault();
+    if (!bandId) return setAddMsg({ ok: false, text: 'Pick a band.' });
+    const when = `${clock(rFrom)}–${rTo === '00:00' ? 'midnight' : clock(rTo)}`;
+    const emailing = sendEmail && !past;
+    if (!confirm(`Add ${bandName}, ${day.title} ${when}${emailing ? ` and email ${bandName} the confirmation` : ''}?`)) return;
+    setAdding(true);
+    setAddMsg(null);
+    try {
+      const res = await fetch('/api/admin/rehearsal/bookings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bandId: Number(bandId), date: day.date, from: rFrom, to: rTo, note: rNote, email: emailing, paid: paid || null }),
+      });
+      const d = await res.json().catch(() => null);
+      if (!res.ok) return setAddMsg({ ok: false, text: d?.error ?? "Didn't save." });
+      const parts = [`Added ${d.catalogueId}.`];
+      if (d.past) parts.push('Past session, so no email.');
+      else if (emailing) parts.push(d.emailed ? `${bandName} emailed.` : 'The email did not go out — use Resend on Requests.');
+      if (d.clash?.length) parts.push(`Heads up: ${d.clash.join(', ')}.`);
+      setAddMsg({ ok: !d.clash?.length && (!emailing || d.emailed || d.past), text: parts.join(' ') });
+      setRNote('');
+      setPaid('');
+      router.refresh();
+    } finally {
+      setAdding(false);
+    }
+  }
+
   const [allDay, setAllDay] = useState(false);
   const [from, setFrom] = useState('16:00');
   const [to, setTo] = useState('22:00');
@@ -151,6 +211,68 @@ export default function CalendarDayDrawer({ day, closeHref }: { day: DrawerDay; 
             </ul>
           )}
         </div>
+
+        <form onSubmit={addRehearsal} className="space-y-3 border-2 border-surface-ink p-4">
+          <span className={label}>Add a rehearsal</span>
+          <select aria-label="Band" value={bandId} onChange={(e) => setBandId(e.target.value)} className={`${input} w-full`}>
+            <option value="">Band…</option>
+            {bands.map((b) => (
+              <option key={b.id} value={b.id}>
+                {b.name}
+              </option>
+            ))}
+          </select>
+          <div className="flex flex-wrap items-center gap-2">
+            <select aria-label="Start" value={rFrom} onChange={(e) => setRFrom(e.target.value)} className={input}>
+              {TIMES.map((t) => (
+                <option key={t} value={t}>
+                  {clock(t)}
+                </option>
+              ))}
+            </select>
+            <span>to</span>
+            <select aria-label="End" value={rTo} onChange={(e) => setRTo(e.target.value)} className={input}>
+              {[...TIMES.slice(1), '00:00'].map((t) => (
+                <option key={t} value={t}>
+                  {t === '00:00' ? 'midnight' : clock(t)}
+                </option>
+              ))}
+            </select>
+          </div>
+          <input
+            placeholder="Note (optional — shown with the booking)"
+            maxLength={2000}
+            value={rNote}
+            onChange={(e) => setRNote(e.target.value)}
+            className={`${input} w-full`}
+          />
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-surface-ink/70">Payment</span>
+            <select aria-label="Payment" value={paid} onChange={(e) => setPaid(e.target.value)} className={input}>
+              {PAID.map(([v, t]) => (
+                <option key={v} value={v}>
+                  {t}
+                </option>
+              ))}
+            </select>
+          </div>
+          {past ? (
+            <p className="text-surface-ink/60">A past session: saved as a record, no email.</p>
+          ) : (
+            <label className="flex cursor-pointer items-center gap-2">
+              <input type="checkbox" className="accent-surface-ink size-4" checked={sendEmail} onChange={(e) => setSendEmail(e.target.checked)} />
+              Email {bandName ?? 'the band'} the confirmation (address, calendar file)
+            </label>
+          )}
+          <button type="submit" disabled={adding} className={buttonClassName('primary', 's')}>
+            {adding ? 'Adding…' : 'Add rehearsal'}
+          </button>
+          {addMsg && (
+            <p role={addMsg.ok ? 'status' : 'alert'} className={addMsg.ok ? FORM.notice : FORM.error}>
+              {addMsg.text}
+            </p>
+          )}
+        </form>
 
         <form onSubmit={block} className="space-y-3 border border-surface-ink p-4">
           <span className={label}>Block time</span>
