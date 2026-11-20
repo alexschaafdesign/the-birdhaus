@@ -87,9 +87,13 @@ export default async function RehearsalBookingPage({ params }: { params: Promise
   const spans = (list: Array<{ start: Date; end: Date }>) =>
     list.filter((f) => f.end.getTime() - f.start.getTime() >= minFree).map((f) => ({ start: f.start.toISOString(), end: f.end.toISOString() }));
 
+  // The door code only while they have a confirmed session that hasn't ended.
+  const hasLiveSession = bookings.some((b) => b.status === 'confirmed' && b.endsAt > now);
+
   const props: BookingViewProps = {
     token,
     bandName: band.name,
+    doorCode: band.doorCode && hasLiveSession ? band.doorCode : null,
     contactEmail: CONTACT_EMAIL,
     today,
     days: view.days.map((d) => ({

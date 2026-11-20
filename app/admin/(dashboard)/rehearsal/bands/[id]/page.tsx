@@ -75,6 +75,7 @@ export default async function RehearsalBandPage({ params }: { params: Promise<{ 
           phone: band.phone,
           notes: band.notes,
           rateNotes: band.rateNotes,
+          doorCode: band.doorCode,
           archived: band.archived,
           url: band.token ? bookingUrl(band.token) : null,
           gear: [band.defaultGearNeeded.join(', '), band.defaultGearNotes].filter(Boolean).join(' — '),

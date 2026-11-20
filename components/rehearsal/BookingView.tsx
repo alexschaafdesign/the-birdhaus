@@ -56,6 +56,7 @@ export interface ViewBooking {
 export interface BookingViewProps {
   token: string;
   bandName: string;
+  doorCode: string | null; // shown while they have a confirmed session
   contactEmail: string;
   today: string; // Chicago date, for the calendar's today mark
   days: ViewDay[];
@@ -978,6 +979,13 @@ export default function BookingView(props: BookingViewProps) {
           {props.bandName}
         </h1>
         <span aria-hidden className="bg-surface-ink block h-1.5 w-full" />
+        {props.doorCode && (
+          <div className="border-surface-ink flex flex-wrap items-baseline gap-x-6 gap-y-1 self-start border-2 px-4 py-3">
+            <span className="text-data-overline-11 font-bold tracking-[--spacing(0.625)] uppercase">Door code</span>
+            <span className="text-display-3 font-bold tracking-wider break-all">{props.doorCode}</span>
+            <span className="text-data-caption-13 basis-full opacity-70">For your booked sessions — please keep it to your band.</span>
+          </div>
+        )}
         {props.paymentsEnabled && (
           <p className="text-body-3 opacity-70">
             {money(props.priceCents)} per session
