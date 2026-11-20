@@ -440,7 +440,7 @@ export function HubAdminRecipients({ state }: { state: ShowAdvanceState }) {
       )}
 
       {/* Band and engineer contacts are read-only here: they're edited in one
-          place, the show's Crew tab (they save to each person's profile). */}
+          place, the show's Lineup & crew tab (they save to each person's profile). */}
       <ul className="space-y-2 text-body-3">
         {state.recipients.map((r) => (
           <ContactLine key={r.bandId} name={r.name} email={r.email} payout={r.paymentMethod} />
@@ -458,7 +458,7 @@ export function HubAdminRecipients({ state }: { state: ShowAdvanceState }) {
           </ul>
         ) : (
           <p className="text-body-3 text-surface-ink/60">
-            No confirmed sound engineer on this show — confirm one on the Crew tab to loop them in.
+            No confirmed sound engineer on this show — confirm one on the Lineup &amp; crew tab to loop them in.
           </p>
         )}
       </div>
@@ -466,10 +466,10 @@ export function HubAdminRecipients({ state }: { state: ShowAdvanceState }) {
       <p className="text-data-caption-13 text-surface-ink/60 -mt-1">
         Emails and payout handles are edited on the{' '}
         <Link
-          href={`/admin/shows/${state.showId}/crew`}
+          href={`/admin/shows/${state.showId}/lineup`}
           className="underline decoration-dotted underline-offset-2 hover:text-accent-red"
         >
-          Crew tab
+          Lineup &amp; crew tab
         </Link>
         {' '}— they save to each person&rsquo;s profile, used on the settlement and every future show.
       </p>

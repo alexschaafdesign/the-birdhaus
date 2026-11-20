@@ -12,15 +12,6 @@ const inputClass = FIELD_INLINE;
 const FORM_LABEL = FORM.label;
 const buttonClass = `${buttonClassName('secondary', 's')} disabled:opacity-40`;
 
-export interface CrewBand {
-  bandId: number;
-  name: string;
-  email: string | null;
-  payoutHandle: string | null;
-  photo: string | null;
-  excluded: boolean;
-}
-
 export interface CrewEngineer {
   id: number;
   name: string;
@@ -550,9 +541,52 @@ function ShowRecordingSection({
   );
 }
 
+// "Needs a sound engineer" (119): saves on click. Turning it on puts the show in
+// the sound queue and emails whoever books sound (the shows route does that).
+function NeedsEngineerToggle({ showId, initial }: { showId: number; initial: boolean }) {
+  const router = useRouter();
+  const [on, setOn] = useState(initial);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function toggle(next: boolean) {
+    setOn(next);
+    setSaving(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/admin/shows/${showId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ needsSoundEngineer: next }),
+      });
+      if (!res.ok) throw new Error(`Save failed (${res.status})`);
+      router.refresh();
+    } catch (e) {
+      setOn(!next);
+      setError(e instanceof Error ? e.message : 'Save failed');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="mb-4 border-b border-surface-ink/20 pb-4">
+      <label className="flex items-center gap-2 text-body-3">
+        <input type="checkbox" checked={on} disabled={saving} onChange={(e) => toggle(e.target.checked)} />
+        Needs a sound engineer
+        {error && <span className="text-data-caption-13 text-accent-red">{error}</span>}
+      </label>
+      <p className="text-data-caption-13 text-surface-ink/60 mt-1 max-w-prose">
+        Puts this show in the sound engineer queue and emails whoever books sound. Leave it off for
+        nights you&apos;re running sound yourself.
+      </p>
+    </div>
+  );
+}
+
 export default function ShowCrewPanel({
   showId,
-  bands,
+  needsSoundEngineer,
   engineers,
   doorPersons,
   assignedDoorName,
@@ -562,7 +596,7 @@ export default function ShowCrewPanel({
   crewAccounts,
 }: {
   showId: number;
-  bands: CrewBand[];
+  needsSoundEngineer: boolean;
   engineers: CrewEngineer[];
   doorPersons: CrewRegistryEntry[];
   assignedDoorName: string;
@@ -637,46 +671,6 @@ export default function ShowCrewPanel({
 
   return (
     <div className="space-y-6">
-      <p className="text-body-3 text-surface-ink/60 max-w-2xl">
-        Everyone you contact or pay for this show. Email and payout handle save to each
-        person&apos;s profile — the same values used on the settlement and every future show.
-        Each row saves on its own.
-      </p>
-
-      <Section
-        title="Bands"
-        subtitle="Contact & payout for the lineup — saves to each band's profile. Add or reorder bands on Details."
-        action={
-          <Link href={`/admin/shows/${showId}`} className="text-data-caption-13 text-surface-ink/60 hover:text-accent-red underline underline-offset-4">
-            Edit lineup →
-          </Link>
-        }
-      >
-        {bands.length === 0 ? (
-          <p className="text-body-3 text-surface-ink/60">No bands on this show yet — add them on Details.</p>
-        ) : (
-          <ul className="space-y-2">
-            {bands.map((b) => (
-              <ContactRow
-                key={b.bandId}
-                name={b.name}
-                photo={b.photo}
-                endpoint={`/api/admin/bands/${b.bandId}`}
-                email={b.email}
-                payout={b.payoutHandle}
-                badge={
-                  b.excluded ? (
-                    <span className="border border-surface-ink px-1.5 text-data-label-10-small text-surface-ink/60">
-                      excluded from payout
-                    </span>
-                  ) : undefined
-                }
-              />
-            ))}
-          </ul>
-        )}
-      </Section>
-
       <Section
         title="Sound engineers"
         subtitle="Everyone you've asked, and who's confirmed. At most one can be confirmed — picking a new one steps the others back to asked."
@@ -686,6 +680,7 @@ export default function ShowCrewPanel({
           </Link>
         }
       >
+        <NeedsEngineerToggle showId={showId} initial={needsSoundEngineer} />
         <CrewEngineers showId={showId} engineers={engineers} />
       </Section>
 

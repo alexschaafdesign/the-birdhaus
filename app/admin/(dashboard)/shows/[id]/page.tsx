@@ -1,174 +1,34 @@
 import { notFound } from 'next/navigation';
 import { sql } from '@/lib/db';
-import { SHOW_COLUMNS, bandsJoinFragment, getNightDateCentral, videosJoinFragment, normalizePhotosInput } from '@/lib/shows';
-import { getPhotographerCredits } from '@/lib/photographers';
-import { soundEngineersJoinFragment, type ShowSoundEngineer } from '@/lib/sound-engineers';
+import { getTodayCentral } from '@/lib/shows';
+import { getOneShowHealth } from '@/lib/show-health-data';
 import { getOrCreateShareToken } from '@/lib/share-token';
 import { SITE_URL } from '@/lib/site';
-import { guardTicketUrl } from '@/lib/staging';
-import ShowForm, { type ShowFormInitialValues } from '@/components/admin/ShowForm';
+import ShowForm from '@/components/admin/ShowForm';
 import ShareLinkBox from '@/components/admin/ShareLinkBox';
 import ShowOverview from '@/components/admin/ShowOverview';
+import { loadShowFormData } from './form-data';
 
 export const dynamic = 'force-dynamic';
 
-interface ShowRow {
-  id: number;
-  slug: string;
-  catalogue_id: string;
-  status: 'scheduled' | 'cancelled' | 'postponed';
-  rescheduled_to: string | number | null;
-  title: string;
-  date: string;
-  doors_time: string | null;
-  show_time: string | null;
-  flyer: string | null;
-  bands: unknown;
-  description: string | null;
-  photographer: unknown;
-  photographer_id: number | null;
-  rsvp_url: string | null;
-  ticket_url: string | null;
-  external_ticket_url: string | null;
-  rsvp_form: boolean;
-  videos: unknown;
-  audio: unknown;
-  photos: unknown;
-  photo_folder: string | null;
-  photo_credit: string | null;
-  content_markdown: string;
-  announced: boolean;
-  target_band_count: number;
-  advance_sent: boolean;
-  needs_sound_engineer: boolean;
-  door_person_name: string | null;
-  sound_engineers: unknown;
-  square_item_id: string | null;
-  square_image_id: string | null;
-  ticket_limit: number | null;
-}
-
-export default async function EditShowPage({ params }: { params: Promise<{ id: string }> }) {
+// The Overview tab: the show's checklist, the share link, and the basics —
+// title, date, status, times, flyer, announce.
+export default async function ShowOverviewPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const showId = Number(id);
   if (!Number.isInteger(showId)) notFound();
 
-  const [row] = await sql<ShowRow[]>`
-    select ${sql(SHOW_COLUMNS)}, date::text as date, ${bandsJoinFragment()}, ${videosJoinFragment()},
-      ${soundEngineersJoinFragment()}
-    from shows
-    where id = ${showId}
-  `;
-  if (!row) notFound();
-
-  // Set notes live only on show_bands (093), not in the bands join fragment
-  // the public pages share; read them here and merge them in by band.
-  const setNotes = await sql<{ band_id: string; notes: string }[]>`
-    select band_id, notes from show_bands
-    where show_id = ${showId} and notes is not null
-  `;
-  const notesByBand = new Map(setNotes.map((r) => [Number(r.band_id), r.notes]));
-
-  const squareLinkRows = await sql<{ tierLabel: string; amountCents: number; url: string | null }[]>`
-    select tier_label as "tierLabel", amount_cents as "amountCents", url
-    from show_square_links
-    where show_id = ${showId}
-    order by amount_cents
-  `;
-  // Display only (the form never saves these): off production a live Square
-  // link shows as the disabled /checkout path, so a click on staging can't buy.
-  const squareLinks = squareLinkRows.map((l) => ({
-    ...l,
-    url: l.url ? guardTicketUrl(l.url, row.catalogue_id ?? row.slug) : null,
-  }));
-
-  // Lifecycle status for the top-of-tab Overview checklist. One round-trip; each
-  // subquery degrades to 0/false when that subsystem has no rows yet.
-  const [overview] = await sql<
-    {
-      invite_sent: boolean;
-      band_total: number;
-      bands_with_inputs: number;
-      rsvp_count: number;
-      settlement_saved: boolean;
-    }[]
-  >`
-    select
-      exists(select 1 from show_advances where show_id = ${showId} and status = 'sent') as invite_sent,
-      (select count(*)::int from show_bands sb where sb.show_id = ${showId} and not sb.excluded) as band_total,
-      (select count(distinct band_id)::int from show_input_items where show_id = ${showId}) as bands_with_inputs,
-      (select count(*)::int from rsvps where show_id = ${showId}) as rsvp_count,
-      exists(select 1 from settlements where show_id = ${showId}) as settlement_saved
-  `;
-  const engineers = (row.sound_engineers as Array<{ name: string; status: string }> | null) ?? [];
-  const confirmedEngineer = engineers.find((e) => e.status === 'confirmed')?.name ?? null;
-  // Past by the show page's rule: the night is over at 5am Central.
-  const nightDate = getNightDateCentral();
-  const isPastShow = row.date < nightDate;
-
-  // Resolve each photo's photographerId → name so the form can display the
-  // credit next to each thumbnail (only ids are stored on the row).
-  const photoEntries = normalizePhotosInput(row.photos);
-  const photoCredits = await getPhotographerCredits([
-    ...photoEntries.map((p) => p.photographerId).filter((n): n is number => n != null),
-    ...(row.photographer_id != null ? [row.photographer_id] : []),
+  const [data, facts, [counts]] = await Promise.all([
+    loadShowFormData(showId),
+    getOneShowHealth(showId),
+    sql<{ active_band_count: number; bands_with_inputs: number; settlement_saved: boolean }[]>`
+      select
+        (select count(*)::int from show_bands where show_id = ${showId} and not excluded) as active_band_count,
+        (select count(distinct band_id)::int from show_input_items where show_id = ${showId}) as bands_with_inputs,
+        exists(select 1 from settlements where show_id = ${showId}) as settlement_saved
+    `,
   ]);
-  const assignedPhotographerName =
-    row.photographer_id != null ? photoCredits.get(row.photographer_id)?.name ?? null : null;
-
-  // A postponed show links to the night that replaced it.
-  const [rescheduled] = row.rescheduled_to != null
-    ? await sql<{ id: string; catalogue_id: string; date: string }[]>`
-        select id, catalogue_id, date::text as date from shows where id = ${row.rescheduled_to}
-      `
-    : [];
-
-  const initialValues: ShowFormInitialValues = {
-    id: row.id,
-    slug: row.slug,
-    catalogueId: row.catalogue_id,
-    status: row.status,
-    rescheduledTo: rescheduled
-      ? { id: Number(rescheduled.id), catalogueId: rescheduled.catalogue_id, date: rescheduled.date }
-      : null,
-    title: row.title,
-    date: row.date,
-    doorsTime: row.doors_time,
-    showTime: row.show_time,
-    flyer: row.flyer,
-    bands: ((row.bands as Array<{ name: string; bandId?: number }>) ?? []).map((b) => {
-      const notes = b.bandId != null ? notesByBand.get(Number(b.bandId)) : undefined;
-      return notes ? { ...b, notes } : b;
-    }),
-    description: row.description,
-    photographer: (row.photographer as ShowFormInitialValues['photographer']) ?? null,
-    doorPersonName: row.door_person_name,
-    ticketUrl: row.ticket_url,
-    externalTicketUrl: row.external_ticket_url,
-    ticketLimit: row.ticket_limit,
-    rsvpForm: row.rsvp_form,
-    videos: (row.videos as ShowFormInitialValues['videos']) ?? [],
-    audio: (row.audio as ShowFormInitialValues['audio']) ?? [],
-    photos: photoEntries.map((p) => ({
-      url: p.url,
-      photographerId: p.photographerId,
-      photographerName: p.photographerId != null ? photoCredits.get(p.photographerId)?.name ?? null : null,
-      bandId: p.bandId,
-    })),
-    assignedPhotographerId: row.photographer_id,
-    assignedPhotographerName,
-    photoFolder: row.photo_folder,
-    photoCredit: row.photo_credit,
-    content: row.content_markdown,
-    announced: row.announced,
-    targetBandCount: row.target_band_count,
-    advanceSent: row.advance_sent,
-    needsSoundEngineer: row.needs_sound_engineer,
-    soundEngineers: (row.sound_engineers as ShowSoundEngineer[]) ?? [],
-    squareItemId: row.square_item_id,
-    squareImageId: row.square_image_id,
-    squareLinks,
-  };
+  if (!data || !facts) notFound();
 
   const shareToken = await getOrCreateShareToken(showId);
   const shareUrl = shareToken ? `${SITE_URL}/hub/${shareToken}` : null;
@@ -177,21 +37,24 @@ export default async function EditShowPage({ params }: { params: Promise<{ id: s
     <div className="space-y-6">
       <ShowOverview
         showId={showId}
-        isPast={isPastShow}
-        announced={row.announced}
-        bandCount={overview?.band_total ?? 0}
-        targetBandCount={row.target_band_count}
-        inviteSent={overview?.invite_sent ?? false}
-        bandsWithInputs={overview?.bands_with_inputs ?? 0}
-        confirmedEngineer={confirmedEngineer}
-        needsSoundEngineer={row.needs_sound_engineer}
-        doorPerson={row.door_person_name?.trim() || null}
-        photographerAssigned={row.photographer_id != null}
-        rsvpCount={overview?.rsvp_count ?? 0}
-        settlementSaved={overview?.settlement_saved ?? false}
+        facts={facts}
+        today={getTodayCentral()}
+        confirmedEngineer={data.confirmedEngineer}
+        doorPerson={data.row.door_person_name?.trim() || null}
+        photographerName={data.assignedPhotographerName}
+        bandsWithInputs={counts?.bands_with_inputs ?? 0}
+        activeBandCount={counts?.active_band_count ?? 0}
+        settlementSaved={counts?.settlement_saved ?? false}
       />
       {shareUrl && <ShareLinkBox showId={showId} initialUrl={shareUrl} />}
-      <ShowForm mode="edit" embedded initialValues={initialValues} isPast={isPastShow} nightDate={nightDate} />
+      <ShowForm
+        mode="edit"
+        embedded
+        section="overview"
+        initialValues={data.initialValues}
+        isPast={data.isPastShow}
+        nightDate={data.nightDate}
+      />
     </div>
   );
 }

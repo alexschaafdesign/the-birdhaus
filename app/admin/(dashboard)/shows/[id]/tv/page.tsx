@@ -36,6 +36,14 @@ export default async function ShowTvPage({ params }: { params: Promise<{ id: str
   return (
     <div className="space-y-10">
       <p className="text-body-3 text-surface-ink/60 max-w-2xl">
+        You usually don’t need this page: on the night, the board shows this show’s schedule from
+        the{' '}
+        <Link href={`/admin/shows/${showId}/advance`} className="underline underline-offset-4 hover:text-accent-red">
+          Advance tab
+        </Link>{' '}
+        automatically. Typing board rows below replaces that for this night only.
+      </p>
+      <p className="text-body-3 text-surface-ink/60 max-w-2xl">
         This night’s TV program. On this show’s date the tube uses what you set here instead of the{' '}
         <Link href="/admin/tv" className="underline underline-offset-4 hover:text-accent-red">
           global default

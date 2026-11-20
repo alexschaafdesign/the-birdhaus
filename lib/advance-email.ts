@@ -430,7 +430,7 @@ export function renderAdvanceActivityEmail({
   summary: string;
   detail?: string;
 }): { subject: string; html: string; text: string } {
-  const adminUrl = `${SITE_URL}/admin/shows/${showId}/portal`;
+  const adminUrl = `${SITE_URL}/admin/shows/${showId}/advance`;
   return {
     subject: `[Portal] ${summary} — ${showTitle}`,
     html: emailDocument({

@@ -81,7 +81,7 @@ export default function ShowHubView({
           </div>
           {data.inputsByBand.some((b) => b.items.length > 0) && (
             <div className="order-3">
-              <InputsSection data={data} />
+              <InputsSection data={data} adminState={adminState} />
             </div>
           )}
         </div>
@@ -302,10 +302,18 @@ function ScheduleSection({
   );
 }
 
-function InputsSection({ data }: { data: ShowHubData }) {
+function InputsSection({ data, adminState }: { data: ShowHubData; adminState?: ShowAdvanceState | null }) {
   const bandsWithItems = data.inputsByBand.filter((b) => b.items.length > 0);
   return (
     <Card title="Input needs">
+      {adminState && (
+        <a
+          href={`/admin/shows/${adminState.showId}/advance#inputs`}
+          className="mb-2 inline-block text-data-caption-13 underline underline-offset-2 hover:text-accent-red"
+        >
+          Edit input lists ↓
+        </a>
+      )}
       {bandsWithItems.length > 0 && (
         <div className="divide-y divide-surface-ink/20">
           {bandsWithItems.map((band) => (
