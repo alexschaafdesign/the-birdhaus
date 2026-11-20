@@ -23,6 +23,8 @@ export interface ShowOverviewProps {
   inviteSent: boolean;
   bandsWithInputs: number;
   confirmedEngineer: string | null;
+  // Opt-in (119): off = Alex runs sound, so no confirmed engineer isn't a gap.
+  needsSoundEngineer: boolean;
   doorPerson: string | null;
   photographerAssigned: boolean;
   rsvpCount: number;
@@ -71,6 +73,7 @@ export default function ShowOverview({
   inviteSent,
   bandsWithInputs,
   confirmedEngineer,
+  needsSoundEngineer,
   doorPerson,
   photographerAssigned,
   rsvpCount,
@@ -93,8 +96,8 @@ export default function ShowOverview({
     },
     {
       label: 'Sound engineer',
-      value: confirmedEngineer ?? 'None confirmed',
-      tone: confirmedEngineer ? 'done' : 'todo',
+      value: confirmedEngineer ?? (needsSoundEngineer ? 'None confirmed' : 'Not needed'),
+      tone: confirmedEngineer ? 'done' : needsSoundEngineer ? 'todo' : 'neutral',
       href: `${base}/crew`,
     },
     {

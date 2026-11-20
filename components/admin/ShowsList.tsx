@@ -17,6 +17,8 @@ export interface ShowListItem {
   announced: boolean;
   flyer?: string | null;
   sound_engineer_name?: string | null;
+  // Opt-in (119): only flagged shows count a missing engineer as a gap.
+  needs_sound_engineer?: boolean;
   rsvp_form?: boolean;
   band_count?: number;
   target_band_count?: number;
@@ -78,7 +80,7 @@ function computeIssues(show: ShowListItem, today: string): CategorizedIssues {
   }
 
   const preShow: Issue[] = [];
-  if (!show.sound_engineer_name?.trim()) preShow.push({ key: 'sound', label: 'No sound engineer' });
+  if (show.needs_sound_engineer && !show.sound_engineer_name?.trim()) preShow.push({ key: 'sound', label: 'No sound engineer' });
   if (!show.flyer?.trim()) preShow.push({ key: 'flyer', label: 'No flyer' });
   if (!show.advance_sent) preShow.push({ key: 'advance', label: 'Not advanced yet' });
   const bandsNeeded = (show.target_band_count ?? 3) - (show.band_count ?? 0);

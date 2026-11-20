@@ -166,6 +166,7 @@ export interface ShowFormInitialValues {
   announced?: boolean;
   targetBandCount?: number;
   advanceSent?: boolean;
+  needsSoundEngineer?: boolean;
   soundEngineers?: Array<{ soundEngineerId?: number | null; name: string; status: SoundEngineerStatus }>;
   squareItemId?: string | null;
   squareImageId?: string | null;
@@ -203,6 +204,8 @@ interface FormState {
   announced: boolean;
   targetBandCount: number;
   advanceSent: boolean;
+  // Opt-in: puts the show in the sound-coverage queue and emails that crew.
+  needsSoundEngineer: boolean;
   status: 'scheduled' | 'cancelled' | 'postponed';
 }
 
@@ -298,6 +301,7 @@ function initFormState(initial: ShowFormInitialValues | undefined, isPast: boole
     announced: initial?.announced ?? false,
     targetBandCount: initial?.targetBandCount ?? 3,
     advanceSent: initial?.advanceSent ?? false,
+    needsSoundEngineer: initial?.needsSoundEngineer ?? false,
     status: initial?.status ?? 'scheduled',
   };
 }
@@ -708,6 +712,7 @@ export default function ShowForm({
       announced: form.announced,
       targetBandCount: form.targetBandCount,
       advanceSent: form.advanceSent,
+      needsSoundEngineer: form.needsSoundEngineer,
       // Cancel / un-cancel on edit. 'postponed' only comes from Postpone.
       ...(mode === 'edit' && form.status !== 'postponed' ? { status: form.status } : {}),
     };
@@ -1304,6 +1309,20 @@ export default function ShowForm({
               className={`${inputClass} w-full`}
             />
           </div>
+        </div>
+        <div className="sm:col-span-2">
+          <label className="flex items-center gap-2 text-body-3">
+            <input
+              type="checkbox"
+              checked={form.needsSoundEngineer}
+              onChange={(e) => set('needsSoundEngineer', e.target.checked)}
+            />
+            Needs a sound engineer
+          </label>
+          <p className="text-data-caption-13 text-surface-ink/60 mt-1 max-w-prose">
+            Puts this show in the sound engineer queue and emails whoever books sound when you save.
+            Leave it off for nights you&apos;re running sound yourself.
+          </p>
         </div>
         <div className="sm:col-span-2">
           <ImageUploadField

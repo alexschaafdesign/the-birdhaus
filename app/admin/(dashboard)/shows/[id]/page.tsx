@@ -40,6 +40,7 @@ interface ShowRow {
   announced: boolean;
   target_band_count: number;
   advance_sent: boolean;
+  needs_sound_engineer: boolean;
   door_person_name: string | null;
   sound_engineers: unknown;
   square_item_id: string | null;
@@ -162,6 +163,7 @@ export default async function EditShowPage({ params }: { params: Promise<{ id: s
     announced: row.announced,
     targetBandCount: row.target_band_count,
     advanceSent: row.advance_sent,
+    needsSoundEngineer: row.needs_sound_engineer,
     soundEngineers: (row.sound_engineers as ShowSoundEngineer[]) ?? [],
     squareItemId: row.square_item_id,
     squareImageId: row.square_image_id,
@@ -182,6 +184,7 @@ export default async function EditShowPage({ params }: { params: Promise<{ id: s
         inviteSent={overview?.invite_sent ?? false}
         bandsWithInputs={overview?.bands_with_inputs ?? 0}
         confirmedEngineer={confirmedEngineer}
+        needsSoundEngineer={row.needs_sound_engineer}
         doorPerson={row.door_person_name?.trim() || null}
         photographerAssigned={row.photographer_id != null}
         rsvpCount={overview?.rsvp_count ?? 0}

@@ -217,7 +217,7 @@ export const SHOW_COLUMNS = [
   'photo_credit', 'content_markdown', 'announced', 'created_at', 'updated_at', 'sound_engineer_name',
   'target_band_count', 'ignored_health_checks', 'advance_sent', 'square_item_id', 'square_image_id',
   'share_token', 'walkin_count', 'door_token', 'door_person_name', 'ticket_limit', 'photographer_id',
-  'catalogue_id', 'status', 'rescheduled_to',
+  'catalogue_id', 'status', 'rescheduled_to', 'needs_sound_engineer',
 ];
 
 // A fresh fragment per call site, per postgres.js's dynamic composition pattern.

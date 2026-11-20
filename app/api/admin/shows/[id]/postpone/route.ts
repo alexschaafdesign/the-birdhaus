@@ -1,9 +1,10 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, after } from 'next/server';
 import { revalidatePath, revalidateTag } from 'next/cache';
 import { sql } from '@/lib/db';
 import { TV_FEED_TAG } from '@/lib/tv-feed';
 import { ISO_DATE_RE, slugify } from '@/lib/shows';
-import { requireAdmin } from '@/lib/admin-session';
+import { getAdminSession, requireAdmin } from '@/lib/admin-session';
+import { notifySoundEngineerNeeded } from '@/lib/sound-queue';
 
 // Postpone a show to a new date. Once a show is announced (or past) its date
 // is frozen with its catalogue id (097), so moving it isn't an edit: this
@@ -17,7 +18,9 @@ import { requireAdmin } from '@/lib/admin-session';
 // copied: anything tied to the old date's money or people — Square item and
 // payment links (set them up again on the new show; refunds for the old one
 // stay manual in Square), RSVPs, purchases, sound engineers, settlement,
-// payouts, share/door tokens, media.
+// payouts, share/door tokens, media. The "needs a sound engineer" flag IS
+// copied: the new night has no engineer yet, so it goes back in the sound
+// queue and the sound-coverage crew get an email for the new date.
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const denied = await requireAdmin();
@@ -52,18 +55,18 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     }
 
     // catalogue_id is minted by the insert trigger (097).
-    const [row] = await tx<Array<{ id: string; catalogue_id: string }>>`
+    const [row] = await tx<Array<{ id: string; catalogue_id: string; needs_sound_engineer: boolean }>>`
       insert into shows (
         slug, title, date, doors_time, show_time, flyer, bands, description, rsvp_form,
         external_ticket_url, content_markdown, announced, target_band_count, door_person_name,
-        ticket_limit, photographer_id
+        ticket_limit, photographer_id, needs_sound_engineer
       )
       select
         ${slug}, title, ${date}, doors_time, show_time, flyer, bands, description, rsvp_form,
         external_ticket_url, content_markdown, announced, target_band_count, door_person_name,
-        ticket_limit, photographer_id
+        ticket_limit, photographer_id, needs_sound_engineer
       from shows where id = ${showId}
-      returning id, catalogue_id
+      returning id, catalogue_id, needs_sound_engineer
     `;
     await tx`
       insert into show_bands (show_id, band_id, sort_order, set_start, set_end)
@@ -74,7 +77,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       update shows set status = 'postponed', rescheduled_to = ${row.id}, updated_at = now()
       where id = ${showId}
     `;
-    return { id: Number(row.id), catalogueId: row.catalogue_id };
+    return { id: Number(row.id), catalogueId: row.catalogue_id, needsSoundEngineer: row.needs_sound_engineer };
   });
 
   revalidatePath('/shows/[id]', 'page');
@@ -82,5 +85,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   revalidatePath('/');
   // Either date may be today's TV program.
   revalidateTag(TV_FEED_TAG, { expire: 0 });
-  return NextResponse.json(created, { status: 201 });
+  if (created.needsSoundEngineer) {
+    const actor = await getAdminSession();
+    after(() => notifySoundEngineerNeeded(created.id, actor?.userId ?? null));
+  }
+  return NextResponse.json({ id: created.id, catalogueId: created.catalogueId }, { status: 201 });
 }
