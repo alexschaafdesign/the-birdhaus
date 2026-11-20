@@ -652,6 +652,13 @@ export default function BookingView(props: BookingViewProps) {
   const [changing, setChanging] = useState<ViewBooking | null>(null);
   const [changePick, setChangePick] = useState<{ start: string; minutes: number } | null>(null);
   const [changeNote, setChangeNote] = useState('');
+  // A brief highlight on the request bar when a pick is added.
+  const [flash, setFlash] = useState(false);
+  useEffect(() => {
+    if (!flash) return;
+    const t = setTimeout(() => setFlash(false), 900);
+    return () => clearTimeout(t);
+  }, [flash]);
 
   const windowEnd = useMemo(() => new Date(props.windowEnd), [props.windowEnd]);
   // While changing a booking, its own time counts as open on its day.
@@ -747,6 +754,7 @@ export default function BookingView(props: BookingViewProps) {
       return;
     }
     setItems((list) => (panel?.edit != null ? list.map((x, j) => (j === panel.edit ? item : x)) : [...list, item]));
+    setFlash(true);
     setPanel(null);
   }
 
@@ -923,12 +931,44 @@ export default function BookingView(props: BookingViewProps) {
     }
   }
 
+  // The request so far + the next step. Not sent until Review and send.
+  const requestBar = (
+    <>
+      {nudge && (
+        <p className="flex flex-wrap items-baseline gap-x-3">
+          <span>
+            {`${dateParts(chicagoDateOf(nudge[0].start)).long}s ${timeRange(nudge[0].start, endOf(nudge[0].start, nudge[0].minutes))}, ${nudge.length} weeks in a row — make it every week?`}
+          </span>
+          <button type="button" onClick={() => makeWeekly(nudge)} className={FORM.link}>
+            Make it weekly
+          </button>
+        </p>
+      )}
+      <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 lg:flex-nowrap">
+        <p className="min-w-0 flex-1">
+          <span className="font-bold">Your request</span>
+          {' · '}
+          {items.map((i, n) => itemSummary(i, n)).join(' · ')}
+          {' · '}
+          <span className="font-bold">
+            {plan.sessions.length} session{plan.sessions.length === 1 ? '' : 's'}
+            {props.paymentsEnabled && ` · ${money(total)}`}
+          </span>
+          <span className="text-accent-red block font-bold">Not sent yet — review and send it to Alex.</span>
+        </p>
+        <button type="button" onClick={() => setReviewing(true)} className={`${FORM.primary} shrink-0 lg:w-auto`}>
+          Review and send →
+        </button>
+      </div>
+    </>
+  );
+
   const live = props.bookings.filter((b) => b.status === 'pending' || b.status === 'confirmed').length;
   const anyOpen = days.some((d) => d.free.length > 0);
   const panelDay = panel ? dayByDate.get(panel.date) : undefined;
 
   return (
-    <div className={`flex w-full max-w-5xl flex-col gap-10 ${items.length || changing ? 'pb-36' : ''}`}>
+    <div className={`flex w-full max-w-5xl flex-col gap-10 ${changing ? 'pb-36' : items.length ? 'pb-40 lg:pb-0' : ''}`}>
       <section aria-labelledby="hello" className="text-body-3 flex flex-col gap-3 leading-normal">
         <SectionHeader id="hello" label={`Rehearsal space · ${props.bandName}`} rule="m" />
         <p className="max-w-2xl">
@@ -1061,6 +1101,16 @@ export default function BookingView(props: BookingViewProps) {
                 Confirmed
               </li>
             </ul>
+
+            {items.length > 0 && !reviewing && !changing && (
+              <div
+                className={`border-surface-ink text-body-3 sticky top-0 z-30 hidden flex-col gap-2 border-2 px-4 py-3 transition-colors duration-700 lg:flex ${
+                  flash ? 'bg-accent-red/15' : 'bg-surface-paper'
+                }`}
+              >
+                {requestBar}
+              </div>
+            )}
 
             <div className="flex items-baseline justify-between gap-4">
               <button
@@ -1287,36 +1337,11 @@ export default function BookingView(props: BookingViewProps) {
         </>
       )}
 
-      {/* The request bar, pinned to the bottom of the screen */}
+      {/* The request bar, pinned to the bottom of the screen (phones and
+          tablets; on desktop it sits above the calendar instead). */}
       {items.length > 0 && !reviewing && !changing && (
-        <div className="bg-surface-paper border-surface-ink fixed inset-x-0 bottom-0 z-30 border-t-2">
-          <div className="text-body-3 mx-auto flex max-w-5xl flex-col gap-2 px-4 py-3 sm:px-8">
-            {nudge && (
-              <p className="flex flex-wrap items-baseline gap-x-3">
-                <span>
-                  {`${dateParts(chicagoDateOf(nudge[0].start)).long}s ${timeRange(nudge[0].start, endOf(nudge[0].start, nudge[0].minutes))}, ${nudge.length} weeks in a row — make it every week?`}
-                </span>
-                <button type="button" onClick={() => makeWeekly(nudge)} className={FORM.link}>
-                  Make it weekly
-                </button>
-              </p>
-            )}
-            <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
-              <p className="min-w-0 flex-1">
-                <span className="font-bold">Your request</span>
-                {' · '}
-                {items.map((i, n) => itemSummary(i, n)).join(' · ')}
-                {' · '}
-                <span className="font-bold">
-                  {plan.sessions.length} session{plan.sessions.length === 1 ? '' : 's'}
-                  {props.paymentsEnabled && ` · ${money(total)}`}
-                </span>
-              </p>
-              <button type="button" onClick={() => setReviewing(true)} className={`${FORM.primary} w-auto`}>
-                Review and send
-              </button>
-            </div>
-          </div>
+        <div className="bg-surface-paper border-surface-ink fixed inset-x-0 bottom-0 z-30 border-t-2 lg:hidden">
+          <div className="text-body-3 mx-auto flex max-w-5xl flex-col gap-2 px-4 py-3 sm:px-8">{requestBar}</div>
         </div>
       )}
 
