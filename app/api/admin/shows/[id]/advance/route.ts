@@ -1,4 +1,6 @@
 import { NextResponse } from 'next/server';
+import { revalidateTag } from 'next/cache';
+import { TV_FEED_TAG } from '@/lib/tv-feed';
 import {
   getShowAdvanceState,
   saveShowAdvanceDraft,
@@ -48,6 +50,8 @@ export async function PUT(
   if (!state) {
     return NextResponse.json({ error: 'Show not found' }, { status: 404 });
   }
+  // The schedule is the show-day TV board (lib/tv-feed withAutoBoard).
+  revalidateTag(TV_FEED_TAG, { expire: 0 });
   return NextResponse.json(state);
 }
 
@@ -66,6 +70,7 @@ export async function POST(
   const body = await request.json().catch(() => null);
   try {
     const result = await sendShowAdvance(showId, body?.vars, body?.extraEmails);
+    revalidateTag(TV_FEED_TAG, { expire: 0 });
     const state = await getShowAdvanceState(showId);
     return NextResponse.json({ ...result, state });
   } catch (error) {

@@ -1,21 +1,11 @@
-import { notFound } from 'next/navigation';
-import { getShowInputsState } from '@/lib/inputs';
-import { INPUT_CATALOG } from '@/lib/input-catalog';
-import ShowInputsPanel from '@/components/admin/ShowInputsPanel';
+import { notFound, redirect } from 'next/navigation';
 
 export const dynamic = 'force-dynamic';
 
-export default async function ShowInputsPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
+// The old Inputs tab — now part of the Advance tab. Kept as a redirect so old links (bookmarks, emails) keep working.
+export default async function OldShowTabRedirect({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const showId = Number(id);
   if (!Number.isInteger(showId)) notFound();
-
-  const state = await getShowInputsState(showId);
-  if (!state) notFound();
-
-  return <ShowInputsPanel initial={state} catalog={INPUT_CATALOG} />;
+  redirect(`/admin/shows/${showId}/advance#inputs`);
 }

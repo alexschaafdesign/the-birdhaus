@@ -1,7 +1,7 @@
 // "Needs a sound engineer" notices. When a save turns a show's
 // needs_sound_engineer flag on (new show, edit, or a postponed night's new
 // date), everyone looking after sound coverage — active crew accounts with the
-// 'sound_coverage' focus area — gets one email linking to the show's Crew tab.
+// 'sound_coverage' focus area — gets one email linking to the show's Lineup & crew tab.
 // The same flag decides what's in their queue (SoundCoverageWidget).
 //
 // Sends go through getResendClient, so off production they're redirected or
@@ -82,7 +82,7 @@ export async function notifySoundEngineerNeeded(showId: number, actorUserId: num
     if (!from) throw new Error('RESEND_FROM_EMAIL is not set');
 
     const date = formatDate(show.date);
-    const crewUrl = `${SITE_URL}/admin/shows/${showId}/crew`;
+    const crewUrl = `${SITE_URL}/admin/shows/${showId}/lineup`;
     const times = [show.doors_time && `Doors ${show.doors_time}`, show.show_time && `Show ${show.show_time}`]
       .filter(Boolean)
       .join(' · ');
@@ -103,7 +103,7 @@ export async function notifySoundEngineerNeeded(showId: number, actorUserId: num
         emailP(`<strong>This show needs a sound engineer.</strong> It's in your queue on your admin home.`) +
         emailDetails(rows) +
         emailButton(crewUrl, 'Find an engineer') +
-        emailP(`Log who you ask and who confirms on the show's Crew tab.`),
+        emailP(`Log who you ask and who confirms on the show's Lineup & crew tab.`),
     });
     const text =
       [
