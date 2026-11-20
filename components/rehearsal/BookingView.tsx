@@ -53,7 +53,6 @@ export interface BookingViewProps {
   token: string;
   bandName: string;
   contactEmail: string;
-  firstMonday: string;
   today: string; // Chicago date, for the calendar's today mark
   days: ViewDay[];
   startStepMinutes: number;
@@ -83,7 +82,7 @@ interface Item {
 
 const TZ = 'America/Chicago';
 const METHOD_LABEL: Record<PaymentMethod, string> = { venmo: 'Venmo', square: 'Card', cash: 'Cash' };
-const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const FOCUS = 'focus-visible:outline-accent-red focus-visible:outline-2 focus-visible:outline-offset-2';
 const SOFT = " — or whatever works, we'll sort it out";
 // Gear picks are hidden on the review sheet for now (just the note). The
@@ -139,6 +138,22 @@ function dateParts(date: string): { weekday: string; long: string; day: string; 
 function addDays(date: string, n: number): string {
   const [y, m, d] = date.split('-').map(Number);
   return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10);
+}
+
+// The Sunday on or before a date.
+function sundayOf(date: string): string {
+  const [y, m, d] = date.split('-').map(Number);
+  return addDays(date, -new Date(Date.UTC(y, m - 1, d)).getUTCDay());
+}
+
+// "YYYY-MM" shifted by n months.
+function shiftMonth(month: string, n: number): string {
+  const [y, m] = month.split('-').map(Number);
+  return new Date(Date.UTC(y, m - 1 + n, 1)).toISOString().slice(0, 7);
+}
+
+function monthLabel(month: string, o: Intl.DateTimeFormatOptions): string {
+  return new Intl.DateTimeFormat('en-US', { timeZone: 'UTC', ...o }).format(new Date(`${month}-01T12:00:00Z`));
 }
 
 function money(cents: number): string {
@@ -637,13 +652,22 @@ export default function BookingView(props: BookingViewProps) {
     };
   }, [props.startStepMinutes, props.allowedLengths, windowEnd, dayByDate]);
 
-  // Calendar rows: Monday-start weeks from this week through the last day.
+  // One month at a time: this month through the month of the last bookable day.
+  const firstMonth = props.today.slice(0, 7);
+  const lastMonth = props.days.length ? props.days[props.days.length - 1].date.slice(0, 7) : firstMonth;
+  const [month, setMonth] = useState(firstMonth);
+  // Calendar rows: Sunday-start weeks covering the month; days spilling in
+  // from the months either side are shown faded.
   const weeks = useMemo(() => {
-    const last = props.days.length ? props.days[props.days.length - 1].date : props.firstMonday;
+    const last = addDays(`${shiftMonth(month, 1)}-01`, -1);
     const out: string[][] = [];
-    for (let m = props.firstMonday; m <= last; m = addDays(m, 7)) out.push(Array.from({ length: 7 }, (_, i) => addDays(m, i)));
+    for (let w = sundayOf(`${month}-01`); w <= last; w = addDays(w, 7)) out.push(Array.from({ length: 7 }, (_, i) => addDays(w, i)));
     return out;
-  }, [props.days, props.firstMonday]);
+  }, [month]);
+  function goMonth(n: number) {
+    setPanel(null);
+    setMonth((m) => shiftMonth(m, n));
+  }
 
   // What the request books right now (same planner as the server).
   const plan = useMemo(
@@ -682,6 +706,7 @@ export default function BookingView(props: BookingViewProps) {
     setSent(null);
     // Editing a repeat opens it on its first date.
     const at = edit !== null ? chicagoDateOf(items[edit].start) : date;
+    if (at.slice(0, 7) !== month) setMonth(at.slice(0, 7));
     const target = el ?? document.querySelector<HTMLElement>(`[data-day="${at}"]`);
     let pos: { top: number; left: number } | null = null;
     const wrap = calendarRef.current;
@@ -915,6 +940,28 @@ export default function BookingView(props: BookingViewProps) {
               </li>
             </ul>
 
+            <div className="flex items-baseline justify-between gap-4">
+              <button
+                type="button"
+                onClick={() => goMonth(-1)}
+                disabled={month <= firstMonth}
+                className={`text-body-3 underline underline-offset-4 disabled:invisible ${FOCUS}`}
+              >
+                ← {monthLabel(shiftMonth(month, -1), { month: 'short' })}
+              </button>
+              <h3 aria-live="polite" className="text-body-2 font-bold">
+                {monthLabel(month, { month: 'long', year: 'numeric' })}
+              </h3>
+              <button
+                type="button"
+                onClick={() => goMonth(1)}
+                disabled={month >= lastMonth}
+                className={`text-body-3 underline underline-offset-4 disabled:invisible ${FOCUS}`}
+              >
+                {monthLabel(shiftMonth(month, 1), { month: 'short' })} →
+              </button>
+            </div>
+
             <div ref={calendarRef} className="relative">
               <div role="grid" aria-label="Rehearsal calendar" className="border-surface-ink border-t">
                 <div role="row" className="border-surface-ink grid grid-cols-7 border-b">
@@ -936,13 +983,14 @@ export default function BookingView(props: BookingViewProps) {
                       const sessions = sessionsByDay.get(d) ?? [];
                       const open = Boolean(day?.free.length);
                       const isToday = d === props.today;
-                      const firstOfMonth = p.day === '1' || d === props.firstMonday;
+                      const inMonth = d.startsWith(month);
+                      const firstOfMonth = !inMonth && (p.day === '1' || d === week[0]);
                       const openText = day?.free.map((f) => timeRange(f.start, f.end)).join(', ');
                       return (
                         <div
                           key={d}
                           role="gridcell"
-                          className={`border-surface-ink/20 flex min-h-16 flex-col border-r last:border-r-0 lg:min-h-24 ${d < props.today ? 'opacity-40' : ''}`}
+                          className={`border-surface-ink/20 flex min-h-16 flex-col border-r last:border-r-0 lg:min-h-24 ${!inMonth ? 'opacity-35' : d < props.today ? 'opacity-40' : ''}`}
                         >
                           <button
                             type="button"

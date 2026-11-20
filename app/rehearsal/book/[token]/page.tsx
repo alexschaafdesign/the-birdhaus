@@ -47,10 +47,10 @@ export default async function RehearsalBookingPage({ params }: { params: Promise
 
   const now = new Date();
   const today = chicagoDate(now);
-  const monday = addDays(today, -((weekdayOf(today) + 6) % 7)); // weeks run Monday–Sunday
+  const sunday = addDays(today, -weekdayOf(today)); // calendar weeks run Sunday–Saturday
   const [settings, { availability }, bookings, series] = await Promise.all([
     getRehearsalSettings(),
-    loadAvailability({ viewerBandId: band.id, fromDate: monday, now }),
+    loadAvailability({ viewerBandId: band.id, fromDate: sunday, now }),
     listBandBookings(band.id),
     listBandSeries(band.id, now),
   ]);
@@ -60,7 +60,6 @@ export default async function RehearsalBookingPage({ params }: { params: Promise
     token,
     bandName: band.name,
     contactEmail: CONTACT_EMAIL,
-    firstMonday: monday,
     today,
     days: view.days.map((d) => ({
       date: d.date,
