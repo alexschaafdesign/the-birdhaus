@@ -7,6 +7,7 @@ import { SITE_URL } from '@/lib/site';
 import ShowForm from '@/components/admin/ShowForm';
 import ShareLinkBox from '@/components/admin/ShareLinkBox';
 import ShowOverview from '@/components/admin/ShowOverview';
+import ShowBookingNotes from '@/components/admin/ShowBookingNotes';
 import { loadShowFormData } from './form-data';
 
 export const dynamic = 'force-dynamic';
@@ -30,6 +31,11 @@ export default async function ShowOverviewPage({ params }: { params: Promise<{ i
   ]);
   if (!data || !facts) notFound();
 
+  // This date's notes from the Booking calendar (booking_days), edited in place.
+  const [bookingDay] = await sql<{ title: string | null; notepad: string | null; unavailable: boolean }[]>`
+    select title, notepad, unavailable from booking_days where date = ${data.row.date}
+  `;
+
   const shareToken = await getOrCreateShareToken(showId);
   const shareUrl = shareToken ? `${SITE_URL}/hub/${shareToken}` : null;
 
@@ -45,6 +51,12 @@ export default async function ShowOverviewPage({ params }: { params: Promise<{ i
         bandsWithInputs={counts?.bands_with_inputs ?? 0}
         activeBandCount={counts?.active_band_count ?? 0}
         settlementSaved={counts?.settlement_saved ?? false}
+      />
+      <ShowBookingNotes
+        date={data.row.date}
+        initialTitle={bookingDay?.title ?? ''}
+        initialNotepad={bookingDay?.notepad ?? ''}
+        unavailable={bookingDay?.unavailable ?? false}
       />
       {shareUrl && <ShareLinkBox showId={showId} initialUrl={shareUrl} />}
       <ShowForm

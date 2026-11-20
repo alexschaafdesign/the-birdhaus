@@ -42,3 +42,21 @@ test('auto board drops load-in/soundchecks and mutes doors', () => {
     { time: '7:30pm', label: 'Band A' },
   ]);
 });
+
+test('show times come from the schedule: doors row and first set', async () => {
+  const { timesFromSchedule, scheduleStartTime } = await import('./schedule-board.ts');
+  assert.equal(scheduleStartTime('8–8:30pm'), '8:00pm');
+  assert.equal(scheduleStartTime('10:45 PM'), '10:45pm');
+  assert.equal(scheduleStartTime('TBD'), null);
+  assert.deepEqual(
+    timesFromSchedule([
+      { time: '4:00pm', label: 'Sound engineer arrives — bands can start loading in' },
+      { time: '4:30pm', label: 'Ray Gun Youth soundcheck' },
+      { time: '7pm', label: 'Doors' },
+      { time: '8–8:30pm', label: 'Lent' },
+      { time: '11pm', label: 'House clear' },
+    ]),
+    { doorsTime: '7:00pm', showTime: '8:00pm' }
+  );
+  assert.deepEqual(timesFromSchedule([]), { doorsTime: null, showTime: null });
+});

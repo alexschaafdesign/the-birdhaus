@@ -189,6 +189,10 @@ export interface ShowFormInitialValues {
   squareItemId?: string | null;
   squareImageId?: string | null;
   squareLinks?: Array<{ tierLabel: string; amountCents: number; url: string | null }>;
+  // The doors / music times read off the show's Advance schedule (see
+  // lib/schedule-board timesFromSchedule). Where one is set, the schedule is
+  // where that time lives: the field shows it read-only, and a save writes it.
+  scheduleTimes?: { doorsTime: string | null; showTime: string | null };
 }
 
 interface FormState {
@@ -289,8 +293,8 @@ function initFormState(initial: ShowFormInitialValues | undefined, isPast: boole
     slugTouched: Boolean(initial?.slug),
     title: initial?.title ?? '',
     date: initial?.date ?? '',
-    doorsTime: initial?.doorsTime ?? '',
-    showTime: initial?.showTime ?? '',
+    doorsTime: initial?.scheduleTimes?.doorsTime ?? initial?.doorsTime ?? '',
+    showTime: initial?.scheduleTimes?.showTime ?? initial?.showTime ?? '',
     flyer: initial?.flyer ?? '',
     bands,
     description: initial?.description ?? '',
@@ -380,6 +384,12 @@ export default function ShowForm({
   const [view, setView] = useState<'show' | 'public'>(isPast ? 'public' : 'show');
   // What to render: a workspace tab shows only its section; the full (create)
   // form keeps the Show & lineup / Public page switch.
+  const scheduleTimes = initialValues?.scheduleTimes;
+  // A saved time that the schedule has since changed (schedules saved before
+  // times followed them). Saving the form writes the schedule's time.
+  const timesOutOfDate =
+    (scheduleTimes?.doorsTime && scheduleTimes.doorsTime !== (initialValues?.doorsTime ?? '')) ||
+    (scheduleTimes?.showTime && scheduleTimes.showTime !== (initialValues?.showTime ?? ''));
   const shows = (part: ShowFormSection) =>
     section ? section === part : part === 'public' ? view === 'public' : view === 'show';
   const [photosUploading, setPhotosUploading] = useState(false);
@@ -1416,7 +1426,8 @@ export default function ShowForm({
               value={form.doorsTime}
               onChange={(e) => set('doorsTime', e.target.value)}
               onBlur={(e) => set('doorsTime', formatShowTime(e.target.value))}
-              className={`${inputClass} w-full`}
+              readOnly={Boolean(scheduleTimes?.doorsTime)}
+              className={`${inputClass} w-full read-only:opacity-60`}
             />
           </div>
           <div className="flex-1">
@@ -1426,10 +1437,24 @@ export default function ShowForm({
               value={form.showTime}
               onChange={(e) => set('showTime', e.target.value)}
               onBlur={(e) => set('showTime', formatShowTime(e.target.value))}
-              className={`${inputClass} w-full`}
+              readOnly={Boolean(scheduleTimes?.showTime)}
+              className={`${inputClass} w-full read-only:opacity-60`}
             />
           </div>
         </div>
+        {(scheduleTimes?.doorsTime || scheduleTimes?.showTime) && initialValues?.id && (
+          <p className="sm:col-span-2 -mt-1 text-data-caption-13 text-surface-ink/60">
+            {scheduleTimes.doorsTime && scheduleTimes.showTime ? 'These come' : 'The locked time comes'} from the{' '}
+            <Link
+              href={`/admin/shows/${initialValues.id}/advance`}
+              className="underline decoration-dotted underline-offset-2 hover:text-accent-red"
+            >
+              Advance schedule
+            </Link>{' '}
+            — change them there and the public page, Portal and TV follow.
+            {timesOutOfDate && ' The public page still shows the old times: Save changes to update it.'}
+          </p>
+        )}
         <div className="sm:col-span-2">
           <ImageUploadField
             label="Flyer"
