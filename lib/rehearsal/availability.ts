@@ -76,6 +76,9 @@ export interface EngineInput {
   bookings: EngineBooking[];
   // The band looking (its own bookings show as requested/confirmed). Omit for admin.
   viewerBandId?: number;
+  // Bookings whose time counts as free (a band moving one may reuse its own
+  // time). They still show in `own`.
+  ignoreBookingIds?: number[];
   // First Chicago date to lay out (default: today). Days before the window
   // are still returned (no free time) so a week view has no holes.
   fromDate?: string;
@@ -303,6 +306,7 @@ export function computeAvailability(input: EngineInput): Availability {
     for (const bl of input.blackouts) add(bl, 'blackout');
     for (const bz of input.busy.intervals) add(bz, 'busy');
     for (const bk of holding) {
+      if (input.ignoreBookingIds?.includes(bk.id)) continue;
       add({ start: new Date(bk.startsAt.getTime() - bufferMs), end: new Date(bk.endsAt.getTime() + bufferMs) }, 'booked');
     }
     spans.sort((x, y) => x.start.getTime() - y.start.getTime());

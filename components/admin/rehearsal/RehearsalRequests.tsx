@@ -30,6 +30,7 @@ export interface RowView {
   expires: string;
   requested: string;
   repeat: string | null;
+  changeFrom: string | null; // a change request: the booking it replaces
 }
 
 const primary = buttonClassName('primary', 's');
@@ -138,9 +139,15 @@ export default function RehearsalRequests({
                     ↻ {label}
                   </span>
                 ))}
+                {first.changeFrom && <StatusMark tone="attention">change</StatusMark>}
                 {first.calendarUnchecked && <StatusMark tone="attention">calendar not checked</StatusMark>}
                 {!first.adminEmailed && <StatusMark tone="neutral">no email to you</StatusMark>}
               </header>
+              {first.changeFrom && (
+                <p className="text-body-3">
+                  Moving from <span className="font-bold">{first.changeFrom}</span> to:
+                </p>
+              )}
               <ul className="divide-y divide-surface-ink/20 text-body-3">
                 {group.map((r) => (
                   <li key={r.id} className="flex flex-wrap items-center gap-x-4 gap-y-1 py-2">

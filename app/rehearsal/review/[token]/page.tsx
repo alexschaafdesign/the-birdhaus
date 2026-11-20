@@ -121,6 +121,17 @@ export default async function ReviewPage({ params }: { params: Promise<{ token: 
                       </span>
                     )}
                     {repeatLabel(b) && <span className="opacity-70">↻ {repeatLabel(b)}</span>}
+                    {b.replacesStartsAt && b.replacesEndsAt && (
+                      <span className="opacity-70">
+                        Change from {sessionLabel(b.replacesStartsAt, b.replacesEndsAt)} ({b.replacesCatalogueId}
+                        {b.replacesStatus === 'confirmed'
+                          ? status === 'confirmed'
+                            ? ''
+                            : ', stays booked until you approve'
+                          : ''}
+                        ){status === 'confirmed' && b.replacesStatus === 'cancelled' ? ' — released' : ''}
+                      </span>
+                    )}
                     {clash && (
                       <span className="text-accent-red">Heads up: {clash.map((r) => REASON[r] ?? r).join('; ')}.</span>
                     )}

@@ -40,6 +40,12 @@ export interface AdminBooking {
   seriesFreq: Freq | null;
   seriesStart: Date | null; // first occurrence, for the "3rd Tuesday" label
   seriesOngoing: boolean;
+  // A change request: the booking it would replace (all null otherwise).
+  replacesId: number | null;
+  replacesCatalogueId: string | null;
+  replacesStartsAt: Date | null;
+  replacesEndsAt: Date | null;
+  replacesStatus: BookingStatus | null;
 }
 
 // "Weekly on Wednesdays" for a series booking, else null.
@@ -63,10 +69,13 @@ function select() {
            b.created_at as "createdAt",
            b.series_id::int as "seriesId", s.freq as "seriesFreq",
            (select min(f.starts_at) from rehearsal_bookings f where f.series_id = b.series_id) as "seriesStart",
-           (s.id is not null and s.until_date is null and s.occurrences is null) as "seriesOngoing"
+           (s.id is not null and s.until_date is null and s.occurrences is null) as "seriesOngoing",
+           o.id::int as "replacesId", o.catalogue_id as "replacesCatalogueId",
+           o.starts_at as "replacesStartsAt", o.ends_at as "replacesEndsAt", o.status as "replacesStatus"
     from rehearsal_bookings b
     join rehearsal_bands r on r.id = b.band_id
     left join rehearsal_series s on s.id = b.series_id
+    left join rehearsal_bookings o on o.id = b.replaces_booking_id
   `;
 }
 
@@ -125,15 +134,51 @@ export function groupByRequest(list: AdminBooking[]): AdminBooking[][] {
 
 // Confirms live pending bookings. Returns what was approved; anything else
 // (already decided, expired, already started) is left alone.
+//
+// An approved change replaces its original in the same transaction: the
+// original is cancelled and its payment record (paid, comped, …) moves to
+// the new booking, so a paid session isn't counted twice in the band's
+// totals. The new booking already carries the original's price.
 export async function approveBookings(ids: number[], now = new Date()): Promise<number[]> {
   if (ids.length === 0) return [];
-  const rows = await sql<{ id: number }[]>`
-    update rehearsal_bookings
-    set status = 'confirmed', decided_at = ${now}, updated_at = now()
-    where id in ${sql(ids)} and status = 'pending' and expires_at > ${now} and starts_at > ${now}
-    returning id::int as id
-  `;
-  return rows.map((r) => r.id);
+  const { approved, swapped } = await sql.begin(async (tx) => {
+    const rows = await tx<{ id: number; replacesBookingId: number | null }[]>`
+      update rehearsal_bookings
+      set status = 'confirmed', decided_at = ${now}, updated_at = now()
+      where id in ${sql(ids)} and status = 'pending' and expires_at > ${now} and starts_at > ${now}
+      returning id::int as id, replaces_booking_id::int as "replacesBookingId"
+    `;
+    const swapped: number[] = [];
+    for (const r of rows) {
+      if (!r.replacesBookingId) continue;
+      const [o] = await tx<
+        { status: BookingStatus; paymentStatus: PaymentStatus; paymentProvider: PaymentMethod | null; paymentRef: string | null; paidAt: Date | null }[]
+      >`
+        select status, payment_status as "paymentStatus", payment_provider as "paymentProvider",
+               payment_ref as "paymentRef", paid_at as "paidAt"
+        from rehearsal_bookings where id = ${r.replacesBookingId}
+        for update
+      `;
+      if (!o || o.status !== 'confirmed') continue; // already gone: the change just stands on its own
+      await tx`
+        update rehearsal_bookings
+        set payment_status = ${o.paymentStatus}, payment_provider = ${o.paymentProvider},
+            payment_ref = ${o.paymentRef}, paid_at = ${o.paidAt}, updated_at = now()
+        where id = ${r.id}
+      `;
+      await tx`
+        update rehearsal_bookings
+        set status = 'cancelled', cancelled_at = ${now}, cancelled_by = 'band',
+            payment_status = 'unpaid', payment_provider = null, payment_ref = null, paid_at = null,
+            updated_at = now()
+        where id = ${r.replacesBookingId}
+      `;
+      swapped.push(r.replacesBookingId);
+    }
+    return { approved: rows.map((r) => r.id), swapped };
+  });
+  await syncSeriesStatus(swapped);
+  return approved;
 }
 
 // Declines pending bookings (expired-but-unmarked ones too, so Alex can tidy).

@@ -60,6 +60,12 @@ export default async function RehearsalRequestsPage() {
     expires: shortDay(b.expiresAt),
     requested: shortDay(b.createdAt),
     repeat: repeatLabel(b),
+    changeFrom:
+      b.replacesStartsAt && b.replacesEndsAt
+        ? `${sessionLabel(b.replacesStartsAt, b.replacesEndsAt)} · ${b.replacesCatalogueId}${
+            b.replacesStatus === 'confirmed' ? ', confirmed until you approve' : ''
+          }`
+        : null,
   });
 
   return (

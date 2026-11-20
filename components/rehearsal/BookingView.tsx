@@ -47,6 +47,10 @@ export interface ViewBooking {
   expiresAt: string;
   canCancel: boolean;
   repeatLabel: string | null;
+  // Its day's open time if it moved (its own time counts as free); null = can't be changed.
+  changeFree: ViewSpan[] | null;
+  // A change the band asked for that's waiting for Alex (the original stays until then).
+  pendingChange: (ViewSpan & { id: number; note: string }) | null;
 }
 
 export interface BookingViewProps {
@@ -291,7 +295,9 @@ function PickPanel({
   onSave,
   onRemove,
   onClose,
+  changing = false,
 }: {
+  changing?: boolean; // moving a booking: one session, no repeats
   day: ViewDay;
   existing: Item | null;
   others: Item[]; // the request's other picks (their sessions are taken)
@@ -488,7 +494,13 @@ function PickPanel({
           </div>
         )}
 
-        {start && len && (
+        {start && len && changing && (
+          <p className="opacity-70">
+            {timeRange(start, endOf(start, len))} ({lengthLabel(len)}).
+          </p>
+        )}
+
+        {start && len && !changing && (
           <>
             <fieldset className="flex flex-col gap-2">
               <legend className={FORM.label}>Once or repeating</legend>
@@ -598,7 +610,7 @@ function PickPanel({
         )}
 
         <div className="flex flex-wrap items-center justify-end gap-3">
-          {existing && (
+          {existing && !changing && (
             <button type="button" onClick={onRemove} className={`${FORM.link} mr-auto`}>
               Remove
             </button>
@@ -609,7 +621,7 @@ function PickPanel({
             onClick={() => start && len && onSave({ start, minutes: len, repeat: rule })}
             className={`${FORM.primary} w-auto`}
           >
-            {existing ? 'Update' : 'Add to request'}
+            {changing ? 'Next' : existing ? 'Update' : 'Add to request'}
           </button>
         </div>
       </div>
@@ -636,9 +648,19 @@ export default function BookingView(props: BookingViewProps) {
   const [sent, setSent] = useState<string | null>(null);
   const [cancelling, setCancelling] = useState<number | null>(null);
   const [cancelError, setCancelError] = useState<{ id: number; message: string } | null>(null);
+  // Changing a booking: which one, and (once picked) the new time + note.
+  const [changing, setChanging] = useState<ViewBooking | null>(null);
+  const [changePick, setChangePick] = useState<{ start: string; minutes: number } | null>(null);
+  const [changeNote, setChangeNote] = useState('');
 
   const windowEnd = useMemo(() => new Date(props.windowEnd), [props.windowEnd]);
-  const dayByDate = useMemo(() => new Map(props.days.map((d) => [d.date, d])), [props.days]);
+  // While changing a booking, its own time counts as open on its day.
+  const days = useMemo(() => {
+    if (!changing?.changeFree) return props.days;
+    const date = chicagoDateOf(changing.start);
+    return props.days.map((d) => (d.date === date ? { ...d, free: changing.changeFree! } : d));
+  }, [props.days, changing]);
+  const dayByDate = useMemo(() => new Map(days.map((d) => [d.date, d])), [days]);
 
   // Same rule as the server (isOpenSpan): on the grid, an allowed length,
   // inside one free stretch, starting inside the window.
@@ -719,6 +741,11 @@ export default function BookingView(props: BookingViewProps) {
   }
 
   function savePanel(item: Item) {
+    if (changing) {
+      setChangePick({ start: item.start, minutes: item.minutes });
+      setPanel(null);
+      return;
+    }
     setItems((list) => (panel?.edit != null ? list.map((x, j) => (j === panel.edit ? item : x)) : [...list, item]));
     setPanel(null);
   }
@@ -806,6 +833,78 @@ export default function BookingView(props: BookingViewProps) {
     }
   }
 
+  function startChange(b: ViewBooking) {
+    setSent(null);
+    setPanel(null);
+    setReviewing(false);
+    setError(null);
+    setChanging(b);
+    setChangePick(null);
+    setChangeNote(b.note);
+    setMonth(chicagoDateOf(b.start).slice(0, 7));
+    setTimeout(() => calendarRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+  }
+
+  function stopChange() {
+    setChanging(null);
+    setChangePick(null);
+    setPanel(null);
+    setError(null);
+  }
+
+  async function sendChange(e: React.FormEvent) {
+    e.preventDefault();
+    if (!changing || !changePick) return;
+    setSending(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/rehearsal/book/${props.token}/change`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bookingId: changing.id, start: changePick.start, minutes: changePick.minutes, note: changeNote }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        setError(data?.error ?? "That didn't go through — try again.");
+        if (res.status === 409) router.refresh();
+        return;
+      }
+      setSent(
+        `Change requested (${data.catalogueId}): ${dayLabel(changePick.start)}, ${timeRange(changePick.start, endOf(changePick.start, changePick.minutes))}. ` +
+          (changing.status === 'confirmed'
+            ? `Your ${dayLabel(changing.start)} booking stays yours until Alex approves — you'll get an email either way.`
+            : `It replaces your earlier request. Alex will confirm by email.`),
+      );
+      stopChange();
+      router.refresh();
+      setTimeout(() => noticeRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 50);
+    } catch {
+      setError("That didn't go through — check your connection and try again.");
+    } finally {
+      setSending(false);
+    }
+  }
+
+  async function withdrawChange(b: ViewBooking) {
+    const c = b.pendingChange;
+    if (!c) return;
+    if (!confirm(`Withdraw your change to ${dayLabel(c.start)}, ${timeRange(c.start, c.end)}? ${dayLabel(b.start)} stays booked.`)) return;
+    setCancelling(b.id);
+    setCancelError(null);
+    try {
+      const res = await fetch(`/api/rehearsal/book/${props.token}/cancel`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bookingId: c.id }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) setCancelError({ id: b.id, message: data?.error ?? "Couldn't withdraw it — try again." });
+      router.refresh();
+    } finally {
+      setCancelling(null);
+    }
+  }
+
   async function cancel(b: ViewBooking) {
     if (!confirm(`Cancel ${dayLabel(b.start)}, ${timeRange(b.start, b.end)}?`)) return;
     setCancelling(b.id);
@@ -825,11 +924,11 @@ export default function BookingView(props: BookingViewProps) {
   }
 
   const live = props.bookings.filter((b) => b.status === 'pending' || b.status === 'confirmed').length;
-  const anyOpen = props.days.some((d) => d.free.length > 0);
+  const anyOpen = days.some((d) => d.free.length > 0);
   const panelDay = panel ? dayByDate.get(panel.date) : undefined;
 
   return (
-    <div className={`flex w-full max-w-5xl flex-col gap-10 ${items.length ? 'pb-36' : ''}`}>
+    <div className={`flex w-full max-w-5xl flex-col gap-10 ${items.length || changing ? 'pb-36' : ''}`}>
       <section aria-labelledby="hello" className="text-body-3 flex flex-col gap-3 leading-normal">
         <SectionHeader id="hello" label={`Rehearsal space · ${props.bandName}`} rule="m" />
         <p className="max-w-2xl">
@@ -867,8 +966,18 @@ export default function BookingView(props: BookingViewProps) {
                   <span className="opacity-70">Gear: {[b.gearNeeded.join(', '), b.gearNotes].filter(Boolean).join(' — ')}</span>
                 ) : null}
                 {b.status === 'declined' && b.declineReason && <span className="opacity-70">{b.declineReason}</span>}
-                <span className="ml-auto">
-                  {b.canCancel ? (
+                <span className="ml-auto flex gap-4">
+                  {b.changeFree && (
+                    <button
+                      type="button"
+                      onClick={() => startChange(b)}
+                      disabled={changing?.id === b.id}
+                      className={`${FORM.link} text-body-3 disabled:opacity-40`}
+                    >
+                      {changing?.id === b.id ? 'Changing…' : 'Change'}
+                    </button>
+                  )}
+                  {b.canCancel && (
                     <button
                       type="button"
                       onClick={() => cancel(b)}
@@ -877,15 +986,25 @@ export default function BookingView(props: BookingViewProps) {
                     >
                       {cancelling === b.id ? 'Cancelling…' : 'Cancel'}
                     </button>
-                  ) : b.status === 'pending' || b.status === 'confirmed' ? (
-                    <span className="opacity-70">
-                      Need to change it?{' '}
-                      <a href={`mailto:${props.contactEmail}?subject=${encodeURIComponent(b.catalogueId)}`} className={FORM.link}>
-                        Email Alex
-                      </a>
-                    </span>
-                  ) : null}
+                  )}
                 </span>
+                {b.pendingChange && (
+                  <p className="basis-full">
+                    <span className="opacity-70">Change requested → </span>
+                    <span className="font-bold">
+                      {dayLabel(b.pendingChange.start)} · {timeRange(b.pendingChange.start, b.pendingChange.end)}
+                    </span>
+                    <span className="opacity-70">, waiting for Alex. This one stays booked until then. </span>
+                    <button
+                      type="button"
+                      onClick={() => withdrawChange(b)}
+                      disabled={cancelling === b.id}
+                      className={`${FORM.link} disabled:opacity-40`}
+                    >
+                      Withdraw
+                    </button>
+                  </p>
+                )}
                 {cancelError?.id === b.id && (
                   <p role="alert" className={`${FORM.error} basis-full`}>
                     {cancelError.message}
@@ -895,7 +1014,10 @@ export default function BookingView(props: BookingViewProps) {
             ))}
           </ul>
         )}
-        <p className="text-body-3 opacity-70">You can cancel here up to {props.cancelCutoffHours} hours before a session.</p>
+        <p className="text-body-3 opacity-70">
+          Change a booking any time before it starts — Alex approves the new time. You can cancel here up to{' '}
+          {props.cancelCutoffHours} hours before a session.
+        </p>
         {props.series.length > 0 && (
           <div className="flex flex-col gap-1">
             <h3 className="text-data-overline-11 font-bold tracking-[--spacing(0.625)] uppercase">Repeating</h3>
@@ -1039,8 +1161,26 @@ export default function BookingView(props: BookingViewProps) {
                 <PickPanel
                   key={`${panel.date}-${panel.edit}`}
                   day={panelDay}
-                  existing={panel.edit !== null ? items[panel.edit] : null}
-                  others={items.filter((_, j) => j !== panel.edit)}
+                  changing={Boolean(changing)}
+                  existing={
+                    changing
+                      ? chicagoDateOf(changing.start) === panel.date
+                        ? {
+                            start: changePick && chicagoDateOf(changePick.start) === panel.date ? changePick.start : changing.start,
+                            minutes:
+                              changePick && chicagoDateOf(changePick.start) === panel.date
+                                ? changePick.minutes
+                                : (new Date(changing.end).getTime() - new Date(changing.start).getTime()) / 60_000,
+                            repeat: null,
+                          }
+                        : changePick && chicagoDateOf(changePick.start) === panel.date
+                          ? { ...changePick, repeat: null }
+                          : null
+                      : panel.edit !== null
+                        ? items[panel.edit]
+                        : null
+                  }
+                  others={changing ? [] : items.filter((_, j) => j !== panel.edit)}
                   pos={panel.pos}
                   isOpen={isOpen}
                   windowEnd={windowEnd}
@@ -1056,8 +1196,99 @@ export default function BookingView(props: BookingViewProps) {
         )}
       </section>
 
+      {/* Changing a booking: what's being moved, pinned to the bottom */}
+      {changing && !changePick && (
+        <div className="bg-surface-paper border-surface-ink fixed inset-x-0 bottom-0 z-30 border-t-2">
+          <div className="text-body-3 mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-x-6 gap-y-2 px-4 py-3 sm:px-8">
+            <p className="min-w-0 flex-1">
+              <span className="font-bold">
+                Changing {dayLabel(changing.start)} · {timeRange(changing.start, changing.end)}
+              </span>
+              <span className="opacity-70"> — tap a day for the new time, or the same day for a different time or length.</span>
+            </p>
+            <span className="flex items-center gap-4">
+              <button
+                type="button"
+                onClick={() =>
+                  setChangePick({
+                    start: changing.start,
+                    minutes: (new Date(changing.end).getTime() - new Date(changing.start).getTime()) / 60_000,
+                  })
+                }
+                className={FORM.link}
+              >
+                Just edit the note
+              </button>
+              <button type="button" onClick={stopChange} className={FORM.secondary}>
+                Keep it as is
+              </button>
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* Changing a booking: review and send */}
+      {changing && changePick && (
+        <>
+          <div aria-hidden onClick={() => setChangePick(null)} className="bg-surface-ink/40 fixed inset-0 z-40" />
+          <form
+            role="dialog"
+            aria-modal="true"
+            aria-label="Send your change"
+            onSubmit={sendChange}
+            onKeyDown={(e) => e.key === 'Escape' && setChangePick(null)}
+            className="bg-surface-paper border-surface-ink text-body-3 fixed inset-x-0 bottom-0 z-50 flex max-h-[90vh] flex-col gap-5 overflow-y-auto border-t-2 p-4 pb-6 sm:p-6 lg:inset-x-auto lg:top-1/2 lg:bottom-auto lg:left-1/2 lg:w-[36rem] lg:-translate-x-1/2 lg:-translate-y-1/2 lg:border-2"
+          >
+            <div className="flex items-baseline justify-between gap-4">
+              <p className={FORM.label}>Change {changing.catalogueId}</p>
+              <button type="button" onClick={() => setChangePick(null)} className={`${FORM.link} text-data-caption-13`}>
+                Back
+              </button>
+            </div>
+            <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1">
+              <dt className="opacity-70">From</dt>
+              <dd>
+                {dayLabel(changing.start)} · {timeRange(changing.start, changing.end)}
+              </dd>
+              <dt className="opacity-70">To</dt>
+              <dd className="font-bold">
+                {dayLabel(changePick.start)} · {timeRange(changePick.start, endOf(changePick.start, changePick.minutes))} (
+                {lengthLabel(changePick.minutes)})
+              </dd>
+            </dl>
+            <p className="opacity-70">
+              {changing.status === 'confirmed'
+                ? `Alex approves changes like a new request. Until then your ${dayLabel(changing.start)} booking stays yours; if the change isn't approved, nothing moves.`
+                : 'This replaces your request — Alex will confirm the new time by email.'}
+            </p>
+            <div>
+              <label htmlFor="change-note" className={FORM.label}>
+                Note to Alex (optional)
+              </label>
+              <textarea
+                id="change-note"
+                value={changeNote}
+                onChange={(e) => setChangeNote(e.target.value)}
+                maxLength={2000}
+                rows={3}
+                placeholder="Why the change, or anything else I should know"
+                className={FORM.field}
+              />
+            </div>
+            {error && (
+              <p role="alert" className={FORM.error}>
+                {error}
+              </p>
+            )}
+            <button type="submit" disabled={sending} className={FORM.primary}>
+              {sending ? 'Sending…' : 'Send change request'}
+            </button>
+          </form>
+        </>
+      )}
+
       {/* The request bar, pinned to the bottom of the screen */}
-      {items.length > 0 && !reviewing && (
+      {items.length > 0 && !reviewing && !changing && (
         <div className="bg-surface-paper border-surface-ink fixed inset-x-0 bottom-0 z-30 border-t-2">
           <div className="text-body-3 mx-auto flex max-w-5xl flex-col gap-2 px-4 py-3 sm:px-8">
             {nudge && (

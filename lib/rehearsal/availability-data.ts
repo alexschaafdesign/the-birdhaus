@@ -21,8 +21,23 @@ import {
 // postponed, announced or not); Not-available days from booking_days.
 
 export async function loadAvailability(
-  opts: { viewerBandId?: number; fromDate?: string; now?: Date; forceCalendar?: boolean } = {},
-): Promise<{ availability: Availability; feeds: FeedStatus[]; settings: Awaited<ReturnType<typeof getRehearsalSettings>> }> {
+  opts: {
+    viewerBandId?: number;
+    fromDate?: string;
+    now?: Date;
+    forceCalendar?: boolean;
+    // Treat these bookings' time as free (validating a change).
+    ignoreBookingIds?: number[];
+    // Also return, per booking, its day's free time with that booking left
+    // out: what a band sees when moving it.
+    freeIgnoring?: number[];
+  } = {},
+): Promise<{
+  availability: Availability;
+  feeds: FeedStatus[];
+  settings: Awaited<ReturnType<typeof getRehearsalSettings>>;
+  freeIgnoring: Map<number, Interval[]>;
+}> {
   const now = opts.now ?? new Date();
   const [settings, windows] = await Promise.all([getRehearsalSettings(), getDayWindows()]);
 
@@ -63,7 +78,7 @@ export async function loadAvailability(
     getBusyTimes(settings.icsFeedUrls, spanStart, spanEnd, { now, force: opts.forceCalendar }),
   ]);
 
-  const availability = computeAvailability({
+  const input = {
     now,
     settings,
     windows,
@@ -73,10 +88,22 @@ export async function loadAvailability(
     busy: calendar.busy,
     bookings: bookings.map((r): EngineBooking => ({ ...r })),
     viewerBandId: opts.viewerBandId,
+    ignoreBookingIds: opts.ignoreBookingIds,
     fromDate,
-  });
+  };
+  const availability = computeAvailability(input);
 
-  return { availability, feeds: calendar.feeds, settings };
+  const freeIgnoring = new Map<number, Interval[]>();
+  for (const id of opts.freeIgnoring ?? []) {
+    const b = bookings.find((x) => x.id === id);
+    if (!b) continue;
+    const date = chicagoDate(b.startsAt);
+    if (date < fromDate) continue;
+    const day = computeAvailability({ ...input, ignoreBookingIds: [id], fromDate: date }).days[0];
+    if (day?.date === date) freeIgnoring.set(id, day.free);
+  }
+
+  return { availability, feeds: calendar.feeds, settings, freeIgnoring };
 }
 
 // Why each of these bookings would now clash (a show, Not-available day,
