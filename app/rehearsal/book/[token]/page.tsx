@@ -153,7 +153,6 @@ export default async function RehearsalBookingPage({ params }: { params: Promise
 
   return (
     <SiteFrame stats={null}>
-      <h1 className="sr-only">Book the rehearsal space — {band.name}</h1>
       <BookingView {...props} />
     </SiteFrame>
   );

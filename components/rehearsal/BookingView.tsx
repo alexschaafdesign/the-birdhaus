@@ -969,16 +969,21 @@ export default function BookingView(props: BookingViewProps) {
 
   return (
     <div className={`flex w-full max-w-5xl flex-col gap-10 ${changing ? 'pb-36' : items.length ? 'pb-40 lg:pb-0' : ''}`}>
-      <section aria-labelledby="hello" className="text-body-3 flex flex-col gap-3 leading-normal">
-        <SectionHeader id="hello" label={`Rehearsal space · ${props.bandName}`} rule="m" />
-        <p className="max-w-2xl">
-          Tap a day, pick a start time and how long — once or repeating — then send your request. I&apos;ll confirm by email
-          with the address.
-          {props.paymentsEnabled &&
-            ` ${money(props.priceCents)} per session${
-              props.repeatPriceCents !== props.priceCents ? `, ${money(props.repeatPriceCents)} per session when it repeats` : ''
-            }.`}
+      {/* Whose page this is: the band's name, big. It's their own private link. */}
+      <section aria-labelledby="hello" className="flex flex-col gap-3">
+        <p className="text-data-overline-11 text-accent-red font-bold tracking-[--spacing(0.625)] uppercase">
+          Rehearsal space · your booking page
         </p>
+        <h1 id="hello" className="text-display-2 leading-[0.95] font-bold break-words">
+          {props.bandName}
+        </h1>
+        <span aria-hidden className="bg-surface-ink block h-1.5 w-full" />
+        {props.paymentsEnabled && (
+          <p className="text-body-3 opacity-70">
+            {money(props.priceCents)} per session
+            {props.repeatPriceCents !== props.priceCents ? `, ${money(props.repeatPriceCents)} per session when it repeats` : ''}.
+          </p>
+        )}
       </section>
 
       {/* Your bookings */}
