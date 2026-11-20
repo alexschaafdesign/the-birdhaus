@@ -38,10 +38,12 @@ export default function BookingCalendar({
   onPaintDay: (date: string) => void;
 }) {
   const todayDate = parseLocalDate(today);
-  // Opens on the season being planned (or today, once that's in the past);
+  // Opens on the selected day's month (a ?date= link), else the season being planned (or today, once that's in the past);
   // the Today button still jumps to the current month.
   const [cursor, setCursor] = useState(() =>
-    today < PLANNING_SEASON_START
+    selectedDate
+      ? { year: Number(selectedDate.slice(0, 4)), month: Number(selectedDate.slice(5, 7)) - 1 }
+      : today < PLANNING_SEASON_START
       ? { year: Number(PLANNING_SEASON_START.slice(0, 4)), month: Number(PLANNING_SEASON_START.slice(5, 7)) - 1 }
       : { year: todayDate.getFullYear(), month: todayDate.getMonth() }
   );
