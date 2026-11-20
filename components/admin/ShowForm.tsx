@@ -1450,7 +1450,8 @@ export default function ShowForm({
 
       <Section
         title="Bands"
-        collapsible
+        // Its own tab in the workspace: always open there.
+        collapsible={!section}
         action={
           <div className="flex items-center gap-3">
             <label className="flex items-center gap-2 text-data-caption-13 text-surface-ink/60">
@@ -1591,7 +1592,7 @@ export default function ShowForm({
         />
       </Section>
 
-      <Section title="Tickets & visibility" collapsible>
+      <Section title="Tickets & visibility" collapsible defaultOpen={Boolean(section) && !isPastShow}>
         <div className="grid gap-3 sm:grid-cols-2">
         <div>
           <label className={FORM.label}>Ticket URL</label>
