@@ -1,0 +1,404 @@
+import Link from 'next/link';
+import { sql } from '@/lib/db';
+import { addDays, chicagoDate, startOfChicagoDay, weekdayOf } from '@/lib/rehearsal/availability';
+import { getBusyTimes } from '@/lib/rehearsal/busy';
+import { listBlackouts } from '@/lib/rehearsal/blackouts';
+import { bookingsBetween, displayStatus } from '@/lib/rehearsal/decisions';
+import { getRehearsalSettings } from '@/lib/rehearsal/settings';
+import { timeRange } from '@/lib/rehearsal/format';
+import { ADMIN_TYPE, PageHeader, StatusMark } from '@/components/admin/ui';
+import { FORM } from '@/components/night/form';
+
+export const dynamic = 'force-dynamic';
+
+// The master calendar: one month grid with everything that claims a day —
+// shows, Booking's day plans / "not available" / marked-available dates,
+// submission date offers, rehearsal bookings and blocks, and busy times from
+// the rehearsal calendar feeds. Read-only: each item links to the page that
+// owns it (Shows, Booking, Rehearsal calendar), which is where edits happen.
+//
+// Each day gets one verdict at the top so "is this date free?" has a single
+// answer: Show > Not available > Held (an open offer) > Blocked (all day) >
+// Open for a show (marked available) > nothing.
+
+const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+const LAYERS = ['shows', 'booking', 'rehearsal', 'busy'] as const;
+type Layer = (typeof LAYERS)[number];
+const LAYER_LABELS: Record<Layer, string> = {
+  shows: 'Shows',
+  booking: 'Booking',
+  rehearsal: 'Rehearsal',
+  busy: 'Your calendar',
+};
+
+function sundayOf(date: string) {
+  return addDays(date, -weekdayOf(date));
+}
+
+function shiftMonth(month: string, n: number) {
+  const [y, m] = month.split('-').map(Number);
+  return new Date(Date.UTC(y, m - 1 + n, 1)).toISOString().slice(0, 7);
+}
+
+function monthName(month: string, opts: Intl.DateTimeFormatOptions) {
+  return new Date(`${month}-01T12:00:00Z`).toLocaleDateString('en-US', { ...opts, timeZone: 'UTC' });
+}
+
+function clip(a: { start: Date; end: Date }, from: Date, to: Date) {
+  const start = a.start > from ? a.start : from;
+  const end = a.end < to ? a.end : to;
+  return end > start ? { start, end } : null;
+}
+
+type Verdict = { kind: 'show' | 'away' | 'held' | 'blocked' | 'open'; label: string };
+
+const VERDICT_TINT: Record<Verdict['kind'], string> = {
+  show: 'bg-accent-red/15',
+  away: 'bg-surface-paper-shade',
+  held: 'bg-spectrum-violet/15',
+  blocked: 'bg-surface-ink/15',
+  open: '',
+};
+
+const VERDICT_MARK: Record<Verdict['kind'], string> = {
+  show: 'text-accent-red',
+  away: 'text-surface-ink/70',
+  held: 'text-surface-ink',
+  blocked: 'text-surface-ink/80',
+  open: 'border border-dotted border-surface-ink px-1',
+};
+
+export default async function MasterCalendarPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ month?: string; day?: string; hide?: string }>;
+}) {
+  const now = new Date();
+  const sp = await searchParams;
+  const thisMonth = chicagoDate(now).slice(0, 7);
+  const q = sp.month && /^\d{4}-(0[1-9]|1[0-2])$/.test(sp.month) ? sp.month : null;
+  const month = q ?? thisMonth;
+  const openDay = sp.day && /^\d{4}-\d{2}-\d{2}$/.test(sp.day) ? sp.day : null;
+  const hidden = new Set((sp.hide ?? '').split(',').filter((l): l is Layer => (LAYERS as readonly string[]).includes(l)));
+  const on = (l: Layer) => !hidden.has(l);
+
+  const monthEnd = addDays(`${shiftMonth(month, 1)}-01`, -1);
+  const first = sundayOf(`${month}-01`);
+  const last = addDays(sundayOf(monthEnd), 6);
+  const dayCount = Math.round((Date.parse(last) - Date.parse(first)) / 86_400_000) + 1;
+  const spanStart = startOfChicagoDay(first);
+  const spanEnd = startOfChicagoDay(addDays(last, 1));
+
+  const settings = await getRehearsalSettings();
+  const [shows, plans, available, offers, blackouts, busy, rehearsals] = await Promise.all([
+    sql<{ id: number; date: string; title: string; announced: boolean }[]>`
+      select id::int as id, date::text as date, title, announced from shows
+      where status = 'scheduled' and date between ${first}::date and ${last}::date
+      order by date, id
+    `,
+    sql<{ date: string; title: string; notepad: string; unavailable: boolean }[]>`
+      select date::text as date, title, notepad, unavailable from booking_days
+      where date between ${first}::date and ${last}::date
+    `,
+    sql<{ date: string }[]>`
+      select date::text as date from available_dates
+      where date between ${first}::date and ${last}::date
+    `,
+    sql<{ id: number; date: string; status: 'contacted' | 'confirmed'; band_name: string }[]>`
+      select o.id::int as id, o.date::text as date, o.status, s.band_name
+      from submission_date_offers o
+      join submissions s on s.id = o.submission_id
+      where o.status <> 'declined' and o.date between ${first}::date and ${last}::date
+      order by o.date, o.id
+    `,
+    listBlackouts(spanStart, spanEnd),
+    on('busy')
+      ? getBusyTimes(settings.icsFeedUrls, spanStart, spanEnd, { now })
+      : Promise.resolve({ busy: { intervals: [], checked: true }, feeds: [] }),
+    bookingsBetween(spanStart, spanEnd),
+  ]);
+
+  const today = chicagoDate(now);
+  const availableSet = new Set(available.map((a) => a.date));
+
+  const days = Array.from({ length: dayCount }, (_, i) => {
+    const d = addDays(first, i);
+    const from = startOfChicagoDay(d);
+    const to = startOfChicagoDay(addDays(d, 1));
+    const allDay = (c: { start: Date; end: Date }) => c.start.getTime() === from.getTime() && c.end.getTime() === to.getTime();
+    const dayShows = shows.filter((s) => s.date === d);
+    const plan = plans.find((p) => p.date === d);
+    const dayOffers = offers.filter((o) => o.date === d);
+    const blocks = blackouts
+      .map((b) => ({ b, c: clip(b, from, to) }))
+      .filter((x) => x.c)
+      .map(({ b, c }) => ({ id: b.id, note: b.note, allDay: allDay(c!), label: allDay(c!) ? 'all day' : timeRange(c!.start, c!.end) }));
+    const busyTimes = busy.busy.intervals
+      .map((iv) => clip(iv, from, to))
+      .filter((c): c is { start: Date; end: Date } => Boolean(c))
+      .map((c) => (allDay(c) ? 'all day' : timeRange(c.start, c.end)));
+    const dayRehearsals = rehearsals
+      .filter((b) => chicagoDate(b.startsAt) === d)
+      .map((b) => ({ ...b, shown: displayStatus(b, now) }))
+      .filter((b) => b.shown !== 'expired');
+
+    // Verdicts always consider every source, so hiding a layer never makes a
+    // taken day look free.
+    let verdict: Verdict | null = null;
+    if (dayShows.length) verdict = { kind: 'show', label: dayShows.some((s) => s.announced) ? 'Show' : 'Show (draft)' };
+    else if (plan?.unavailable) verdict = { kind: 'away', label: 'Not available' };
+    else if (dayOffers.some((o) => o.status === 'confirmed')) verdict = { kind: 'held', label: 'Confirmed offer' };
+    else if (dayOffers.length) verdict = { kind: 'held', label: 'Offered' };
+    else if (blocks.some((b) => b.allDay)) verdict = { kind: 'blocked', label: 'Blocked' };
+    else if (availableSet.has(d)) verdict = { kind: 'open', label: 'Open for a show' };
+
+    return { date: d, verdict, shows: dayShows, plan, offers: dayOffers, blocks, busy: busyTimes, rehearsals: dayRehearsals };
+  });
+
+  const qs = (over: Record<string, string | null>) => {
+    const p = new URLSearchParams();
+    const base: Record<string, string | null> = { month: q, hide: hidden.size ? [...hidden].join(',') : null, day: openDay, ...over };
+    for (const [k, v] of Object.entries(base)) if (v) p.set(k, v);
+    const s = p.toString();
+    return s ? `?${s}` : '?';
+  };
+  const toggleHref = (l: Layer) => {
+    const next = new Set(hidden);
+    if (next.has(l)) next.delete(l);
+    else next.add(l);
+    return qs({ hide: next.size ? [...next].join(',') : null, day: null });
+  };
+  const prev = shiftMonth(month, -1);
+  const next = shiftMonth(month, 1);
+  const drawer = openDay ? days.find((d) => d.date === openDay) : undefined;
+  const nav = `text-body-3 ${ADMIN_TYPE.link}`;
+
+  return (
+    <main className="mx-auto max-w-6xl space-y-6 px-4 pt-8 pb-16 sm:px-8">
+      <PageHeader
+        overline="Everything"
+        title="Calendar"
+        description={monthName(month, { month: 'long', year: 'numeric' })}
+        actions={
+          <div className="flex gap-4">
+            <Link href={qs({ month: prev, day: null })} className={nav}>← {monthName(prev, { month: 'short' })}</Link>
+            {month !== thisMonth && <Link href={qs({ month: null, day: null })} className={nav}>This month</Link>}
+            <Link href={qs({ month: next, day: null })} className={nav}>{monthName(next, { month: 'short' })} →</Link>
+          </div>
+        }
+      />
+
+      <div className="flex flex-wrap items-center gap-2">
+        <span className={`${ADMIN_TYPE.overline} text-surface-ink/60 mr-1`}>Show</span>
+        {LAYERS.map((l) => (
+          <Link
+            key={l}
+            href={toggleHref(l)}
+            scroll={false}
+            aria-pressed={on(l)}
+            className={`text-data-caption-13 border border-surface-ink px-2 py-0.5 ${ADMIN_TYPE.focus} ${
+              on(l) ? 'bg-surface-ink text-surface-paper' : 'text-surface-ink/60 hover:bg-surface-paper-shade'
+            }`}
+          >
+            {LAYER_LABELS[l]}
+          </Link>
+        ))}
+      </div>
+
+      <ul className="text-data-caption-13 flex flex-wrap items-center gap-x-5 gap-y-2">
+        <li><span className="bg-accent-red/15 border-accent-red mr-1.5 inline-block size-3 border align-middle" />Show</li>
+        <li><span className="bg-surface-paper-shade border-surface-ink/20 mr-1.5 inline-block size-3 border align-middle" />Not available</li>
+        <li><span className="bg-spectrum-violet/15 border-spectrum-violet mr-1.5 inline-block size-3 border align-middle" />Offered to a band</li>
+        <li><span className="bg-surface-ink/15 border-surface-ink mr-1.5 inline-block size-3 border align-middle" />Blocked all day</li>
+        <li><span className="border-surface-ink border border-dotted px-1">Open for a show</span> = marked available in Booking</li>
+        <li><span className="border-spectrum-amber border-l-4 pl-1">busy</span> = your calendar</li>
+        <li className="text-surface-ink/60">Hiding a layer never hides a day&apos;s verdict</li>
+      </ul>
+      {!busy.busy.checked && (
+        <p className={`${FORM.notice} flex flex-wrap items-baseline gap-2`}>
+          <StatusMark tone="attention">Calendar</StatusMark>
+          Couldn&apos;t read a calendar feed — busy times may be missing.
+        </p>
+      )}
+
+      <div className="overflow-x-auto">
+        <div className="text-data-caption-13 grid min-w-[56rem] grid-cols-7 border-t border-l border-surface-ink">
+          {WEEKDAYS.map((w) => (
+            <div key={w} className={`${ADMIN_TYPE.overline} border-surface-ink border-r border-b-2 px-2 py-1`}>
+              {w}
+            </div>
+          ))}
+          {days.map((d) => {
+            const inMonth = d.date.startsWith(month);
+            const past = d.date < today;
+            return (
+              <Link
+                key={d.date}
+                href={qs({ day: d.date })}
+                scroll={false}
+                title="Open this day"
+                className={`group min-h-28 space-y-1 border-b border-r border-surface-ink p-1.5 hover:outline-2 hover:outline-accent-red hover:-outline-offset-2 ${ADMIN_TYPE.focus} ${
+                  d.verdict ? VERDICT_TINT[d.verdict.kind] : ''
+                } ${!inMonth ? 'opacity-35' : past ? 'opacity-50' : ''}`}
+              >
+                <div className="flex items-baseline justify-between gap-1">
+                  <span className={`font-bold ${d.date === today ? 'bg-surface-ink text-surface-paper px-1' : ''}`}>
+                    {Number(d.date.slice(8))}
+                    {!inMonth && (d.date.slice(8) === '01' || d.date === first)
+                      ? ` ${new Date(`${d.date}T12:00:00Z`).toLocaleDateString('en-US', { month: 'short', timeZone: 'UTC' })}`
+                      : ''}
+                  </span>
+                  {d.verdict && (
+                    <span className={`${ADMIN_TYPE.overline} truncate ${VERDICT_MARK[d.verdict.kind]}`}>{d.verdict.label}</span>
+                  )}
+                </div>
+                {on('shows') &&
+                  d.shows.map((s) => (
+                    <p key={s.id} className={`truncate font-bold ${s.announced ? 'text-accent-red' : 'text-surface-ink/70'}`} title={s.title}>
+                      {s.announced ? '' : 'Draft: '}{s.title}
+                    </p>
+                  ))}
+                {on('booking') && d.plan?.title && (
+                  <p className="truncate text-surface-ink/80" title={d.plan.notepad || d.plan.title}>
+                    {d.plan.unavailable ? '✕ ' : '✎ '}{d.plan.title}
+                  </p>
+                )}
+                {on('booking') &&
+                  d.offers.map((o) => (
+                    <p key={o.id} className="border-spectrum-violet truncate border-l-4 pl-1" title={`${o.band_name} · ${o.status}`}>
+                      {o.status === 'confirmed' ? '✓ ' : '? '}{o.band_name}
+                    </p>
+                  ))}
+                {on('rehearsal') &&
+                  d.blocks.map((b) => (
+                    <p key={b.id} className="truncate text-surface-ink/80" title={b.note}>
+                      ■ {b.label}{b.note ? ` · ${b.note}` : ''}
+                    </p>
+                  ))}
+                {on('rehearsal') &&
+                  d.rehearsals.map((b) => (
+                    <p
+                      key={b.id}
+                      className={`bg-surface-paper truncate px-1 py-0.5 ${
+                        b.conflict
+                          ? 'border-accent-red text-accent-red border-2 font-bold'
+                          : b.shown === 'confirmed'
+                            ? 'border-surface-ink border'
+                            : 'border-surface-ink border border-dashed'
+                      }`}
+                    >
+                      {b.conflict ? '⚠ ' : ''}{timeRange(b.startsAt, b.endsAt)} {b.bandName}
+                    </p>
+                  ))}
+                {on('busy') &&
+                  d.busy.map((t, i) => (
+                    <p key={i} className="border-spectrum-amber truncate border-l-4 pl-1">busy {t}</p>
+                  ))}
+              </Link>
+            );
+          })}
+        </div>
+      </div>
+
+      {drawer && (
+        <div>
+          <Link href={qs({ day: null })} scroll={false} aria-label="Close" className="bg-surface-ink/60 fixed inset-0 z-40" />
+          <aside
+            role="dialog"
+            aria-label={drawer.date}
+            className="fixed inset-y-0 right-0 z-50 w-full max-w-md space-y-5 overflow-y-auto border-l-2 border-surface-ink bg-surface-paper p-5 text-body-3"
+          >
+            <div className="flex items-baseline justify-between gap-4">
+              <h3 className={ADMIN_TYPE.heading}>
+                {new Date(`${drawer.date}T12:00:00Z`).toLocaleDateString('en-GB', {
+                  weekday: 'long',
+                  day: 'numeric',
+                  month: 'long',
+                  year: 'numeric',
+                  timeZone: 'UTC',
+                })}
+              </h3>
+              <Link href={qs({ day: null })} scroll={false} className={ADMIN_TYPE.link}>Close</Link>
+            </div>
+
+            <p className={`${ADMIN_TYPE.overline} ${drawer.verdict ? VERDICT_MARK[drawer.verdict.kind] : 'text-surface-ink/60'}`}>
+              {drawer.verdict?.label ?? 'Nothing on'}
+            </p>
+
+            <section className="space-y-1">
+              <span className={FORM.label}>Shows</span>
+              {drawer.shows.length ? (
+                <ul className="space-y-1">
+                  {drawer.shows.map((s) => (
+                    <li key={s.id}>
+                      <Link href={`/admin/shows/${s.id}`} className={ADMIN_TYPE.link}>
+                        {s.announced ? '' : 'Draft: '}{s.title}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p>
+                  <span className="text-surface-ink/60">None · </span>
+                  <Link href={`/admin/events/new?date=${drawer.date}`} className={ADMIN_TYPE.link}>Add a show on this date</Link>
+                </p>
+              )}
+            </section>
+
+            <section className="space-y-1">
+              <span className={FORM.label}>Booking</span>
+              {drawer.plan?.unavailable && <p className="font-bold">Not available{drawer.plan.title ? `: ${drawer.plan.title}` : ''}</p>}
+              {drawer.plan && !drawer.plan.unavailable && drawer.plan.title && <p className="font-bold">{drawer.plan.title}</p>}
+              {drawer.plan?.notepad.trim() && <p className="whitespace-pre-wrap text-surface-ink/80">{drawer.plan.notepad}</p>}
+              {availableSet.has(drawer.date) && <p>Marked available for a show</p>}
+              {drawer.offers.map((o) => (
+                <p key={o.id} className="border-spectrum-violet border-l-4 pl-2">
+                  Offered to {o.band_name} · {o.status === 'confirmed' ? 'confirmed' : 'contacted'}
+                </p>
+              ))}
+              {!drawer.plan && !availableSet.has(drawer.date) && drawer.offers.length === 0 && (
+                <p className="text-surface-ink/60">Nothing planned</p>
+              )}
+              <p>
+                <Link href={`/admin/booking?date=${drawer.date}`} className={ADMIN_TYPE.link}>Open in Booking</Link>
+              </p>
+            </section>
+
+            <section className="space-y-1">
+              <span className={FORM.label}>Rehearsal</span>
+              {drawer.rehearsals.map((b) => (
+                <p key={b.id}>
+                  <Link
+                    href={`/admin/rehearsal/bands/${b.bandId}`}
+                    className={`underline-offset-4 hover:underline ${b.conflict ? 'text-accent-red font-bold' : b.shown === 'confirmed' ? '' : 'text-surface-ink/70'}`}
+                  >
+                    {b.conflict ? '⚠ ' : ''}{timeRange(b.startsAt, b.endsAt)} {b.bandName} · {b.shown}
+                  </Link>
+                </p>
+              ))}
+              {drawer.blocks.map((b) => (
+                <p key={b.id}>■ Blocked {b.label}{b.note ? ` · ${b.note}` : ''}</p>
+              ))}
+              {drawer.rehearsals.length === 0 && drawer.blocks.length === 0 && <p className="text-surface-ink/60">No bookings or blocks</p>}
+              <p>
+                <Link href={`/admin/rehearsal/calendar?month=${drawer.date.slice(0, 7)}&day=${drawer.date}`} className={ADMIN_TYPE.link}>
+                  Add a rehearsal or block time
+                </Link>
+              </p>
+            </section>
+
+            {on('busy') && drawer.busy.length > 0 && (
+              <section className="space-y-1">
+                <span className={FORM.label}>Your calendar</span>
+                {drawer.busy.map((t, i) => (
+                  <p key={i} className="border-spectrum-amber border-l-4 pl-2">Busy {t}</p>
+                ))}
+              </section>
+            )}
+          </aside>
+        </div>
+      )}
+    </main>
+  );
+}

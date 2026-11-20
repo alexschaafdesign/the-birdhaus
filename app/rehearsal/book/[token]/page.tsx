@@ -94,6 +94,7 @@ export default async function RehearsalBookingPage({ params }: { params: Promise
     token,
     bandName: band.name,
     doorCode: band.doorCode && hasLiveSession ? band.doorCode : null,
+    address: settings.address.trim() && hasLiveSession ? settings.address.trim() : null,
     contactEmail: CONTACT_EMAIL,
     today,
     days: view.days.map((d) => ({

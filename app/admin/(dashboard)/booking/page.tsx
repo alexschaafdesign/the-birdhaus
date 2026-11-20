@@ -11,8 +11,10 @@ import BookingDashboard, {
 
 export const dynamic = 'force-dynamic';
 
-export default async function BookingPage() {
+export default async function BookingPage({ searchParams }: { searchParams: Promise<{ date?: string }> }) {
   const today = getTodayCentral();
+  const { date } = await searchParams;
+  const initialDate = date && /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : null;
   const yearStart = `${today.slice(0, 4)}-01-01`;
 
   const [prospects, days, availableDates, dateOffers, shows, feedToken] = await Promise.all([
@@ -56,6 +58,7 @@ export default async function BookingPage() {
         dateOffers={dateOffers}
         shows={shows}
         feedUrl={feedUrl(feedToken)}
+        initialDate={initialDate}
       />
     </main>
   );

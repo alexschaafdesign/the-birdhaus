@@ -4,6 +4,8 @@ import { getPhotographerCredits } from '@/lib/photographers';
 import { soundEngineersJoinFragment, type ShowSoundEngineer } from '@/lib/sound-engineers';
 import { guardTicketUrl } from '@/lib/staging';
 import type { ShowFormInitialValues } from '@/components/admin/ShowForm';
+import { getSavedScheduleRows } from '@/lib/advance';
+import { timesFromSchedule } from '@/lib/schedule-board';
 
 // Everything the show form needs, shared by the Overview, Lineup & crew and
 // Public page tabs (each renders its own section of the same form).
@@ -111,6 +113,8 @@ export async function loadShowFormData(showId: number): Promise<ShowFormData | n
       `
     : [];
 
+  const scheduleTimes = timesFromSchedule(await getSavedScheduleRows(showId));
+
   const initialValues: ShowFormInitialValues = {
     id: row.id,
     slug: row.slug,
@@ -158,6 +162,7 @@ export async function loadShowFormData(showId: number): Promise<ShowFormData | n
     squareItemId: row.square_item_id,
     squareImageId: row.square_image_id,
     squareLinks,
+    scheduleTimes,
   };
 
   return { row, initialValues, isPastShow, nightDate, confirmedEngineer, assignedPhotographerName };

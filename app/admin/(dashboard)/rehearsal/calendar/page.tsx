@@ -6,6 +6,7 @@ import { getBusyTimes } from '@/lib/rehearsal/busy';
 import { listBlackouts } from '@/lib/rehearsal/blackouts';
 import { bookingsBetween, displayStatus } from '@/lib/rehearsal/decisions';
 import { getRehearsalSettings } from '@/lib/rehearsal/settings';
+import { listBands } from '@/lib/rehearsal/bands';
 import { timeRange, shortDay } from '@/lib/rehearsal/format';
 import BlackoutPanel from '@/components/admin/rehearsal/BlackoutPanel';
 import CalendarDayDrawer, { type DrawerDay } from '@/components/admin/rehearsal/CalendarDayDrawer';
@@ -58,7 +59,7 @@ export default async function RehearsalCalendarPage({ searchParams }: { searchPa
   const spanEnd = startOfChicagoDay(addDays(last, 1));
 
   const settings = await getRehearsalSettings();
-  const [{ availability }, shows, away, blackouts, busy, bookings] = await Promise.all([
+  const [{ availability }, shows, away, blackouts, busy, bookings, bands] = await Promise.all([
     loadAvailability({ fromDate: first, now }),
     sql<{ date: string; title: string }[]>`
       select date::text as date, title from shows
@@ -71,6 +72,7 @@ export default async function RehearsalCalendarPage({ searchParams }: { searchPa
     listBlackouts(spanStart, spanEnd),
     getBusyTimes(settings.icsFeedUrls, spanStart, spanEnd, { now }),
     bookingsBetween(spanStart, spanEnd),
+    listBands(),
   ]);
 
   // Open stretches per day, as bands see them (slivers shorter than the
@@ -163,7 +165,7 @@ export default async function RehearsalCalendarPage({ searchParams }: { searchPa
         <li><span className="bg-surface-ink/15 border-surface-ink mr-1.5 inline-block size-3 border align-middle" />Block</li>
         <li><span className="border-spectrum-amber mr-1.5 border-l-4 pl-1">busy</span>= your calendar (times only)</li>
         <li><span className="border-surface-ink border px-1">confirmed</span> · <span className="border-surface-ink border border-dashed px-1">requested</span> · <span className="border-accent-red text-accent-red border-2 px-1 font-bold">⚠ conflict</span></li>
-        <li className="text-surface-ink/60">Click a date to block time</li>
+        <li className="text-surface-ink/60">Click a date to add a rehearsal or block time</li>
       </ul>
       {!busy.busy.checked && (
         <p className={`${FORM.notice} flex flex-wrap items-baseline gap-2`}>
@@ -251,7 +253,13 @@ export default async function RehearsalCalendarPage({ searchParams }: { searchPa
       {/* Wrapped so main's space-y margin lands on the div, not on the fixed scrim and panel. */}
       {drawerDay && (
         <div>
-          <CalendarDayDrawer key={drawerDay.date} day={drawerDay} closeHref={closeHref} />
+          <CalendarDayDrawer
+            key={drawerDay.date}
+            day={drawerDay}
+            closeHref={closeHref}
+            bands={bands.filter((b) => !b.archived).map((b) => ({ id: b.id, name: b.name }))}
+            past={drawerDay.date < today}
+          />
         </div>
       )}
 

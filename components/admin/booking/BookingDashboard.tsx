@@ -69,6 +69,7 @@ export default function BookingDashboard({
   dateOffers,
   shows: initialShows,
   feedUrl,
+  initialDate = null,
 }: {
   today: string;
   initialProspects: BookingProspect[];
@@ -77,6 +78,8 @@ export default function BookingDashboard({
   dateOffers: BookingDateOffer[];
   shows: BookingShow[];
   feedUrl: string;
+  // ?date= from the master calendar: open on that day with its panel showing.
+  initialDate?: string | null;
 }) {
   const [prospects, setProspects] = useState(() => initialProspects.map(normalizeProspect));
   const [days, setDays] = useState(() => new Map(initialDays.map((d) => [d.date, { ...d, unavailable: Boolean(d.unavailable) }])));
@@ -85,7 +88,7 @@ export default function BookingDashboard({
   );
   const [shows] = useState(() => initialShows.map((s) => ({ ...s, id: Number(s.id) })));
   const [view, setView] = useState<'calendar' | 'list'>('calendar');
-  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [selectedDate, setSelectedDate] = useState<string | null>(initialDate);
   const [paintAvailability, setPaintAvailability] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 

@@ -12,6 +12,10 @@ export interface AdminNavGroup {
 
 export const ADMIN_NAV: AdminNavGroup[] = [
   {
+    label: 'Calendar',
+    links: [{ href: '/admin/calendar', label: 'Calendar' }],
+  },
+  {
     label: 'Shows',
     links: [
       { href: '/admin/shows', label: 'Shows' },
