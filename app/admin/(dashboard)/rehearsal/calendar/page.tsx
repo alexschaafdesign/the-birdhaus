@@ -14,11 +14,20 @@ import { FORM } from '@/components/night/form';
 
 export const dynamic = 'force-dynamic';
 
-const WEEKS = 9;
-const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-function mondayOf(date: string) {
-  return addDays(date, -((weekdayOf(date) + 6) % 7));
+function sundayOf(date: string) {
+  return addDays(date, -weekdayOf(date));
+}
+
+// "YYYY-MM" shifted by n months.
+function shiftMonth(month: string, n: number) {
+  const [y, m] = month.split('-').map(Number);
+  return new Date(Date.UTC(y, m - 1 + n, 1)).toISOString().slice(0, 7);
+}
+
+function monthName(month: string, opts: Intl.DateTimeFormatOptions) {
+  return new Date(`${month}-01T12:00:00Z`).toLocaleDateString('en-US', { ...opts, timeZone: 'UTC' });
 }
 
 function clip(a: { start: Date; end: Date }, from: Date, to: Date) {
@@ -32,13 +41,19 @@ function lengthLabel(start: Date, end: Date): string {
   return `${Number.isInteger(h) ? h : h.toFixed(1)} h`;
 }
 
-export default async function RehearsalCalendarPage({ searchParams }: { searchParams: Promise<{ from?: string; day?: string }> }) {
+export default async function RehearsalCalendarPage({ searchParams }: { searchParams: Promise<{ month?: string; day?: string }> }) {
   const now = new Date();
   const sp = await searchParams;
-  const q = sp.from;
+  const thisMonth = chicagoDate(now).slice(0, 7);
+  const q = sp.month && /^\d{4}-(0[1-9]|1[0-2])$/.test(sp.month) ? sp.month : null;
+  const month = q ?? thisMonth;
   const openDay = sp.day && /^\d{4}-\d{2}-\d{2}$/.test(sp.day) ? sp.day : null;
-  const first = mondayOf(q && /^\d{4}-\d{2}-\d{2}$/.test(q) ? q : chicagoDate(now));
-  const last = addDays(first, WEEKS * 7 - 1);
+  // Whole weeks, Sunday to Saturday, covering the month; the spill-over days
+  // from the months either side are shown faded.
+  const monthEnd = addDays(`${shiftMonth(month, 1)}-01`, -1);
+  const first = sundayOf(`${month}-01`);
+  const last = addDays(sundayOf(monthEnd), 6);
+  const dayCount = Math.round((Date.parse(last) - Date.parse(first)) / 86_400_000) + 1;
   const spanStart = startOfChicagoDay(first);
   const spanEnd = startOfChicagoDay(addDays(last, 1));
 
@@ -70,7 +85,7 @@ export default async function RehearsalCalendarPage({ searchParams }: { searchPa
   }
   const today = chicagoDate(now);
 
-  const days = Array.from({ length: WEEKS * 7 }, (_, i) => {
+  const days = Array.from({ length: dayCount }, (_, i) => {
     const d = addDays(first, i);
     const from = startOfChicagoDay(d);
     const to = startOfChicagoDay(addDays(d, 1));
@@ -96,8 +111,10 @@ export default async function RehearsalCalendarPage({ searchParams }: { searchPa
     };
   });
 
-  const dayHref = (d: string) => `?${new URLSearchParams({ ...(q ? { from: q } : {}), day: d }).toString()}`;
-  const closeHref = q ? `?from=${q}` : '?';
+  const dayHref = (d: string) => `?${new URLSearchParams({ ...(q ? { month: q } : {}), day: d }).toString()}`;
+  const closeHref = q ? `?month=${q}` : '?';
+  const prev = shiftMonth(month, -1);
+  const next = shiftMonth(month, 1);
   const drawer = openDay ? days.find((d) => d.date === openDay) : undefined;
   const drawerDay: DrawerDay | null = drawer
     ? {
@@ -129,12 +146,12 @@ export default async function RehearsalCalendarPage({ searchParams }: { searchPa
       <PageHeader
         overline="Rehearsal"
         title="Calendar"
-        description={`${shortDay(spanStart)} – ${shortDay(new Date(spanEnd.getTime() - 1))}`}
+        description={monthName(month, { month: 'long', year: 'numeric' })}
         actions={
           <div className="flex gap-4">
-            <Link href={`?from=${addDays(first, -28)}`} className={nav}>← 4 weeks</Link>
-            <Link href="?" className={nav}>This week</Link>
-            <Link href={`?from=${addDays(first, 28)}`} className={nav}>4 weeks →</Link>
+            <Link href={`?month=${prev}`} className={nav}>← {monthName(prev, { month: 'short' })}</Link>
+            {month !== thisMonth && <Link href="?" className={nav}>This month</Link>}
+            <Link href={`?month=${next}`} className={nav}>{monthName(next, { month: 'short' })} →</Link>
           </div>
         }
       />
@@ -163,11 +180,13 @@ export default async function RehearsalCalendarPage({ searchParams }: { searchPa
             </div>
           ))}
           {days.map((d) => {
+            const inMonth = d.date.startsWith(month);
+            const past = d.date < today;
             const tint = d.shows.length ? 'bg-accent-red/15' : d.away ? 'bg-surface-paper-shade' : d.blackouts.some((b) => b.label === 'all day') ? 'bg-surface-ink/15' : '';
             return (
               <div
                 key={d.date}
-                className={`min-h-28 space-y-1 border-b border-r border-surface-ink p-1.5 ${tint} ${d.date < today ? 'opacity-50' : ''}`}
+                className={`min-h-28 space-y-1 border-b border-r border-surface-ink p-1.5 ${tint} ${!inMonth ? 'opacity-35' : past ? 'opacity-50' : ''}`}
               >
                 <Link
                   href={dayHref(d.date)}
@@ -177,13 +196,13 @@ export default async function RehearsalCalendarPage({ searchParams }: { searchPa
                 >
                   <span className={`font-bold ${d.date === today ? 'bg-surface-ink text-surface-paper px-1' : ''}`}>
                     {Number(d.date.slice(8))}
-                    {d.date.slice(8) === '01' || d.date === first
+                    {!inMonth && (d.date.slice(8) === '01' || d.date === first)
                       ? ` ${new Date(`${d.date}T12:00:00Z`).toLocaleDateString('en-US', { month: 'short', timeZone: 'UTC' })}`
                       : ''}
                   </span>
                   <span className="text-surface-ink/60">+</span>
                 </Link>
-                {d.open.length > 0 && (
+                {d.open.length > 0 && !past && (
                   <p className="truncate text-surface-ink/60" title={`Open ${d.open.join(', ')}`}>
                     open {d.open.join(', ')}
                   </p>
