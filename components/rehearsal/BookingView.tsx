@@ -88,6 +88,8 @@ interface Item {
 const TZ = 'America/Chicago';
 const METHOD_LABEL: Record<PaymentMethod, string> = { venmo: 'Venmo', square: 'Card', cash: 'Cash' };
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+// Shown on every band's page for day-of problems (door, gear, running late).
+const ALEX_PHONE = '920-809-5713';
 const FOCUS = 'focus-visible:outline-accent-red focus-visible:outline-2 focus-visible:outline-offset-2';
 const SOFT = " — or whatever works, we'll sort it out";
 // Gear picks are hidden on the review sheet for now (just the note). The
@@ -980,9 +982,14 @@ export default function BookingView(props: BookingViewProps) {
         </h1>
         <span aria-hidden className="bg-surface-ink block h-1.5 w-full" />
         {props.doorCode && (
-          <div className="border-surface-ink flex flex-wrap items-baseline gap-x-6 gap-y-1 self-start border-2 px-4 py-3">
+          <div className="border-surface-ink flex max-w-2xl flex-wrap items-baseline gap-x-6 gap-y-2 self-start border-2 px-4 py-3">
             <span className="text-data-overline-11 font-bold tracking-[--spacing(0.625)] uppercase">Door code</span>
             <span className="text-display-3 font-bold tracking-wider break-all">{props.doorCode}</span>
+            <p className="text-body-3 basis-full leading-normal">
+              Tap the keypad to wake it up, enter your code and then hit the lock icon (you can then lock it from the inside
+              just by turning the main dial). When leaving, just tap the pad again to wake it up, then hit the lock icon --
+              Please make sure it actually locks, sometimes its a little finicky.
+            </p>
             <span className="text-data-caption-13 basis-full opacity-70">For your booked sessions — please keep it to your band.</span>
           </div>
         )}
@@ -1070,6 +1077,12 @@ export default function BookingView(props: BookingViewProps) {
         <p className="text-body-3 opacity-70">
           You can edit a booking any time before it starts, but wait for confirmation to be sure -- I&apos;ll get an alert and
           will let you know asap!
+        </p>
+        <p className="text-body-3">
+          Call or text Alex with any issues -{' '}
+          <a href={`tel:${ALEX_PHONE.replace(/-/g, '')}`} className={`${FORM.link} font-bold`}>
+            {ALEX_PHONE}
+          </a>
         </p>
         {props.series.length > 0 && (
           <div className="flex flex-col gap-1">
