@@ -580,6 +580,7 @@ export interface MorningData {
   newConflicts: Array<{ booking: AdminBooking; reasons: Reason[] }>;
   expired: number;
   outstandingCents: number;
+  waitingSessions: number; // played, confirmed, not marked paid
   paymentsEnabled: boolean;
   // Rate card + flags for the soft usual-rate beside each session.
   rates: RateCardInput & { paymentsEnabled: boolean; estimatesEnabled: boolean };
@@ -631,7 +632,13 @@ export async function sendMorningEmail(d: MorningData): Promise<boolean> {
         d.seriesSkipped.map((x) => `${sessionLabel(x.start, x.end)} · ${x.bandName}`),
       ) +
       (d.expired ? emailP(`${d.expired} request${d.expired === 1 ? '' : 's'} lapsed; the bands were told.`) : '') +
-      (d.paymentsEnabled && d.outstandingCents ? emailP(`Outstanding: ${money(d.outstandingCents)}.`) : '') +
+      (d.paymentsEnabled && d.outstandingCents
+        ? emailP(`Outstanding: ${money(d.outstandingCents)}.`)
+        : !d.paymentsEnabled && d.waitingSessions
+          ? emailP(
+              `Waiting on payment: ${d.waitingSessions} session${d.waitingSessions === 1 ? '' : 's'} — ${emailLink(`${SITE_URL}/admin/rehearsal/requests`, 'mark them paid')}.`,
+            )
+          : '') +
       (d.calendarChecked
         ? ''
         : emailP(`<strong>Couldn't read your calendar this morning</strong> — busy-time conflicts weren't checked.`)) +
@@ -652,6 +659,9 @@ export async function sendMorningEmail(d: MorningData): Promise<boolean> {
         : []),
       ...(d.expired ? [`${d.expired} request(s) lapsed; the bands were told.`] : []),
       ...(d.paymentsEnabled && d.outstandingCents ? [`Outstanding: ${money(d.outstandingCents)}`] : []),
+      ...(!d.paymentsEnabled && d.waitingSessions
+        ? [`Waiting on payment: ${d.waitingSessions} session${d.waitingSessions === 1 ? '' : 's'} — ${SITE_URL}/admin/rehearsal/requests`]
+        : []),
       ...(d.calendarChecked ? [] : ["Couldn't read your calendar this morning."]),
       '',
       `${SITE_URL}/admin/rehearsal/calendar`,

@@ -238,6 +238,8 @@ export interface BandTotals {
   upcoming: number;
   paidCents: number;
   outstandingCents: number;
+  paidSessions: number; // marked paid (or comped)
+  waitingSessions: number; // played, confirmed, not marked paid yet
 }
 
 export async function bandTotals(bandId: number): Promise<BandTotals> {
@@ -247,7 +249,10 @@ export async function bandTotals(bandId: number): Promise<BandTotals> {
       count(*) filter (where status = 'confirmed' and starts_at > now())::int as upcoming,
       coalesce(sum(price_cents) filter (where payment_status = 'paid'), 0)::int as "paidCents",
       coalesce(sum(price_cents) filter (where status = 'confirmed' and payment_status = 'unpaid' and starts_at <= now()), 0)::int
-        as "outstandingCents"
+        as "outstandingCents",
+      count(*) filter (where status = 'confirmed' and payment_status in ('paid', 'comped'))::int as "paidSessions",
+      count(*) filter (where status = 'confirmed' and payment_status = 'unpaid' and starts_at <= now())::int
+        as "waitingSessions"
     from rehearsal_bookings
     where band_id = ${bandId}
   `;

@@ -45,7 +45,7 @@ export default async function RehearsalBandPage({ params }: { params: Promise<{ 
         <PageHeader overline="Rehearsal · Band" title={band.name} />
       </div>
 
-      <section className={`grid gap-4 ${settings.paymentsEnabled ? 'sm:grid-cols-4' : 'sm:grid-cols-2'}`}>
+      <section className="grid gap-4 sm:grid-cols-4">
         {[
           ['Sessions played', String(totals.sessions)],
           ['Coming up', String(totals.upcoming)],
@@ -54,7 +54,10 @@ export default async function RehearsalBandPage({ params }: { params: Promise<{ 
                 ['Paid', money(totals.paidCents)],
                 ['Outstanding', money(totals.outstandingCents)],
               ]
-            : []),
+            : [
+                ['Paid', String(totals.paidSessions)],
+                ['Waiting on payment', String(totals.waitingSessions)],
+              ]),
         ].map(([label, value]) => (
           <div key={label} className="border border-surface-ink px-4 py-3">
             <p className={`${ADMIN_TYPE.overline} text-surface-ink/60`}>{label}</p>
@@ -114,17 +117,14 @@ export default async function RehearsalBandPage({ params }: { params: Promise<{ 
                     <StatusMark tone={STATUS_TONE[status] ?? 'neutral'}>{status}</StatusMark>
                   </span>
                   {settings.paymentsEnabled && <span>{money(b.priceCents)}</span>}
-                  {settings.paymentsEnabled && status === 'confirmed' && b.paymentProvider && b.paymentStatus === 'paid' && (
-                    <span className="text-surface-ink/60">via {b.paymentProvider}</span>
-                  )}
                   {repeatLabel(b) && <span className="text-data-caption-13 text-surface-ink/70">↻ {repeatLabel(b)}</span>}
                   {b.declineReason && <span className="text-surface-ink/60">“{b.declineReason}”</span>}
                   {(status === 'confirmed' || status === 'pending') && (
                     <GearEdit id={b.id} options={settings.gearOptions} gearNeeded={b.gearNeeded} gearNotes={b.gearNotes} />
                   )}
-                  {settings.paymentsEnabled && status === 'confirmed' && (
+                  {status === 'confirmed' && (
                     <span className="ml-auto">
-                      <PaymentButtons id={b.id} status={b.paymentStatus} method={b.paymentMethod} />
+                      <PaymentButtons id={b.id} status={b.paymentStatus} method={b.paymentMethod} provider={b.paymentProvider} />
                     </span>
                   )}
                 </li>

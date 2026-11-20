@@ -167,8 +167,8 @@ export async function runDaily(opts: { now?: Date; force?: boolean } = {}): Prom
     (a, b) => a.startsAt.getTime() - b.startsAt.getTime(),
   );
   const tomorrow = upcoming.filter((b) => b.startsAt >= tomorrowStart && b.startsAt < dayAfterStart);
-  const [{ outstanding }] = await sql<{ outstanding: number }[]>`
-    select coalesce(sum(price_cents), 0)::int as outstanding from rehearsal_bookings
+  const [{ outstanding, waiting }] = await sql<{ outstanding: number; waiting: number }[]>`
+    select coalesce(sum(price_cents), 0)::int as outstanding, count(*)::int as waiting from rehearsal_bookings
     where status = 'confirmed' and payment_status = 'unpaid' and starts_at <= ${now}
   `;
 
@@ -190,6 +190,7 @@ export async function runDaily(opts: { now?: Date; force?: boolean } = {}): Prom
       newConflicts,
       expired: expiredRows.length,
       outstandingCents: outstanding,
+      waitingSessions: waiting,
       paymentsEnabled: settings.paymentsEnabled,
       rates: settings,
       calendarChecked,
