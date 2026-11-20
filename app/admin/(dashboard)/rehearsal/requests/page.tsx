@@ -51,6 +51,7 @@ export default async function RehearsalRequestsPage() {
     live: isLivePending(b, now),
     paymentStatus: b.paymentStatus,
     paymentMethod: b.paymentMethod,
+    paymentProvider: b.paymentProvider,
     gear: [b.gearNeeded.join(', '), b.gearNotes].filter(Boolean).join(' — '),
     note: b.note,
     clash: (reasons.get(b.id) ?? []).map((r) => REASON[r] ?? r),
@@ -60,6 +61,12 @@ export default async function RehearsalRequestsPage() {
     expires: shortDay(b.expiresAt),
     requested: shortDay(b.createdAt),
     repeat: repeatLabel(b),
+    changeFrom:
+      b.replacesStartsAt && b.replacesEndsAt
+        ? `${sessionLabel(b.replacesStartsAt, b.replacesEndsAt)} · ${b.replacesCatalogueId}${
+            b.replacesStatus === 'confirmed' ? ', confirmed until you approve' : ''
+          }`
+        : null,
   });
 
   return (

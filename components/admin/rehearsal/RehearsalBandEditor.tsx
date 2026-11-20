@@ -13,6 +13,7 @@ interface Band {
   phone: string;
   notes: string;
   rateNotes: string;
+  doorCode: string;
   archived: boolean;
   url: string | null;
   gear: string;
@@ -127,6 +128,17 @@ export default function RehearsalBandEditor({ band }: { band: Band }) {
         <label className="space-y-1.5">
           <span className={label}>Phone</span>
           <input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className={input} />
+        </label>
+        <label className="space-y-1.5 sm:col-span-2">
+          <span className={label}>Door code (shown on their booking page while they have a confirmed session)</span>
+          <input
+            value={form.doorCode}
+            maxLength={100}
+            onChange={(e) => setForm({ ...form, doorCode: e.target.value })}
+            placeholder="e.g. 4821#"
+            autoComplete="off"
+            className={`${input} sm:max-w-xs`}
+          />
         </label>
         <label className="space-y-1.5 sm:col-span-2">
           <span className={label}>Rate &amp; payment notes (only you see these; shown with their requests)</span>

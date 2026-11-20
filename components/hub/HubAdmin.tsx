@@ -388,37 +388,10 @@ export function HubAdminRecipients({ state }: { state: ShowAdvanceState }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  const [engineerEmail, setEngineerEmail] = useState(state.soundEngineer?.email ?? '');
-  const [savingEngineer, setSavingEngineer] = useState(false);
   const [extraEmails, setExtraEmails] = useState<string[]>(state.extraEmails);
   const [savingExtras, setSavingExtras] = useState(false);
 
-  const engineerDirty = engineerEmail !== (state.soundEngineer?.email ?? '');
   const extrasDirty = JSON.stringify(extraEmails) !== JSON.stringify(state.extraEmails);
-
-  async function saveEngineerEmail() {
-    if (!state.soundEngineer) return;
-    setSavingEngineer(true);
-    setError(null);
-    setNotice(null);
-    try {
-      const res = await fetch(`/api/admin/sound-engineers/${state.soundEngineer.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: engineerEmail }),
-      });
-      if (!res.ok) {
-        const d = await res.json().catch(() => null);
-        throw new Error(d?.error ?? `Save failed (${res.status})`);
-      }
-      setNotice('Sound engineer email saved.');
-      router.refresh();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Save failed');
-    } finally {
-      setSavingEngineer(false);
-    }
-  }
 
   async function saveExtras() {
     setSavingExtras(true);
@@ -466,65 +439,40 @@ export function HubAdminRecipients({ state }: { state: ShowAdvanceState }) {
         </div>
       )}
 
-      <ul className="space-y-3 text-body-3">
+      {/* Band and engineer contacts are read-only here: they're edited in one
+          place, the show's Lineup & crew tab (they save to each person's profile). */}
+      <ul className="space-y-2 text-body-3">
         {state.recipients.map((r) => (
-          // Key on the saved values so a successful save (which changes them via
-          // refresh) remounts the row with fresh, un-dirty state.
-          <BandContactRow
-            key={`${r.bandId}:${r.email ?? ''}:${r.paymentMethod ?? ''}`}
-            bandId={r.bandId}
-            name={r.name}
-            email={r.email}
-            paymentMethod={r.paymentMethod}
-            onSaved={(msg) => {
-              setNotice(msg);
-              setError(null);
-              router.refresh();
-            }}
-            onError={(msg) => {
-              setError(msg);
-              setNotice(null);
-            }}
-          />
+          <ContactLine key={r.bandId} name={r.name} email={r.email} payout={r.paymentMethod} />
         ))}
         {state.recipients.length === 0 && (
           <li className="text-surface-ink/60">No bands on this show yet.</li>
         )}
       </ul>
-      <p className="text-data-caption-13 text-surface-ink/60 -mt-1">
-        Email and payout handle save to the band&rsquo;s profile — the same values used on the
-        settlement and every future show.
-      </p>
 
       <div className="space-y-2 border-t border-surface-ink/20 pt-4">
         <p className="text-data-overline-11 font-bold leading-[1.3] tracking-[--spacing(0.625)] uppercase text-surface-ink/60">Sound engineer</p>
         {state.soundEngineer ? (
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-surface-ink">{state.soundEngineer.name}</span>
-            <input
-              type="email"
-              value={engineerEmail}
-              onChange={(e) => setEngineerEmail(e.target.value)}
-              placeholder="email — they'll get the invite + thread"
-              className={`${inputClass} flex-1 min-w-[14rem]`}
-              aria-label="Sound engineer email"
-            />
-            <button
-              type="button"
-              onClick={saveEngineerEmail}
-              disabled={savingEngineer || !engineerDirty}
-              className={buttonClass}
-            >
-              {savingEngineer ? 'Saving…' : 'Save'}
-            </button>
-          </div>
+          <ul className="text-body-3">
+            <ContactLine name={state.soundEngineer.name} email={state.soundEngineer.email} />
+          </ul>
         ) : (
           <p className="text-body-3 text-surface-ink/60">
-            No confirmed sound engineer on this show — confirm one on the show form to loop them
-            in.
+            No confirmed sound engineer on this show — confirm one on the Lineup &amp; crew tab to loop them in.
           </p>
         )}
       </div>
+
+      <p className="text-data-caption-13 text-surface-ink/60 -mt-1">
+        Emails and payout handles are edited on the{' '}
+        <Link
+          href={`/admin/shows/${state.showId}/lineup`}
+          className="underline decoration-dotted underline-offset-2 hover:text-accent-red"
+        >
+          Lineup &amp; crew tab
+        </Link>
+        {' '}— they save to each person&rsquo;s profile, used on the settlement and every future show.
+      </p>
 
       <div className="space-y-2 border-t border-surface-ink/20 pt-4">
         <p className="text-data-overline-11 font-bold leading-[1.3] tracking-[--spacing(0.625)] uppercase text-surface-ink/60">
@@ -594,76 +542,26 @@ export function HubAdminRecipients({ state }: { state: ShowAdvanceState }) {
   );
 }
 
-function BandContactRow({
-  bandId,
+// One read-only contact row: name, then email + payout (or a "no email" flag,
+// since a missing email means they won't get the invite).
+function ContactLine({
   name,
-  email: initialEmail,
-  paymentMethod,
-  onSaved,
-  onError,
+  email,
+  payout,
 }: {
-  bandId: number;
   name: string;
   email: string | null;
-  paymentMethod: string | null;
-  onSaved: (notice: string) => void;
-  onError: (error: string) => void;
+  payout?: string | null;
 }) {
-  const [email, setEmail] = useState(initialEmail ?? '');
-  const [venmo, setVenmo] = useState(paymentMethod ?? '');
-  const [saving, setSaving] = useState(false);
-  const emailDirty = email.trim() !== (initialEmail ?? '');
-  const venmoDirty = venmo.trim() !== (paymentMethod ?? '');
-  const dirty = emailDirty || venmoDirty;
-
-  async function save() {
-    setSaving(true);
-    try {
-      // Only send the fields that actually changed so a blank untouched field
-      // never clears the other value.
-      const payload: { contactEmail?: string; paymentMethod?: string } = {};
-      if (emailDirty) payload.contactEmail = email;
-      if (venmoDirty) payload.paymentMethod = venmo;
-      const res = await fetch(`/api/admin/bands/${bandId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-      if (!res.ok) {
-        const d = await res.json().catch(() => null);
-        throw new Error(d?.error ?? `Save failed (${res.status})`);
-      }
-      onSaved(`Saved ${name}'s contact details.`);
-    } catch (e) {
-      onError(e instanceof Error ? e.message : 'Save failed');
-    } finally {
-      setSaving(false);
-    }
-  }
-
   return (
-    <li className="space-y-1.5">
+    <li className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
       <span className="text-surface-ink">{name}</span>
-      <div className="flex items-center gap-2 flex-wrap">
-        <input
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          placeholder="contact email — they'll get the invite"
-          className={`${inputClass} flex-1 min-w-[14rem]`}
-          aria-label={`${name} contact email`}
-        />
-        <input
-          value={venmo}
-          onChange={(e) => setVenmo(e.target.value)}
-          placeholder="Payout handle (Venmo) — private"
-          className={`${inputClass} flex-1 min-w-[12rem]`}
-          aria-label={`${name} payout handle`}
-        />
-        <button type="button" onClick={save} disabled={saving || !dirty} className={buttonClass}>
-          {saving ? 'Saving…' : 'Save'}
-        </button>
-      </div>
+      {email ? (
+        <span className="text-surface-ink/60 break-all">{email}</span>
+      ) : (
+        <span className="text-data-caption-13 font-bold">no email — won&rsquo;t get the invite</span>
+      )}
+      {payout && <span className="text-surface-ink/60">· {payout}</span>}
     </li>
   );
 }

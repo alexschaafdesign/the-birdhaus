@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, after } from 'next/server';
 import { revalidatePath, revalidateTag } from 'next/cache';
 import { sql } from '@/lib/db';
 import { TV_FEED_TAG } from '@/lib/tv-feed';
@@ -32,7 +32,8 @@ import {
   type ShowSoundEngineer,
 } from '@/lib/sound-engineers';
 import { SITE_URL } from '@/lib/site';
-import { requireAdmin } from '@/lib/admin-session';
+import { getAdminSession, requireAdmin } from '@/lib/admin-session';
+import { notifySoundEngineerNeeded } from '@/lib/sound-queue';
 
 // Maps the camelCase keys the client sends (matching the `Show` interface) to
 // their snake_case columns for the plain text/URL fields. Fields with their own
@@ -216,6 +217,23 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     updates.push({ column: 'advance_sent', value: Boolean(body.advanceSent) });
   }
 
+  // Opt-in sound-coverage flag. Turning it on (off -> on) emails the
+  // sound-coverage crew once the save commits; see lib/sound-queue.ts.
+  let needsSoundEngineerTurnedOn = false;
+  if ('needsSoundEngineer' in body) {
+    const next = Boolean(body.needsSoundEngineer);
+    if (next) {
+      const [current] = await sql<Array<{ needs_sound_engineer: boolean }>>`
+        select needs_sound_engineer from shows where id = ${showId}
+      `;
+      needsSoundEngineerTurnedOn = Boolean(current) && !current.needs_sound_engineer;
+      if (!needsSoundEngineerTurnedOn) {
+        console.log(`[sound-queue] no notice show=${showId} reason=already-flagged`);
+      }
+    }
+    updates.push({ column: 'needs_sound_engineer', value: next });
+  }
+
   if ('targetBandCount' in body) {
     updates.push({ column: 'target_band_count', value: normalizeTargetBandCount(body.targetBandCount) });
   }
@@ -333,6 +351,11 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     // An edit can move a show's date onto/off today, changing tonight's TV
     // program — drop the feed cache so the next /api/tv poll re-reads.
     revalidateTag(TV_FEED_TAG, { expire: 0 });
+
+    if (needsSoundEngineerTurnedOn) {
+      const actor = await getAdminSession();
+      after(() => notifySoundEngineerNeeded(showId, actor?.userId ?? null));
+    }
 
     return NextResponse.json(row);
   } catch (error) {

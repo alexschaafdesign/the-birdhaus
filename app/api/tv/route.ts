@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getActiveTvImages } from '@/lib/tv-images';
-import { getProgramOrBlank, getActiveCards, overrideActive, type TvProgram } from '@/lib/tv-program';
-import { getCachedTvFeed } from '@/lib/tv-feed';
+import { getProgram, getGlobalProgram, getActiveCards, overrideActive, type TvProgram } from '@/lib/tv-program';
+import { getCachedTvFeed, withAutoBoard } from '@/lib/tv-feed';
 import { getPresetBoard } from '@/lib/tv-presets';
 import { cloudinaryTransform } from '@/lib/cloudinary-url';
 import { R2_PUBLIC_BASE } from '@/lib/r2-public';
@@ -72,7 +72,8 @@ export async function GET(request: Request) {
   let cards: Array<{ headline: string; subtext: string | null; image: string | null }>;
   let poolImages: Array<{ url: string; caption: string | null }>;
   if (previewShowId !== null) {
-    program = await getProgramOrBlank(previewShowId);
+    const own = await getProgram(previewShowId);
+    program = await withAutoBoard(own ?? (await getGlobalProgram()), previewShowId, own !== null);
     [cards, poolImages] = await Promise.all([
       getActiveCards(previewShowId),
       getActiveTvImages(),

@@ -127,7 +127,9 @@ export async function updateSoundEngineerEmail(id: number, email: string): Promi
 }
 
 // Upcoming shows with no CONFIRMED sound engineer — the work-list behind the
-// 'sound_coverage' crew focus widget. `sound_engineer_name` is the denormalized
+// 'sound_coverage' crew focus widget. Only scheduled shows flagged "needs a
+// sound engineer" (opt-in, 119) count; nights Alex runs himself stay off the
+// list. `sound_engineer_name` is the denormalized
 // cache of the confirmed engineer (kept in sync by setShowSoundEngineers), so
 // null there means the slot is still open. `askedNames` surfaces any pending
 // outreach so the widget can distinguish "asked Jordan" from a cold gap.
@@ -153,6 +155,7 @@ export async function getUpcomingShowsMissingSoundEngineer(): Promise<ShowMissin
       ), '{}') as asked_names
     from shows s
     where s.date >= ${today} and s.sound_engineer_name is null
+      and s.needs_sound_engineer and s.status = 'scheduled'
     order by s.date asc
   `;
   return rows.map((r) => ({

@@ -22,7 +22,8 @@ export const FOCUS_AREAS: FocusArea[] = [
   {
     key: 'sound_coverage',
     label: 'Sound engineer coverage',
-    description: 'Make sure every upcoming show has a confirmed sound engineer.',
+    description:
+      'Find a sound engineer for every show flagged "Needs a sound engineer". Gets an email each time a show is flagged.',
   },
 ];
 

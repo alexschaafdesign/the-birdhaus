@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/admin-session';
 import { updateBand, validateNewBand } from '@/lib/rehearsal/bands';
 
-// Edit a band's contact details, notes and archived flag.
+// Edit a band's contact details, notes, door code and archived flag.
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const denied = await requireAdmin();
   if (denied) return denied;
@@ -12,7 +12,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   const parsed = validateNewBand(body);
   if (!parsed.ok) return NextResponse.json({ error: parsed.error }, { status: 400 });
   const rateNotes = typeof body?.rateNotes === 'string' ? body.rateNotes : '';
-  const ok = await updateBand(id, { ...parsed.value, archived: body?.archived === true, rateNotes });
+  const doorCode = typeof body?.doorCode === 'string' ? body.doorCode : '';
+  if (doorCode.trim().length > 100) return NextResponse.json({ error: 'Door code is too long (max 100 characters).' }, { status: 400 });
+  const ok = await updateBand(id, { ...parsed.value, archived: body?.archived === true, rateNotes, doorCode });
   if (!ok) return NextResponse.json({ error: 'Band not found' }, { status: 404 });
   return NextResponse.json({ ok: true });
 }

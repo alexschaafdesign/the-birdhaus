@@ -3,6 +3,8 @@ import { sql } from './db';
 import { getProgram, getGlobalProgram, getActiveCards } from './tv-program';
 import type { TvProgram } from './tv-program';
 import { getActiveTvImages } from './tv-images';
+import { getSavedScheduleRows } from './advance';
+import { buildBoardFromSchedule } from './schedule-board';
 
 // The in-venue kiosk polls /api/tv once a minute, 24/7. If every poll hit
 // Postgres the Neon prod compute could never idle-suspend (scale to zero). So
@@ -30,8 +32,11 @@ import { getActiveTvImages } from './tv-images';
 //                                                   changes tonight's program)
 //   - app/api/admin/shows/[id]/route.ts            PATCH (date can change),
 //                                                   DELETE
+//   - app/api/admin/shows/[id]/advance/route.ts    PUT, POST (the Advance
+//                                                   schedule is tonight's auto
+//                                                   board — see withAutoBoard)
 // Not invalidated on purpose (don't feed the tube): preset create/rename/delete;
-// non-date shows writes (square, tokens, photos, advance, sound-engineer);
+// non-date shows writes (square, tokens, photos, sound-engineer);
 // the sync-twinscene-bands cron; offline scripts (import-shows etc. run with no
 // request context — the safety TTL below covers their staleness).
 export const TV_FEED_TAG = 'tv-feed';
@@ -59,6 +64,22 @@ export interface TvFeedData {
 // The DB half of the feed for a given venue-day (`today`). No time-dependent
 // decision happens in here — the date is the cache key, and override
 // expiry/date rollover are resolved by the caller.
+// Show day runs itself: unless someone hand-wrote this night's board (a show
+// program with board rows), the board shows the show's Advance schedule —
+// minus load-in / soundchecks, with doors and house clear muted (the same
+// distillation as the TV editor's "prefill from Portal schedule"). When the
+// show has no schedule yet, the board is left as it was.
+export async function withAutoBoard(
+  program: TvProgram,
+  showId: number,
+  hasShowProgram: boolean
+): Promise<TvProgram> {
+  if (hasShowProgram && program.boardRows.length > 0) return program;
+  const rows = buildBoardFromSchedule(await getSavedScheduleRows(showId));
+  if (rows.length === 0) return program;
+  return { ...program, boardTitle: program.boardTitle || 'TONIGHT', boardRows: rows };
+}
+
 async function loadTvFeed(today: string): Promise<TvFeedData> {
   const [showRow] = await sql<Array<{ id: number }>>`
     select id from shows where date = ${today} order by id asc limit 1
@@ -66,7 +87,8 @@ async function loadTvFeed(today: string): Promise<TvFeedData> {
   const showId = showRow ? Number(showRow.id) : null;
   const showProgram = showId !== null ? await getProgram(showId) : null;
   const scope = showProgram ? showId : null;
-  const program = showProgram ?? (await getGlobalProgram());
+  const base = showProgram ?? (await getGlobalProgram());
+  const program = showId !== null ? await withAutoBoard(base, showId, showProgram !== null) : base;
 
   const [cards, pool] = await Promise.all([getActiveCards(scope), getActiveTvImages()]);
   return { program, scope, cards, pool };

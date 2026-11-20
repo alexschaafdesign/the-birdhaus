@@ -21,6 +21,7 @@ export interface RowView {
   live: boolean;
   paymentStatus: 'unpaid' | 'paid' | 'comped' | 'refunded';
   paymentMethod: 'venmo' | 'square' | 'cash';
+  paymentProvider: 'venmo' | 'square' | 'cash' | null; // how it was actually paid
   gear: string;
   note: string;
   clash: string[];
@@ -30,6 +31,7 @@ export interface RowView {
   expires: string;
   requested: string;
   repeat: string | null;
+  changeFrom: string | null; // a change request: the booking it replaces
 }
 
 const primary = buttonClassName('primary', 's');
@@ -38,6 +40,11 @@ const ghost = buttonClassName('secondary', 's');
 const danger = 'text-body-3 text-accent-red cursor-pointer underline underline-offset-4 hover:no-underline disabled:opacity-40';
 // A repeat label: a category, not a status, so plain ink.
 const tag = `${ADMIN_TYPE.overline} whitespace-nowrap`;
+const PROVIDERS: Array<[NonNullable<RowView['paymentProvider']>, string]> = [
+  ['venmo', 'Venmo'],
+  ['cash', 'Cash'],
+  ['square', 'Card'],
+];
 
 function sum(rows: RowView[]) {
   const c = rows.reduce((s, r) => s + r.priceCents, 0);
@@ -90,8 +97,9 @@ export default function RehearsalRequests({
     post(key, '/api/admin/rehearsal/bookings/decide', { action: 'decline', ids, reason }, decideMsg('Declined'));
   }
 
-  function pay(id: number, status: RowView['paymentStatus']) {
-    post(`pay-${id}`, `/api/admin/rehearsal/bookings/${id}/payment`, { status }, () => `Marked ${status}.`);
+  function pay(id: number, status: RowView['paymentStatus'], provider?: RowView['paymentProvider']) {
+    const how = provider ? ` (${PROVIDERS.find(([p]) => p === provider)?.[1]})` : '';
+    post(`pay-${id}`, `/api/admin/rehearsal/bookings/${id}/payment`, { status, provider }, () => `Marked ${status}${how}.`);
   }
 
   function resend(ids: number[], key: string) {
@@ -138,9 +146,15 @@ export default function RehearsalRequests({
                     ↻ {label}
                   </span>
                 ))}
+                {first.changeFrom && <StatusMark tone="attention">change</StatusMark>}
                 {first.calendarUnchecked && <StatusMark tone="attention">calendar not checked</StatusMark>}
                 {!first.adminEmailed && <StatusMark tone="neutral">no email to you</StatusMark>}
               </header>
+              {first.changeFrom && (
+                <p className="text-body-3">
+                  Moving from <span className="font-bold">{first.changeFrom}</span> to:
+                </p>
+              )}
               <ul className="divide-y divide-surface-ink/20 text-body-3">
                 {group.map((r) => (
                   <li key={r.id} className="flex flex-wrap items-center gap-x-4 gap-y-1 py-2">
@@ -204,19 +218,24 @@ export default function RehearsalRequests({
         })}
       </section>
 
-      {/* Outstanding (only when payments are tracked) */}
-      {paymentsEnabled && (
+      {/* Waiting on payment: played, confirmed, not marked paid. Tracked even
+          with payments off (informal rates) — admin only, bands see nothing. */}
       <section className="space-y-3">
         <h2 className={ADMIN_TYPE.heading}>
-          Outstanding {outstanding.length > 0 && <span className="text-surface-ink/60">({sum(outstanding)})</span>}
+          Waiting on payment{' '}
+          {outstanding.length > 0 && (
+            <span className="text-surface-ink/60">
+              ({outstanding.length} session{outstanding.length === 1 ? '' : 's'}
+              {paymentsEnabled ? ` · ${sum(outstanding)}` : ''})
+            </span>
+          )}
         </h2>
         {outstanding.length === 0 ? (
-          <p className="text-body-3 text-surface-ink/60">Nothing owed.</p>
+          <p className="text-body-3 text-surface-ink/60">Nothing waiting — every session played is marked paid.</p>
         ) : (
-          <PaymentTable rows={outstanding} busy={busy} pay={pay} resend={resend} paymentsEnabled />
+          <PaymentTable rows={outstanding} busy={busy} pay={pay} resend={resend} paymentsEnabled={paymentsEnabled} />
         )}
       </section>
-      )}
 
       {/* Upcoming */}
       <section className="space-y-3">
@@ -241,7 +260,7 @@ function PaymentTable({
   rows: RowView[];
   paymentsEnabled: boolean;
   busy: string | null;
-  pay: (id: number, s: RowView['paymentStatus']) => void;
+  pay: (id: number, s: RowView['paymentStatus'], provider?: RowView['paymentProvider']) => void;
   resend: (ids: number[], key: string) => void;
 }) {
   return (
@@ -263,27 +282,41 @@ function PaymentTable({
               Resend confirmation
             </button>
           )}
-          {paymentsEnabled && (
-          <span className="ml-auto flex items-center gap-2">
+          <span className="ml-auto flex flex-wrap items-center gap-2">
             {r.paymentStatus === 'unpaid' ? (
               <>
-                <button type="button" disabled={busy !== null} onClick={() => pay(r.id, 'paid')} className={primary}>
-                  {busy === `pay-${r.id}` ? '…' : `Paid (${r.paymentMethod})`}
-                </button>
+                <span className={`${ADMIN_TYPE.overline} text-surface-ink/60`}>Paid:</span>
+                {[...PROVIDERS]
+                  .sort(([a], [b]) => Number(b === r.paymentMethod) - Number(a === r.paymentMethod))
+                  .map(([p, label], i) => (
+                    <button
+                      key={p}
+                      type="button"
+                      disabled={busy !== null}
+                      onClick={() => pay(r.id, 'paid', p)}
+                      className={i === 0 ? primary : ghost}
+                    >
+                      {busy === `pay-${r.id}` ? '…' : label}
+                    </button>
+                  ))}
                 <button type="button" disabled={busy !== null} onClick={() => pay(r.id, 'comped')} className={ghost}>
                   Comp
                 </button>
               </>
             ) : (
               <>
-                <StatusMark tone={r.paymentStatus === 'paid' ? 'ok' : 'neutral'}>{r.paymentStatus}</StatusMark>
+                <StatusMark tone={r.paymentStatus === 'paid' ? 'ok' : 'neutral'}>
+                  {r.paymentStatus}
+                  {r.paymentStatus === 'paid' && r.paymentProvider
+                    ? ` · ${PROVIDERS.find(([p]) => p === r.paymentProvider)?.[1] ?? r.paymentProvider}`
+                    : ''}
+                </StatusMark>
                 <button type="button" disabled={busy !== null} onClick={() => pay(r.id, 'unpaid')} className={`text-data-caption-13 ${ADMIN_TYPE.link}`}>
                   undo
                 </button>
               </>
             )}
           </span>
-          )}
         </li>
       ))}
     </ul>

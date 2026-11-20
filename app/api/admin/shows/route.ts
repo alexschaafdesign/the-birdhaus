@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, after } from 'next/server';
 import { revalidatePath, revalidateTag } from 'next/cache';
 import { sql } from '@/lib/db';
 import { TV_FEED_TAG } from '@/lib/tv-feed';
@@ -30,7 +30,8 @@ import {
   setShowSoundEngineers,
   type ShowSoundEngineer,
 } from '@/lib/sound-engineers';
-import { requireAdmin } from '@/lib/admin-session';
+import { getAdminSession, requireAdmin } from '@/lib/admin-session';
+import { notifySoundEngineerNeeded } from '@/lib/sound-queue';
 
 export async function GET() {
   const denied = await requireAdmin();
@@ -99,6 +100,8 @@ export async function POST(request: Request) {
   const announced = Boolean(body?.announced);
   const targetBandCount = normalizeTargetBandCount(body?.targetBandCount);
   const advanceSent = Boolean(body?.advanceSent);
+  // Opt-in: only flagged shows go in the sound-coverage queue (and email it).
+  const needsSoundEngineer = Boolean(body?.needsSoundEngineer);
 
   // Push any brand-new band up to Twin Scene's canonical directory before the
   // transaction (external HTTP must not run inside sql.begin), so the local
@@ -124,7 +127,7 @@ export async function POST(request: Request) {
           slug, title, date, doors_time, show_time, flyer, bands, description,
           photographer, photographer_id, rsvp_url, ticket_url, external_ticket_url, rsvp_form,
           videos, audio, photos, photo_folder, photo_credit, content_markdown, announced,
-          sound_engineer_name, door_person_name, target_band_count, advance_sent
+          sound_engineer_name, door_person_name, target_band_count, advance_sent, needs_sound_engineer
         )
         values (
           ${slug}, ${title}, ${date}, ${nullableTrim(body.doorsTime)}, ${nullableTrim(body.showTime)},
@@ -134,7 +137,7 @@ export async function POST(request: Request) {
           ${videosJson}, ${tx.json(audio)}, ${tx.json(photos)},
           ${nullableTrim(body.photoFolder)}, ${nullableTrim(body.photoCredit)},
           ${typeof body.content === 'string' ? body.content : ''}, ${announced},
-          ${nullableTrim(body.soundEngineerName)}, ${nullableTrim(body.doorPersonName)}, ${targetBandCount}, ${advanceSent}
+          ${nullableTrim(body.soundEngineerName)}, ${nullableTrim(body.doorPersonName)}, ${targetBandCount}, ${advanceSent}, ${needsSoundEngineer}
         )
         returning ${tx(SHOW_COLUMNS)}, bands, videos, date::text as date
       `;
@@ -154,6 +157,10 @@ export async function POST(request: Request) {
     // next /api/tv poll re-reads. (Unconditional: a date edited to/from today
     // matters too; a far-future show just costs one extra poll read.)
     revalidateTag(TV_FEED_TAG, { expire: 0 });
+    if (needsSoundEngineer) {
+      const actor = await getAdminSession();
+      after(() => notifySoundEngineerNeeded(Number(row.id), actor?.userId ?? null));
+    }
     return NextResponse.json(row, { status: 201 });
   } catch (error) {
     if (error instanceof Error && 'code' in error && error.code === '23505') {

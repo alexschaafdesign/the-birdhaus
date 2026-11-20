@@ -28,6 +28,7 @@ export interface BandBooking {
   declineReason: string;
   expiresAt: Date;
   repeatLabel: string | null; // "Weekly on Wednesdays" when part of a series
+  replacesBookingId: number | null; // a change request: the booking it would replace
 }
 
 // The band's bookings that haven't ended (plus anything that ended in the
@@ -37,6 +38,7 @@ export async function listBandBookings(bandId: number): Promise<BandBooking[]> {
     select id::int as id, catalogue_id as "catalogueId", starts_at as "startsAt", ends_at as "endsAt",
            status, price_cents as "priceCents", note, gear_needed as "gearNeeded", gear_notes as "gearNotes",
            decline_reason as "declineReason", expires_at as "expiresAt",
+           replaces_booking_id::int as "replacesBookingId",
            series_id::int as "seriesId", (select freq from rehearsal_series s where s.id = series_id) as freq,
            (select min(starts_at) from rehearsal_bookings f where f.series_id = rehearsal_bookings.series_id) as "seriesStart"
     from rehearsal_bookings
@@ -163,14 +165,16 @@ export type CancelOutcome = { ok: true } | { ok: false; error: string; status: n
 export async function cancelBandBooking(bandId: number, bookingId: number, now = new Date()): Promise<CancelOutcome> {
   const settings = await getRehearsalSettings();
   return sql.begin(async (tx) => {
-    const [b] = await tx<{ status: BookingStatus; startsAt: Date }[]>`
-      select status, starts_at as "startsAt"
+    const [b] = await tx<{ status: BookingStatus; startsAt: Date; replacesBookingId: number | null }[]>`
+      select status, starts_at as "startsAt", replaces_booking_id::int as "replacesBookingId"
       from rehearsal_bookings
       where id = ${bookingId} and band_id = ${bandId}
       for update
     `;
     if (!b) return { ok: false as const, status: 404, error: 'That booking wasn’t found.' };
-    if (!canBandCancel(b, now, settings.cancelCutoffHours)) {
+    // Withdrawing a change request is always fine: the original still stands.
+    const withdrawingChange = b.status === 'pending' && b.replacesBookingId !== null;
+    if (!withdrawingChange && !canBandCancel(b, now, settings.cancelCutoffHours)) {
       return {
         ok: false as const,
         status: 409,
@@ -182,6 +186,152 @@ export async function cancelBandBooking(bandId: number, bookingId: number, now =
       set status = 'cancelled', cancelled_at = ${now}, cancelled_by = 'band', updated_at = now()
       where id = ${bookingId}
     `;
+    // Cancelling a booking drops any change still waiting on it.
+    await tx`
+      update rehearsal_bookings
+      set status = 'cancelled', cancelled_at = ${now}, cancelled_by = 'band', updated_at = now()
+      where replaces_booking_id = ${bookingId} and status = 'pending'
+    `;
     return { ok: true as const };
   });
 }
+
+// --- changes -------------------------------------------------------------------
+
+// A band asks to move a booking (and/or change its length or note). The new
+// time goes in as a pending request pointing at the booking it replaces; a
+// confirmed original keeps its time until Alex approves (approveBookings
+// swaps them). A still-pending request is simply replaced: nothing is held
+// for it yet. Allowed up to the session start; Alex approves anyway.
+
+export interface ChangeInput {
+  bookingId: number;
+  start: Date;
+  minutes: number;
+  note: string;
+}
+
+export type ChangeOutcome =
+  | { ok: true; requestKey: string; catalogueId: string }
+  | { ok: false; error: string; status: number };
+
+interface ChangeTarget {
+  id: number;
+  status: BookingStatus;
+  startsAt: Date;
+  endsAt: Date;
+  expiresAt: Date;
+  replacesBookingId: number | null;
+  slotId: number | null;
+  priceCents: number;
+  paymentMethod: string;
+  gearNeeded: string[];
+  gearNotes: string;
+  note: string;
+}
+
+// Confirmed and not started, or a live request.
+export function canBandChange(b: { status: string; startsAt: Date; expiresAt: Date }, now: Date): boolean {
+  if (b.startsAt <= now) return false;
+  return b.status === 'confirmed' || (b.status === 'pending' && b.expiresAt > now);
+}
+
+export function parseChangeBody(body: unknown, allowedLengths: number[]): { ok: true; value: ChangeInput } | { ok: false; error: string } {
+  const b = (body ?? {}) as Record<string, unknown>;
+  const bookingId = Number(b.bookingId);
+  if (!Number.isInteger(bookingId) || bookingId <= 0) return { ok: false, error: 'Something went wrong — reload and try again.' };
+  const start = typeof b.start === 'string' ? new Date(b.start) : null;
+  if (!start || Number.isNaN(start.getTime())) return { ok: false, error: "That time isn't valid — reload and try again." };
+  if (typeof b.minutes !== 'number' || !allowedLengths.includes(b.minutes)) return { ok: false, error: 'Pick how long.' };
+  const note = typeof b.note === 'string' ? b.note.trim() : '';
+  if (note.length > 2000) return { ok: false, error: 'Your note is too long (max 2000 characters).' };
+  return { ok: true, value: { bookingId, start, minutes: b.minutes, note } };
+}
+
+export async function createChange(bandId: number, input: ChangeInput, now = new Date()): Promise<ChangeOutcome> {
+  const settings = await getRehearsalSettings();
+  const [t] = await sql<ChangeTarget[]>`
+    select id::int as id, status, starts_at as "startsAt", ends_at as "endsAt", expires_at as "expiresAt",
+           replaces_booking_id::int as "replacesBookingId", slot_id::int as "slotId",
+           price_cents as "priceCents", payment_method as "paymentMethod",
+           gear_needed as "gearNeeded", gear_notes as "gearNotes", note
+    from rehearsal_bookings
+    where id = ${input.bookingId} and band_id = ${bandId}
+  `;
+  if (!t) return { ok: false, status: 404, error: 'That booking wasn’t found.' };
+  if (!canBandChange(t, now)) return { ok: false, status: 409, error: 'This booking can’t be changed any more.' };
+
+  const end = new Date(input.start.getTime() + input.minutes * 60_000);
+  if (input.start.getTime() === t.startsAt.getTime() && end.getTime() === t.endsAt.getTime() && input.note === t.note) {
+    return { ok: false, status: 400, error: 'Nothing’s changed yet — pick a new time or edit the note.' };
+  }
+
+  // What the new time may overlap: the target itself, and (when the target is
+  // a waiting change) the original it would replace.
+  const ignore = [t.id, ...(t.replacesBookingId ? [t.replacesBookingId] : [])];
+  const { availability } = await loadAvailability({ viewerBandId: bandId, now, ignoreBookingIds: ignore });
+  if (!isOpenSpan(availability, settings, input.start, input.minutes)) {
+    return { ok: false, status: 409, error: 'That time isn’t open any more. The calendar has been refreshed — pick another.' };
+  }
+
+  const confirmed = t.status === 'confirmed';
+  const requestKey = randomBytes(12).toString('base64url');
+  const expiresAt = new Date(now.getTime() + settings.pendingExpiryDays * 86_400_000);
+
+  try {
+    const catalogueId = await sql.begin(async (tx) => {
+      await lockBookings(tx);
+      // Re-read under the lock: still changeable, nothing else waiting on it.
+      const [cur] = await tx<{ status: BookingStatus; expiresAt: Date; startsAt: Date }[]>`
+        select status, expires_at as "expiresAt", starts_at as "startsAt"
+        from rehearsal_bookings where id = ${t.id} for update
+      `;
+      if (!cur || cur.status !== t.status || !canBandChange(cur, now)) throw new GoneError();
+      if (confirmed) {
+        // A lapsed change that the daily job hasn't marked yet.
+        await tx`
+          update rehearsal_bookings set status = 'expired', updated_at = now()
+          where replaces_booking_id = ${t.id} and status = 'pending' and expires_at <= ${now}
+        `;
+        const [waiting] = await tx<{ n: number }[]>`
+          select count(*)::int as n from rehearsal_bookings
+          where replaces_booking_id = ${t.id} and status = 'pending'
+        `;
+        if (waiting.n > 0) throw new WaitingError();
+      } else {
+        // A request that hasn't been approved yet just gives way to the new one.
+        await tx`
+          update rehearsal_bookings
+          set status = 'cancelled', cancelled_at = ${now}, cancelled_by = 'band', updated_at = now()
+          where id = ${t.id}
+        `;
+      }
+      if (await bufferClash(tx, input.start, end, settings.bufferMinutes, now, ignore)) throw new TakenError();
+      const [row] = await tx<{ catalogueId: string }[]>`
+        insert into rehearsal_bookings
+          (band_id, starts_at, ends_at, status, expires_at, price_cents, payment_method,
+           note, gear_needed, gear_notes, request_key, calendar_unchecked,
+           replaces_booking_id, slot_id)
+        values
+          (${bandId}, ${input.start}, ${end}, 'pending', ${expiresAt}, ${t.priceCents}, ${t.paymentMethod},
+           ${input.note}, ${t.gearNeeded}::text[], ${t.gearNotes}, ${requestKey}, ${!availability.calendarChecked},
+           ${confirmed ? t.id : (t.replacesBookingId ?? t.id)}, ${confirmed ? (t.slotId ?? t.id) : t.slotId})
+        returning catalogue_id as "catalogueId"
+      `;
+      return row.catalogueId;
+    });
+    return { ok: true, requestKey, catalogueId };
+  } catch (e) {
+    if (e instanceof GoneError) return { ok: false, status: 409, error: 'This booking can’t be changed any more.' };
+    if (e instanceof WaitingError) {
+      return { ok: false, status: 409, error: 'You’ve already asked to change this one. Withdraw that first.' };
+    }
+    if (e instanceof TakenError || (e as { code?: string }).code === '23P01') {
+      return { ok: false, status: 409, error: 'Someone just asked for that time. Pick another.' };
+    }
+    throw e;
+  }
+}
+
+class GoneError extends Error {}
+class WaitingError extends Error {}

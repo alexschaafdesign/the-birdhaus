@@ -6,7 +6,7 @@ import { getBandByToken } from '@/lib/rehearsal/bands';
 import { getRehearsalSettings } from '@/lib/rehearsal/settings';
 import { loadAvailability } from '@/lib/rehearsal/availability-data';
 import { addDays, chicagoDate, forBand, weekdayOf } from '@/lib/rehearsal/availability';
-import { listBandBookings } from '@/lib/rehearsal/requests';
+import { canBandChange, listBandBookings } from '@/lib/rehearsal/requests';
 import { canBandCancel, paymentMethodsOffered } from '@/lib/rehearsal/request-rules';
 import { listBandSeries } from '@/lib/rehearsal/series-extend';
 import { describeEnd, describeRule } from '@/lib/rehearsal/series';
@@ -47,28 +47,60 @@ export default async function RehearsalBookingPage({ params }: { params: Promise
 
   const now = new Date();
   const today = chicagoDate(now);
-  const monday = addDays(today, -((weekdayOf(today) + 6) % 7)); // weeks run Monday–Sunday
-  const [settings, { availability }, bookings, series] = await Promise.all([
+  const sunday = addDays(today, -weekdayOf(today)); // calendar weeks run Sunday–Saturday
+  const bookings = await listBandBookings(band.id);
+  // Change requests still waiting, keyed by the confirmed booking they'd
+  // replace. They show under that booking (with Withdraw), not as rows.
+  const byId = new Map(bookings.map((b) => [b.id, b]));
+  const waitingFor = new Map(
+    bookings
+      .filter(
+        (b) =>
+          b.status === 'pending' &&
+          b.expiresAt > now &&
+          b.replacesBookingId !== null &&
+          byId.get(b.replacesBookingId)?.status === 'confirmed',
+      )
+      .map((b) => [b.replacesBookingId!, b]),
+  );
+  const waitingIds = new Set([...waitingFor.values()].map((b) => b.id));
+  // Not worth a row: a withdrawn or superseded change, and an original that
+  // a change replaced (moved, or a request swapped for a new one).
+  const hidden = new Set(
+    bookings
+      .filter(
+        (b) =>
+          b.status === 'cancelled' &&
+          (b.replacesBookingId !== null ||
+            bookings.some((x) => x.replacesBookingId === b.id && (x.status === 'confirmed' || x.status === 'pending'))),
+      )
+      .map((b) => b.id),
+  );
+  const changeable = bookings.filter((b) => canBandChange(b, now) && !waitingFor.has(b.id) && !waitingIds.has(b.id));
+  const [settings, { availability, freeIgnoring }, series] = await Promise.all([
     getRehearsalSettings(),
-    loadAvailability({ viewerBandId: band.id, fromDate: monday, now }),
-    listBandBookings(band.id),
+    loadAvailability({ viewerBandId: band.id, fromDate: sunday, now, freeIgnoring: changeable.map((b) => b.id) }),
     listBandSeries(band.id, now),
   ]);
   const view = forBand(availability);
+  const minFree = Math.min(...settings.allowedLengths) * 60_000;
+  const spans = (list: Array<{ start: Date; end: Date }>) =>
+    list.filter((f) => f.end.getTime() - f.start.getTime() >= minFree).map((f) => ({ start: f.start.toISOString(), end: f.end.toISOString() }));
+
+  // The door code only while they have a confirmed session that hasn't ended.
+  const hasLiveSession = bookings.some((b) => b.status === 'confirmed' && b.endsAt > now);
 
   const props: BookingViewProps = {
     token,
     bandName: band.name,
+    doorCode: band.doorCode && hasLiveSession ? band.doorCode : null,
     contactEmail: CONTACT_EMAIL,
-    firstMonday: monday,
     today,
     days: view.days.map((d) => ({
       date: d.date,
       window: d.window ? { start: d.window.start.toISOString(), end: d.window.end.toISOString() } : null,
       // Slivers too short for the shortest length aren't worth showing.
-      free: d.free
-        .filter((f) => f.end.getTime() - f.start.getTime() >= Math.min(...settings.allowedLengths) * 60_000)
-        .map((f) => ({ start: f.start.toISOString(), end: f.end.toISOString() })),
+      free: spans(d.free),
       own: d.own.map((o) => ({ bookingId: o.bookingId, start: o.start.toISOString(), end: o.end.toISOString(), state: o.state })),
     })),
     startStepMinutes: settings.startStepMinutes,
@@ -78,7 +110,12 @@ export default async function RehearsalBookingPage({ params }: { params: Promise
       settings.estimatesEnabled && !settings.paymentsEnabled
         ? { rateHourlyCents: settings.rateHourlyCents, ratePackages: settings.ratePackages }
         : null,
-    bookings: bookings.map((b) => ({
+    bookings: bookings
+      .filter((b) => !waitingIds.has(b.id) && !hidden.has(b.id))
+      .map((b) => {
+        const waiting = waitingFor.get(b.id);
+        const free = freeIgnoring.get(b.id);
+        return {
       id: b.id,
       catalogueId: b.catalogueId,
       start: b.startsAt.toISOString(),
@@ -92,7 +129,13 @@ export default async function RehearsalBookingPage({ params }: { params: Promise
       repeatLabel: b.repeatLabel,
       expiresAt: b.expiresAt.toISOString(),
       canCancel: canBandCancel(b, now, settings.cancelCutoffHours),
-    })),
+      // Its day's open time if it moved (its own time counts as free); null = can't change.
+      changeFree: changeable.some((c) => c.id === b.id) ? spans(free ?? []) : null,
+      pendingChange: waiting
+        ? { id: waiting.id, start: waiting.startsAt.toISOString(), end: waiting.endsAt.toISOString(), note: waiting.note }
+        : null,
+        };
+      }),
     paymentsEnabled: settings.paymentsEnabled,
     priceCents: settings.priceCents,
     repeatPriceCents: settings.repeatPriceCents ?? settings.priceCents,
@@ -114,7 +157,6 @@ export default async function RehearsalBookingPage({ params }: { params: Promise
 
   return (
     <SiteFrame stats={null}>
-      <h1 className="sr-only">Book the rehearsal space — {band.name}</h1>
       <BookingView {...props} />
     </SiteFrame>
   );

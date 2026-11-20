@@ -9,7 +9,7 @@ import PhotographerNameInput, { type PhotographerMatch } from './PhotographerNam
 import ImageUploadField from './ImageUploadField';
 import ShowDateAvailability from './ShowDateAvailability';
 import { FORM } from '@/components/night/form';
-import { Panel as Section, PageHeader, ADMIN_TYPE, FIELD_INLINE, buttonClassName } from './ui';
+import { Panel as Section, PageHeader, ADMIN_TYPE, FIELD_INLINE, StatusMark, buttonClassName } from './ui';
 import { downscaleImage } from '@/lib/downscale-image';
 
 const inputClass = FORM.field;
@@ -95,6 +95,13 @@ interface Band {
   photo: string;
   // The set's free-text note (show_bands.notes); '' = none.
   notes: string;
+  // Contact + payout from the band's profile (Lineup & crew tab only). Saved
+  // to the profile after the lineup saves; saved* is the loaded baseline so
+  // only an actual change is sent.
+  email: string;
+  payout: string;
+  savedEmail: string;
+  savedPayout: string;
 }
 
 interface Video {
@@ -123,7 +130,7 @@ interface PhotoEntry {
 }
 
 // Sound-engineer statuses from the API, kept in sync with lib/sound-engineers.ts.
-// The engineer roster/status is edited on the Crew tab now; this type is retained
+// The engineer roster/status is edited on the Lineup & crew tab now; this type is retained
 // only for the initialValues shape the page still passes.
 type SoundEngineerStatus = 'confirmed' | 'asked' | 'declined';
 
@@ -140,7 +147,18 @@ export interface ShowFormInitialValues {
   doorsTime?: string | null;
   showTime?: string | null;
   flyer?: string | null;
-  bands?: Array<{ name: string; instagram?: string; bio?: string; photo?: string; bandId?: number; notes?: string }> | string[];
+  bands?:
+    | Array<{
+        name: string;
+        instagram?: string;
+        bio?: string;
+        photo?: string;
+        bandId?: number;
+        notes?: string;
+        email?: string | null;
+        payout?: string | null;
+      }>
+    | string[];
   description?: string | null;
   photographer?: { name: string; instagram?: string } | null;
   doorPersonName?: string | null;
@@ -166,6 +184,7 @@ export interface ShowFormInitialValues {
   announced?: boolean;
   targetBandCount?: number;
   advanceSent?: boolean;
+  needsSoundEngineer?: boolean;
   soundEngineers?: Array<{ soundEngineerId?: number | null; name: string; status: SoundEngineerStatus }>;
   squareItemId?: string | null;
   squareImageId?: string | null;
@@ -203,13 +222,32 @@ interface FormState {
   announced: boolean;
   targetBandCount: number;
   advanceSent: boolean;
+  // Opt-in: puts the show in the sound-coverage queue and emails that crew.
+  needsSoundEngineer: boolean;
   status: 'scheduled' | 'cancelled' | 'postponed';
 }
+
+const EMPTY_CONTACT = { email: '', payout: '', savedEmail: '', savedPayout: '' };
+
+// Which tab of the show workspace this form is rendered in. Each tab shows only
+// its own sections and saves only its own fields (PATCH is partial), so two
+// tabs can never overwrite each other's edits. Absent = the full form (create).
+export type ShowFormSection = 'overview' | 'lineup' | 'public';
+
+// The PATCH fields each section owns.
+const SECTION_FIELDS: Record<ShowFormSection, string[]> = {
+  overview: ['title', 'slug', 'date', 'doorsTime', 'showTime', 'flyer', 'announced', 'status'],
+  lineup: ['bands', 'targetBandCount'],
+  public: [
+    'description', 'ticketUrl', 'externalTicketUrl', 'ticketLimit', 'rsvpForm',
+    'videos', 'audio', 'photos', 'photoFolder', 'photoCredit', 'content',
+  ],
+};
 
 function initFormState(initial: ShowFormInitialValues | undefined, isPast: boolean): FormState {
   const bands = (initial?.bands ?? []).map((b) =>
     typeof b === 'string'
-      ? { bandId: null, name: b, instagram: '', bio: '', photo: '', notes: '' }
+      ? { ...EMPTY_CONTACT, bandId: null, name: b, instagram: '', bio: '', photo: '', notes: '' }
       : {
           bandId: b.bandId ?? null,
           name: b.name,
@@ -217,6 +255,10 @@ function initFormState(initial: ShowFormInitialValues | undefined, isPast: boole
           bio: b.bio ?? '',
           photo: b.photo ?? '',
           notes: b.notes ?? '',
+          email: b.email ?? '',
+          payout: b.payout ?? '',
+          savedEmail: b.email ?? '',
+          savedPayout: b.payout ?? '',
         }
   );
 
@@ -276,7 +318,7 @@ function initFormState(initial: ShowFormInitialValues | undefined, isPast: boole
       };
     }),
     // Uploads default to crediting the show's assigned photographer (set on the
-    // Crew tab); the photographer booking itself lives there now.
+    // Lineup & crew tab); the photographer booking itself lives there now.
     activePhotographer: {
       id: initial?.assignedPhotographerId ?? null,
       name: initial?.assignedPhotographerName ?? '',
@@ -298,6 +340,7 @@ function initFormState(initial: ShowFormInitialValues | undefined, isPast: boole
     announced: initial?.announced ?? false,
     targetBandCount: initial?.targetBandCount ?? 3,
     advanceSent: initial?.advanceSent ?? false,
+    needsSoundEngineer: initial?.needsSoundEngineer ?? false,
     status: initial?.status ?? 'scheduled',
   };
 }
@@ -308,8 +351,11 @@ export default function ShowForm({
   isPast,
   nightDate,
   embedded = false,
+  section,
 }: {
   mode: 'create' | 'edit';
+  // The workspace tab this form is in (see ShowFormSection); absent = everything.
+  section?: ShowFormSection;
   initialValues?: ShowFormInitialValues;
   // "Past" is the show page's rule (lib/shows getNightDateCentral: a night
   // lasts until 5am America/Chicago the morning after), worked out on the
@@ -332,6 +378,10 @@ export default function ShowForm({
   // (tickets, media, page content). Past shows default to the public view since
   // the gallery is the main post-show task.
   const [view, setView] = useState<'show' | 'public'>(isPast ? 'public' : 'show');
+  // What to render: a workspace tab shows only its section; the full (create)
+  // form keeps the Show & lineup / Public page switch.
+  const shows = (part: ShowFormSection) =>
+    section ? section === part : part === 'public' ? view === 'public' : view === 'show';
   const [photosUploading, setPhotosUploading] = useState(false);
   const [photosUploadProgress, setPhotosUploadProgress] = useState<{ done: number; total: number } | null>(
     null
@@ -367,6 +417,7 @@ export default function ShowForm({
   // its own copy. Best-effort: if Twin Scene is unreachable, the local-only
   // typeahead in BandNameInput still works on its own.
   useEffect(() => {
+    if (section && section !== 'lineup') return;
     let cancelled = false;
     fetch('/api/admin/bands/twinscene')
       .then((res) => (res.ok ? res.json() : []))
@@ -379,7 +430,7 @@ export default function ShowForm({
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [section]);
 
   // Keep the slug derived from date+title until the operator edits it directly.
   useEffect(() => {
@@ -433,12 +484,17 @@ export default function ShowForm({
     setForm((prev) => ({ ...prev, [field]: value }));
   }
 
-  function updateBand(index: number, field: 'name' | 'instagram' | 'bio' | 'photo' | 'notes', value: string) {
+  function updateBand(
+    index: number,
+    field: 'name' | 'instagram' | 'bio' | 'photo' | 'notes' | 'email' | 'payout',
+    value: string
+  ) {
     setForm((prev) => {
       const bands = [...prev.bands];
       // Retyping the name severs any link to a matched band profile — either
-      // reselect from the dropdown or it becomes a new band on save.
-      const clearsLink = field === 'name' ? { bandId: null } : {};
+      // reselect from the dropdown or it becomes a new band on save. A new band
+      // has no saved contact, so whatever's in the contact fields gets saved.
+      const clearsLink = field === 'name' ? { bandId: null, savedEmail: '', savedPayout: '' } : {};
       bands[index] = { ...bands[index], [field]: value, ...clearsLink };
       return { ...prev, bands };
     });
@@ -458,6 +514,9 @@ export default function ShowForm({
         photo: match.photo ?? '',
         // A set note is about this night's set, not the band — keep it.
         notes: bands[index].notes,
+        // The picked band's saved contact loads after the lineup saves; a
+        // contact typed before then is saved to its profile.
+        ...EMPTY_CONTACT,
       };
       return { ...prev, bands };
     });
@@ -465,7 +524,7 @@ export default function ShowForm({
   function addBand() {
     setForm((prev) => ({
       ...prev,
-      bands: [...prev.bands, { bandId: null, name: '', instagram: '', bio: '', photo: '', notes: '' }],
+      bands: [...prev.bands, { ...EMPTY_CONTACT, bandId: null, name: '', instagram: '', bio: '', photo: '', notes: '' }],
     }));
   }
   function removeBand(index: number) {
@@ -614,16 +673,42 @@ export default function ShowForm({
     }
   }
 
+  // After the lineup saves: write any changed band email / payout handle to
+  // that band's profile. The show save resolved every band (including new
+  // ones) to an id, in the order sent, so match by position.
+  async function saveBandContacts(sent: Band[], resolved: unknown) {
+    const resolvedBands = Array.isArray(resolved) ? (resolved as Array<{ bandId?: number | string }>) : [];
+    const failures: string[] = [];
+    for (const [i, b] of sent.entries()) {
+      const bandId = Number(resolvedBands[i]?.bandId ?? b.bandId);
+      if (!Number.isInteger(bandId) || bandId <= 0) continue;
+      const patch: { contactEmail?: string; paymentMethod?: string } = {};
+      if (b.email.trim() !== b.savedEmail) patch.contactEmail = b.email.trim();
+      if (b.payout.trim() !== b.savedPayout) patch.paymentMethod = b.payout.trim();
+      if (Object.keys(patch).length === 0) continue;
+      const res = await fetch(`/api/admin/bands/${bandId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(patch),
+      }).catch(() => null);
+      if (!res?.ok) failures.push(b.name);
+    }
+    if (failures.length > 0) {
+      throw new Error(`Lineup saved, but contact details didn't save for: ${failures.join(', ')}`);
+    }
+  }
+
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
 
-    if (!form.title.trim()) {
+    const ownsBasics = !section || section === 'overview';
+    if (ownsBasics && !form.title.trim()) {
       setError('Title is required');
       setView('show');
       return;
     }
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(form.date)) {
+    if (ownsBasics && !/^\d{4}-\d{2}-\d{2}$/.test(form.date)) {
       setError('Date is required');
       setView('show');
       return;
@@ -650,7 +735,7 @@ export default function ShowForm({
       notes: b.notes,
     }));
 
-    const payload = {
+    const fullPayload: Record<string, unknown> = {
       title: form.title.trim(),
       slug: slugify(form.slug) || undefined,
       date: form.date,
@@ -708,9 +793,44 @@ export default function ShowForm({
       announced: form.announced,
       targetBandCount: form.targetBandCount,
       advanceSent: form.advanceSent,
+      needsSoundEngineer: form.needsSoundEngineer,
       // Cancel / un-cancel on edit. 'postponed' only comes from Postpone.
       ...(mode === 'edit' && form.status !== 'postponed' ? { status: form.status } : {}),
     };
+
+    // A workspace tab sends only the fields it owns. The Public page tab
+    // doesn't send the lineup, so the server can't resolve set tags by lineup
+    // position — tag videos/photos by the bands' saved ids instead (every band
+    // on that tab is saved, so each has one).
+    let payload: Record<string, unknown> = fullPayload;
+    if (section) {
+      payload = Object.fromEntries(
+        Object.entries(fullPayload).filter(([k]) => SECTION_FIELDS[section].includes(k))
+      );
+      if (section === 'public') {
+        const idAt = (i: number) => form.bands[i]?.bandId ?? null;
+        payload.videos = form.videos
+          .filter((v) => v.youtube.trim())
+          .map((v) => {
+            const bandIds = [...new Set(v.bandIndexes.map(idAt).filter((id): id is number => id != null))];
+            return {
+              youtube: v.youtube.trim(),
+              title: v.title.trim(),
+              ...(bandIds.length > 0 ? { bandIds } : {}),
+            };
+          });
+        payload.photos = form.photos
+          .map((p) => {
+            const bandId = p.bandIndex === undefined ? null : idAt(p.bandIndex);
+            return {
+              url: p.url.trim(),
+              photographerId: p.photographerId,
+              ...(bandId != null ? { bandId } : {}),
+            };
+          })
+          .filter((p) => p.url);
+      }
+    }
 
     setSubmitting(true);
     try {
@@ -723,6 +843,7 @@ export default function ShowForm({
       });
       const body = await res.json().catch(() => null);
       if (!res.ok) throw new Error(body?.error || 'Failed to save show');
+      if (section === 'lineup') await saveBandContacts(nonEmptyBands.map(({ b }) => b), body?.bands);
       // Editing inside the per-show workspace: stay put and refresh so the tab
       // badges and other tabs pick up the change — no more bouncing to the shows
       // list mid-edit. Creating a show (or the standalone form) still navigates.
@@ -1148,38 +1269,48 @@ export default function ShowForm({
         </div>
       )}
 
-      <div role="group" aria-label="Form section" className="flex flex-wrap gap-2">
-        {([
-          ['show', 'Show & lineup'],
-          ['public', 'Public page & tickets'],
-        ] as const).map(([value, label]) => (
-          <button
-            key={value}
-            type="button"
-            onClick={() => setView(value)}
-            aria-pressed={view === value}
-            className={buttonClassName(view === value ? 'primary' : 'secondary', 's')}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
+      {(!section || section === 'overview') && (
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
+        {section ? <span /> : (
+        <div role="group" aria-label="Form section" className="flex flex-wrap gap-2">
+          {([
+            ['show', 'Show & lineup'],
+            ['public', 'Public page & tickets'],
+          ] as const).map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => setView(value)}
+              aria-pressed={view === value}
+              className={buttonClassName(view === value ? 'primary' : 'secondary', 's')}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        )}
 
-      {view === 'show' && (
+        {/* Announced = listed on the public site. It's a form field like the
+            rest: flipping it here takes effect on Save. */}
+        <div className="flex items-center gap-3">
+          <StatusMark tone={form.announced ? 'ok' : 'neutral'}>
+            {form.announced ? 'Announced · public' : 'Draft · hidden'}
+          </StatusMark>
+          <button
+            type="button"
+            onClick={() => set('announced', !form.announced)}
+            aria-pressed={form.announced}
+            className={buttonClassName(form.announced ? 'ghost' : 'secondary', 's')}
+          >
+            {form.announced ? 'Unannounce' : 'Announce'}
+          </button>
+        </div>
+      </div>
+      )}
+
+      {shows('overview') && (
       <>
-      <Section
-        title="Show details"
-        action={
-          <label className="flex items-center gap-1.5 text-data-caption-13 text-surface-ink/80 whitespace-nowrap">
-            <input
-              type="checkbox"
-              checked={form.announced}
-              onChange={(e) => set('announced', e.target.checked)}
-            />
-            Announced
-          </label>
-        }
-      >
+      <Section title="Show details">
       <div className="grid gap-3 sm:grid-cols-2">
         <div>
           <label className={FORM.label}>Title*</label>
@@ -1308,23 +1439,19 @@ export default function ShowForm({
             previewClassName="mt-2 max-w-xs "
           />
         </div>
-        <div className="sm:col-span-2">
-          <label className={FORM.label}>Description</label>
-          <textarea
-            rows={3}
-            value={form.description}
-            onChange={(e) => set('description', e.target.value)}
-            className={`${inputClass} w-full resize-none`}
-          />
-        </div>
       </div>
       </Section>
+      </>
+      )}
 
+      {shows('lineup') && (
+      <>
       {!isPastShow && <ShowDateAvailability date={form.date} />}
 
       <Section
         title="Bands"
-        collapsible
+        // Its own tab in the workspace: always open there.
+        collapsible={!section}
         action={
           <div className="flex items-center gap-3">
             <label className="flex items-center gap-2 text-data-caption-13 text-surface-ink/60">
@@ -1386,6 +1513,25 @@ export default function ShowForm({
                   Remove
                 </button>
               </div>
+              {section === 'lineup' && (
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <input
+                    type="email"
+                    placeholder="Contact email — gets the Portal invite"
+                    value={band.email}
+                    onChange={(e) => updateBand(index, 'email', e.target.value)}
+                    className={`${inputClass} w-full`}
+                    aria-label={`${band.name || 'Band'} contact email`}
+                  />
+                  <input
+                    placeholder="Payout handle (Venmo) — private"
+                    value={band.payout}
+                    onChange={(e) => updateBand(index, 'payout', e.target.value)}
+                    className={`${inputClass} w-full`}
+                    aria-label={`${band.name || 'Band'} payout handle`}
+                  />
+                </div>
+              )}
               <ImageUploadField
                 value={band.photo}
                 onChange={(url) => updateBand(index, 'photo', url)}
@@ -1395,7 +1541,7 @@ export default function ShowForm({
               />
               <textarea
                 placeholder="Bio (optional) — a sentence or a few paragraphs"
-                rows={6}
+                rows={3}
                 value={band.bio}
                 onChange={(e) => updateBand(index, 'bio', e.target.value)}
                 className={`${inputClass} w-full resize-y`}
@@ -1411,38 +1557,42 @@ export default function ShowForm({
           ))}
           {form.bands.length === 0 && <p className="text-data-caption-13 text-surface-ink/60">No bands added yet.</p>}
         </div>
-        {mode === 'edit' && initialValues?.id && (
-          <p className="mt-3 text-data-caption-13 text-surface-ink/60">
-            Band emails &amp; payout handles are on the{' '}
-            <Link
-              href={`/admin/shows/${initialValues.id}/crew`}
-              className="underline decoration-dotted underline-offset-2 hover:text-accent-red"
-            >
-              Crew tab
-            </Link>
-            .
-          </p>
-        )}
       </Section>
 
-      {mode === 'edit' && initialValues?.id && (
-        <p className="text-data-caption-13 text-surface-ink/60">
-          Sound engineers, band contacts, the door person, and the photographer live on the{' '}
-          <Link
-            href={`/admin/shows/${initialValues.id}/crew`}
-            className="underline decoration-dotted underline-offset-2 hover:text-accent-red"
-          >
-            Crew tab
-          </Link>
-          .
-        </p>
+{!section && (
+      <Section title="Sound">
+        <div>
+          <label className="flex items-center gap-2 text-body-3">
+            <input
+              type="checkbox"
+              checked={form.needsSoundEngineer}
+              onChange={(e) => set('needsSoundEngineer', e.target.checked)}
+            />
+            Needs a sound engineer
+          </label>
+          <p className="text-data-caption-13 text-surface-ink/60 mt-1 max-w-prose">
+            Puts this show in the sound engineer queue and emails whoever books sound when you save.
+            Leave it off for nights you&apos;re running sound yourself.
+          </p>
+        </div>
+      </Section>
       )}
       </>
       )}
 
-      {view === 'public' && (
+      {shows('public') && (
       <>
-      <Section title="Tickets & visibility" collapsible>
+      <Section title="Public page">
+        <label className={FORM.label}>Description</label>
+        <textarea
+          rows={3}
+          value={form.description}
+          onChange={(e) => set('description', e.target.value)}
+          className={`${inputClass} w-full resize-none`}
+        />
+      </Section>
+
+      <Section title="Tickets & visibility" collapsible defaultOpen={Boolean(section) && !isPastShow}>
         <div className="grid gap-3 sm:grid-cols-2">
         <div>
           <label className={FORM.label}>Ticket URL</label>
@@ -1634,7 +1784,7 @@ export default function ShowForm({
       )}
 
       <div className="flex items-center justify-between pt-4 border-t border-surface-ink">
-        {mode === 'edit' ? (
+        {mode === 'edit' && (!section || section === 'overview') ? (
           <button type="button" onClick={handleDelete} className="text-accent-red cursor-pointer hover:underline text-body-3">
             Delete show
           </button>
@@ -1648,7 +1798,13 @@ export default function ShowForm({
             disabled={submitting}
             className={buttonClassName('primary', 's')}
           >
-            {submitting ? 'Saving...' : mode === 'create' ? 'Create show' : 'Save changes'}
+            {submitting
+              ? 'Saving...'
+              : mode === 'create'
+                ? 'Create show'
+                : section === 'lineup'
+                  ? 'Save lineup'
+                  : 'Save changes'}
           </button>
         </div>
       </div>
