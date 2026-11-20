@@ -1015,8 +1015,8 @@ export default function BookingView(props: BookingViewProps) {
           </ul>
         )}
         <p className="text-body-3 opacity-70">
-          Change a booking any time before it starts — Alex approves the new time. You can cancel here up to{' '}
-          {props.cancelCutoffHours} hours before a session.
+          You can edit a booking any time before it starts, but wait for confirmation to be sure -- I&apos;ll get an alert and
+          will let you know asap!
         </p>
         {props.series.length > 0 && (
           <div className="flex flex-col gap-1">
