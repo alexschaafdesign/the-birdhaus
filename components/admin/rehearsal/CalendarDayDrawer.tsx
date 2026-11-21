@@ -117,7 +117,7 @@ export default function CalendarDayDrawer({
         {day.shows.length > 0 && (
           <ul className="space-y-1">
             {day.shows.map((t) => (
-              <li key={t} className="text-accent-red font-bold">Show: {t}</li>
+              <li key={t} className="text-spectrum-violet font-bold">Show: {t}</li>
             ))}
           </ul>
         )}

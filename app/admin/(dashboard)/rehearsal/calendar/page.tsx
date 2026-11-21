@@ -135,11 +135,15 @@ export default async function RehearsalCalendarPage({ searchParams }: { searchPa
       <PageHeader
         overline="Rehearsal"
         title="Calendar"
-        description={monthName(month, { month: 'long', year: 'numeric' })}
         actions={
-          <div className="flex gap-4">
+          <div className="flex items-baseline gap-5">
             <Link href={`?month=${prev}`} className={nav}>← {monthName(prev, { month: 'short' })}</Link>
-            {month !== thisMonth && <Link href="?" className={nav}>This month</Link>}
+            <div className="min-w-40 text-center">
+              <h2 className={ADMIN_TYPE.heading}>{monthName(month, { month: 'long', year: 'numeric' })}</h2>
+              {month !== thisMonth && (
+                <Link href="?" className={`text-data-caption-13 ${ADMIN_TYPE.link}`}>back to this month</Link>
+              )}
+            </div>
             <Link href={`?month=${next}`} className={nav}>{monthName(next, { month: 'short' })} →</Link>
           </div>
         }
@@ -147,7 +151,7 @@ export default async function RehearsalCalendarPage({ searchParams }: { searchPa
 
       {/* Legend. Fills and edges only, ink text (DESIGN.md: spectrum is fill-only on paper). */}
       <ul className="text-data-caption-13 flex flex-wrap items-center gap-x-5 gap-y-2">
-        <li><span className="bg-accent-red/15 border-accent-red mr-1.5 inline-block size-3 border align-middle" />Show day</li>
+        <li><span className="bg-spectrum-violet/10 border-spectrum-violet mr-1.5 inline-block size-3 border align-middle" />Show day</li>
         <li><span className="bg-surface-ink/15 border-surface-ink mr-1.5 inline-block size-3 border align-middle" />Block</li>
         <li><span className="border-surface-ink border px-1">confirmed</span> · <span className="border-surface-ink border border-dashed px-1">requested</span> · <span className="border-accent-red text-accent-red border-2 px-1 font-bold">⚠ conflict</span></li>
         <li className="text-surface-ink/60">
@@ -166,7 +170,7 @@ export default async function RehearsalCalendarPage({ searchParams }: { searchPa
           {days.map((d) => {
             const inMonth = d.date.startsWith(month);
             const past = d.date < today;
-            const tint = d.shows.length ? 'bg-accent-red/15' : d.blackouts.some((b) => b.label === 'all day') ? 'bg-surface-ink/15' : '';
+            const tint = d.shows.length ? 'bg-spectrum-violet/10' : d.blackouts.some((b) => b.label === 'all day') ? 'bg-surface-ink/15' : '';
             return (
               <div
                 key={d.date}
@@ -192,7 +196,7 @@ export default async function RehearsalCalendarPage({ searchParams }: { searchPa
                   </p>
                 )}
                 {d.shows.map((t) => (
-                  <p key={t} className="text-accent-red truncate font-bold" title={t}>Show: {t}</p>
+                  <p key={t} className="text-spectrum-violet truncate font-bold" title={t}>Show: {t}</p>
                 ))}
                 {d.blackouts.map((b, i) => (
                   <p key={i} className="truncate text-surface-ink/80" title={b.note}>
