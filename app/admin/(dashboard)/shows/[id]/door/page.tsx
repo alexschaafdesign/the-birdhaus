@@ -5,6 +5,7 @@ import { getShowPurchaseMatches } from '@/lib/square';
 import { getOrCreateDoorToken } from '@/lib/door-token';
 import Link from 'next/link';
 import RsvpSummary from '@/components/admin/RsvpSummary';
+import ShowTabTodos from '@/components/admin/ShowTabTodos';
 
 export const dynamic = 'force-dynamic';
 
@@ -38,6 +39,7 @@ export default async function ShowDoorPage({ params }: { params: Promise<{ id: s
 
   return (
     <div className="space-y-8">
+    <ShowTabTodos showId={showId} keys={['no-rsvps']} />
     <RsvpSummary
       showId={show.id}
       showTitle={show.title}

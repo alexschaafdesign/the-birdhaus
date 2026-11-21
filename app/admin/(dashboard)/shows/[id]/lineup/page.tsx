@@ -5,6 +5,9 @@ import ShowCrewPanel, {
   type CrewRegistryEntry,
 } from '@/components/admin/ShowCrewPanel';
 import { loadShowFormData } from '../form-data';
+import { getOneShowHealth } from '@/lib/show-health-data';
+import { openTodos } from '@/lib/show-health';
+import { getTodayCentral } from '@/lib/shows';
 
 export const dynamic = 'force-dynamic';
 
@@ -26,7 +29,7 @@ export default async function ShowLineupPage({ params }: { params: Promise<{ id:
   // photographer id to a number so it matches the (also-numeric) roster ids below.
   const assignedPhotographerId = show.photographer_id != null ? Number(show.photographer_id) : null;
 
-  const [formData, engineerRows, doorRoster, photographerRoster] = await Promise.all([
+  const [formData, engineerRows, doorRoster, photographerRoster, facts] = await Promise.all([
     loadShowFormData(showId),
     sql<
       { id: number; name: string; status: 'confirmed' | 'asked' | 'declined'; contact_email: string | null; payment_method: string | null; photo: string | null }[]
@@ -45,9 +48,11 @@ export default async function ShowLineupPage({ params }: { params: Promise<{ id:
     sql<{ id: number; name: string; contact_email: string | null; payment_method: string | null; photo: string | null }[]>`
       select id, name, contact_email, payment_method, photo from photographers order by name asc
     `,
+    getOneShowHealth(showId),
   ]);
 
   if (!formData) notFound();
+  const todos = facts ? openTodos(facts, getTodayCentral()) : {};
 
   const engineers: CrewEngineer[] = engineerRows.map((r) => ({
     id: Number(r.id),
@@ -84,6 +89,7 @@ export default async function ShowLineupPage({ params }: { params: Promise<{ id:
         assignedDoorName={assignedDoorName}
         photographers={photographers}
         assignedPhotographerId={assignedPhotographerId}
+        soundTodo={todos.sound ?? null}
       />
     </div>
   );

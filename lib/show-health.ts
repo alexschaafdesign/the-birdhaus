@@ -159,6 +159,29 @@ export function showTabHref(showId: number, tab: ShowTabKey): string {
   return `/admin/shows/${showId}${TAB_PATH[tab]}`;
 }
 
+// Where on its tab each issue gets fixed (an element id), so the to-do line can
+// jump straight to the field. Issues without one land at the top of the tab.
+const ISSUE_ANCHOR: Record<string, string> = {
+  flyer: 'flyer',
+  bands: 'bands',
+  advance: 'advance-sent',
+  sound: 'sound',
+  inputs: 'inputs',
+};
+export function issueHref(showId: number, key: string): string | null {
+  const tab = ISSUE_TAB[key];
+  if (!tab) return null;
+  const anchor = ISSUE_ANCHOR[key];
+  return showTabHref(showId, tab) + (anchor ? `#${anchor}` : '');
+}
+
+// Open to-dos (issue key → label) for one show, for the marks on each field.
+export function openTodos(show: ShowHealthFacts, today: string): Record<string, string> {
+  return Object.fromEntries(
+    activeIssues(show, today, categoriesFor(show, today)).map((i) => [i.key, i.label])
+  );
+}
+
 // Open to-dos per tab, for the dots on the tab bar.
 export function todosByTab(show: ShowHealthFacts, today: string): Partial<Record<ShowTabKey, number>> {
   const out: Partial<Record<ShowTabKey, number>> = {};

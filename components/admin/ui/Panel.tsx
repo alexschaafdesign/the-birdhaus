@@ -2,14 +2,19 @@
 
 import { useState, type ReactNode } from 'react';
 import { ADMIN_TYPE } from './styles';
+import { TodoMark } from './TodoMark';
 
 // The 2027 admin card, in place of the old dark Section: paper ground, a 1px
 // ink border, square corners, an optional overline title plus an action slot.
 // It keeps Section's props (title / action / collapsible / defaultOpen), so a
 // page moves over by swapping the import. Omit `title` to get a plain grouping
-// box (a list's filter toolbar, say). Tokens only.
+// box (a list's filter toolbar, say). `todo` puts an amber to-do mark beside
+// the title (what still needs doing here); `id` makes it a jump target.
+// Tokens only.
 export function Panel({
   title,
+  todo,
+  id,
   action,
   className = '',
   collapsible = false,
@@ -17,6 +22,8 @@ export function Panel({
   children,
 }: {
   title?: string;
+  todo?: string | null;
+  id?: string;
   action?: ReactNode;
   className?: string;
   collapsible?: boolean;
@@ -27,7 +34,7 @@ export function Panel({
   const expanded = collapsible ? open : true;
 
   return (
-    <section className={`border-surface-ink bg-surface-paper border p-4 sm:p-5 ${className}`}>
+    <section id={id} className={`border-surface-ink bg-surface-paper border p-4 sm:p-5 scroll-mt-6 ${className}`}>
       {(title || action) && (
         <div className={`flex items-center justify-between gap-3 ${expanded ? 'mb-4' : ''}`}>
           {collapsible && title ? (
@@ -41,9 +48,13 @@ export function Panel({
                 ▸
               </span>
               {title}
+              {todo && <TodoMark>{todo}</TodoMark>}
             </button>
           ) : title ? (
-            <h2 className={ADMIN_TYPE.overline}>{title}</h2>
+            <h2 className={`${ADMIN_TYPE.overline} flex flex-wrap items-center gap-x-3 gap-y-1`}>
+              {title}
+              {todo && <TodoMark>{todo}</TodoMark>}
+            </h2>
           ) : (
             <span />
           )}

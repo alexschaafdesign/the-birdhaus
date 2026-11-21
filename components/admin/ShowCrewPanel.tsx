@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import SoundEngineerNameInput, { type SoundEngineerMatch } from './SoundEngineerNameInput';
-import { ADMIN_TYPE, FIELD_INLINE, buttonClassName } from './ui';
+import { ADMIN_TYPE, FIELD_INLINE, TodoMark, buttonClassName } from './ui';
 
 const inputClass = FIELD_INLINE;
 const buttonClass = `${buttonClassName('secondary', 's')} disabled:opacity-40`;
@@ -40,20 +40,27 @@ function Avatar({ name, photo }: { name: string; photo: string | null }) {
 
 function Section({
   title,
+  todo,
+  id,
   subtitle,
   action,
   children,
 }: {
   title: string;
+  todo?: string | null;
+  id?: string;
   subtitle?: string;
   action?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
-    <section className="border-surface-ink bg-surface-paper space-y-4 border p-4 sm:p-5">
+    <section id={id} className="border-surface-ink bg-surface-paper space-y-4 border p-4 sm:p-5 scroll-mt-6">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h2 className={ADMIN_TYPE.overline}>{title}</h2>
+          <h2 className={`${ADMIN_TYPE.overline} flex flex-wrap items-center gap-x-3 gap-y-1`}>
+            {title}
+            {todo && <TodoMark>{todo}</TodoMark>}
+          </h2>
           {subtitle && <p className={`mt-1 ${ADMIN_TYPE.meta}`}>{subtitle}</p>}
         </div>
         {action}
@@ -382,8 +389,11 @@ export default function ShowCrewPanel({
   assignedDoorName,
   photographers,
   assignedPhotographerId,
+  soundTodo = null,
 }: {
   showId: number;
+  // The open "No sound engineer" to-do (lib/show-health), marked on Sound engineers.
+  soundTodo?: string | null;
   needsSoundEngineer: boolean;
   engineers: CrewEngineer[];
   doorPersons: CrewRegistryEntry[];
@@ -459,6 +469,8 @@ export default function ShowCrewPanel({
     <div className="space-y-6">
       <Section
         title="Sound engineers"
+        id="sound"
+        todo={soundTodo ? 'Needed — none confirmed' : null}
         subtitle="Everyone you've asked, and who's confirmed. At most one can be confirmed — picking a new one steps the others back to asked."
         action={
           <Link href="/admin/crew" className="text-data-caption-13 text-surface-ink/60 hover:text-accent-red underline underline-offset-4">

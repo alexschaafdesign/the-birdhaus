@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
 import type { UploadFolder } from '@/lib/r2';
 import { downscaleImage } from '@/lib/downscale-image';
 import { FORM } from '@/components/night/form';
@@ -24,7 +24,7 @@ export default function ImageUploadField({
   placeholder,
   previewClassName = 'mt-2 max-w-xs',
 }: {
-  label?: string;
+  label?: ReactNode;
   value: string;
   onChange: (url: string) => void;
   folder: UploadFolder;
