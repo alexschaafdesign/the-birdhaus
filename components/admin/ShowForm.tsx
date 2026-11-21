@@ -1330,7 +1330,9 @@ export default function ShowForm({
                 className="h-4 w-4 accent-surface-ink"
               />
               Advance sent
-              {todos.advance && !form.advanceSent && <TodoMark>Not yet</TodoMark>}
+              {todos.advance && !form.advanceSent && (
+                <span aria-label="To do" className="h-1.5 w-1.5 bg-spectrum-amber" />
+              )}
             </label>
           )}
           <StatusMark tone={form.announced ? 'ok' : 'neutral'}>
