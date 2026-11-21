@@ -1001,7 +1001,7 @@ export default function BookingView(props: BookingViewProps) {
             {props.doorCode && (
               <div className="flex flex-wrap items-baseline gap-x-6 gap-y-2">
                 <span className="text-data-overline-11 font-bold tracking-[--spacing(0.625)] uppercase">Door code</span>
-                <span className="text-display-3 font-bold tracking-wider break-all">{props.doorCode}</span>
+                <span className="text-header-1 font-bold tracking-wider break-all">{props.doorCode}</span>
                 <p className="text-body-3 basis-full leading-normal">
                   Tap the keypad to wake it up, enter your code and then hit the lock icon (you can then lock it from the inside
                   just by turning the main dial). When leaving, just tap the pad again to wake it up, then hit the lock icon --
