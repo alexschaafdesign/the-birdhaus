@@ -94,8 +94,9 @@ async function putVars(showId: number, vars: SavedAdvanceVars): Promise<void> {
   }
 }
 
-// Inline editor under the Schedule card: schedule rows + soundcheck notes +
-// the engineer name shown in the header.
+// Inline editor under the Schedule card on the show's Overview (admin-only, so
+// no ADMIN tag): schedule rows + soundcheck notes + the engineer name shown in
+// the header.
 export function HubAdminScheduleEdit({ state }: { state: ShowAdvanceState }) {
   const router = useRouter();
   const [draft, setDraft] = useState<SavedAdvanceVars | null>(null);
@@ -121,7 +122,6 @@ export function HubAdminScheduleEdit({ state }: { state: ShowAdvanceState }) {
   if (!draft) {
     return (
       <div className="flex items-center gap-2 pt-1">
-        <AdminTag />
         <button
           type="button"
           onClick={() => setDraft({ ...state.vars })}
@@ -134,9 +134,8 @@ export function HubAdminScheduleEdit({ state }: { state: ShowAdvanceState }) {
   }
 
   return (
-    <div className="space-y-3 border border-accent-red bg-surface-paper-shade p-4">
+    <div className="space-y-3 border border-surface-ink bg-surface-paper-shade p-4">
       <div className="flex items-center gap-2">
-        <AdminTag />
         <span className="text-data-overline-11 font-bold leading-[1.3] tracking-[--spacing(0.625)] uppercase text-surface-ink/60">
           Edit schedule &amp; notes
         </span>
