@@ -37,7 +37,8 @@ export default async function ContactPage() {
       <section aria-labelledby="contact" className="flex max-w-3xl flex-col gap-4">
         <SectionHeader id="contact" label="Contact" rule="none" />
         <p className="text-body-3 leading-normal">
-          Send us a message and we&apos;ll get back to you as soon as possible! note: I&apos;m just
+          Pick &ldquo;Show requests&rdquo; or &ldquo;General contact&rdquo; and we&apos;ll get back
+          to you as soon as possible! note: I&apos;m just
           one dude doing this as an unpaid labor of love so your patience is appreciated :D
         </p>
         <ContactForm logOnly={logOnly} />
