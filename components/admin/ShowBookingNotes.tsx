@@ -13,13 +13,10 @@ export default function ShowBookingNotes({
   date,
   initialTitle,
   initialNotepad,
-  unavailable,
 }: {
   date: string;
   initialTitle: string;
   initialNotepad: string;
-  // Kept as-is on save (the booking route rewrites the whole day).
-  unavailable: boolean;
 }) {
   const [notepad, setNotepad] = useState(initialNotepad);
   const [status, setStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
@@ -35,7 +32,7 @@ export default function ShowBookingNotes({
       const res = await fetch('/api/admin/booking/days', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ date, title: initialTitle, notepad: value, unavailable }),
+        body: JSON.stringify({ date, title: initialTitle, notepad: value }),
       });
       if (!res.ok) throw new Error();
       saved.current = value;
@@ -69,7 +66,7 @@ export default function ShowBookingNotes({
       defaultOpen={initialNotepad.trim() !== ''}
       action={
         <Link
-          href="/admin/booking"
+          href={`/admin/booking?date=${date}`}
           className="text-data-caption-13 text-surface-ink/60 underline underline-offset-4 hover:text-accent-red"
         >
           Booking calendar →

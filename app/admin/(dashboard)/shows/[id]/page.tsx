@@ -32,8 +32,8 @@ export default async function ShowOverviewPage({ params }: { params: Promise<{ i
   if (!data || !facts) notFound();
 
   // This date's notes from the Booking calendar (booking_days), edited in place.
-  const [bookingDay] = await sql<{ title: string | null; notepad: string | null; unavailable: boolean }[]>`
-    select title, notepad, unavailable from booking_days where date = ${data.row.date}
+  const [bookingDay] = await sql<{ title: string | null; notepad: string | null }[]>`
+    select title, notepad from booking_days where date = ${data.row.date}
   `;
 
   const shareToken = await getOrCreateShareToken(showId);
@@ -56,7 +56,6 @@ export default async function ShowOverviewPage({ params }: { params: Promise<{ i
         date={data.row.date}
         initialTitle={bookingDay?.title ?? ''}
         initialNotepad={bookingDay?.notepad ?? ''}
-        unavailable={bookingDay?.unavailable ?? false}
       />
       {shareUrl && <ShareLinkBox showId={showId} initialUrl={shareUrl} />}
       <ShowForm
