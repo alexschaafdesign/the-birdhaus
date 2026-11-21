@@ -33,13 +33,13 @@ export default function AdvanceSentToggle({ showId, sent }: { showId: number; se
   }
 
   return (
-    <label className="flex cursor-pointer items-center gap-2 text-body-3 text-surface-ink/80">
+    <label className="flex cursor-pointer items-center gap-1.5 text-surface-ink">
       <input
         type="checkbox"
         checked={checked}
         disabled={saving}
         onChange={(e) => void toggle(e.target.checked)}
-        className="h-4 w-4 accent-surface-ink"
+        className="h-3.5 w-3.5 accent-surface-ink"
       />
       {checked ? 'Sent' : 'Not sent yet'}
       {error && <span className="text-accent-red">— didn&apos;t save</span>}

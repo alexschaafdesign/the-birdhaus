@@ -11,7 +11,8 @@ import {
   type ShowTabKey,
 } from '@/lib/show-health';
 
-// A one-glance checklist at the top of the Overview tab. Every to-do here is
+// The show's status strip: one-line chips above the tab bar, so it stays put on
+// every tab (rendered by the show layout). Every to-do here is
 // one of the show's issues from lib/show-health — the same rules as the shows
 // list's chips and the dots on the tabs — so the three can't disagree. A
 // dismissed issue (× on the shows list) isn't shown as a to-do here either.
@@ -51,20 +52,22 @@ interface ItemProps {
 function Item({ label, value, tone, href, control }: ItemProps) {
   const inner = (
     <>
-      <span className={`mt-1.5 h-1.5 w-1.5 shrink-0 ${DOT[tone]}`} />
-      <span className="min-w-0">
-        <span className="block text-data-label-10-small uppercase tracking-wide text-surface-ink/60">{label}</span>
-        {control ?? <span className="block text-body-3 text-surface-ink/80 leading-snug">{value}</span>}
-      </span>
+      <span className={`h-1.5 w-1.5 shrink-0 ${DOT[tone]}`} />
+      <span className="text-data-label-10-small uppercase tracking-wide text-surface-ink/60">{label}</span>
+      {control ?? <span className="text-surface-ink">{value}</span>}
     </>
   );
-  const base = 'flex items-start gap-2 border px-3 py-2';
+  // One line per chip; a to-do gets a solid ink border so it stands out from
+  // the done / neutral ones.
+  const base = `inline-flex items-center gap-1.5 whitespace-nowrap border px-2 py-1 text-data-caption-13 ${
+    tone === 'todo' ? 'border-surface-ink' : 'border-surface-ink/25'
+  } bg-surface-paper`;
   return href && !control ? (
-    <Link href={href} className={`${base} border-surface-ink bg-surface-paper hover:border-accent-red transition-colors`}>
+    <Link href={href} className={`${base} hover:border-accent-red hover:text-accent-red transition-colors`}>
       {inner}
     </Link>
   ) : (
-    <div className={`${base} border-surface-ink bg-surface-paper`}>{inner}</div>
+    <div className={base}>{inner}</div>
   );
 }
 
@@ -91,7 +94,7 @@ export default function ShowOverview({
       label,
       value: open ? open.label : okValue,
       tone: open ? 'todo' : okTone,
-      href: target && target !== 'overview' ? href(target) : undefined,
+      href: target ? href(target) : undefined,
     };
   };
 
@@ -129,9 +132,10 @@ export default function ShowOverview({
           label: 'Announced',
           value: facts.announced ? 'Announced · public' : 'Draft · hidden',
           tone: facts.announced ? 'done' : 'neutral',
+          href: href('overview'),
         },
-        item('Lineup', ['bands'], `${bandCount}/${target} band${target === 1 ? '' : 's'}`, 'done'),
-        item('Flyer', ['flyer'], 'Uploaded', 'done'),
+        item('Lineup', ['bands'], `${bandCount}/${target} band${target === 1 ? '' : 's'}`, 'done', 'overview'),
+        item('Flyer', ['flyer'], 'Uploaded', 'done', 'overview'),
         item(
           'Sound engineer',
           ['sound'],
@@ -163,15 +167,13 @@ export default function ShowOverview({
   const todoCount = items.filter((i) => i.tone === 'todo').length;
 
   return (
-    <section className="border border-surface-ink bg-surface-paper p-4">
-      <h2 className="mb-3 text-data-overline-11 font-bold leading-[1.3] tracking-[--spacing(0.625)] uppercase">
-        Overview{todoCount > 0 ? ` · ${todoCount} to do` : ' · all set'}
-      </h2>
-      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-        {items.map((it) => (
-          <Item key={it.label} {...it} />
-        ))}
-      </div>
+    <section aria-label="Show status" className="flex flex-wrap items-center gap-1.5">
+      <span className="mr-1 text-data-overline-11 font-bold leading-[1.3] tracking-[--spacing(0.625)] uppercase">
+        {todoCount > 0 ? `${todoCount} to do` : 'All set'}
+      </span>
+      {items.map((it) => (
+        <Item key={it.label} {...it} />
+      ))}
     </section>
   );
 }
