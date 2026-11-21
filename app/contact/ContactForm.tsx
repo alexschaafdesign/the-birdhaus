@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import AvailabilityPicker from '@/components/AvailabilityPicker';
 import { FORM } from '@/components/night/form';
 import { parseAvailability, type AvailabilityEntry } from '@/lib/submissions';
@@ -57,59 +57,65 @@ const LABEL = FORM.label;
 const FALLBACK_ERROR = 'Something went wrong — try emailing us directly at alex@thebirdhaus.org';
 
 type Tab = 'show' | 'general';
-type Status = 'idle' | 'sending' | 'success' | 'error';
+type Status = 'idle' | 'sending' | 'error';
 
 const TABS: [Tab, string][] = [
   ['show', 'Show requests'],
   ['general', 'General contact'],
 ];
 
-export function ContactForm({ logOnly }: { logOnly: boolean }) {
+export function ContactForm({ logOnly, children }: { logOnly: boolean; children?: ReactNode }) {
   const [tab, setTab] = useState<Tab>('show');
+  // Once either form sends, the intro (children), toggle and forms give way to
+  // just the thank-you.
+  const [sent, setSent] = useState(false);
+
+  if (sent) {
+    return (
+      <p className="text-body-1 max-w-xl" role="status">
+        Thanks for reaching out! We&apos;ll get back to you as soon as we can.
+      </p>
+    );
+  }
 
   return (
-    <div className="flex max-w-xl flex-col gap-6">
-      <div role="group" aria-label="What are you writing about?" className="border-surface-ink flex w-fit border">
-        {TABS.map(([key, label]) => {
-          const active = tab === key;
-          return (
-            <button
-              key={key}
-              type="button"
-              aria-pressed={active}
-              onClick={() => setTab(key)}
-              className={`text-ui-nav-item-14 focus-visible:outline-accent-red cursor-pointer px-4 py-2 tracking-[--spacing(0.25)] uppercase focus-visible:outline-2 focus-visible:outline-offset-2 ${
-                active
-                  ? 'bg-surface-ink text-surface-paper'
-                  : 'hover:bg-surface-paper-shade'
-              }`}
-            >
-              {label}
-            </button>
-          );
-        })}
-      </div>
+    <>
+      {children}
+      <div className="flex max-w-xl flex-col gap-6">
+        <div role="group" aria-label="What are you writing about?" className="border-surface-ink flex w-fit border">
+          {TABS.map(([key, label]) => {
+            const active = tab === key;
+            return (
+              <button
+                key={key}
+                type="button"
+                aria-pressed={active}
+                onClick={() => setTab(key)}
+                className={`text-ui-nav-item-14 focus-visible:outline-accent-red cursor-pointer px-4 py-2 tracking-[--spacing(0.25)] uppercase focus-visible:outline-2 focus-visible:outline-offset-2 ${
+                  active
+                    ? 'bg-surface-ink text-surface-paper'
+                    : 'hover:bg-surface-paper-shade'
+                }`}
+              >
+                {label}
+              </button>
+            );
+          })}
+        </div>
 
-      {/* Both stay mounted so switching tabs keeps what's been typed. */}
-      <div hidden={tab !== 'show'}>
-        <ShowRequestForm />
+        {/* Both stay mounted so switching tabs keeps what's been typed. */}
+        <div hidden={tab !== 'show'}>
+          <ShowRequestForm onSent={() => setSent(true)} />
+        </div>
+        <div hidden={tab !== 'general'}>
+          <GeneralForm logOnly={logOnly} onSent={() => setSent(true)} />
+        </div>
       </div>
-      <div hidden={tab !== 'general'}>
-        <GeneralForm logOnly={logOnly} />
-      </div>
-    </div>
+    </>
   );
 }
 
-function SuccessNote() {
-  return (
-    <p className="text-body-1" role="status">
-      Thanks for reaching out! We&apos;ll get back to you as soon as we can.
-    </p>
-  );
-}
-
-function ShowRequestForm() {
+function ShowRequestForm({ onSent }: { onSent: () => void }) {
   const empty = { contactName: '', email: '', bandName: '', social: '', vibe: '', comments: '' };
   const [sr, setSr] = useState(empty);
   // Honeypot: hidden from real users; the API silently drops filled submissions.
@@ -144,15 +150,11 @@ function ShowRequestForm() {
         body: JSON.stringify({ ...sr, availability: parsed, website }),
       });
       if (!res.ok) throw new Error('Request failed');
-      setStatus('success');
-      setSr(empty);
-      setAvailability([]);
+      onSent();
     } catch {
       setStatus('error');
     }
   }
-
-  if (status === 'success') return <SuccessNote />;
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-5">
@@ -292,7 +294,7 @@ function ShowRequestForm() {
   );
 }
 
-function GeneralForm({ logOnly }: { logOnly: boolean }) {
+function GeneralForm({ logOnly, onSent }: { logOnly: boolean; onSent: () => void }) {
   const [ct, setCt] = useState({ name: '', email: '', message: '' });
   const [status, setStatus] = useState<Status>('idle');
   const [emailError, setEmailError] = useState<string | null>(null);
@@ -309,14 +311,11 @@ function GeneralForm({ logOnly }: { logOnly: boolean }) {
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: new URLSearchParams({ action: 'contact', ...ct }).toString(),
       });
-      setStatus('success');
-      setCt({ name: '', email: '', message: '' });
+      onSent();
     } catch {
       setStatus('error');
     }
   }
-
-  if (status === 'success') return <SuccessNote />;
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-5">
