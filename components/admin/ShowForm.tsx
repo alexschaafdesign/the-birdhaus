@@ -7,7 +7,6 @@ import BandNameInput, { type BandMatch, type TwinSceneBandOption } from './BandN
 import AddBandModal from './AddBandModal';
 import PhotographerNameInput, { type PhotographerMatch } from './PhotographerNameInput';
 import ImageUploadField from './ImageUploadField';
-import ShowDateAvailability from './ShowDateAvailability';
 import { FORM } from '@/components/night/form';
 import { Panel as Section, PageHeader, ADMIN_TYPE, FIELD_INLINE, StatusMark, buttonClassName } from './ui';
 import { downscaleImage } from '@/lib/downscale-image';
@@ -95,7 +94,7 @@ interface Band {
   photo: string;
   // The set's free-text note (show_bands.notes); '' = none.
   notes: string;
-  // Contact + payout from the band's profile (Lineup & crew tab only). Saved
+  // Contact + payout from the band's profile (Crew tab only). Saved
   // to the profile after the lineup saves; saved* is the loaded baseline so
   // only an actual change is sent.
   email: string;
@@ -130,7 +129,7 @@ interface PhotoEntry {
 }
 
 // Sound-engineer statuses from the API, kept in sync with lib/sound-engineers.ts.
-// The engineer roster/status is edited on the Lineup & crew tab now; this type is retained
+// The engineer roster/status is edited on the Crew tab now; this type is retained
 // only for the initialValues shape the page still passes.
 type SoundEngineerStatus = 'confirmed' | 'asked' | 'declined';
 
@@ -189,7 +188,7 @@ export interface ShowFormInitialValues {
   squareItemId?: string | null;
   squareImageId?: string | null;
   squareLinks?: Array<{ tierLabel: string; amountCents: number; url: string | null }>;
-  // The doors / music times read off the show's Advance schedule (see
+  // The doors / music times read off the show's schedule (see
   // lib/schedule-board timesFromSchedule). Where one is set, the schedule is
   // where that time lives: the field shows it read-only, and a save writes it.
   scheduleTimes?: { doorsTime: string | null; showTime: string | null };
@@ -236,12 +235,13 @@ const EMPTY_CONTACT = { email: '', payout: '', savedEmail: '', savedPayout: '' }
 // Which tab of the show workspace this form is rendered in. Each tab shows only
 // its own sections and saves only its own fields (PATCH is partial), so two
 // tabs can never overwrite each other's edits. Absent = the full form (create).
-export type ShowFormSection = 'overview' | 'lineup' | 'public';
+// The Overview holds the basics AND the lineup (one form, one Save).
+export type ShowFormSection = 'overview' | 'public';
+type FormPart = 'overview' | 'lineup' | 'public';
 
 // The PATCH fields each section owns.
 const SECTION_FIELDS: Record<ShowFormSection, string[]> = {
-  overview: ['title', 'slug', 'date', 'doorsTime', 'showTime', 'flyer', 'announced', 'status'],
-  lineup: ['bands', 'targetBandCount'],
+  overview: ['title', 'slug', 'date', 'doorsTime', 'showTime', 'flyer', 'announced', 'status', 'bands', 'targetBandCount'],
   public: [
     'description', 'ticketUrl', 'externalTicketUrl', 'ticketLimit', 'rsvpForm',
     'videos', 'audio', 'photos', 'photoFolder', 'photoCredit', 'content',
@@ -322,7 +322,7 @@ function initFormState(initial: ShowFormInitialValues | undefined, isPast: boole
       };
     }),
     // Uploads default to crediting the show's assigned photographer (set on the
-    // Lineup & crew tab); the photographer booking itself lives there now.
+    // Crew tab); the photographer booking itself lives there now.
     activePhotographer: {
       id: initial?.assignedPhotographerId ?? null,
       name: initial?.assignedPhotographerName ?? '',
@@ -390,8 +390,10 @@ export default function ShowForm({
   const timesOutOfDate =
     (scheduleTimes?.doorsTime && scheduleTimes.doorsTime !== (initialValues?.doorsTime ?? '')) ||
     (scheduleTimes?.showTime && scheduleTimes.showTime !== (initialValues?.showTime ?? ''));
-  const shows = (part: ShowFormSection) =>
-    section ? section === part : part === 'public' ? view === 'public' : view === 'show';
+  const shows = (part: FormPart) =>
+    section
+      ? section === part || (section === 'overview' && part === 'lineup')
+      : part === 'public' ? view === 'public' : view === 'show';
   const [photosUploading, setPhotosUploading] = useState(false);
   const [photosUploadProgress, setPhotosUploadProgress] = useState<{ done: number; total: number } | null>(
     null
@@ -427,7 +429,7 @@ export default function ShowForm({
   // its own copy. Best-effort: if Twin Scene is unreachable, the local-only
   // typeahead in BandNameInput still works on its own.
   useEffect(() => {
-    if (section && section !== 'lineup') return;
+    if (section && section !== 'overview') return;
     let cancelled = false;
     fetch('/api/admin/bands/twinscene')
       .then((res) => (res.ok ? res.json() : []))
@@ -853,7 +855,7 @@ export default function ShowForm({
       });
       const body = await res.json().catch(() => null);
       if (!res.ok) throw new Error(body?.error || 'Failed to save show');
-      if (section === 'lineup') await saveBandContacts(nonEmptyBands.map(({ b }) => b), body?.bands);
+      if (section === 'overview') await saveBandContacts(nonEmptyBands.map(({ b }) => b), body?.bands);
       // Editing inside the per-show workspace: stay put and refresh so the tab
       // badges and other tabs pick up the change — no more bouncing to the shows
       // list mid-edit. Creating a show (or the standalone form) still navigates.
@@ -1445,12 +1447,12 @@ export default function ShowForm({
         {(scheduleTimes?.doorsTime || scheduleTimes?.showTime) && initialValues?.id && (
           <p className="sm:col-span-2 -mt-1 text-data-caption-13 text-surface-ink/60">
             {scheduleTimes.doorsTime && scheduleTimes.showTime ? 'These come' : 'The locked time comes'} from the{' '}
-            <Link
-              href={`/admin/shows/${initialValues.id}/advance`}
+            <a
+              href="#schedule"
               className="underline decoration-dotted underline-offset-2 hover:text-accent-red"
             >
-              Advance schedule
-            </Link>{' '}
+              schedule below
+            </a>{' '}
             — change them there and the public page, Portal and TV follow.
             {timesOutOfDate && ' The public page still shows the old times: Save changes to update it.'}
           </p>
@@ -1471,8 +1473,6 @@ export default function ShowForm({
 
       {shows('lineup') && (
       <>
-      {!isPastShow && <ShowDateAvailability date={form.date} />}
-
       <Section
         title="Bands"
         // Its own tab in the workspace: always open there.
@@ -1538,7 +1538,7 @@ export default function ShowForm({
                   Remove
                 </button>
               </div>
-              {section === 'lineup' && (
+              {section === 'overview' && (
                 <div className="grid gap-2 sm:grid-cols-2">
                   <input
                     type="email"
@@ -1827,9 +1827,7 @@ export default function ShowForm({
               ? 'Saving...'
               : mode === 'create'
                 ? 'Create show'
-                : section === 'lineup'
-                  ? 'Save lineup'
-                  : 'Save changes'}
+                : 'Save changes'}
           </button>
         </div>
       </div>

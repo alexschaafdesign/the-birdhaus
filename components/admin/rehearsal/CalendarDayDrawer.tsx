@@ -6,19 +6,16 @@ import { useRouter } from 'next/navigation';
 import { ADMIN_TYPE, FIELD_INLINE, buttonClassName } from '@/components/admin/ui';
 import { FORM } from '@/components/night/form';
 
-// The admin Calendar's day drawer: what's on the day, its open stretches,
-// "Add a rehearsal" (a band + time, confirmed straight away: future ones can
-// email the band, past ones are a record and can be marked paid), and
-// "Block time" (from/to or all day, private note) which saves a blackout.
-// A block over a confirmed booking flags it — never cancels it.
+// The Rehearsal calendar's day drawer: what's on the day, its open stretches,
+// and "Add a rehearsal" (a band + time, confirmed straight away: future ones
+// can email the band, past ones are a record and can be marked paid). Blocks
+// show here read-only; they're added and removed on the master Calendar.
 
 export interface DrawerDay {
   date: string; // YYYY-MM-DD
   title: string; // "Wednesday 18 November"
   open: string[]; // "10am–5:30pm"
   shows: string[];
-  away: string | null; // Not available (Booking) note, '' = no note
-  busy: string[];
   blocks: Array<{ id: number; label: string; note: string; multiDay: boolean }>;
   bookings: Array<{ id: number; bandId: number; label: string; status: string; conflict: boolean }>;
 }
@@ -96,50 +93,6 @@ export default function CalendarDayDrawer({
     }
   }
 
-  const [allDay, setAllDay] = useState(false);
-  const [from, setFrom] = useState('16:00');
-  const [to, setTo] = useState('22:00');
-  const [note, setNote] = useState('');
-  const [saving, setSaving] = useState(false);
-  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
-
-  async function block(e: React.FormEvent) {
-    e.preventDefault();
-    setSaving(true);
-    setMsg(null);
-    try {
-      const res = await fetch('/api/admin/rehearsal/blackouts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        // "to 12am" = midnight: the next day's 00:00.
-        body: JSON.stringify(
-          allDay
-            ? { fromDate: day.date, toDate: day.date, allDay: true, note }
-            : to === '00:00'
-              ? { fromDate: day.date, toDate: nextDay(day.date), allDay: false, fromTime: from, toTime: '00:00', note }
-              : { fromDate: day.date, toDate: day.date, allDay: false, fromTime: from, toTime: to, note },
-        ),
-      });
-      const d = await res.json().catch(() => null);
-      if (!res.ok) return setMsg({ ok: false, text: d?.error ?? "Didn't save." });
-      setMsg(
-        d.conflicts.length
-          ? { ok: false, text: `Blocked. It overlaps confirmed booking(s) — flagged, not cancelled: ${d.conflicts.join('; ')}` }
-          : { ok: true, text: 'Blocked.' },
-      );
-      setNote('');
-      router.refresh();
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  async function remove(id: number, multiDay: boolean) {
-    if (!confirm(multiDay ? 'Remove this block? It covers more than this day — all of it goes.' : 'Remove this block?')) return;
-    await fetch(`/api/admin/rehearsal/blackouts/${id}`, { method: 'DELETE' });
-    router.refresh();
-  }
-
   return (
     <>
       <Link href={closeHref} scroll={false} aria-label="Close" className="bg-surface-ink/60 fixed inset-0 z-40" />
@@ -160,14 +113,10 @@ export default function CalendarDayDrawer({
           <p>{day.open.length ? day.open.join(' · ') : <span className="text-surface-ink/60">Nothing open</span>}</p>
         </div>
 
-        {(day.shows.length > 0 || day.away !== null || day.busy.length > 0) && (
+        {day.shows.length > 0 && (
           <ul className="space-y-1">
             {day.shows.map((t) => (
               <li key={t} className="text-accent-red font-bold">Show: {t}</li>
-            ))}
-            {day.away !== null && <li className="text-surface-ink/70">Not available (Booking){day.away ? `: ${day.away}` : ''}</li>}
-            {day.busy.map((t, i) => (
-              <li key={i} className="border-spectrum-amber border-l-4 pl-2">Busy on your calendar: {t}</li>
             ))}
           </ul>
         )}
@@ -203,9 +152,6 @@ export default function CalendarDayDrawer({
                     ■ {b.label}
                     {b.note && <span className="text-surface-ink/60"> · {b.note}</span>}
                   </span>
-                  <button type="button" onClick={() => remove(b.id, b.multiDay)} className="text-data-caption-13 text-accent-red cursor-pointer underline underline-offset-4 hover:no-underline">
-                    Remove
-                  </button>
                 </li>
               ))}
             </ul>
@@ -274,57 +220,7 @@ export default function CalendarDayDrawer({
           )}
         </form>
 
-        <form onSubmit={block} className="space-y-3 border border-surface-ink p-4">
-          <span className={label}>Block time</span>
-          <label className="flex cursor-pointer items-center gap-2">
-            <input type="checkbox" className="accent-surface-ink size-4" checked={allDay} onChange={(e) => setAllDay(e.target.checked)} />
-            All day
-          </label>
-          {!allDay && (
-            <div className="flex flex-wrap items-center gap-2">
-              <select aria-label="From" value={from} onChange={(e) => setFrom(e.target.value)} className={input}>
-                {TIMES.map((t) => (
-                  <option key={t} value={t}>
-                    {clock(t)}
-                  </option>
-                ))}
-              </select>
-              <span>to</span>
-              <select aria-label="To" value={to} onChange={(e) => setTo(e.target.value)} className={input}>
-                {[...TIMES.slice(1), '00:00'].map((t) => (
-                  <option key={t} value={t}>
-                    {t === '00:00' ? 'midnight' : clock(t)}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-          <input
-            placeholder="Private note (optional)"
-            maxLength={500}
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            className={`${input} w-full`}
-          />
-          <button
-            type="submit"
-            disabled={saving}
-            className={buttonClassName('primary', 's')}
-          >
-            {saving ? 'Blocking…' : 'Block time'}
-          </button>
-          {msg && (
-            <p role={msg.ok ? 'status' : 'alert'} className={msg.ok ? FORM.notice : FORM.error}>
-              {msg.text}
-            </p>
-          )}
-        </form>
       </aside>
     </>
   );
-}
-
-function nextDay(date: string): string {
-  const [y, m, d] = date.split('-').map(Number);
-  return new Date(Date.UTC(y, m - 1, d + 1)).toISOString().slice(0, 10);
 }

@@ -12,20 +12,20 @@ const CLS = {
 };
 
 // Tab nav for the per-show workspace, grouped by job:
-//   Overview      — the checklist and the basics (date, times, flyer, announce)
-//   Lineup & crew — who's involved: bands with their contacts, sound, door, photo
-//   Advance       — what the bands are told: the Portal and their input lists
-//   Public page   — what the public sees: description, tickets, media
-//   Door          — the night: RSVPs / door list
-//   Settlement    — after
+//   Overview    — the essentials: checklist, basics, bands, schedule, notes
+//   Crew        — sound, door, photographer
+//   Advance     — the Portal as bands see it, and their input lists
+//   Public page — what the public sees: description, tickets, media
+//   RSVPs       — the RSVP / door list
+//   Settlement  — after
 // Each tab gets an amber dot while it has an open to-do (lib/show-health — the
 // same issues as the shows list and the Overview checklist).
 const TABS: Array<{ key: ShowTabKey; label: string }> = [
   { key: 'overview', label: 'Overview' },
-  { key: 'lineup', label: 'Lineup & crew' },
+  { key: 'lineup', label: 'Crew' },
   { key: 'advance', label: 'Advance' },
   { key: 'public', label: 'Public page' },
-  { key: 'door', label: 'Door' },
+  { key: 'door', label: 'RSVPs' },
   { key: 'settlement', label: 'Settlement' },
 ];
 

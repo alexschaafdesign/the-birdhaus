@@ -51,14 +51,23 @@ export default function AvailabilityPicker({
             <>
               <input
                 type="date"
+                aria-label="Start date"
                 value={entry.from}
-                onChange={(e) => updateEntry(i, { ...entry, from: e.target.value })}
+                onChange={(e) => {
+                  const from = e.target.value;
+                  // An empty (or now-earlier) end follows the start, so the end
+                  // picker opens on the start's month instead of today's.
+                  const to = from && (!entry.to || entry.to < from) ? from : entry.to;
+                  updateEntry(i, { ...entry, from, to });
+                }}
                 className={inputClassName}
               />
               <span className={sepClass}>to</span>
               <input
                 type="date"
+                aria-label="End date"
                 value={entry.to}
+                min={entry.from || undefined}
                 onChange={(e) => updateEntry(i, { ...entry, to: e.target.value })}
                 className={inputClassName}
               />

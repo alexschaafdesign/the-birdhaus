@@ -16,7 +16,7 @@ const base: ShowHealthFacts = {
 };
 
 test('upcoming show: issues land on the tab that fixes them', () => {
-  assert.deepEqual(todosByTab(base, '2027-01-01'), { overview: 1, advance: 1, lineup: 1 });
+  assert.deepEqual(todosByTab(base, '2027-01-01'), { overview: 3 });
 });
 
 test('dismissed issues are not to-dos', () => {

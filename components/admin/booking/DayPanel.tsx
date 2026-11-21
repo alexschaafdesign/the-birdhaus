@@ -26,46 +26,35 @@ export default function DayPanel({
   info: DayInfo;
   onClose: () => void;
   onToggleAvailable: (date: string) => void;
-  onSave: (date: string, title: string, notepad: string, unavailable: boolean) => Promise<boolean>;
+  onSave: (date: string, title: string, notepad: string) => Promise<boolean>;
 }) {
   const { date } = info;
   const [title, setTitle] = useState(info.plan?.title ?? '');
   const [notepad, setNotepad] = useState(info.plan?.notepad ?? '');
-  const [unavailable, setUnavailable] = useState(info.plan?.unavailable ?? false);
   const [saveState, setSaveState] = useState<'idle' | 'pending' | 'saved' | 'failed'>('idle');
 
   // Autosave: debounce while typing, flush on close/unmount (switching days
   // unmounts too, via the key) so nothing typed is dropped.
-  // The not-available toggle saves right away (with whatever's typed) rather
-  // than waiting on the debounce.
-  const saved = useRef({ title, notepad, unavailable });
-  const latest = useRef({ title, notepad, unavailable });
+  const saved = useRef({ title, notepad });
+  const latest = useRef({ title, notepad });
   useEffect(() => {
-    latest.current = { title, notepad, unavailable };
-  }, [title, notepad, unavailable]);
+    latest.current = { title, notepad };
+  }, [title, notepad]);
 
   useEffect(() => {
     if (title === saved.current.title && notepad === saved.current.notepad) return;
     setSaveState('pending');
     const timer = setTimeout(async () => {
-      saved.current = { title, notepad, unavailable };
-      setSaveState((await onSave(date, title, notepad, unavailable)) ? 'saved' : 'failed');
+      saved.current = { title, notepad };
+      setSaveState((await onSave(date, title, notepad)) ? 'saved' : 'failed');
     }, SAVE_DELAY_MS);
     return () => clearTimeout(timer);
-  }, [title, notepad, unavailable, date, onSave]);
-
-  async function toggleUnavailable() {
-    const next = !unavailable;
-    setUnavailable(next);
-    saved.current = { title, notepad, unavailable: next };
-    setSaveState('pending');
-    setSaveState((await onSave(date, title, notepad, next)) ? 'saved' : 'failed');
-  }
+  }, [title, notepad, date, onSave]);
 
   useEffect(
     () => () => {
-      const { title: t, notepad: n, unavailable: u } = latest.current;
-      if (t !== saved.current.title || n !== saved.current.notepad) void onSave(date, t, n, u);
+      const { title: t, notepad: n } = latest.current;
+      if (t !== saved.current.title || n !== saved.current.notepad) void onSave(date, t, n);
     },
     // Unmount-only flush; latest/saved are refs.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -108,10 +97,22 @@ export default function DayPanel({
       </div>
 
       <div className="space-y-4">
-        {/* A show can still land on a not-available day (someone else runs
-            it), so the conflict toggle stays even when there's a show. */}
+        {/* Blocks are added and removed on the master Calendar only. A show
+            can still land on a blocked day (someone else runs it). */}
+        {info.blocked && (
+          <p className="border-accent-red text-body-3 border-l-4 pl-2">
+            <span className="text-accent-red font-bold">Blocked</span>
+            {info.blocked.length ? `: ${info.blocked.join(' · ')}` : ''}
+            <span className="text-data-caption-13 text-surface-ink/60">
+              {' · '}
+              <Link href={`/admin/calendar?month=${date.slice(0, 7)}&day=${date}`} className="underline hover:text-accent-red">
+                change on the Calendar
+              </Link>
+            </span>
+          </p>
+        )}
         <div className="flex flex-wrap items-center gap-2">
-          {!showOnDate && !unavailable && (
+          {!showOnDate && !info.blocked && (
             <button
               type="button"
               onClick={() => onToggleAvailable(date)}
@@ -121,22 +122,15 @@ export default function DayPanel({
               {info.available ? '✓ Available — click to unmark' : 'Mark available'}
             </button>
           )}
-          <button
-            type="button"
-            onClick={toggleUnavailable}
-            aria-pressed={unavailable}
-            className={
-              unavailable
-                ? `${buttonClassName('secondary', 's')} border-accent-red text-accent-red`
-                : buttonClassName('secondary', 's')
-            }
-          >
-            {unavailable ? '✕ Not available — click to clear' : 'Not available'}
-          </button>
+          {!info.blocked && (
+            <Link
+              href={`/admin/calendar?month=${date.slice(0, 7)}&day=${date}`}
+              className="text-data-caption-13 text-surface-ink/60 underline hover:text-accent-red"
+            >
+              Not available? Block it on the Calendar
+            </Link>
+          )}
         </div>
-        {unavailable && (
-          <p className="-mt-2 text-data-caption-13 text-surface-ink/60">Use the title for the reason, e.g. “Out of town”.</p>
-        )}
 
         <div className="space-y-2">
           <input

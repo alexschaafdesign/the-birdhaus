@@ -1,6 +1,5 @@
 import { sql } from '../db';
 import { getDayWindows, getRehearsalSettings } from './settings';
-import { getBusyTimes, type FeedStatus } from './busy';
 import {
   addDays,
   bookingWindow,
@@ -18,14 +17,18 @@ import {
 
 // Loads the real inputs for the availability engine and runs it. Shows are
 // read from the existing shows table, unchanged (any status but cancelled /
-// postponed, announced or not); Not-available days from booking_days.
+// postponed, announced or not); blocks from rehearsal_blackouts, the master
+// Calendar's blocks (Booking's old Not-available days were folded into them by
+// migration 122). Calendar feeds are no longer read: the engine's
+// `unavailableDays` and `busy` inputs stay in its signature but are always empty.
+
+const NO_BUSY = { intervals: [], checked: true };
 
 export async function loadAvailability(
   opts: {
     viewerBandId?: number;
     fromDate?: string;
     now?: Date;
-    forceCalendar?: boolean;
     // Treat these bookings' time as free (validating a change).
     ignoreBookingIds?: number[];
     // Also return, per booking, its day's free time with that booking left
@@ -34,7 +37,6 @@ export async function loadAvailability(
   } = {},
 ): Promise<{
   availability: Availability;
-  feeds: FeedStatus[];
   settings: Awaited<ReturnType<typeof getRehearsalSettings>>;
   freeIgnoring: Map<number, Interval[]>;
 }> {
@@ -48,17 +50,11 @@ export async function loadAvailability(
   const spanStart = startOfChicagoDay(addDays(fromDate, -1));
   const spanEnd = startOfChicagoDay(addDays(lastDate, 1));
 
-  const [shows, away, blackouts, bookings, calendar] = await Promise.all([
+  const [shows, blackouts, bookings] = await Promise.all([
     sql<{ date: string }[]>`
       select distinct date::text as date
       from shows
       where status not in ('cancelled', 'postponed')
-        and date between ${addDays(fromDate, -1)}::date and ${lastDate}::date
-    `,
-    sql<{ date: string }[]>`
-      select date::text as date
-      from booking_days
-      where unavailable
         and date between ${addDays(fromDate, -1)}::date and ${lastDate}::date
     `,
     sql<Array<{ start: Date; end: Date }>>`
@@ -75,7 +71,6 @@ export async function loadAvailability(
       where status in ('pending', 'confirmed')
         and ends_at > ${spanStart} and starts_at < ${spanEnd}
     `,
-    getBusyTimes(settings.icsFeedUrls, spanStart, spanEnd, { now, force: opts.forceCalendar }),
   ]);
 
   const input = {
@@ -83,9 +78,9 @@ export async function loadAvailability(
     settings,
     windows,
     showDates: shows.map((r) => r.date),
-    unavailableDays: away.map((r) => r.date),
+    unavailableDays: [],
     blackouts: blackouts.map((r): Interval => ({ start: r.start, end: r.end })),
-    busy: calendar.busy,
+    busy: NO_BUSY,
     bookings: bookings.map((r): EngineBooking => ({ ...r })),
     viewerBandId: opts.viewerBandId,
     ignoreBookingIds: opts.ignoreBookingIds,
@@ -103,15 +98,14 @@ export async function loadAvailability(
     if (day?.date === date) freeIgnoring.set(id, day.free);
   }
 
-  return { availability, feeds: calendar.feeds, settings, freeIgnoring };
+  return { availability, settings, freeIgnoring };
 }
 
-// Why each of these bookings would now clash (a show, Not-available day,
-// blackout or busy time landed on it since it was requested). Admin-only:
+// Why each of these bookings would now clash (a show or block landed on it
+// since it was requested). Admin-only:
 // the review page and the request email warn before Alex approves.
 export async function clashesFor(
   bookings: Array<{ id: number; startsAt: Date; endsAt: Date }>,
-  now = new Date(),
 ): Promise<{ reasons: Map<number, Reason[]>; calendarChecked: boolean }> {
   const reasons = new Map<number, Reason[]>();
   if (bookings.length === 0) return { reasons, calendarChecked: true };
@@ -121,31 +115,26 @@ export async function clashesFor(
   const spanStart = startOfChicagoDay(addDays(first, -1));
   const spanEnd = startOfChicagoDay(addDays(last, 2));
 
-  const [shows, away, blackouts, calendar] = await Promise.all([
+  const [shows, blackouts] = await Promise.all([
     sql<{ date: string }[]>`
       select distinct date::text as date from shows
       where status not in ('cancelled', 'postponed') and date between ${addDays(first, -1)}::date and ${last}::date
-    `,
-    sql<{ date: string }[]>`
-      select date::text as date from booking_days
-      where unavailable and date between ${addDays(first, -1)}::date and ${last}::date
     `,
     sql<Array<{ start: Date; end: Date }>>`
       select starts_at as start, ends_at as "end" from rehearsal_blackouts
       where ends_at > ${spanStart} and starts_at < ${spanEnd}
     `,
-    getBusyTimes(settings.icsFeedUrls, spanStart, spanEnd, { now }),
   ]);
   const c: Constraints = {
     settings,
     showDates: shows.map((r) => r.date),
-    unavailableDays: away.map((r) => r.date),
+    unavailableDays: [],
     blackouts: blackouts.map((r) => ({ start: r.start, end: r.end })),
-    busy: calendar.busy.intervals,
+    busy: [],
   };
   for (const b of bookings) {
     const r = constraintReasons({ start: b.startsAt, end: b.endsAt }, c);
     if (r.length) reasons.set(b.id, r);
   }
-  return { reasons, calendarChecked: calendar.busy.checked };
+  return { reasons, calendarChecked: true };
 }

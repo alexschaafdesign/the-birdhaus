@@ -7,7 +7,7 @@ import type { ShowFormInitialValues } from '@/components/admin/ShowForm';
 import { getSavedScheduleRows } from '@/lib/advance';
 import { timesFromSchedule } from '@/lib/schedule-board';
 
-// Everything the show form needs, shared by the Overview, Lineup & crew and
+// Everything the show form needs, shared by the Overview, Crew and
 // Public page tabs (each renders its own section of the same form).
 
 export interface ShowRow {

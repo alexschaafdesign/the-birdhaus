@@ -1286,7 +1286,6 @@ export default function BookingView(props: BookingViewProps) {
                 />
               )}
             </div>
-            <p className="text-body-3 opacity-70">All times are Minneapolis time.</p>
           </>
         )}
       </section>

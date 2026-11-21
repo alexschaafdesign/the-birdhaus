@@ -1,35 +1,34 @@
 import Link from 'next/link';
 import { sql } from '@/lib/db';
 import { addDays, chicagoDate, startOfChicagoDay, weekdayOf } from '@/lib/rehearsal/availability';
-import { getBusyTimes } from '@/lib/rehearsal/busy';
 import { listBlackouts } from '@/lib/rehearsal/blackouts';
 import { bookingsBetween, displayStatus } from '@/lib/rehearsal/decisions';
-import { getRehearsalSettings } from '@/lib/rehearsal/settings';
 import { timeRange } from '@/lib/rehearsal/format';
-import { ADMIN_TYPE, PageHeader, StatusMark } from '@/components/admin/ui';
+import { ADMIN_TYPE, PageHeader } from '@/components/admin/ui';
 import { FORM } from '@/components/night/form';
+import BlockEditor from '@/components/admin/calendar/BlockEditor';
 
 export const dynamic = 'force-dynamic';
 
 // The master calendar: one month grid with everything that claims a day —
-// shows, Booking's day plans / "not available" / marked-available dates,
-// submission date offers, rehearsal bookings and blocks, and busy times from
-// the rehearsal calendar feeds. Read-only: each item links to the page that
-// owns it (Shows, Booking, Rehearsal calendar), which is where edits happen.
+// shows, Booking's day plans and marked-available dates, submission date
+// offers, rehearsal bookings, and blocks. Blocks (Alex's own "not available"
+// time) are added and removed here and only here; everything else links to
+// the page that owns it (Shows, Booking, Rehearsal calendar).
 //
 // Each day gets one verdict at the top so "is this date free?" has a single
-// answer: Show > Not available > Held (an open offer) > Blocked (all day) >
-// Open for a show (marked available) > nothing.
+// answer: Show > Blocked (all day) > Offered > Open for a show (marked
+// available) > nothing.
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-const LAYERS = ['shows', 'booking', 'rehearsal', 'busy'] as const;
+const LAYERS = ['shows', 'booking', 'rehearsal', 'blocks'] as const;
 type Layer = (typeof LAYERS)[number];
 const LAYER_LABELS: Record<Layer, string> = {
   shows: 'Shows',
   booking: 'Booking',
   rehearsal: 'Rehearsal',
-  busy: 'Your calendar',
+  blocks: 'Blocks',
 };
 
 function sundayOf(date: string) {
@@ -51,11 +50,10 @@ function clip(a: { start: Date; end: Date }, from: Date, to: Date) {
   return end > start ? { start, end } : null;
 }
 
-type Verdict = { kind: 'show' | 'away' | 'held' | 'blocked' | 'open'; label: string };
+type Verdict = { kind: 'show' | 'held' | 'blocked' | 'open'; label: string };
 
 const VERDICT_TINT: Record<Verdict['kind'], string> = {
   show: 'bg-accent-red/15',
-  away: 'bg-surface-paper-shade',
   held: 'bg-spectrum-violet/15',
   blocked: 'bg-surface-ink/15',
   open: '',
@@ -63,7 +61,6 @@ const VERDICT_TINT: Record<Verdict['kind'], string> = {
 
 const VERDICT_MARK: Record<Verdict['kind'], string> = {
   show: 'text-accent-red',
-  away: 'text-surface-ink/70',
   held: 'text-surface-ink',
   blocked: 'text-surface-ink/80',
   open: 'border border-dotted border-surface-ink px-1',
@@ -90,16 +87,15 @@ export default async function MasterCalendarPage({
   const spanStart = startOfChicagoDay(first);
   const spanEnd = startOfChicagoDay(addDays(last, 1));
 
-  const settings = await getRehearsalSettings();
-  const [shows, plans, available, offers, blackouts, busy, rehearsals] = await Promise.all([
+  const [shows, plans, available, offers, blackouts, rehearsals] = await Promise.all([
     sql<{ id: number; date: string; title: string; announced: boolean }[]>`
       select id::int as id, date::text as date, title, announced from shows
       where status = 'scheduled' and date between ${first}::date and ${last}::date
       order by date, id
     `,
-    sql<{ date: string; title: string; notepad: string; unavailable: boolean }[]>`
-      select date::text as date, title, notepad, unavailable from booking_days
-      where date between ${first}::date and ${last}::date
+    sql<{ date: string; title: string; notepad: string }[]>`
+      select date::text as date, title, notepad from booking_days
+      where (title <> '' or notepad <> '') and date between ${first}::date and ${last}::date
     `,
     sql<{ date: string }[]>`
       select date::text as date from available_dates
@@ -113,9 +109,6 @@ export default async function MasterCalendarPage({
       order by o.date, o.id
     `,
     listBlackouts(spanStart, spanEnd),
-    on('busy')
-      ? getBusyTimes(settings.icsFeedUrls, spanStart, spanEnd, { now })
-      : Promise.resolve({ busy: { intervals: [], checked: true }, feeds: [] }),
     bookingsBetween(spanStart, spanEnd),
   ]);
 
@@ -133,11 +126,13 @@ export default async function MasterCalendarPage({
     const blocks = blackouts
       .map((b) => ({ b, c: clip(b, from, to) }))
       .filter((x) => x.c)
-      .map(({ b, c }) => ({ id: b.id, note: b.note, allDay: allDay(c!), label: allDay(c!) ? 'all day' : timeRange(c!.start, c!.end) }));
-    const busyTimes = busy.busy.intervals
-      .map((iv) => clip(iv, from, to))
-      .filter((c): c is { start: Date; end: Date } => Boolean(c))
-      .map((c) => (allDay(c) ? 'all day' : timeRange(c.start, c.end)));
+      .map(({ b, c }) => ({
+        id: b.id,
+        note: b.note,
+        allDay: allDay(c!),
+        multiDay: b.start < from || b.end > to,
+        label: allDay(c!) ? 'all day' : timeRange(c!.start, c!.end),
+      }));
     const dayRehearsals = rehearsals
       .filter((b) => chicagoDate(b.startsAt) === d)
       .map((b) => ({ ...b, shown: displayStatus(b, now) }))
@@ -147,13 +142,12 @@ export default async function MasterCalendarPage({
     // taken day look free.
     let verdict: Verdict | null = null;
     if (dayShows.length) verdict = { kind: 'show', label: dayShows.some((s) => s.announced) ? 'Show' : 'Show (draft)' };
-    else if (plan?.unavailable) verdict = { kind: 'away', label: 'Not available' };
+    else if (blocks.some((b) => b.allDay)) verdict = { kind: 'blocked', label: 'Blocked' };
     else if (dayOffers.some((o) => o.status === 'confirmed')) verdict = { kind: 'held', label: 'Confirmed offer' };
     else if (dayOffers.length) verdict = { kind: 'held', label: 'Offered' };
-    else if (blocks.some((b) => b.allDay)) verdict = { kind: 'blocked', label: 'Blocked' };
     else if (availableSet.has(d)) verdict = { kind: 'open', label: 'Open for a show' };
 
-    return { date: d, verdict, shows: dayShows, plan, offers: dayOffers, blocks, busy: busyTimes, rehearsals: dayRehearsals };
+    return { date: d, verdict, shows: dayShows, plan, offers: dayOffers, blocks, rehearsals: dayRehearsals };
   });
 
   const qs = (over: Record<string, string | null>) => {
@@ -208,19 +202,11 @@ export default async function MasterCalendarPage({
 
       <ul className="text-data-caption-13 flex flex-wrap items-center gap-x-5 gap-y-2">
         <li><span className="bg-accent-red/15 border-accent-red mr-1.5 inline-block size-3 border align-middle" />Show</li>
-        <li><span className="bg-surface-paper-shade border-surface-ink/20 mr-1.5 inline-block size-3 border align-middle" />Not available</li>
         <li><span className="bg-spectrum-violet/15 border-spectrum-violet mr-1.5 inline-block size-3 border align-middle" />Offered to a band</li>
         <li><span className="bg-surface-ink/15 border-surface-ink mr-1.5 inline-block size-3 border align-middle" />Blocked all day</li>
         <li><span className="border-surface-ink border border-dotted px-1">Open for a show</span> = marked available in Booking</li>
-        <li><span className="border-spectrum-amber border-l-4 pl-1">busy</span> = your calendar</li>
-        <li className="text-surface-ink/60">Hiding a layer never hides a day&apos;s verdict</li>
+        <li className="text-surface-ink/60">Click a day to block time · hiding a layer never hides a day&apos;s verdict</li>
       </ul>
-      {!busy.busy.checked && (
-        <p className={`${FORM.notice} flex flex-wrap items-baseline gap-2`}>
-          <StatusMark tone="attention">Calendar</StatusMark>
-          Couldn&apos;t read a calendar feed — busy times may be missing.
-        </p>
-      )}
 
       <div className="overflow-x-auto">
         <div className="text-data-caption-13 grid min-w-[56rem] grid-cols-7 border-t border-l border-surface-ink">
@@ -261,7 +247,7 @@ export default async function MasterCalendarPage({
                   ))}
                 {on('booking') && d.plan?.title && (
                   <p className="truncate text-surface-ink/80" title={d.plan.notepad || d.plan.title}>
-                    {d.plan.unavailable ? '✕ ' : '✎ '}{d.plan.title}
+                    ✎ {d.plan.title}
                   </p>
                 )}
                 {on('booking') &&
@@ -270,7 +256,7 @@ export default async function MasterCalendarPage({
                       {o.status === 'confirmed' ? '✓ ' : '? '}{o.band_name}
                     </p>
                   ))}
-                {on('rehearsal') &&
+                {on('blocks') &&
                   d.blocks.map((b) => (
                     <p key={b.id} className="truncate text-surface-ink/80" title={b.note}>
                       ■ {b.label}{b.note ? ` · ${b.note}` : ''}
@@ -290,10 +276,6 @@ export default async function MasterCalendarPage({
                     >
                       {b.conflict ? '⚠ ' : ''}{timeRange(b.startsAt, b.endsAt)} {b.bandName}
                     </p>
-                  ))}
-                {on('busy') &&
-                  d.busy.map((t, i) => (
-                    <p key={i} className="border-spectrum-amber truncate border-l-4 pl-1">busy {t}</p>
                   ))}
               </Link>
             );
@@ -348,8 +330,7 @@ export default async function MasterCalendarPage({
 
             <section className="space-y-1">
               <span className={FORM.label}>Booking</span>
-              {drawer.plan?.unavailable && <p className="font-bold">Not available{drawer.plan.title ? `: ${drawer.plan.title}` : ''}</p>}
-              {drawer.plan && !drawer.plan.unavailable && drawer.plan.title && <p className="font-bold">{drawer.plan.title}</p>}
+              {drawer.plan?.title && <p className="font-bold">{drawer.plan.title}</p>}
               {drawer.plan?.notepad.trim() && <p className="whitespace-pre-wrap text-surface-ink/80">{drawer.plan.notepad}</p>}
               {availableSet.has(drawer.date) && <p>Marked available for a show</p>}
               {drawer.offers.map((o) => (
@@ -377,25 +358,25 @@ export default async function MasterCalendarPage({
                   </Link>
                 </p>
               ))}
-              {drawer.blocks.map((b) => (
-                <p key={b.id}>■ Blocked {b.label}{b.note ? ` · ${b.note}` : ''}</p>
-              ))}
-              {drawer.rehearsals.length === 0 && drawer.blocks.length === 0 && <p className="text-surface-ink/60">No bookings or blocks</p>}
+              {drawer.rehearsals.length === 0 && <p className="text-surface-ink/60">No bookings</p>}
               <p>
                 <Link href={`/admin/rehearsal/calendar?month=${drawer.date.slice(0, 7)}&day=${drawer.date}`} className={ADMIN_TYPE.link}>
-                  Add a rehearsal or block time
+                  Add a rehearsal
                 </Link>
               </p>
             </section>
 
-            {on('busy') && drawer.busy.length > 0 && (
-              <section className="space-y-1">
-                <span className={FORM.label}>Your calendar</span>
-                {drawer.busy.map((t, i) => (
-                  <p key={i} className="border-spectrum-amber border-l-4 pl-2">Busy {t}</p>
-                ))}
-              </section>
-            )}
+            <section className="space-y-1">
+              <span className={FORM.label}>Blocks</span>
+              <p className="text-data-caption-13 text-surface-ink/60">
+                Your own not-available time. All day closes the date for shows; any block closes it for rehearsals.
+              </p>
+              <BlockEditor
+                key={drawer.date}
+                date={drawer.date}
+                blocks={drawer.blocks.map((b) => ({ id: b.id, label: b.label, note: b.note, multiDay: b.multiDay }))}
+              />
+            </section>
           </aside>
         </div>
       )}

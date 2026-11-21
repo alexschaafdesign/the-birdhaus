@@ -3,21 +3,18 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { FeedEdit, RehearsalSettingsForAdmin } from '@/lib/rehearsal/settings';
-import FeedCheck from './FeedCheck';
 import PublicPageSettings from './PublicPageSettings';
 import { ADMIN_TYPE, FIELD_INLINE, buttonClassName } from '@/components/admin/ui';
 import { FORM } from '@/components/night/form';
 
-// Rehearsal settings. Prices are typed in dollars and sent as cents. Calendar
-// feeds arrive masked; a stored feed is kept by its index, a new one is sent
-// as a URL (and is masked once saved).
+// Rehearsal settings. Prices are typed in dollars and sent as cents.
+// Calendar feeds are no longer read (blocks on the master Calendar replaced
+// them); any saved feed links are kept as they are, untouched by this form.
 
 const label = FORM.label;
 const hint = 'font-normal normal-case tracking-normal text-surface-ink/60';
 const input = FORM.field;
 const area = `${input} min-h-[6rem] leading-relaxed`;
-
-type FeedRow = { kind: 'stored'; index: number; masked: string } | { kind: 'new'; url: string };
 
 function dollars(cents: number | null) {
   return cents === null ? '' : (cents / 100).toFixed(cents % 100 === 0 ? 0 : 2);
@@ -55,10 +52,6 @@ export default function RehearsalSettingsForm({ initial }: { initial: RehearsalS
   const [s, setS] = useState(initial);
   const [price, setPrice] = useState(dollars(initial.priceCents));
   const [repeatPrice, setRepeatPrice] = useState(dollars(initial.repeatPriceCents));
-  const [feeds, setFeeds] = useState<FeedRow[]>(
-    initial.icsFeeds.map((masked, index) => ({ kind: 'stored', index, masked })),
-  );
-  const [newFeed, setNewFeed] = useState('');
   const [newGear, setNewGear] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -86,14 +79,6 @@ export default function RehearsalSettingsForm({ initial }: { initial: RehearsalS
     };
   }
 
-  function addFeed() {
-    const url = newFeed.trim();
-    if (!url) return;
-    setFeeds([...feeds, { kind: 'new', url }]);
-    setNewFeed('');
-    setSavedAt(null);
-  }
-
   function addGear() {
     const label = newGear.trim().replace(/\s+/g, ' ');
     if (!label) return;
@@ -110,9 +95,8 @@ export default function RehearsalSettingsForm({ initial }: { initial: RehearsalS
     const repeatPriceCents = toCents(repeatPrice);
     if (priceCents === 'bad' || priceCents === null) return setError('Price must be a dollar amount, like 60 or 62.50.');
     if (repeatPriceCents === 'bad') return setError('Repeat price must be a dollar amount, or blank.');
-    const pendingFeed = newFeed.trim();
-    const allFeeds = pendingFeed ? [...feeds, { kind: 'new' as const, url: pendingFeed }] : feeds;
-    const icsFeeds: FeedEdit[] = allFeeds.map((f) => (f.kind === 'stored' ? { keep: f.index } : { url: f.url }));
+    // Keep whatever feed links are stored; nothing reads them any more.
+    const icsFeeds: FeedEdit[] = s.icsFeeds.map((_, index) => ({ keep: index }));
 
     const { icsFeeds: _masked, updatedAt: _u, ...rest } = s;
     void _masked;
@@ -136,8 +120,6 @@ export default function RehearsalSettingsForm({ initial }: { initial: RehearsalS
       setS(data);
       setPrice(dollars(data.priceCents));
       setRepeatPrice(dollars(data.repeatPriceCents));
-      setFeeds(data.icsFeeds.map((masked, index) => ({ kind: 'stored', index, masked })));
-      setNewFeed('');
       setNewGear('');
       setSavedAt(new Date().toLocaleTimeString());
       router.refresh(); // standing-hours labels follow the block length
@@ -210,52 +192,9 @@ export default function RehearsalSettingsForm({ initial }: { initial: RehearsalS
             </label>
           </div>
           <p className="text-data-caption-13 text-surface-ink/60">
-            Any show that isn&apos;t cancelled or postponed counts, announced or not. Days marked Not available in
-            Booking are blacked out too.
+            Any show that isn&apos;t cancelled or postponed counts, announced or not. Blocks on the master{' '}
+            <a href="/admin/calendar" className={ADMIN_TYPE.link}>Calendar</a> are closed too.
           </p>
-        </Group>
-
-        <Group title="Calendar feeds (busy times)">
-          <p className="text-data-caption-13 text-surface-ink/60">
-            Private .ics links from Apple Calendar. Only start and end times are used; titles are never stored.
-            Saved links are shown shortened.
-          </p>
-          {feeds.length === 0 && <p className="text-body-3 text-surface-ink/60">No feeds yet.</p>}
-          <ul className="space-y-2">
-            {feeds.map((f, i) => (
-              <li key={i} className="flex items-center gap-2 text-body-3">
-                <code className="flex-1 truncate text-surface-ink/80">{f.kind === 'stored' ? f.masked : f.url}</code>
-                {f.kind === 'new' && <span className="text-data-caption-13 text-surface-ink/60">unsaved</span>}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setFeeds(feeds.filter((_, j) => j !== i));
-                    setSavedAt(null);
-                  }}
-                  className="text-data-caption-13 text-accent-red cursor-pointer underline underline-offset-4 hover:no-underline"
-                >
-                  Remove
-                </button>
-              </li>
-            ))}
-          </ul>
-          <div className="flex gap-2">
-            <input
-              value={newFeed}
-              onChange={(e) => setNewFeed(e.target.value)}
-              placeholder="webcal://p…-caldav.icloud.com/published/2/…"
-              className={input}
-            />
-            <button
-              type="button"
-              onClick={addFeed}
-              disabled={!newFeed.trim()}
-              className={`${buttonClassName('secondary', 's')} disabled:opacity-40`}
-            >
-              Add
-            </button>
-          </div>
-          <FeedCheck />
         </Group>
 
         <Group title="Payments">

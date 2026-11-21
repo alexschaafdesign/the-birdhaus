@@ -32,11 +32,11 @@ export interface BookingProspect {
 }
 
 // One calendar day's plan: the title shows on the calendar cell, the notepad
-// holds everything else ("Ghosting Merit? Fend - asked"). `unavailable` marks
-// a known conflict (107_booking_days_unavailable.sql); the title is the reason.
+// holds everything else ("Ghosting Merit? Fend - asked"). The old
+// `unavailable` column (107) is no longer read: "not available" is a block on
+// the master Calendar now (migration 122 folded those days in).
 export interface BookingDay {
   date: string;
   title: string;
   notepad: string;
-  unavailable: boolean;
 }

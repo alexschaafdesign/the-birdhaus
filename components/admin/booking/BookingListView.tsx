@@ -78,8 +78,10 @@ export default function BookingListView({
                         {info.plan?.title && !info.show && !info.draftShow && (
                           <span className="block truncate text-body-3 font-bold">{info.plan.title}</span>
                         )}
-                        {info.plan?.unavailable && (
-                          <span className="block text-data-caption-13 text-accent-red">Not available</span>
+                        {info.blocked && (
+                          <span className="block text-data-caption-13 text-accent-red">
+                            Blocked{info.blocked.length ? `: ${info.blocked.join(' · ')}` : ''}
+                          </span>
                         )}
                         {info.available && !info.show && !info.draftShow && (
                           <span className="block text-data-caption-13 text-surface-ink">Available</span>

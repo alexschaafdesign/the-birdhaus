@@ -1,7 +1,7 @@
 import { sql } from './db';
 
 // A show's recording rig + camera crew (094: show_rig, show_credits), edited in
-// the Recording section of the show's Lineup & crew tab and read by the archive.
+// the Recording section (now hidden from the Crew tab) and read by the archive.
 //
 // show_rig counts are nullable on purpose: unknown stays unknown. The admin UI
 // suggests 18 channels only while a show has no show_rig row, and nothing is

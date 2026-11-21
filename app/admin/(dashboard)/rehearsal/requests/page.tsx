@@ -22,7 +22,7 @@ export const dynamic = 'force-dynamic';
 const REASON: Record<string, string> = {
   show: 'show that day',
   unavailable_day: 'Not available day',
-  blackout: 'blackout',
+  blackout: 'block',
   busy: 'calendar busy',
 };
 
@@ -34,7 +34,7 @@ export default async function RehearsalRequestsPage() {
     upcomingConfirmed(),
     getRehearsalSettings(),
   ]);
-  const { reasons } = await clashesFor([...pending.filter((b) => isLivePending(b, now)), ...upcoming], now);
+  const { reasons } = await clashesFor([...pending.filter((b) => isLivePending(b, now)), ...upcoming]);
 
   const view = (b: AdminBooking): RowView => ({
     id: b.id,

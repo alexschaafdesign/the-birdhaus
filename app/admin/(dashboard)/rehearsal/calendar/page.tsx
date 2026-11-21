@@ -2,16 +2,13 @@ import Link from 'next/link';
 import { sql } from '@/lib/db';
 import { loadAvailability } from '@/lib/rehearsal/availability-data';
 import { addDays, chicagoDate, startOfChicagoDay, weekdayOf } from '@/lib/rehearsal/availability';
-import { getBusyTimes } from '@/lib/rehearsal/busy';
 import { listBlackouts } from '@/lib/rehearsal/blackouts';
 import { bookingsBetween, displayStatus } from '@/lib/rehearsal/decisions';
 import { getRehearsalSettings } from '@/lib/rehearsal/settings';
 import { listBands } from '@/lib/rehearsal/bands';
-import { timeRange, shortDay } from '@/lib/rehearsal/format';
-import BlackoutPanel from '@/components/admin/rehearsal/BlackoutPanel';
+import { timeRange } from '@/lib/rehearsal/format';
 import CalendarDayDrawer, { type DrawerDay } from '@/components/admin/rehearsal/CalendarDayDrawer';
-import { ADMIN_TYPE, PageHeader, StatusMark } from '@/components/admin/ui';
-import { FORM } from '@/components/night/form';
+import { ADMIN_TYPE, PageHeader } from '@/components/admin/ui';
 
 export const dynamic = 'force-dynamic';
 
@@ -59,18 +56,13 @@ export default async function RehearsalCalendarPage({ searchParams }: { searchPa
   const spanEnd = startOfChicagoDay(addDays(last, 1));
 
   const settings = await getRehearsalSettings();
-  const [{ availability }, shows, away, blackouts, busy, bookings, bands] = await Promise.all([
+  const [{ availability }, shows, blackouts, bookings, bands] = await Promise.all([
     loadAvailability({ fromDate: first, now }),
     sql<{ date: string; title: string }[]>`
       select date::text as date, title from shows
       where status not in ('cancelled', 'postponed') and date between ${first}::date and ${last}::date
     `,
-    sql<{ date: string; title: string }[]>`
-      select date::text as date, title from booking_days
-      where unavailable and date between ${first}::date and ${last}::date
-    `,
     listBlackouts(spanStart, spanEnd),
-    getBusyTimes(settings.icsFeedUrls, spanStart, spanEnd, { now }),
     bookingsBetween(spanStart, spanEnd),
     listBands(),
   ]);
@@ -94,7 +86,6 @@ export default async function RehearsalCalendarPage({ searchParams }: { searchPa
     return {
       date: d,
       shows: shows.filter((s) => s.date === d).map((s) => s.title),
-      away: away.find((a) => a.date === d)?.title,
       blackouts: blackouts
         .map((b) => ({ b, c: clip(b, from, to) }))
         .filter((x) => x.c)
@@ -104,10 +95,6 @@ export default async function RehearsalCalendarPage({ searchParams }: { searchPa
           note: b.note,
           label: c!.start.getTime() === from.getTime() && c!.end.getTime() === to.getTime() ? 'all day' : timeRange(c!.start, c!.end),
         })),
-      busy: busy.busy.intervals
-        .map((iv) => clip(iv, from, to))
-        .filter((c): c is { start: Date; end: Date } => Boolean(c))
-        .map((c) => (c.start.getTime() === from.getTime() && c.end.getTime() === to.getTime() ? 'all day' : timeRange(c.start, c.end))),
       bookings: bookings.filter((b) => chicagoDate(b.startsAt) === d),
       open: openByDay.get(d) ?? [],
     };
@@ -129,8 +116,6 @@ export default async function RehearsalCalendarPage({ searchParams }: { searchPa
         }),
         open: drawer.open,
         shows: drawer.shows,
-        away: drawer.away ?? null,
-        busy: drawer.busy,
         blocks: drawer.blackouts.map((b) => ({ id: b.id, label: b.label, note: b.note, multiDay: b.multiDay })),
         bookings: drawer.bookings.map((b) => ({
           id: b.id,
@@ -161,18 +146,13 @@ export default async function RehearsalCalendarPage({ searchParams }: { searchPa
       {/* Legend. Fills and edges only, ink text (DESIGN.md: spectrum is fill-only on paper). */}
       <ul className="text-data-caption-13 flex flex-wrap items-center gap-x-5 gap-y-2">
         <li><span className="bg-accent-red/15 border-accent-red mr-1.5 inline-block size-3 border align-middle" />Show day</li>
-        <li><span className="bg-surface-paper-shade border-surface-ink/20 mr-1.5 inline-block size-3 border align-middle" />Not available (Booking)</li>
         <li><span className="bg-surface-ink/15 border-surface-ink mr-1.5 inline-block size-3 border align-middle" />Block</li>
-        <li><span className="border-spectrum-amber mr-1.5 border-l-4 pl-1">busy</span>= your calendar (times only)</li>
         <li><span className="border-surface-ink border px-1">confirmed</span> · <span className="border-surface-ink border border-dashed px-1">requested</span> · <span className="border-accent-red text-accent-red border-2 px-1 font-bold">⚠ conflict</span></li>
-        <li className="text-surface-ink/60">Click a date to add a rehearsal or block time</li>
+        <li className="text-surface-ink/60">
+          Click a date to add a rehearsal · blocks are added on the{' '}
+          <Link href={`/admin/calendar${q ? `?month=${q}` : ''}`} className={ADMIN_TYPE.link}>Calendar</Link>
+        </li>
       </ul>
-      {!busy.busy.checked && (
-        <p className={`${FORM.notice} flex flex-wrap items-baseline gap-2`}>
-          <StatusMark tone="attention">Calendar</StatusMark>
-          Couldn&apos;t read a calendar feed — busy times may be missing.
-        </p>
-      )}
 
       <div className="overflow-x-auto">
         <div className="text-data-caption-13 grid min-w-[56rem] grid-cols-7 border-t border-l border-surface-ink">
@@ -184,7 +164,7 @@ export default async function RehearsalCalendarPage({ searchParams }: { searchPa
           {days.map((d) => {
             const inMonth = d.date.startsWith(month);
             const past = d.date < today;
-            const tint = d.shows.length ? 'bg-accent-red/15' : d.away ? 'bg-surface-paper-shade' : d.blackouts.some((b) => b.label === 'all day') ? 'bg-surface-ink/15' : '';
+            const tint = d.shows.length ? 'bg-accent-red/15' : d.blackouts.some((b) => b.label === 'all day') ? 'bg-surface-ink/15' : '';
             return (
               <div
                 key={d.date}
@@ -212,14 +192,10 @@ export default async function RehearsalCalendarPage({ searchParams }: { searchPa
                 {d.shows.map((t) => (
                   <p key={t} className="text-accent-red truncate font-bold" title={t}>Show: {t}</p>
                 ))}
-                {d.away !== undefined && <p className="truncate text-surface-ink/60">Not available{d.away ? `: ${d.away}` : ''}</p>}
                 {d.blackouts.map((b, i) => (
                   <p key={i} className="truncate text-surface-ink/80" title={b.note}>
                     ■ {b.label}{b.note ? ` · ${b.note}` : ''}
                   </p>
-                ))}
-                {d.busy.map((t, i) => (
-                  <p key={i} className="border-spectrum-amber border-l-4 pl-1">busy {t}</p>
                 ))}
                 {d.bookings.map((b) => {
                   const status = displayStatus(b, now);
@@ -263,15 +239,6 @@ export default async function RehearsalCalendarPage({ searchParams }: { searchPa
         </div>
       )}
 
-      <BlackoutPanel
-        blackouts={blackouts.map((b) => ({
-          id: b.id,
-          label: `${shortDay(b.start)} ${timeRange(b.start, b.end)}${
-            chicagoDate(b.start) !== chicagoDate(new Date(b.end.getTime() - 1)) ? ` → ${shortDay(new Date(b.end.getTime() - 1))}` : ''
-          }`,
-          note: b.note,
-        }))}
-      />
     </main>
   );
 }

@@ -39,7 +39,7 @@ const REPLY_TO = 'alex@thebirdhaus.org';
 const REASON_TEXT: Record<Reason, string> = {
   show: 'a show is on that day',
   unavailable_day: 'that day is marked Not available in Booking',
-  blackout: 'a rehearsal blackout covers it',
+  blackout: 'a block covers it',
   busy: 'your calendar is busy then',
   booked: 'another booking overlaps it',
   past: 'it has already started',

@@ -2,6 +2,8 @@ import { sql } from '@/lib/db';
 import { getTodayCentral } from '@/lib/shows';
 import { getAvailableDates } from '@/lib/available-dates';
 import { feedUrl, getOrCreateFeedToken } from '@/lib/booking-feed';
+import { blockedDays } from '@/lib/rehearsal/blackouts';
+import { addDays } from '@/lib/rehearsal/availability';
 import type { BookingDay, BookingProspect } from '@/lib/booking';
 import { PageHeader } from '@/components/admin/ui';
 import BookingDashboard, {
@@ -17,15 +19,16 @@ export default async function BookingPage({ searchParams }: { searchParams: Prom
   const initialDate = date && /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : null;
   const yearStart = `${today.slice(0, 4)}-01-01`;
 
-  const [prospects, days, availableDates, dateOffers, shows, feedToken] = await Promise.all([
+  const [prospects, days, availableDates, dateOffers, shows, feedToken, blocked] = await Promise.all([
     sql<BookingProspect[]>`
       select id, band_id, name, status, priority, last_contacted_at, notes, created_at, updated_at
       from booking_prospects
       order by priority desc, updated_at desc
     `,
     sql<BookingDay[]>`
-      select date::text as date, title, notepad, unavailable
+      select date::text as date, title, notepad
       from booking_days
+      where title <> '' or notepad <> ''
       order by date asc
     `,
     getAvailableDates(),
@@ -45,6 +48,8 @@ export default async function BookingPage({ searchParams }: { searchParams: Prom
       order by date asc
     `,
     getOrCreateFeedToken(),
+    // Whole days covered by a block (managed on the master Calendar), read-only here.
+    blockedDays(yearStart, addDays(today, 2 * 366)),
   ]);
 
   return (
@@ -59,6 +64,7 @@ export default async function BookingPage({ searchParams }: { searchParams: Prom
         shows={shows}
         feedUrl={feedUrl(feedToken)}
         initialDate={initialDate}
+        blockedDays={Object.fromEntries(blocked)}
       />
     </main>
   );

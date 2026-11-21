@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import type { ShowHubData } from '@/lib/show-hub';
 import type { ShowAdvanceState } from '@/lib/advance';
 import { inputCatalogItem, OTHER_INPUT_KEY } from '@/lib/input-catalog';
@@ -52,7 +53,11 @@ export default function ShowHubView({
           <ColumnLabel>The show</ColumnLabel>
           {(data.schedule.length > 0 || data.soundcheckNotes || adminState) && (
             <div className="order-1">
-              <ScheduleSection data={data} adminState={adminState} />
+              <ScheduleCard
+                schedule={data.schedule}
+                soundcheckNotes={data.soundcheckNotes}
+                editHref={adminState ? `/admin/shows/${adminState.showId}#schedule` : null}
+              />
             </div>
           )}
           <div className="order-4">
@@ -261,13 +266,22 @@ function Header({ data }: { data: ShowHubData }) {
   );
 }
 
-function ScheduleSection({
-  data,
-  adminState,
+// The night's schedule card. Edited on the show's Overview tab (adminState
+// passed → inline editor); the Portal shows it read-only, with a link to the
+// Overview for admins (editHref).
+export function ScheduleCard({
+  schedule,
+  soundcheckNotes,
+  adminState = null,
+  editHref = null,
 }: {
-  data: ShowHubData;
-  adminState: ShowAdvanceState | null;
+  schedule: ShowHubData['schedule'];
+  soundcheckNotes: string;
+  adminState?: ShowAdvanceState | null;
+  editHref?: string | null;
 }) {
+  const data = { schedule, soundcheckNotes };
+  const isAdmin = Boolean(adminState || editHref);
   return (
     <Card title="Schedule">
       {/* The time column is max-content so it sizes to the longest time and a
@@ -294,10 +308,18 @@ function ScheduleSection({
           {data.soundcheckNotes}
         </div>
       )}
-      {data.schedule.length === 0 && !data.soundcheckNotes && adminState && (
+      {data.schedule.length === 0 && !data.soundcheckNotes && isAdmin && (
         <p className="text-body-3 text-surface-ink/60">No schedule yet.</p>
       )}
       {adminState && <HubAdminScheduleEdit state={adminState} />}
+      {!adminState && editHref && (
+        <Link
+          href={editHref}
+          className="inline-block text-data-caption-13 text-surface-ink/60 underline underline-offset-4 hover:text-accent-red"
+        >
+          Edit the schedule on the Overview →
+        </Link>
+      )}
     </Card>
   );
 }
