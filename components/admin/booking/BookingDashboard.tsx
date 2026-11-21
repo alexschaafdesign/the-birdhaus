@@ -2,7 +2,6 @@
 
 import { useCallback, useMemo, useState } from 'react';
 import type { AvailableDate } from '@/lib/available-dates';
-import type { DateOfferStatus } from '@/lib/date-offers';
 import type { BookingDay, BookingProspect } from '@/lib/booking';
 import { FORM } from '@/components/night/form';
 import { ADMIN_TYPE, buttonClassName } from '../ui';
@@ -20,14 +19,6 @@ export interface BookingShow {
   announced: boolean;
 }
 
-export interface BookingDateOffer {
-  id: number;
-  submission_id: number;
-  date: string;
-  status: DateOfferStatus;
-  band_name: string;
-}
-
 // Everything the dashboard knows about one calendar day, in one lookup.
 export interface DayInfo {
   date: string;
@@ -35,7 +26,6 @@ export interface DayInfo {
   draftShow?: BookingShow;
   available?: AvailableDate;
   plan?: BookingDay;
-  offers: BookingDateOffer[];
   // Notes of the blocks covering the whole day (master Calendar), if any.
   blocked?: string[];
 }
@@ -68,7 +58,6 @@ export default function BookingDashboard({
   initialProspects,
   initialDays,
   initialAvailableDates,
-  dateOffers,
   shows: initialShows,
   feedUrl,
   initialDate = null,
@@ -78,7 +67,6 @@ export default function BookingDashboard({
   initialProspects: BookingProspect[];
   initialDays: BookingDay[];
   initialAvailableDates: AvailableDate[];
-  dateOffers: BookingDateOffer[];
   shows: BookingShow[];
   feedUrl: string;
   // ?date= from the master calendar: open on that day with its panel showing.
@@ -96,17 +84,12 @@ export default function BookingDashboard({
   const [paintAvailability, setPaintAvailability] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const offers = useMemo(
-    () => dateOffers.map((o) => ({ ...o, id: Number(o.id), submission_id: Number(o.submission_id) })),
-    [dateOffers]
-  );
-
   const dayInfoByDate = useMemo(() => {
     const map = new Map<string, DayInfo>();
     const get = (date: string): DayInfo => {
       let info = map.get(date);
       if (!info) {
-        info = { date, offers: [] };
+        info = { date };
         map.set(date, info);
       }
       return info;
@@ -118,10 +101,9 @@ export default function BookingDashboard({
     }
     for (const d of availableDates) get(d.date).available = d;
     for (const day of days.values()) get(day.date).plan = day;
-    for (const o of offers) get(o.date).offers.push(o);
     for (const [date, notes] of Object.entries(blockedDays)) get(date).blocked = notes;
     return map;
-  }, [shows, availableDates, days, offers, blockedDays]);
+  }, [shows, availableDates, days, blockedDays]);
 
   // Future dates that carry anything — the agenda list's source.
   const agendaInfos = useMemo(
@@ -133,7 +115,7 @@ export default function BookingDashboard({
   );
 
   const selectedInfo: DayInfo | null = selectedDate
-    ? dayInfoByDate.get(selectedDate) ?? { date: selectedDate, offers: [] }
+    ? dayInfoByDate.get(selectedDate) ?? { date: selectedDate }
     : null;
 
   async function resyncProspects() {

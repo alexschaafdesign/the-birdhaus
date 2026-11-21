@@ -11,14 +11,14 @@ import BlockEditor from '@/components/admin/calendar/BlockEditor';
 export const dynamic = 'force-dynamic';
 
 // The master calendar: one month grid with everything that claims a day —
-// shows, Booking's day plans and marked-available dates, submission date
-// offers, rehearsal bookings, and blocks. Blocks (Alex's own "not available"
+// shows (announced or draft), Booking's day plans and marked-available dates,
+// rehearsal bookings, and blocks. Blocks (Alex's own "not available"
 // time) are added and removed here and only here; everything else links to
 // the page that owns it (Shows, Booking, Rehearsal calendar).
 //
 // Each day gets one verdict at the top so "is this date free?" has a single
-// answer: Show > Blocked (all day) > Offered > Open for a show (marked
-// available) > nothing.
+// answer: Show > Draft show > Blocked (all day) > Open for a show (marked
+// available) > nothing. Who a date was offered to lives in Booking's notepad.
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -50,18 +50,18 @@ function clip(a: { start: Date; end: Date }, from: Date, to: Date) {
   return end > start ? { start, end } : null;
 }
 
-type Verdict = { kind: 'show' | 'held' | 'blocked' | 'open'; label: string };
+type Verdict = { kind: 'show' | 'draft' | 'blocked' | 'open'; label: string };
 
 const VERDICT_TINT: Record<Verdict['kind'], string> = {
-  show: 'bg-accent-red/15',
-  held: 'bg-spectrum-violet/15',
+  show: 'bg-spectrum-violet/10',
+  draft: 'bg-spectrum-violet/5',
   blocked: 'bg-surface-ink/15',
   open: '',
 };
 
 const VERDICT_MARK: Record<Verdict['kind'], string> = {
-  show: 'text-accent-red',
-  held: 'text-surface-ink',
+  show: 'text-spectrum-violet',
+  draft: 'text-spectrum-violet/70',
   blocked: 'text-surface-ink/80',
   open: 'border border-dotted border-surface-ink px-1',
 };
@@ -87,7 +87,7 @@ export default async function MasterCalendarPage({
   const spanStart = startOfChicagoDay(first);
   const spanEnd = startOfChicagoDay(addDays(last, 1));
 
-  const [shows, plans, available, offers, blackouts, rehearsals] = await Promise.all([
+  const [shows, plans, available, blackouts, rehearsals] = await Promise.all([
     sql<{ id: number; date: string; title: string; announced: boolean }[]>`
       select id::int as id, date::text as date, title, announced from shows
       where status = 'scheduled' and date between ${first}::date and ${last}::date
@@ -100,13 +100,6 @@ export default async function MasterCalendarPage({
     sql<{ date: string }[]>`
       select date::text as date from available_dates
       where date between ${first}::date and ${last}::date
-    `,
-    sql<{ id: number; date: string; status: 'contacted' | 'confirmed'; band_name: string }[]>`
-      select o.id::int as id, o.date::text as date, o.status, s.band_name
-      from submission_date_offers o
-      join submissions s on s.id = o.submission_id
-      where o.status <> 'declined' and o.date between ${first}::date and ${last}::date
-      order by o.date, o.id
     `,
     listBlackouts(spanStart, spanEnd),
     bookingsBetween(spanStart, spanEnd),
@@ -122,7 +115,6 @@ export default async function MasterCalendarPage({
     const allDay = (c: { start: Date; end: Date }) => c.start.getTime() === from.getTime() && c.end.getTime() === to.getTime();
     const dayShows = shows.filter((s) => s.date === d);
     const plan = plans.find((p) => p.date === d);
-    const dayOffers = offers.filter((o) => o.date === d);
     const blocks = blackouts
       .map((b) => ({ b, c: clip(b, from, to) }))
       .filter((x) => x.c)
@@ -141,13 +133,12 @@ export default async function MasterCalendarPage({
     // Verdicts always consider every source, so hiding a layer never makes a
     // taken day look free.
     let verdict: Verdict | null = null;
-    if (dayShows.length) verdict = { kind: 'show', label: dayShows.some((s) => s.announced) ? 'Show' : 'Show (draft)' };
+    if (dayShows.some((s) => s.announced)) verdict = { kind: 'show', label: 'Show' };
+    else if (dayShows.length) verdict = { kind: 'draft', label: 'Draft show' };
     else if (blocks.some((b) => b.allDay)) verdict = { kind: 'blocked', label: 'Blocked' };
-    else if (dayOffers.some((o) => o.status === 'confirmed')) verdict = { kind: 'held', label: 'Confirmed offer' };
-    else if (dayOffers.length) verdict = { kind: 'held', label: 'Offered' };
     else if (availableSet.has(d)) verdict = { kind: 'open', label: 'Open for a show' };
 
-    return { date: d, verdict, shows: dayShows, plan, offers: dayOffers, blocks, rehearsals: dayRehearsals };
+    return { date: d, verdict, shows: dayShows, plan, blocks, rehearsals: dayRehearsals };
   });
 
   const qs = (over: Record<string, string | null>) => {
@@ -173,11 +164,10 @@ export default async function MasterCalendarPage({
       <PageHeader
         overline="Everything"
         title="Calendar"
-        description={monthName(month, { month: 'long', year: 'numeric' })}
         actions={
-          <div className="flex gap-4">
+          <div className="flex items-baseline gap-5">
             <Link href={qs({ month: prev, day: null })} className={nav}>← {monthName(prev, { month: 'short' })}</Link>
-            {month !== thisMonth && <Link href={qs({ month: null, day: null })} className={nav}>This month</Link>}
+            <h2 className={`${ADMIN_TYPE.heading} min-w-40 text-center`}>{monthName(month, { month: 'long', year: 'numeric' })}</h2>
             <Link href={qs({ month: next, day: null })} className={nav}>{monthName(next, { month: 'short' })} →</Link>
           </div>
         }
@@ -201,11 +191,10 @@ export default async function MasterCalendarPage({
       </div>
 
       <ul className="text-data-caption-13 flex flex-wrap items-center gap-x-5 gap-y-2">
-        <li><span className="bg-accent-red/15 border-accent-red mr-1.5 inline-block size-3 border align-middle" />Show</li>
-        <li><span className="bg-spectrum-violet/15 border-spectrum-violet mr-1.5 inline-block size-3 border align-middle" />Offered to a band</li>
+        <li><span className="bg-spectrum-violet/10 border-spectrum-violet mr-1.5 inline-block size-3 border align-middle" />Show</li>
+        <li><span className="bg-spectrum-violet/5 border-spectrum-violet/60 mr-1.5 inline-block size-3 border border-dashed align-middle" />Draft show</li>
         <li><span className="bg-surface-ink/15 border-surface-ink mr-1.5 inline-block size-3 border align-middle" />Blocked all day</li>
         <li><span className="border-surface-ink border border-dotted px-1">Open for a show</span> = marked available in Booking</li>
-        <li className="text-surface-ink/60">Click a day to block time · hiding a layer never hides a day&apos;s verdict</li>
       </ul>
 
       <div className="overflow-x-auto">
@@ -241,7 +230,7 @@ export default async function MasterCalendarPage({
                 </div>
                 {on('shows') &&
                   d.shows.map((s) => (
-                    <p key={s.id} className={`truncate font-bold ${s.announced ? 'text-accent-red' : 'text-surface-ink/70'}`} title={s.title}>
+                    <p key={s.id} className={`truncate font-bold ${s.announced ? 'text-spectrum-violet' : 'text-surface-ink/70'}`} title={s.title}>
                       {s.announced ? '' : 'Draft: '}{s.title}
                     </p>
                   ))}
@@ -250,12 +239,6 @@ export default async function MasterCalendarPage({
                     ✎ {d.plan.title}
                   </p>
                 )}
-                {on('booking') &&
-                  d.offers.map((o) => (
-                    <p key={o.id} className="border-spectrum-violet truncate border-l-4 pl-1" title={`${o.band_name} · ${o.status}`}>
-                      {o.status === 'confirmed' ? '✓ ' : '? '}{o.band_name}
-                    </p>
-                  ))}
                 {on('blocks') &&
                   d.blocks.map((b) => (
                     <p key={b.id} className="truncate text-surface-ink/80" title={b.note}>
@@ -333,12 +316,7 @@ export default async function MasterCalendarPage({
               {drawer.plan?.title && <p className="font-bold">{drawer.plan.title}</p>}
               {drawer.plan?.notepad.trim() && <p className="whitespace-pre-wrap text-surface-ink/80">{drawer.plan.notepad}</p>}
               {availableSet.has(drawer.date) && <p>Marked available for a show</p>}
-              {drawer.offers.map((o) => (
-                <p key={o.id} className="border-spectrum-violet border-l-4 pl-2">
-                  Offered to {o.band_name} · {o.status === 'confirmed' ? 'confirmed' : 'contacted'}
-                </p>
-              ))}
-              {!drawer.plan && !availableSet.has(drawer.date) && drawer.offers.length === 0 && (
+              {!drawer.plan && !availableSet.has(drawer.date) && (
                 <p className="text-surface-ink/60">Nothing planned</p>
               )}
               <p>

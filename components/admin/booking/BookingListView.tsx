@@ -1,8 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
-import { DATE_OFFER_SWATCH } from '@/lib/date-offers';
-import { Swatch, ADMIN_TYPE } from '@/components/admin/ui';
+import { ADMIN_TYPE } from '@/components/admin/ui';
 import type { DayInfo } from './BookingDashboard';
 
 function parseLocalDate(dateStr: string) {
@@ -11,7 +10,7 @@ function parseLocalDate(dateStr: string) {
 }
 
 // Agenda counterpart to the calendar: every future date that carries anything
-// (show, draft, availability, title/notepad, offers), chronological, grouped
+// (show, draft, availability, title/notepad), chronological, grouped
 // by month. Rows select the date, opening the same DayPanel.
 export default function BookingListView({
   infos,
@@ -85,17 +84,6 @@ export default function BookingListView({
                         )}
                         {info.available && !info.show && !info.draftShow && (
                           <span className="block text-data-caption-13 text-surface-ink">Available</span>
-                        )}
-                        {info.offers.length > 0 && (
-                          <span className="block truncate text-data-caption-13">
-                            {info.offers.map((offer, i) => (
-                              <span key={offer.id} className="inline-flex items-center gap-1">
-                                {i > 0 && ' · '}
-                                <Swatch className={DATE_OFFER_SWATCH[offer.status]} />
-                                Offered: {offer.band_name}
-                              </span>
-                            ))}
-                          </span>
                         )}
                         {info.plan?.notepad.trim() && (
                           <span className="block truncate text-data-caption-13 text-surface-ink/60">

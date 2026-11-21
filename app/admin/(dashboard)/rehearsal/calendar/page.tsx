@@ -140,9 +140,6 @@ export default async function RehearsalCalendarPage({ searchParams }: { searchPa
             <Link href={`?month=${prev}`} className={nav}>← {monthName(prev, { month: 'short' })}</Link>
             <div className="min-w-40 text-center">
               <h2 className={ADMIN_TYPE.heading}>{monthName(month, { month: 'long', year: 'numeric' })}</h2>
-              {month !== thisMonth && (
-                <Link href="?" className={`text-data-caption-13 ${ADMIN_TYPE.link}`}>back to this month</Link>
-              )}
             </div>
             <Link href={`?month=${next}`} className={nav}>{monthName(next, { month: 'short' })} →</Link>
           </div>
@@ -154,10 +151,6 @@ export default async function RehearsalCalendarPage({ searchParams }: { searchPa
         <li><span className="bg-spectrum-violet/10 border-spectrum-violet mr-1.5 inline-block size-3 border align-middle" />Show day</li>
         <li><span className="bg-surface-ink/15 border-surface-ink mr-1.5 inline-block size-3 border align-middle" />Block</li>
         <li><span className="border-surface-ink border px-1">confirmed</span> · <span className="border-surface-ink border border-dashed px-1">requested</span> · <span className="border-accent-red text-accent-red border-2 px-1 font-bold">⚠ conflict</span></li>
-        <li className="text-surface-ink/60">
-          Click a date to add a rehearsal · blocks are added on the{' '}
-          <Link href={`/admin/calendar${q ? `?month=${q}` : ''}`} className={ADMIN_TYPE.link}>Calendar</Link>
-        </li>
       </ul>
 
       <div className="overflow-x-auto">

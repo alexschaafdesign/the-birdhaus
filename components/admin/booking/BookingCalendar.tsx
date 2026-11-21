@@ -1,14 +1,13 @@
 'use client';
 
 import { useState } from 'react';
-import { DATE_OFFER_SWATCH } from '@/lib/date-offers';
 import { ADMIN_TYPE } from '@/components/admin/ui';
 import type { DayInfo } from './BookingDashboard';
 
 // Forked from components/CalendarView.tsx: same month-grid math, but built
 // for planning — every cell is a select-the-day button (no navigation links,
 // no flyer images), the header adds ±year jumps, and cells layer booking
-// state (day titles, notepads, submission offers) over the show/available base.
+// state (day titles, notepads) over the show/available base.
 
 // First month of the season being booked; bump when planning moves on.
 const PLANNING_SEASON_START = '2027-01-01';
@@ -184,13 +183,6 @@ export default function BookingCalendar({
 
               <span className="absolute bottom-0.5 left-1 flex items-center gap-0.5">
                 {hasNotepad && <span className="h-1.5 w-1.5  bg-surface-ink/50" title="Has notes" />}
-                {info?.offers.slice(0, 2).map((offer) => (
-                  <span
-                    key={offer.id}
-                    className={`h-1.5 w-1.5 ${DATE_OFFER_SWATCH[offer.status]}`}
-                    title={`Offered to ${offer.band_name} (${offer.status})`}
-                  />
-                ))}
               </span>
 
               {unavailable && (
@@ -221,9 +213,6 @@ export default function BookingCalendar({
         </span>
         <span className="flex items-center gap-1.5">
           <span className="inline-block h-1.5 w-1.5 bg-surface-ink/50" /> notes
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className={`inline-block h-1.5 w-1.5 ${DATE_OFFER_SWATCH.contacted}`} /> offered (submissions)
         </span>
       </div>
     </div>

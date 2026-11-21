@@ -2,9 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { DATE_OFFER_SWATCH, DATE_OFFER_LABELS } from '@/lib/date-offers';
 import { FORM } from '@/components/night/form';
-import { Swatch, ADMIN_TYPE, buttonClassName } from '@/components/admin/ui';
+import { ADMIN_TYPE, buttonClassName } from '@/components/admin/ui';
 import type { DayInfo } from './BookingDashboard';
 
 const inputClass = FORM.field;
@@ -159,31 +158,6 @@ export default function DayPanel({
           </p>
         </div>
 
-        {info.offers.length > 0 && (
-          <div>
-            <h4 className={`${ADMIN_TYPE.overline} mb-2 text-surface-ink/60`}>
-              Offered via submissions
-            </h4>
-            <div className="flex flex-wrap gap-2">
-              {info.offers.map((offer) => (
-                <span
-                  key={offer.id}
-                  className="border-surface-ink inline-flex items-center gap-1.5 border px-3 py-1 text-data-caption-13"
-                >
-                  <Swatch className={DATE_OFFER_SWATCH[offer.status]} />
-                  {offer.band_name} — {DATE_OFFER_LABELS[offer.status]}
-                </span>
-              ))}
-            </div>
-            <p className="mt-2 text-data-caption-13 text-surface-ink/60">
-              Managed on the{' '}
-              <Link href="/admin/submissions" className="underline hover:text-accent-red">
-                Submissions
-              </Link>{' '}
-              board.
-            </p>
-          </div>
-        )}
 
         {!showOnDate && (
           <p className="text-data-caption-13 text-surface-ink/60">
