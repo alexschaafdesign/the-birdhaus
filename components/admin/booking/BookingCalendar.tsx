@@ -130,8 +130,9 @@ export default function BookingCalendar({
           const hasNotepad = Boolean(info?.plan?.notepad.trim());
           const isToday = dateStr === today;
           const isSelected = dateStr === selectedDate;
-          const unavailable = Boolean(info?.plan?.unavailable);
-          // Paint mode only toggles open days; shows and conflicts open the panel.
+          // A block covering the whole day (master Calendar).
+          const unavailable = Boolean(info?.blocked);
+          // Paint mode only toggles open days; shows and blocked days open the panel.
           const paintable = paintMode && !titled && !unavailable;
 
           const base = show
@@ -149,11 +150,11 @@ export default function BookingCalendar({
               key={day}
               onClick={() => {
                 // Paint mode toggles availability directly; days already
-                // carrying a show (or marked not available) open the panel.
+                // carrying a show (or blocked) open the panel.
                 if (paintable) onPaintDay(dateStr);
                 else onSelectDate(dateStr);
               }}
-              title={`${titled ? `${titled.title}${draft && !show ? ' (draft)' : ''}` : dayTitle ?? dateStr}${unavailable ? ' — not available' : ''}`}
+              title={`${titled ? `${titled.title}${draft && !show ? ' (draft)' : ''}` : dayTitle ?? dateStr}${unavailable ? ' — blocked' : ''}`}
               className={`relative flex aspect-square flex-col items-center justify-center overflow-hidden  text-body-3 transition-all ${
                 paintable ? 'hover:border-surface-ink' : 'hover:border-accent-red'
               } ${base} ${
@@ -177,7 +178,7 @@ export default function BookingCalendar({
               )}
               {unavailable && !titled && !dayTitle && (
                 <span className="mt-3 px-1 text-center text-data-label-10-small font-bold uppercase leading-tight text-accent-red sm:text-data-label-10-small">
-                  Not avail.
+                  Blocked
                 </span>
               )}
 
@@ -216,7 +217,7 @@ export default function BookingCalendar({
           <span className="inline-block h-3 w-3  border border-dotted border-surface-ink" /> available
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="inline-block h-3 w-3  border border-accent-red " /> not available
+          <span className="inline-block h-3 w-3  border border-accent-red " /> blocked
         </span>
         <span className="flex items-center gap-1.5">
           <span className="inline-block h-1.5 w-1.5 bg-surface-ink/50" /> notes

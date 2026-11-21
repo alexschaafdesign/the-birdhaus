@@ -21,7 +21,12 @@ export async function getOpenDates(fromDate: string): Promise<string[]> {
     from available_dates a
     where a.date >= ${fromDate}::date
       and not exists (select 1 from shows s where s.date = a.date)
-      and not exists (select 1 from booking_days b where b.date = a.date and b.unavailable)
+      -- a block covering the whole day (see lib/rehearsal/blackouts.ts)
+      and not exists (
+        select 1 from rehearsal_blackouts b
+        where b.starts_at <= (a.date::timestamp at time zone 'America/Chicago')
+          and b.ends_at >= ((a.date + 1)::timestamp at time zone 'America/Chicago')
+      )
     order by a.date asc
   `;
   return rows.map((r) => r.date);

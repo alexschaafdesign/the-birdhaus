@@ -115,7 +115,7 @@ export async function runDaily(opts: { now?: Date; force?: boolean } = {}): Prom
     select id::int as id from rehearsal_bookings where status = 'confirmed' and ends_at > ${now}
   `;
   const upcoming = await bookingsByIds(upcomingIds.map((r) => r.id));
-  const { reasons, calendarChecked } = await clashesFor(upcoming, now);
+  const { reasons, calendarChecked } = await clashesFor(upcoming);
   const newConflicts: Array<{ booking: AdminBooking; reasons: Reason[] }> = [];
   let clearedConflicts = 0;
   for (const b of upcoming) {

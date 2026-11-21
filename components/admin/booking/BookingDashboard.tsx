@@ -36,6 +36,8 @@ export interface DayInfo {
   available?: AvailableDate;
   plan?: BookingDay;
   offers: BookingDateOffer[];
+  // Notes of the blocks covering the whole day (master Calendar), if any.
+  blocked?: string[];
 }
 
 // Timestamps arrive as Date objects from the server page (postgres.js parses
@@ -70,6 +72,7 @@ export default function BookingDashboard({
   shows: initialShows,
   feedUrl,
   initialDate = null,
+  blockedDays,
 }: {
   today: string;
   initialProspects: BookingProspect[];
@@ -80,9 +83,10 @@ export default function BookingDashboard({
   feedUrl: string;
   // ?date= from the master calendar: open on that day with its panel showing.
   initialDate?: string | null;
+  blockedDays: Record<string, string[]>;
 }) {
   const [prospects, setProspects] = useState(() => initialProspects.map(normalizeProspect));
-  const [days, setDays] = useState(() => new Map(initialDays.map((d) => [d.date, { ...d, unavailable: Boolean(d.unavailable) }])));
+  const [days, setDays] = useState(() => new Map(initialDays.map((d) => [d.date, d])));
   const [availableDates, setAvailableDates] = useState(() =>
     initialAvailableDates.map((d) => ({ ...d, id: Number(d.id) }))
   );
@@ -115,8 +119,9 @@ export default function BookingDashboard({
     for (const d of availableDates) get(d.date).available = d;
     for (const day of days.values()) get(day.date).plan = day;
     for (const o of offers) get(o.date).offers.push(o);
+    for (const [date, notes] of Object.entries(blockedDays)) get(date).blocked = notes;
     return map;
-  }, [shows, availableDates, days, offers]);
+  }, [shows, availableDates, days, offers, blockedDays]);
 
   // Future dates that carry anything — the agenda list's source.
   const agendaInfos = useMemo(
@@ -214,20 +219,17 @@ export default function BookingDashboard({
 
   // Optimistic: the calendar label follows the title as you type; the day
   // panel debounces the actual save. Returns whether the save landed.
-  // Not available wins over available — the server drops the available_dates
-  // row too, so mirror that here.
-  const saveDay = useCallback(async (date: string, title: string, notepad: string, unavailable: boolean) => {
+  const saveDay = useCallback(async (date: string, title: string, notepad: string) => {
     setDays((prev) => {
       const next = new Map(prev);
-      if (!title.trim() && !notepad.trim() && !unavailable) next.delete(date);
-      else next.set(date, { date, title, notepad, unavailable });
+      if (!title.trim() && !notepad.trim()) next.delete(date);
+      else next.set(date, { date, title, notepad });
       return next;
     });
-    if (unavailable) setAvailableDates((prev) => prev.filter((d) => d.date !== date));
     const res = await fetch('/api/admin/booking/days', {
       method: 'PUT',
       headers: JSON_HEADERS,
-      body: JSON.stringify({ date, title, notepad, unavailable }),
+      body: JSON.stringify({ date, title, notepad }),
     }).catch(() => null);
     if (!res?.ok) setErrorMessage('Failed to save that day — copy your text somewhere before reloading.');
     return Boolean(res?.ok);

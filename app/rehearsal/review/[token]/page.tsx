@@ -24,7 +24,7 @@ export const metadata: Metadata = {
 const REASON: Record<string, string> = {
   show: 'a show is on that day',
   unavailable_day: 'the day is marked Not available',
-  blackout: 'a blackout covers it',
+  blackout: 'a block covers it',
   busy: 'your calendar is busy then',
 };
 

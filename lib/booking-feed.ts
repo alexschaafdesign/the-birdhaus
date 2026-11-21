@@ -107,7 +107,13 @@ interface FeedDay {
   date: string;
   title: string;
   notepad: string;
-  unavailable: boolean;
+}
+
+interface FeedBlock {
+  id: number;
+  start: Date;
+  end: Date;
+  note: string;
 }
 
 function showEvent(show: FeedShow, stamp: string): string[] {
@@ -137,22 +143,44 @@ function dayEvent(day: FeedDay, stamp: string): string[] {
     `DTSTAMP:${stamp}`,
     `DTSTART;VALUE=DATE:${dateValue(day.date)}`,
     `DTEND;VALUE=DATE:${dateValue(nextDay(day.date))}`,
-    // A conflict marks the day busy; plain notes don't.
-    day.unavailable
-      ? `SUMMARY:${escapeText(day.title ? `Not available: ${day.title}` : 'Not available')}`
-      : `SUMMARY:${escapeText(day.title || 'Booking notes')}`,
-    day.unavailable ? 'TRANSP:OPAQUE' : 'TRANSP:TRANSPARENT',
+    // Notes don't mark the day busy; blocks do (blockEvent).
+    `SUMMARY:${escapeText(day.title || 'Booking notes')}`,
+    'TRANSP:TRANSPARENT',
   ];
   if (day.notepad.trim()) lines.push(`DESCRIPTION:${escapeText(day.notepad)}`);
   lines.push(`URL:${SITE_URL}/admin/booking`, 'END:VEVENT');
   return lines;
 }
 
+// A block from the master Calendar. Whole Chicago days go out as all-day
+// events; anything else as timed.
+function blockEvent(block: FeedBlock, stamp: string): string[] {
+  const startDay = chicagoDateOf(block.start);
+  const endDay = chicagoDateOf(block.end);
+  const wholeDays =
+    block.start.getTime() === wallTimeToUtc(startDay, 0, 0, TIME_ZONE).getTime() &&
+    block.end.getTime() === wallTimeToUtc(endDay, 0, 0, TIME_ZONE).getTime();
+  const lines = ['BEGIN:VEVENT', `UID:block-${block.id}@thebirdhaus.org`, `DTSTAMP:${stamp}`];
+  if (wholeDays) lines.push(`DTSTART;VALUE=DATE:${dateValue(startDay)}`, `DTEND;VALUE=DATE:${dateValue(endDay)}`);
+  else lines.push(`DTSTART:${utcStamp(block.start)}`, `DTEND:${utcStamp(block.end)}`);
+  lines.push(
+    `SUMMARY:${escapeText(block.note ? `Blocked: ${block.note}` : 'Blocked')}`,
+    'TRANSP:OPAQUE',
+    `URL:${SITE_URL}/admin/calendar`,
+    'END:VEVENT',
+  );
+  return lines;
+}
+
+function chicagoDateOf(d: Date) {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: TIME_ZONE, year: 'numeric', month: '2-digit', day: '2-digit' }).format(d);
+}
+
 export async function buildBookingFeed(today: string): Promise<string> {
   const [y, m, d] = today.split('-').map(Number);
   const since = new Date(Date.UTC(y, m - 1, d - PAST_DAYS)).toISOString().slice(0, 10);
 
-  const [shows, days] = await Promise.all([
+  const [shows, days, blocks] = await Promise.all([
     sql<FeedShow[]>`
       select id, title, date::text as date, announced, doors_time, show_time
       from shows
@@ -160,10 +188,16 @@ export async function buildBookingFeed(today: string): Promise<string> {
       order by date asc
     `,
     sql<FeedDay[]>`
-      select date::text as date, title, notepad, unavailable
+      select date::text as date, title, notepad
       from booking_days
-      where date >= ${since}
+      where date >= ${since} and (title <> '' or notepad <> '')
       order by date asc
+    `,
+    sql<FeedBlock[]>`
+      select id::int as id, starts_at as start, ends_at as "end", note
+      from rehearsal_blackouts
+      where ends_at >= ${since}::date
+      order by starts_at asc
     `,
   ]);
 
@@ -180,6 +214,7 @@ export async function buildBookingFeed(today: string): Promise<string> {
     'X-PUBLISHED-TTL:PT1H',
     ...shows.flatMap((show) => showEvent({ ...show, id: Number(show.id) }, stamp)),
     ...days.flatMap((day) => dayEvent(day, stamp)),
+    ...blocks.flatMap((block) => blockEvent(block, stamp)),
     'END:VCALENDAR',
   ];
   return lines.map(foldLine).join('\r\n') + '\r\n';

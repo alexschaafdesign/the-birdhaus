@@ -102,7 +102,7 @@ export async function createAdminBooking(v: AdminBookingInput, now = new Date())
   }
 
   // Heads-up only (admin can book over a block or a busy time).
-  const { reasons } = past ? { reasons: new Map() } : await clashesFor([{ id: row.id, startsAt: v.start, endsAt: v.end }], now);
+  const { reasons } = past ? { reasons: new Map() } : await clashesFor([{ id: row.id, startsAt: v.start, endsAt: v.end }]);
   const clash = ((reasons.get(row.id) ?? []) as string[]).map((r) => REASON[r] ?? r);
 
   const emailed = v.email && !past ? await sendApprovedEmail([row.id]) : false;
