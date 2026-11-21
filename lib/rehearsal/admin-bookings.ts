@@ -4,7 +4,8 @@ import { TIME_ZONE, addDays } from './availability.ts';
 import { clashesFor } from './availability-data';
 import { lockBookings } from './booking-lock';
 import { getRehearsalSettings } from './settings';
-import { sendApprovedEmail } from './emails';
+import { sendAdminCancelledEmail, sendApprovedEmail } from './emails';
+import { syncSeriesStatus } from './decisions';
 import type { PaymentMethod } from './decisions';
 
 // Alex adds a rehearsal himself from the admin Calendar: a band, a day and a
@@ -107,4 +108,41 @@ export async function createAdminBooking(v: AdminBookingInput, now = new Date())
 
   const emailed = v.email && !past ? await sendApprovedEmail([row.id]) : false;
   return { ok: true, id: row.id, catalogueId: row.catalogueId, emailed, past, clash };
+}
+
+// Alex cancels a confirmed rehearsal (one session; a series' other sessions
+// stay). The slot frees up, any change the band asked for on it goes too, and
+// the payment record is left as it was (refunds are handled by hand). Past
+// sessions can be cancelled to correct the record, but never emailed.
+export type AdminCancelOutcome =
+  | { ok: true; emailed: boolean; past: boolean }
+  | { ok: false; error: string; status: number };
+
+export async function cancelAdminBooking(
+  id: number,
+  opts: { email: boolean; reason: string },
+  now = new Date(),
+): Promise<AdminCancelOutcome> {
+  const res = await sql.begin(async (tx) => {
+    const [b] = await tx<{ status: string; startsAt: Date }[]>`
+      select status, starts_at as "startsAt" from rehearsal_bookings where id = ${id} for update
+    `;
+    if (!b) return { ok: false as const, status: 404, error: 'That booking wasn’t found.' };
+    if (b.status !== 'confirmed') return { ok: false as const, status: 409, error: 'Only a confirmed booking can be cancelled.' };
+    await tx`
+      update rehearsal_bookings
+      set status = 'cancelled', cancelled_at = ${now}, cancelled_by = 'admin', updated_at = now()
+      where id = ${id}
+    `;
+    await tx`
+      update rehearsal_bookings
+      set status = 'cancelled', cancelled_at = ${now}, cancelled_by = 'admin', updated_at = now()
+      where replaces_booking_id = ${id} and status = 'pending'
+    `;
+    return { ok: true as const, past: b.startsAt <= now };
+  });
+  if (!res.ok) return res;
+  await syncSeriesStatus([id]);
+  const emailed = opts.email && !res.past ? await sendAdminCancelledEmail(id, opts.reason) : false;
+  return { ok: true, emailed, past: res.past };
 }

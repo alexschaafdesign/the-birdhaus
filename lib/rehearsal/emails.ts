@@ -488,6 +488,38 @@ export async function sendBandCancelledEmail(id: number): Promise<boolean> {
   });
 }
 
+// --- 4b. Alex cancelled -> band -----------------------------------------------------
+
+export async function sendAdminCancelledEmail(id: number, reason: string): Promise<boolean> {
+  const [b] = await bookingsByIds([id]);
+  if (!b || b.status !== 'cancelled') return false;
+  const band = await bandContact(b.bandId);
+  const link = await liveLink(b.bandId);
+  const hi = hey(band.contactName);
+  const when = sessionLabel(b.startsAt, b.endsAt);
+  const line = "Sorry, I've had to cancel your rehearsal:";
+  const why = reason.trim();
+  const next = link ? "Grab another time on your booking page, or reply and we'll figure something out." : "Reply and we'll figure something out.";
+  const html = bandEmail('Your rehearsal is cancelled', [
+    emailP(esc(hi)),
+    emailP(esc(line)),
+    emailP(`<strong>${esc(when)}</strong>`),
+    why ? paragraphs(why) : '',
+    link ? emailP(`${emailLink(link, 'Grab another time')}, or reply and we'll figure something out.`) : emailP(esc(next)),
+  ]);
+  const text = [hi, '', line, when, ...(why ? ['', why] : []), '', next, ...(link ? [link] : []), '', SIGN].join('\n') + emailTextFooter();
+  const ok = await send({
+    template: 'rehearsal-cancelled-by-admin',
+    to: band.email,
+    subject: `Rehearsal cancelled · ${shortDay(b.startsAt)}`,
+    html,
+    text,
+    replyTo: REPLY_TO,
+  });
+  if (ok) await markEmailed([b.id], 'band');
+  return ok;
+}
+
 // --- 5. Request lapsed -> band (daily job) ----------------------------------------
 
 export async function sendExpiredEmail(ids: number[]): Promise<boolean> {

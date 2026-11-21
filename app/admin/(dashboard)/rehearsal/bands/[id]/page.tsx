@@ -11,6 +11,7 @@ import { chicagoDate } from '@/lib/rehearsal/availability';
 import { money, sessionLabel } from '@/lib/rehearsal/format';
 import RehearsalBandEditor from '@/components/admin/rehearsal/RehearsalBandEditor';
 import PaymentButtons from '@/components/rehearsal/PaymentButtons';
+import CancelBooking from '@/components/admin/rehearsal/CancelBooking';
 import { ADMIN_TYPE, PageHeader, StatusMark, type StatusTone } from '@/components/admin/ui';
 
 export const dynamic = 'force-dynamic';
@@ -127,6 +128,9 @@ export default async function RehearsalBandPage({ params }: { params: Promise<{ 
                     <span className="ml-auto">
                       <PaymentButtons id={b.id} status={b.paymentStatus} method={b.paymentMethod} provider={b.paymentProvider} />
                     </span>
+                  )}
+                  {status === 'confirmed' && (
+                    <CancelBooking id={b.id} label={sessionLabel(b.startsAt, b.endsAt)} started={b.startsAt <= now} />
                   )}
                 </li>
               );

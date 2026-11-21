@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ADMIN_TYPE, FIELD_INLINE, buttonClassName } from '@/components/admin/ui';
 import { FORM } from '@/components/night/form';
+import CancelBooking from './CancelBooking';
 
 // The Rehearsal calendar's day drawer: what's on the day, its open stretches,
 // and "Add a rehearsal" (a band + time, confirmed straight away: future ones
@@ -17,7 +18,7 @@ export interface DrawerDay {
   open: string[]; // "10am–5:30pm"
   shows: string[];
   blocks: Array<{ id: number; label: string; note: string; multiDay: boolean }>;
-  bookings: Array<{ id: number; bandId: number; label: string; status: string; conflict: boolean }>;
+  bookings: Array<{ id: number; bandId: number; label: string; status: string; conflict: boolean; started: boolean; cancelLabel: string }>;
 }
 
 const label = FORM.label;
@@ -126,7 +127,7 @@ export default function CalendarDayDrawer({
             <span className={label}>Bookings</span>
             <ul className="space-y-1">
               {day.bookings.map((b) => (
-                <li key={b.id}>
+                <li key={b.id} className="flex flex-wrap items-baseline gap-x-3">
                   <Link
                     href={`/admin/rehearsal/bands/${b.bandId}`}
                     className={`underline-offset-4 hover:underline ${b.conflict ? 'text-accent-red font-bold' : b.status === 'confirmed' ? '' : 'text-surface-ink/70'}`}
@@ -134,6 +135,7 @@ export default function CalendarDayDrawer({
                     {b.conflict ? '⚠ ' : ''}
                     {b.label} · {b.status}
                   </Link>
+                  {b.status === 'confirmed' && <CancelBooking id={b.id} label={b.cancelLabel} started={b.started} />}
                 </li>
               ))}
             </ul>

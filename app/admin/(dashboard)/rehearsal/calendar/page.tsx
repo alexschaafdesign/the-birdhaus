@@ -6,7 +6,7 @@ import { listBlackouts } from '@/lib/rehearsal/blackouts';
 import { bookingsBetween, displayStatus } from '@/lib/rehearsal/decisions';
 import { getRehearsalSettings } from '@/lib/rehearsal/settings';
 import { listBands } from '@/lib/rehearsal/bands';
-import { timeRange } from '@/lib/rehearsal/format';
+import { sessionLabel, timeRange } from '@/lib/rehearsal/format';
 import CalendarDayDrawer, { type DrawerDay } from '@/components/admin/rehearsal/CalendarDayDrawer';
 import { ADMIN_TYPE, PageHeader } from '@/components/admin/ui';
 
@@ -123,6 +123,8 @@ export default async function RehearsalCalendarPage({ searchParams }: { searchPa
           label: `${timeRange(b.startsAt, b.endsAt)} (${lengthLabel(b.startsAt, b.endsAt)}) ${b.bandName}`,
           status: displayStatus(b, now),
           conflict: b.conflict,
+          started: b.startsAt <= now,
+          cancelLabel: `${b.bandName}, ${sessionLabel(b.startsAt, b.endsAt)}`,
         })),
       }
     : null;
