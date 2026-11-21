@@ -38,8 +38,8 @@ export default async function ShowTvPage({ params }: { params: Promise<{ id: str
       <p className="text-body-3 text-surface-ink/60 max-w-2xl">
         You usually don’t need this page: on the night, the board shows this show’s schedule from
         the{' '}
-        <Link href={`/admin/shows/${showId}/advance`} className="underline underline-offset-4 hover:text-accent-red">
-          Advance tab
+        <Link href={`/admin/shows/${showId}#schedule`} className="underline underline-offset-4 hover:text-accent-red">
+          Overview
         </Link>{' '}
         automatically. Typing board rows below replaces that for this night only.
       </p>

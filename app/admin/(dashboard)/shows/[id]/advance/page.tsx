@@ -9,10 +9,10 @@ import ShowInputsPanel from '@/components/admin/ShowInputsPanel';
 
 export const dynamic = 'force-dynamic';
 
-// The Advance tab: everything the bands are told. The band-facing Portal
-// (/hub/<token>) renders inline with the admin's controls (invite, schedule,
-// pay, recipients — see components/hub/HubAdmin.tsx), and the input lists are
-// edited below it. The admin session is enforced by the dashboard layout.
+// The Advance tab: the band-facing Portal (/hub/<token>) as bands see it, with
+// the admin's pay editor (components/hub/HubAdmin.tsx), and the input lists
+// edited below it. Advancing itself happens by email; the schedule is edited on
+// the Overview and the "Advance sent" box is ticked there. The admin session is enforced by the dashboard layout.
 export default async function ShowAdvancePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const showId = Number(id);

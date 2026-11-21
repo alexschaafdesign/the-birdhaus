@@ -134,9 +134,9 @@ export function categoriesFor(show: Pick<ShowHealthFacts, 'date'>, today: string
 export type ShowTabKey = 'overview' | 'lineup' | 'advance' | 'public' | 'door' | 'settlement';
 export const ISSUE_TAB: Record<string, ShowTabKey> = {
   sound: 'lineup',
-  bands: 'lineup',
+  bands: 'overview',
   flyer: 'overview',
-  advance: 'advance',
+  advance: 'overview',
   inputs: 'advance',
   'rsvp-off': 'public',
   'no-rsvps': 'door',

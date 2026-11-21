@@ -2,26 +2,28 @@ import { notFound } from 'next/navigation';
 import { sql } from '@/lib/db';
 import { getTodayCentral } from '@/lib/shows';
 import { getOneShowHealth } from '@/lib/show-health-data';
-import { getOrCreateShareToken } from '@/lib/share-token';
-import { SITE_URL } from '@/lib/site';
+import { getShowAdvanceState } from '@/lib/advance';
 import ShowForm from '@/components/admin/ShowForm';
-import ShareLinkBox from '@/components/admin/ShareLinkBox';
 import ShowOverview from '@/components/admin/ShowOverview';
 import ShowBookingNotes from '@/components/admin/ShowBookingNotes';
+import { ScheduleCard } from '@/components/hub/ShowHubView';
 import { loadShowFormData } from './form-data';
 
 export const dynamic = 'force-dynamic';
 
-// The Overview tab: the show's checklist, the share link, and the basics —
-// title, date, status, times, flyer, announce.
+// The Overview tab: the one page for a show's essentials — the checklist, the
+// basics + the lineup (one form, one Save), the night's schedule (which sets
+// the doors/show times), and this date's booking notes. Crew, the Portal,
+// public page, RSVPs and settlement live on the other tabs.
 export default async function ShowOverviewPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const showId = Number(id);
   if (!Number.isInteger(showId)) notFound();
 
-  const [data, facts, [counts]] = await Promise.all([
+  const [data, facts, advance, [counts]] = await Promise.all([
     loadShowFormData(showId),
     getOneShowHealth(showId),
+    getShowAdvanceState(showId),
     sql<{ active_band_count: number; bands_with_inputs: number; settlement_saved: boolean }[]>`
       select
         (select count(*)::int from show_bands where show_id = ${showId} and not excluded) as active_band_count,
@@ -36,8 +38,10 @@ export default async function ShowOverviewPage({ params }: { params: Promise<{ i
     select title, notepad from booking_days where date = ${data.row.date}
   `;
 
-  const shareToken = await getOrCreateShareToken(showId);
-  const shareUrl = shareToken ? `${SITE_URL}/hub/${shareToken}` : null;
+  // Remount the form whenever the saved lineup or its contacts change (after a
+  // save + refresh), so newly added bands get their ids and saved contacts as
+  // the new baseline.
+  const formKey = JSON.stringify(data.initialValues.bands ?? []);
 
   return (
     <div className="space-y-6">
@@ -52,19 +56,28 @@ export default async function ShowOverviewPage({ params }: { params: Promise<{ i
         activeBandCount={counts?.active_band_count ?? 0}
         settlementSaved={counts?.settlement_saved ?? false}
       />
-      <ShowBookingNotes
-        date={data.row.date}
-        initialTitle={bookingDay?.title ?? ''}
-        initialNotepad={bookingDay?.notepad ?? ''}
-      />
-      {shareUrl && <ShareLinkBox showId={showId} initialUrl={shareUrl} />}
       <ShowForm
+        key={formKey}
         mode="edit"
         embedded
         section="overview"
         initialValues={data.initialValues}
         isPast={data.isPastShow}
         nightDate={data.nightDate}
+      />
+      {advance && (
+        <div id="schedule" className="scroll-mt-6">
+          <ScheduleCard
+            schedule={advance.vars.schedule}
+            soundcheckNotes={advance.vars.soundcheck_notes.trim()}
+            adminState={advance}
+          />
+        </div>
+      )}
+      <ShowBookingNotes
+        date={data.row.date}
+        initialTitle={bookingDay?.title ?? ''}
+        initialNotepad={bookingDay?.notepad ?? ''}
       />
     </div>
   );

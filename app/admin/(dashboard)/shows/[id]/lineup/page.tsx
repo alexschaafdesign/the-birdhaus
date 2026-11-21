@@ -1,20 +1,17 @@
 import { notFound } from 'next/navigation';
 import { sql } from '@/lib/db';
-import ShowForm from '@/components/admin/ShowForm';
 import ShowCrewPanel, {
   type CrewEngineer,
   type CrewRegistryEntry,
 } from '@/components/admin/ShowCrewPanel';
-import { getShowRecording, listCrewAccountOptions } from '@/lib/show-rig';
 import { loadShowFormData } from '../form-data';
 
 export const dynamic = 'force-dynamic';
 
-// The Lineup & crew tab: everyone involved in the show, in one place. The
-// lineup (bands, set notes, each band's email + payout handle) saves with one
-// button; below it the sound engineers, door person, photographer and recording
-// crew each save on their own. Contacts and payout handles save to each
-// person's profile, so they carry over to the settlement and future shows.
+// The Crew tab: sound engineers, door person and photographer, each saving on
+// their own. (The bands live on the Overview.) Contacts and payout handles save
+// to each person's profile, so they carry over to the settlement and future
+// shows. The URL stays /lineup so older links and emails keep working.
 export default async function ShowLineupPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const showId = Number(id);
@@ -29,7 +26,7 @@ export default async function ShowLineupPage({ params }: { params: Promise<{ id:
   // photographer id to a number so it matches the (also-numeric) roster ids below.
   const assignedPhotographerId = show.photographer_id != null ? Number(show.photographer_id) : null;
 
-  const [formData, engineerRows, doorRoster, photographerRoster, recording, crewAccounts] = await Promise.all([
+  const [formData, engineerRows, doorRoster, photographerRoster] = await Promise.all([
     loadShowFormData(showId),
     sql<
       { id: number; name: string; status: 'confirmed' | 'asked' | 'declined'; contact_email: string | null; payment_method: string | null; photo: string | null }[]
@@ -48,8 +45,6 @@ export default async function ShowLineupPage({ params }: { params: Promise<{ id:
     sql<{ id: number; name: string; contact_email: string | null; payment_method: string | null; photo: string | null }[]>`
       select id, name, contact_email, payment_method, photo from photographers order by name asc
     `,
-    getShowRecording(showId),
-    listCrewAccountOptions(),
   ]);
 
   if (!formData) notFound();
@@ -79,22 +74,8 @@ export default async function ShowLineupPage({ params }: { params: Promise<{ id:
   // custom name is kept so the picker doesn't silently drop it.
   const assignedDoorName = show.door_person_name?.trim() ?? '';
 
-  // Remount the lineup form whenever the saved lineup or its contacts change
-  // (after a save + refresh), so it starts from what's now stored — newly
-  // added bands get their ids and saved contacts as the new baseline.
-  const lineupKey = JSON.stringify(formData.initialValues.bands ?? []);
-
   return (
     <div className="space-y-6">
-      <ShowForm
-        key={lineupKey}
-        mode="edit"
-        embedded
-        section="lineup"
-        initialValues={formData.initialValues}
-        isPast={formData.isPastShow}
-        nightDate={formData.nightDate}
-      />
       <ShowCrewPanel
         showId={showId}
         needsSoundEngineer={formData.row.needs_sound_engineer}
@@ -103,8 +84,6 @@ export default async function ShowLineupPage({ params }: { params: Promise<{ id:
         assignedDoorName={assignedDoorName}
         photographers={photographers}
         assignedPhotographerId={assignedPhotographerId}
-        recording={recording}
-        crewAccounts={crewAccounts}
       />
     </div>
   );

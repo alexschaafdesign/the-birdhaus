@@ -8,8 +8,8 @@ import RsvpSummary from '@/components/admin/RsvpSummary';
 
 export const dynamic = 'force-dynamic';
 
-// The Door tab: the night itself — RSVPs and the door list, plus a pointer to
-// this night's TV (which runs itself from the Advance schedule).
+// The RSVPs tab: RSVPs and the door list, plus a pointer to
+// this night's TV (which runs itself from the Overview's schedule).
 export default async function ShowDoorPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const showId = Number(id);

@@ -32,59 +32,11 @@ function AdminTag() {
 // ---------------------------------------------------------------------------
 
 export function HubAdminBar({ state }: { state: ShowAdvanceState }) {
-  const router = useRouter();
-  const [sending, setSending] = useState(false);
-  const [showPreview, setShowPreview] = useState(false);
+  // Advancing happens by email outside the app now, so the bar no longer sends
+  // the invite: it's just the portal link + the way back to the show. (The
+  // invite send route still exists; it's only unlinked here.)
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
-
-  const withEmail = state.recipients.filter((r) => r.email);
-  const missingEmail = state.recipients.filter((r) => !r.email);
-  const canSend = withEmail.length > 0 || state.extraEmails.length > 0;
-
-  async function sendInvite() {
-    const n = withEmail.length;
-    const extra = state.extraEmails.length;
-    const who =
-      `${n} band${n === 1 ? '' : 's'}` +
-      (state.soundEngineer?.email ? ' + sound engineer' : '') +
-      (extra ? ` + ${extra} additional recipient${extra === 1 ? '' : 's'}` : '');
-    const skip = missingEmail.length
-      ? `\n\n${missingEmail.length} band(s) without an email will be skipped: ${missingEmail
-          .map((r) => r.name)
-          .join(', ')}.`
-      : '';
-    if (
-      !confirm(
-        `Send the portal invite email to ${who}${state.status === 'sent' ? ' again' : ''}?${skip}`
-      )
-    ) {
-      return;
-    }
-    setSending(true);
-    setError(null);
-    setNotice(null);
-    try {
-      // Empty body: the server keeps the saved show info as-is and just sends.
-      const res = await fetch(`/api/admin/shows/${state.showId}/advance`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({}),
-      });
-      const d = await res.json().catch(() => null);
-      if (!res.ok) throw new Error(d?.error ?? `Send failed (${res.status})`);
-      setNotice(
-        `Invite sent to ${d.sentCount} recipient${d.sentCount === 1 ? '' : 's'}.` +
-          (d.skipped?.length ? ` Skipped (no email): ${d.skipped.join(', ')}.` : '')
-      );
-      router.refresh();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Send failed');
-    } finally {
-      setSending(false);
-    }
-  }
 
   async function copyLink() {
     try {
@@ -97,23 +49,13 @@ export function HubAdminBar({ state }: { state: ShowAdvanceState }) {
   }
 
   return (
-    <div className="border border-accent-red bg-surface-paper-shade p-4 space-y-3">
+    <div className="border border-accent-red bg-surface-paper-shade p-4 space-y-2">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div className="flex items-center gap-2.5 flex-wrap">
           <AdminTag />
-          {state.status === 'sent' ? (
-            <span className="text-data-caption-13 border border-surface-ink text-surface-ink px-2.5 py-0.5">
-              Invite sent
-              {state.sentAt ? ` · ${new Date(state.sentAt).toLocaleDateString()}` : ''}
-            </span>
-          ) : (
-            <span className="text-data-caption-13 border border-surface-ink text-surface-ink/60 px-2.5 py-0.5">
-              Invite not sent yet
-            </span>
-          )}
-          <span className="text-data-caption-13 text-surface-ink/60">
-            {withEmail.length} of {state.recipients.length} bands have an email
-          </span>
+          <button type="button" onClick={copyLink} className={buttonClass}>
+            {copied ? 'Copied!' : 'Copy portal link'}
+          </button>
         </div>
         <Link
           href={`/admin/shows/${state.showId}`}
@@ -122,54 +64,12 @@ export function HubAdminBar({ state }: { state: ShowAdvanceState }) {
           Show admin →
         </Link>
       </div>
-      <div className="flex items-center gap-2.5 flex-wrap">
-        <button
-          type="button"
-          onClick={sendInvite}
-          disabled={sending || !canSend}
-          className="bg-surface-ink text-surface-paper border-2 border-surface-ink inline-flex h-9.5 items-center justify-center px-4.5 text-body-3 font-bold ui-hover:bg-accent-red ui-hover:border-accent-red transition-colors cursor-pointer focus-visible:outline-accent-red focus-visible:outline-2 focus-visible:outline-offset-2 disabled:opacity-50"
-        >
-          {sending
-            ? 'Sending…'
-            : state.status === 'sent'
-              ? 'Resend invite email'
-              : 'Send invite email'}
-        </button>
-        <button type="button" onClick={() => setShowPreview((v) => !v)} className={buttonClass}>
-          {showPreview ? 'Hide invite preview' : 'Preview invite'}
-        </button>
-        <button type="button" onClick={copyLink} className={buttonClass}>
-          {copied ? 'Copied!' : 'Copy portal link'}
-        </button>
-        {!canSend && (
-          <span className="text-data-caption-13 text-surface-ink">
-            No recipients have an email yet — add them in the admin section at the bottom.
-          </span>
-        )}
-      </div>
       <p className="text-data-caption-13 text-surface-ink/60">
-        The invite is a short email pointing everyone here. This page IS the portal — what you
-        see below is what bands see, plus the admin edit controls.
+        What bands see on the portal, plus admin controls. The schedule is edited on the Overview.
       </p>
       {error && (
         <div className="border border-accent-red text-accent-red text-body-3 px-3 py-1.5">
           {error}
-        </div>
-      )}
-      {notice && (
-        <div className="border border-surface-ink text-surface-ink text-body-3 px-3 py-1.5">
-          {notice}
-        </div>
-      )}
-      {showPreview && (
-        <div className="border border-surface-ink/20 overflow-hidden">
-          <div className="border-b border-surface-ink/20 px-4 py-2 text-body-3 text-surface-ink/80">
-            <span className="text-surface-ink/60">Subject:</span> {state.preview.subject}
-          </div>
-          <div
-            className="bg-surface-paper-shade text-surface-ink px-6 py-5 text-body-3 leading-relaxed advance-preview"
-            dangerouslySetInnerHTML={{ __html: state.preview.html }}
-          />
         </div>
       )}
     </div>
@@ -256,7 +156,7 @@ export function HubAdminScheduleEdit({ state }: { state: ShowAdvanceState }) {
             setDraft((d) => (d ? { ...d, soundcheck_notes: e.target.value } : d))
           }
           rows={3}
-          placeholder="Optional — linecheck order, early arrivals, etc. Shown here and highlighted in the invite email."
+          placeholder="Optional — linecheck order, early arrivals, etc. Shown on the portal."
           className={`${inputClass} w-full resize-y`}
         />
       </div>
@@ -440,7 +340,7 @@ export function HubAdminRecipients({ state }: { state: ShowAdvanceState }) {
       )}
 
       {/* Band and engineer contacts are read-only here: they're edited in one
-          place, the show's Lineup & crew tab (they save to each person's profile). */}
+          place, the show's Crew tab (they save to each person's profile). */}
       <ul className="space-y-2 text-body-3">
         {state.recipients.map((r) => (
           <ContactLine key={r.bandId} name={r.name} email={r.email} payout={r.paymentMethod} />
@@ -458,7 +358,7 @@ export function HubAdminRecipients({ state }: { state: ShowAdvanceState }) {
           </ul>
         ) : (
           <p className="text-body-3 text-surface-ink/60">
-            No confirmed sound engineer on this show — confirm one on the Lineup &amp; crew tab to loop them in.
+            No confirmed sound engineer on this show — confirm one on the Crew tab to loop them in.
           </p>
         )}
       </div>
@@ -469,7 +369,7 @@ export function HubAdminRecipients({ state }: { state: ShowAdvanceState }) {
           href={`/admin/shows/${state.showId}/lineup`}
           className="underline decoration-dotted underline-offset-2 hover:text-accent-red"
         >
-          Lineup &amp; crew tab
+          Crew tab
         </Link>
         {' '}— they save to each person&rsquo;s profile, used on the settlement and every future show.
       </p>

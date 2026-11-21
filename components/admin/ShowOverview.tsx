@@ -1,4 +1,6 @@
 import Link from 'next/link';
+import type { ReactNode } from 'react';
+import AdvanceSentToggle from './AdvanceSentToggle';
 import {
   activeIssues,
   categoriesFor,
@@ -42,20 +44,22 @@ interface ItemProps {
   value: string;
   tone: Tone;
   href?: string;
+  // Replaces the value with an inline control (no link around it).
+  control?: ReactNode;
 }
 
-function Item({ label, value, tone, href }: ItemProps) {
+function Item({ label, value, tone, href, control }: ItemProps) {
   const inner = (
     <>
       <span className={`mt-1.5 h-1.5 w-1.5 shrink-0 ${DOT[tone]}`} />
       <span className="min-w-0">
         <span className="block text-data-label-10-small uppercase tracking-wide text-surface-ink/60">{label}</span>
-        <span className="block text-body-3 text-surface-ink/80 leading-snug">{value}</span>
+        {control ?? <span className="block text-body-3 text-surface-ink/80 leading-snug">{value}</span>}
       </span>
     </>
   );
   const base = 'flex items-start gap-2 border px-3 py-2';
-  return href ? (
+  return href && !control ? (
     <Link href={href} className={`${base} border-surface-ink bg-surface-paper hover:border-accent-red transition-colors`}>
       {inner}
     </Link>
@@ -126,7 +130,7 @@ export default function ShowOverview({
           value: facts.announced ? 'Announced · public' : 'Draft · hidden',
           tone: facts.announced ? 'done' : 'neutral',
         },
-        item('Lineup', ['bands'], `${bandCount}/${target} band${target === 1 ? '' : 's'}`, 'done', 'lineup'),
+        item('Lineup', ['bands'], `${bandCount}/${target} band${target === 1 ? '' : 's'}`, 'done'),
         item('Flyer', ['flyer'], 'Uploaded', 'done'),
         item(
           'Sound engineer',
@@ -142,7 +146,10 @@ export default function ShowOverview({
           tone: photographerName ? 'done' : 'neutral',
           href: href('lineup'),
         },
-        item('Advance', ['advance'], 'Sent', 'done', 'advance'),
+        {
+          ...item('Advance sent', ['advance'], 'Sent', 'done'),
+          control: <AdvanceSentToggle showId={showId} sent={Boolean(facts.advance_sent)} />,
+        },
         item(
           'Input lists',
           ['inputs'],
