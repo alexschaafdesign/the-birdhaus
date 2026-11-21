@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation';
 import ShowForm from '@/components/admin/ShowForm';
+import ShowTabTodos from '@/components/admin/ShowTabTodos';
 import { loadShowFormData } from '../form-data';
 
 export const dynamic = 'force-dynamic';
@@ -15,6 +16,8 @@ export default async function ShowPublicPage({ params }: { params: Promise<{ id:
   if (!data) notFound();
 
   return (
+    <div className="space-y-4">
+    <ShowTabTodos showId={showId} keys={['videos-missing', 'rsvp-off']} />
     <ShowForm
       mode="edit"
       embedded
@@ -23,5 +26,6 @@ export default async function ShowPublicPage({ params }: { params: Promise<{ id:
       isPast={data.isPastShow}
       nightDate={data.nightDate}
     />
+    </div>
   );
 }

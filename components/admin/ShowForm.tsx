@@ -8,7 +8,7 @@ import AddBandModal from './AddBandModal';
 import PhotographerNameInput, { type PhotographerMatch } from './PhotographerNameInput';
 import ImageUploadField from './ImageUploadField';
 import { FORM } from '@/components/night/form';
-import { Panel as Section, PageHeader, ADMIN_TYPE, FIELD_INLINE, StatusMark, buttonClassName } from './ui';
+import { Panel as Section, TodoMark, PageHeader, ADMIN_TYPE, FIELD_INLINE, StatusMark, buttonClassName } from './ui';
 import { downscaleImage } from '@/lib/downscale-image';
 
 const inputClass = FORM.field;
@@ -241,7 +241,10 @@ type FormPart = 'overview' | 'lineup' | 'public';
 
 // The PATCH fields each section owns.
 const SECTION_FIELDS: Record<ShowFormSection, string[]> = {
-  overview: ['title', 'slug', 'date', 'doorsTime', 'showTime', 'flyer', 'announced', 'status', 'bands', 'targetBandCount'],
+  overview: [
+    'title', 'slug', 'date', 'doorsTime', 'showTime', 'flyer', 'announced', 'status',
+    'advanceSent', 'bands', 'targetBandCount',
+  ],
   public: [
     'description', 'ticketUrl', 'externalTicketUrl', 'ticketLimit', 'rsvpForm',
     'videos', 'audio', 'photos', 'photoFolder', 'photoCredit', 'content',
@@ -356,6 +359,7 @@ export default function ShowForm({
   nightDate,
   embedded = false,
   section,
+  todos = {},
 }: {
   mode: 'create' | 'edit';
   // The workspace tab this form is in (see ShowFormSection); absent = everything.
@@ -371,6 +375,10 @@ export default function ShowForm({
   // already supplies the title / back link / tab nav, so the form's own header
   // is suppressed to avoid duplicating them.
   embedded?: boolean;
+  // The show's open to-dos (issue key → label, lib/show-health openTodos), so
+  // each field that fixes one gets a mark. A mark clears as soon as the field
+  // is filled in, before saving.
+  todos?: Record<string, string>;
 }) {
   const router = useRouter();
   const [form, setForm] = useState<FormState>(() => initFormState(initialValues, isPast));
@@ -453,6 +461,12 @@ export default function ShowForm({
   // A show is "past" once its night is over (5am Central the morning after).
   // Post-show edits hide the pre-show "bands available this date" helper.
   const isPastShow = /^\d{4}-\d{2}-\d{2}$/.test(form.date) && form.date < nightDate;
+
+  // "Need N more" on the Bands header while the bill is short (live as bands
+  // are added; only while that to-do is open, so a dismissed one stays quiet).
+  const bandsShort = form.targetBandCount - form.bands.filter((b) => b.name.trim()).length;
+  const bandsTodo =
+    todos.bands && bandsShort > 0 ? `Need ${bandsShort} more band${bandsShort === 1 ? '' : 's'}` : null;
 
   // Once saved as announced, or once it's happened, the date is frozen with
   // the show's /shows/ id: moving it is a Postpone (a new night with its own
@@ -1304,7 +1318,21 @@ export default function ShowForm({
 
         {/* Announced = listed on the public site. It's a form field like the
             rest: flipping it here takes effect on Save. */}
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          {section === 'overview' && (
+            // Advancing happens by email outside the app; tick this once it's
+            // sent (saves with the form). Clears the "Not advanced yet" to-do.
+            <label id="advance-sent" className="flex scroll-mt-6 cursor-pointer items-center gap-2 text-body-3">
+              <input
+                type="checkbox"
+                checked={form.advanceSent}
+                onChange={(e) => set('advanceSent', e.target.checked)}
+                className="h-4 w-4 accent-surface-ink"
+              />
+              Advance sent
+              {todos.advance && !form.advanceSent && <TodoMark>Not yet</TodoMark>}
+            </label>
+          )}
           <StatusMark tone={form.announced ? 'ok' : 'neutral'}>
             {form.announced ? 'Announced · public' : 'Draft · hidden'}
           </StatusMark>
@@ -1457,9 +1485,14 @@ export default function ShowForm({
             {timesOutOfDate && ' The public page still shows the old times: Save changes to update it.'}
           </p>
         )}
-        <div className="sm:col-span-2">
+        <div id="flyer" className="sm:col-span-2 scroll-mt-6">
           <ImageUploadField
-            label="Flyer"
+            label={
+              <span className="flex items-center gap-3">
+                Flyer
+                {todos.flyer && !form.flyer.trim() && <TodoMark>Needed</TodoMark>}
+              </span>
+            }
             value={form.flyer}
             onChange={(url) => set('flyer', url)}
             folder="flyers"
@@ -1475,6 +1508,8 @@ export default function ShowForm({
       <>
       <Section
         title="Bands"
+        id="bands"
+        todo={bandsTodo}
         // Its own tab in the workspace: always open there.
         collapsible={!section}
         action={

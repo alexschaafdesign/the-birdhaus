@@ -6,6 +6,7 @@ import { getShowInputsState } from '@/lib/inputs';
 import { INPUT_CATALOG } from '@/lib/input-catalog';
 import ShowHubView from '@/components/hub/ShowHubView';
 import ShowInputsPanel from '@/components/admin/ShowInputsPanel';
+import ShowTabTodos from '@/components/admin/ShowTabTodos';
 
 export const dynamic = 'force-dynamic';
 
@@ -31,7 +32,8 @@ export default async function ShowAdvancePage({ params }: { params: Promise<{ id
   return (
     <div className="space-y-10">
       <ShowHubView data={data} token={shareToken} isAdmin adminState={adminState} />
-      <section id="inputs" className="scroll-mt-6 border-t-2 border-surface-ink pt-8">
+      <section id="inputs" className="scroll-mt-6 space-y-4 border-t-2 border-surface-ink pt-8">
+        <ShowTabTodos showId={showId} keys={['inputs']} />
         <ShowInputsPanel initial={inputs} catalog={INPUT_CATALOG} />
       </section>
     </div>

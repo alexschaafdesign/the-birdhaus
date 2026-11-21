@@ -1,6 +1,9 @@
 import { notFound } from 'next/navigation';
 import { sql } from '@/lib/db';
 import { getShowAdvanceState } from '@/lib/advance';
+import { getOneShowHealth } from '@/lib/show-health-data';
+import { openTodos } from '@/lib/show-health';
+import { getTodayCentral } from '@/lib/shows';
 import ShowForm from '@/components/admin/ShowForm';
 import ShowBookingNotes from '@/components/admin/ShowBookingNotes';
 import { ScheduleCard } from '@/components/hub/ShowHubView';
@@ -8,8 +11,7 @@ import { loadShowFormData } from './form-data';
 
 export const dynamic = 'force-dynamic';
 
-// The Overview tab: the one page for a show's essentials (the status strip
-// above the tabs comes from the layout) — the basics + the lineup (one form, one Save), the night's schedule (which sets
+// The Overview tab: the one page for a show's essentials — the basics + the lineup (one form, one Save), the night's schedule (which sets
 // the doors/show times), and this date's booking notes. Crew, the Portal,
 // public page, RSVPs and settlement live on the other tabs.
 export default async function ShowOverviewPage({ params }: { params: Promise<{ id: string }> }) {
@@ -17,8 +19,14 @@ export default async function ShowOverviewPage({ params }: { params: Promise<{ i
   const showId = Number(id);
   if (!Number.isInteger(showId)) notFound();
 
-  const [data, advance] = await Promise.all([loadShowFormData(showId), getShowAdvanceState(showId)]);
+  const [data, advance, facts] = await Promise.all([
+    loadShowFormData(showId),
+    getShowAdvanceState(showId),
+    getOneShowHealth(showId),
+  ]);
   if (!data) notFound();
+  // Open to-dos, marked on the fields that fix them.
+  const todos = facts ? openTodos(facts, getTodayCentral()) : {};
 
   // This date's notes from the Booking calendar (booking_days), edited in place.
   const [bookingDay] = await sql<{ title: string | null; notepad: string | null }[]>`
@@ -37,6 +45,7 @@ export default async function ShowOverviewPage({ params }: { params: Promise<{ i
         mode="edit"
         embedded
         section="overview"
+        todos={todos}
         initialValues={data.initialValues}
         isPast={data.isPastShow}
         nightDate={data.nightDate}

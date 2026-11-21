@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation';
 import { sql } from '@/lib/db';
 import CopySummaryButton from '@/components/admin/CopySummaryButton';
 import SettlementForm from '@/components/admin/SettlementForm';
+import ShowTabTodos from '@/components/admin/ShowTabTodos';
 import { buttonClassName } from '@/components/admin/ui';
 import { getShowBandsPaidStatus } from '@/lib/bands';
 import { getShowPurchaseMatches } from '@/lib/square';
@@ -161,6 +162,7 @@ export default async function SettlementPage({ params }: { params: Promise<{ id:
 
   return (
     <div className="space-y-6">
+      <ShowTabTodos showId={showId} keys={['bands-unpaid', 'sound-unpaid', 'photographer-unpaid']} />
       {emailSummary && (
         <div className="flex items-center justify-end gap-2">
           <CopySummaryButton text={emailSummary} />
