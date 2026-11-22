@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 import AvailabilityPicker from '@/components/AvailabilityPicker';
 import {
+  BILL_PREFERENCE_LABELS,
   STATUS_LABELS,
   STATUS_SWATCH,
   SUBMISSION_STATUSES,
@@ -467,6 +468,9 @@ function SubmissionCard({
               </a>
             )}
             {submission.socials && <span>{submission.socials}</span>}
+            {submission.bill_preference && (
+              <span>{BILL_PREFERENCE_LABELS[submission.bill_preference]}</span>
+            )}
           </div>
           {submission.availability_text && (
             <p className="text-body-3 text-surface-ink/80 mt-2 whitespace-pre-wrap">

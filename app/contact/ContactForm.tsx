@@ -3,7 +3,7 @@
 import { useState, type ReactNode } from 'react';
 import AvailabilityPicker from '@/components/AvailabilityPicker';
 import { FORM } from '@/components/night/form';
-import { parseAvailability, type AvailabilityEntry } from '@/lib/submissions';
+import { parseAvailability, type AvailabilityEntry, type BillPreference } from '@/lib/submissions';
 
 // The About/Contact page's form, with a "Show requests" / "General contact"
 // toggle.
@@ -57,6 +57,12 @@ const LABEL = FORM.label;
 const FALLBACK_ERROR = 'Something went wrong — try emailing us directly at alex@thebirdhaus.org';
 
 type Tab = 'show' | 'general';
+
+const BILL_CHOICES: [BillPreference, string][] = [
+  ['building', "We're putting a bill together"],
+  ['joining', 'Add us to an existing bill'],
+  ['either', 'Either works'],
+];
 type Status = 'idle' | 'sending' | 'error';
 
 const TABS: [Tab, string][] = [
@@ -64,7 +70,15 @@ const TABS: [Tab, string][] = [
   ['general', 'General contact'],
 ];
 
-export function ContactForm({ logOnly, children }: { logOnly: boolean; children?: ReactNode }) {
+export function ContactForm({
+  logOnly,
+  openDates = [],
+  children,
+}: {
+  logOnly: boolean;
+  openDates?: string[];
+  children?: ReactNode;
+}) {
   const [tab, setTab] = useState<Tab>('show');
   // Once either form sends, the intro (children), toggle and forms give way to
   // just the thank-you.
@@ -105,7 +119,7 @@ export function ContactForm({ logOnly, children }: { logOnly: boolean; children?
 
         {/* Both stay mounted so switching tabs keeps what's been typed. */}
         <div hidden={tab !== 'show'}>
-          <ShowRequestForm onSent={() => setSent(true)} />
+          <ShowRequestForm onSent={() => setSent(true)} openDates={openDates} />
         </div>
         <div hidden={tab !== 'general'}>
           <GeneralForm logOnly={logOnly} onSent={() => setSent(true)} />
@@ -115,9 +129,75 @@ export function ContactForm({ logOnly, children }: { logOnly: boolean; children?
   );
 }
 
-function ShowRequestForm({ onSent }: { onSent: () => void }) {
+// Month name for a "YYYY-MM-DD", built from its parts so it can't slip a day
+// across time zones.
+function monthLabel(iso: string): string {
+  const [y, m] = iso.split('-').map(Number);
+  return new Date(y, m - 1, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+}
+
+function dayLabel(iso: string): string {
+  const [y, m, d] = iso.split('-').map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+}
+
+// The Booking calendar's open dates as toggle chips, grouped by month.
+function OpenDatePicker({
+  dates,
+  picked,
+  onToggle,
+}: {
+  dates: string[];
+  picked: Set<string>;
+  onToggle: (date: string) => void;
+}) {
+  const months: Array<[string, string[]]> = [];
+  for (const date of dates) {
+    const label = monthLabel(date);
+    const last = months[months.length - 1];
+    if (last && last[0] === label) last[1].push(date);
+    else months.push([label, [date]]);
+  }
+
+  return (
+    <div className="flex flex-col gap-3">
+      {months.map(([label, monthDates]) => (
+        <div key={label}>
+          <p className="text-data-caption-13 text-surface-ink/60 mb-1.5">{label}</p>
+          <div className="flex flex-wrap gap-2">
+            {monthDates.map(date => {
+              const on = picked.has(date);
+              return (
+                <label
+                  key={date}
+                  className={`text-body-3 has-[:focus-visible]:outline-accent-red cursor-pointer border px-3 py-1.5 select-none has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 ${
+                    on
+                      ? 'bg-surface-ink text-surface-paper border-surface-ink'
+                      : 'border-surface-ink hover:bg-surface-paper-shade'
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    className="sr-only"
+                    checked={on}
+                    onChange={() => onToggle(date)}
+                  />
+                  {dayLabel(date)}
+                </label>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ShowRequestForm({ onSent, openDates }: { onSent: () => void; openDates: string[] }) {
   const empty = { contactName: '', email: '', bandName: '', social: '', vibe: '', comments: '' };
   const [sr, setSr] = useState(empty);
+  const [picked, setPicked] = useState<Set<string>>(new Set());
+  const [bill, setBill] = useState<BillPreference | ''>('');
   // Honeypot: hidden from real users; the API silently drops filled submissions.
   const [website, setWebsite] = useState('');
   const [availability, setAvailability] = useState<AvailabilityEntry[]>([]);
@@ -131,8 +211,12 @@ function ShowRequestForm({ onSent }: { onSent: () => void }) {
     if (error) { setEmailError(error); return; }
     setEmailError(null);
 
-    if (availability.length === 0) {
-      setDatesError('Please add at least one date or date range.');
+    if (picked.size === 0 && availability.length === 0) {
+      setDatesError(
+        openDates.length > 0
+          ? 'Please pick at least one date, or add your own.'
+          : 'Please add at least one date or date range.'
+      );
       return;
     }
     const parsed = parseAvailability(availability);
@@ -143,11 +227,22 @@ function ShowRequestForm({ onSent }: { onSent: () => void }) {
     setDatesError(null);
     setStatus('sending');
 
+    // Picked open dates go in as plain dates ahead of their own entries, so
+    // the admin board reads and filters them like any other.
+    const pickedEntries: AvailabilityEntry[] = [...picked]
+      .sort()
+      .map(value => ({ type: 'date', value }));
+
     try {
       const res = await fetch(SHOW_REQUEST_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...sr, availability: parsed, website }),
+        body: JSON.stringify({
+          ...sr,
+          availability: [...pickedEntries, ...parsed],
+          billPreference: bill || null,
+          website,
+        }),
       });
       if (!res.ok) throw new Error('Request failed');
       onSent();
@@ -251,9 +346,52 @@ function ShowRequestForm({ onSent }: { onSent: () => void }) {
           className={FIELD}
         />
       </div>
+      <fieldset>
+        <legend className={LABEL}>The bill</legend>
+        <div className="flex flex-col gap-2">
+          {BILL_CHOICES.map(([value, label]) => (
+            <label key={value} className="text-body-3 flex w-fit cursor-pointer items-center gap-2">
+              <input
+                type="radio"
+                name="bill"
+                required
+                value={value}
+                checked={bill === value}
+                onChange={() => setBill(value)}
+                className="accent-surface-ink focus-visible:outline-accent-red size-4 cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2"
+              />
+              {label}
+            </label>
+          ))}
+        </div>
+      </fieldset>
       <fieldset aria-describedby={datesError ? 'sr-dates-error' : undefined}>
         <legend className={LABEL}>Dates you&apos;re looking for</legend>
-        <p className={FORM.hint}>Add as many specific dates or date ranges as needed.</p>
+        {openDates.length > 0 && (
+          <>
+            <p className={FORM.hint}>
+              Dates we&apos;re hoping to fill: tap any that work for you. Not set in stone, so if a
+              different day suits your bill better, add it below.
+            </p>
+            <OpenDatePicker
+              dates={openDates}
+              picked={picked}
+              onToggle={date => {
+                setPicked(prev => {
+                  const next = new Set(prev);
+                  if (next.has(date)) next.delete(date);
+                  else next.add(date);
+                  return next;
+                });
+                if (datesError) setDatesError(null);
+              }}
+            />
+            <p className={`${FORM.hint} mt-5`}>Other dates or ranges:</p>
+          </>
+        )}
+        {openDates.length === 0 && (
+          <p className={FORM.hint}>Add as many specific dates or date ranges as needed.</p>
+        )}
         <AvailabilityPicker
           entries={availability}
           onChange={next => {

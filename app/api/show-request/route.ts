@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { sql } from '@/lib/db';
-import { parseAvailability, formatAvailabilityEntries } from '@/lib/submissions';
+import { parseAvailability, formatAvailabilityEntries, parseBillPreference } from '@/lib/submissions';
 import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
 
 function nullableTrim(value: unknown): string | null {
@@ -43,7 +43,7 @@ export async function POST(request: Request) {
 
   await sql`
     insert into submissions (
-      band_name, contact_name, email, socials, genre, availability_text, availability, comments, source
+      band_name, contact_name, email, socials, genre, availability_text, availability, bill_preference, comments, source
     )
     values (
       ${bandName},
@@ -53,6 +53,7 @@ export async function POST(request: Request) {
       ${nullableTrim(body.vibe)},
       ${availabilityText},
       ${sql.json(availability)},
+      ${parseBillPreference(body.billPreference)},
       ${nullableTrim(body.comments)},
       'form'
     )

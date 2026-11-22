@@ -38,6 +38,21 @@ export const STATUS_SWATCH: Record<SubmissionStatus, { swatch: string; edge: str
 
 export type SubmissionSource = 'form' | 'manual' | 'import';
 
+// Show request form: putting their own bill together, or open to joining one.
+export type BillPreference = 'building' | 'joining' | 'either';
+
+export const BILL_PREFERENCES: BillPreference[] = ['building', 'joining', 'either'];
+
+export const BILL_PREFERENCE_LABELS: Record<BillPreference, string> = {
+  building: 'Building their own bill',
+  joining: 'Open to joining a bill',
+  either: 'Building or joining',
+};
+
+export function parseBillPreference(input: unknown): BillPreference | null {
+  return BILL_PREFERENCES.includes(input as BillPreference) ? (input as BillPreference) : null;
+}
+
 export type AvailabilityEntry =
   | { type: 'date'; value: string }
   | { type: 'range'; from: string; to: string };
@@ -48,7 +63,7 @@ export type AvailabilityEntry =
 // change result type") — see CLAUDE.md. Use as ${sql(SUBMISSION_COLUMNS)}.
 export const SUBMISSION_COLUMNS = [
   'id', 'band_name', 'contact_name', 'email', 'socials', 'genre', 'availability_text', 'comments',
-  'notes', 'status', 'source', 'created_at', 'updated_at', 'availability',
+  'notes', 'status', 'source', 'created_at', 'updated_at', 'availability', 'bill_preference',
 ];
 
 export interface Submission {
@@ -60,6 +75,7 @@ export interface Submission {
   genre: string | null;
   availability_text: string | null;
   availability: AvailabilityEntry[];
+  bill_preference: BillPreference | null;
   comments: string | null;
   notes: string | null;
   status: SubmissionStatus;
