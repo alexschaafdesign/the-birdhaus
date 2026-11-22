@@ -3,7 +3,14 @@
 import { useState, type ReactNode } from 'react';
 import AvailabilityPicker from '@/components/AvailabilityPicker';
 import { FORM } from '@/components/night/form';
-import { parseAvailability, type AvailabilityEntry, type BillPreference } from '@/lib/submissions';
+import {
+  FORMAT_LABELS,
+  SUBMISSION_FORMATS,
+  parseAvailability,
+  type AvailabilityEntry,
+  type BillPreference,
+  type SubmissionFormat,
+} from '@/lib/submissions';
 
 // The About/Contact page's form, with a "Show requests" / "General contact"
 // toggle.
@@ -63,6 +70,7 @@ const BILL_CHOICES: [BillPreference, string][] = [
   ['joining', 'Add us to an existing bill'],
   ['either', 'Either works'],
 ];
+
 type Status = 'idle' | 'sending' | 'error';
 
 const TABS: [Tab, string][] = [
@@ -82,12 +90,14 @@ export function ContactForm({
   const [tab, setTab] = useState<Tab>('show');
   // Once either form sends, the intro (children), toggle and forms give way to
   // just the thank-you.
-  const [sent, setSent] = useState(false);
+  const [sent, setSent] = useState<Tab | null>(null);
 
   if (sent) {
     return (
       <p className="text-body-1 max-w-xl" role="status">
-        Thanks for reaching out! We&apos;ll get back to you as soon as we can.
+        {sent === 'show'
+          ? 'Thanks! Got your request. We\u2019ll be in touch by email about dates.'
+          : 'Thanks for reaching out! We\u2019ll get back to you as soon as we can.'}
       </p>
     );
   }
@@ -119,10 +129,10 @@ export function ContactForm({
 
         {/* Both stay mounted so switching tabs keeps what's been typed. */}
         <div hidden={tab !== 'show'}>
-          <ShowRequestForm onSent={() => setSent(true)} openDates={openDates} />
+          <ShowRequestForm onSent={() => setSent('show')} openDates={openDates} />
         </div>
         <div hidden={tab !== 'general'}>
-          <GeneralForm logOnly={logOnly} onSent={() => setSent(true)} />
+          <GeneralForm logOnly={logOnly} onSent={() => setSent('general')} />
         </div>
       </div>
     </>
@@ -139,6 +149,39 @@ function monthLabel(iso: string): string {
 function dayLabel(iso: string): string {
   const [y, m, d] = iso.split('-').map(Number);
   return new Date(y, m - 1, d).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+}
+
+// "January–March 2027" (or one month, or across years) for the open dates'
+// first and last months; null with no open dates.
+function seasonLabel(dates: string[]): string | null {
+  if (dates.length === 0) return null;
+  const parts = (iso: string) => {
+    const [y, m] = iso.split('-').map(Number);
+    const d = new Date(y, m - 1, 1);
+    return { y, key: iso.slice(0, 7), month: d.toLocaleDateString('en-US', { month: 'long' }) };
+  };
+  const a = parts(dates[0]);
+  const b = parts(dates[dates.length - 1]);
+  if (a.key === b.key) return `${a.month} ${a.y}`;
+  if (a.y === b.y) return `${a.month}–${b.month} ${a.y}`;
+  return `${a.month} ${a.y}–${b.month} ${b.y}`;
+}
+
+// A toggle chip: a visually hidden checkbox inside an outlined label that
+// fills with ink when on.
+function Chip({ on, onToggle, children }: { on: boolean; onToggle: () => void; children: ReactNode }) {
+  return (
+    <label
+      className={`text-body-3 has-[:focus-visible]:outline-accent-red cursor-pointer border px-3 py-1.5 select-none has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 ${
+        on
+          ? 'bg-surface-ink text-surface-paper border-surface-ink'
+          : 'border-surface-ink hover:bg-surface-paper-shade'
+      }`}
+    >
+      <input type="checkbox" className="sr-only" checked={on} onChange={onToggle} />
+      {children}
+    </label>
+  );
 }
 
 // The Booking calendar's open dates as toggle chips, grouped by month.
@@ -165,27 +208,11 @@ function OpenDatePicker({
         <div key={label}>
           <p className="text-data-caption-13 text-surface-ink/60 mb-1.5">{label}</p>
           <div className="flex flex-wrap gap-2">
-            {monthDates.map(date => {
-              const on = picked.has(date);
-              return (
-                <label
-                  key={date}
-                  className={`text-body-3 has-[:focus-visible]:outline-accent-red cursor-pointer border px-3 py-1.5 select-none has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 ${
-                    on
-                      ? 'bg-surface-ink text-surface-paper border-surface-ink'
-                      : 'border-surface-ink hover:bg-surface-paper-shade'
-                  }`}
-                >
-                  <input
-                    type="checkbox"
-                    className="sr-only"
-                    checked={on}
-                    onChange={() => onToggle(date)}
-                  />
-                  {dayLabel(date)}
-                </label>
-              );
-            })}
+            {monthDates.map(date => (
+              <Chip key={date} on={picked.has(date)} onToggle={() => onToggle(date)}>
+                {dayLabel(date)}
+              </Chip>
+            ))}
           </div>
         </div>
       ))}
@@ -193,23 +220,46 @@ function OpenDatePicker({
   );
 }
 
+// Show requests, ordered band → dates → you. Picked open dates go in as plain
+// dates ahead of the band's own entries, so the admin board reads and filters
+// them like any other.
 function ShowRequestForm({ onSent, openDates }: { onSent: () => void; openDates: string[] }) {
-  const empty = { contactName: '', email: '', bandName: '', social: '', vibe: '', comments: '' };
+  const empty = {
+    bandName: '', social: '', vibe: '', billLineup: '', contactName: '', email: '', comments: '',
+  };
   const [sr, setSr] = useState(empty);
-  const [picked, setPicked] = useState<Set<string>>(new Set());
+  const [formats, setFormats] = useState<Set<SubmissionFormat>>(new Set());
   const [bill, setBill] = useState<BillPreference | ''>('');
+  const [picked, setPicked] = useState<Set<string>>(new Set());
   // Honeypot: hidden from real users; the API silently drops filled submissions.
   const [website, setWebsite] = useState('');
   const [availability, setAvailability] = useState<AvailabilityEntry[]>([]);
   const [status, setStatus] = useState<Status>('idle');
   const [emailError, setEmailError] = useState<string | null>(null);
+  const [formatsError, setFormatsError] = useState<string | null>(null);
   const [datesError, setDatesError] = useState<string | null>(null);
+
+  const season = seasonLabel(openDates);
+  const allPicked = openDates.length > 0 && openDates.every(d => picked.has(d));
+
+  function togglePicked(date: string) {
+    setPicked(prev => {
+      const next = new Set(prev);
+      if (next.has(date)) next.delete(date);
+      else next.add(date);
+      return next;
+    });
+    if (datesError) setDatesError(null);
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const error = validateEmail(sr.email);
-    if (error) { setEmailError(error); return; }
-    setEmailError(null);
+
+    if (formats.size === 0) {
+      setFormatsError('Pick solo, full band, or both.');
+      return;
+    }
+    setFormatsError(null);
 
     if (picked.size === 0 && availability.length === 0) {
       setDatesError(
@@ -225,10 +275,12 @@ function ShowRequestForm({ onSent, openDates }: { onSent: () => void; openDates:
       return;
     }
     setDatesError(null);
+
+    const error = validateEmail(sr.email);
+    if (error) { setEmailError(error); return; }
+    setEmailError(null);
     setStatus('sending');
 
-    // Picked open dates go in as plain dates ahead of their own entries, so
-    // the admin board reads and filters them like any other.
     const pickedEntries: AvailabilityEntry[] = [...picked]
       .sort()
       .map(value => ({ type: 'date', value }));
@@ -239,8 +291,10 @@ function ShowRequestForm({ onSent, openDates }: { onSent: () => void; openDates:
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...sr,
-          availability: [...pickedEntries, ...parsed],
+          billLineup: bill === 'joining' ? '' : sr.billLineup,
+          formats: [...formats],
           billPreference: bill || null,
+          availability: [...pickedEntries, ...parsed],
           website,
         }),
       });
@@ -253,6 +307,16 @@ function ShowRequestForm({ onSent, openDates }: { onSent: () => void; openDates:
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+      <div>
+        <h2 className="text-header-4 font-bold">
+          {season ? `Booking ${season}` : 'Want to play the Birdhaus?'}
+        </h2>
+        <p className="text-body-3 mt-1 leading-normal">
+          Tell us about your project and which dates work. Shows are all ages with donation at
+          the door.
+        </p>
+      </div>
+
       {/* Honeypot: off-screen, not focusable, hidden from assistive tech. */}
       <div aria-hidden="true" style={{ position: 'absolute', left: '-9999px' }}>
         <label htmlFor="sr-website">Website</label>
@@ -266,6 +330,153 @@ function ShowRequestForm({ onSent, openDates }: { onSent: () => void; openDates:
           onChange={e => setWebsite(e.target.value)}
         />
       </div>
+
+      <div>
+        <label htmlFor="sr-band" className={LABEL}>
+          Band / artist name
+        </label>
+        <input
+          id="sr-band"
+          type="text"
+          required
+          value={sr.bandName}
+          onChange={e => setSr(p => ({ ...p, bandName: e.target.value }))}
+          className={FIELD}
+        />
+      </div>
+      <div>
+        <label htmlFor="sr-social" className={LABEL}>
+          Where can we hear you?
+        </label>
+        <input
+          id="sr-social"
+          type="text"
+          placeholder="Bandcamp, Spotify, Instagram…"
+          value={sr.social}
+          onChange={e => setSr(p => ({ ...p, social: e.target.value }))}
+          className={FIELD}
+        />
+      </div>
+      <div>
+        <label htmlFor="sr-vibe" className={LABEL}>
+          Genre / what&apos;s your vibe
+        </label>
+        <input
+          id="sr-vibe"
+          type="text"
+          placeholder="e.g. dreamy punk, ambient country, chaotic jazz..."
+          value={sr.vibe}
+          onChange={e => setSr(p => ({ ...p, vibe: e.target.value }))}
+          className={FIELD}
+        />
+      </div>
+      <fieldset aria-describedby={formatsError ? 'sr-formats-error' : undefined}>
+        <legend className={LABEL}>Solo or full band</legend>
+        <p className={FORM.hint}>Pick both if you can do either.</p>
+        <div className="flex flex-wrap gap-2">
+          {SUBMISSION_FORMATS.map(f => (
+            <Chip
+              key={f}
+              on={formats.has(f)}
+              onToggle={() => {
+                setFormats(prev => {
+                  const next = new Set(prev);
+                  if (next.has(f)) next.delete(f);
+                  else next.add(f);
+                  return next;
+                });
+                if (formatsError) setFormatsError(null);
+              }}
+            >
+              {FORMAT_LABELS[f]}
+            </Chip>
+          ))}
+        </div>
+        {formatsError && (
+          <p id="sr-formats-error" className={FORM.fieldError} role="alert">
+            {formatsError}
+          </p>
+        )}
+      </fieldset>
+
+      <fieldset>
+        <legend className={LABEL}>The bill</legend>
+        <div className="flex flex-col gap-2">
+          {BILL_CHOICES.map(([value, label]) => (
+            <label key={value} className="text-body-3 flex w-fit cursor-pointer items-center gap-2">
+              <input
+                type="radio"
+                name="bill"
+                required
+                value={value}
+                checked={bill === value}
+                onChange={() => setBill(value)}
+                className="accent-surface-ink focus-visible:outline-accent-red size-4 cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2"
+              />
+              {label}
+            </label>
+          ))}
+        </div>
+        {(bill === 'building' || bill === 'either') && (
+          <div className="mt-4">
+            <label htmlFor="sr-lineup" className={LABEL}>
+              Who&apos;d be on it?
+            </label>
+            <p className={FORM.hint}>Optional. Other bands you&apos;d bring, if you know.</p>
+            <textarea
+              id="sr-lineup"
+              rows={2}
+              value={sr.billLineup}
+              onChange={e => setSr(p => ({ ...p, billLineup: e.target.value }))}
+              className={`${FIELD} resize-none`}
+            />
+          </div>
+        )}
+      </fieldset>
+
+      <fieldset aria-describedby={datesError ? 'sr-dates-error' : undefined}>
+        <legend className={LABEL}>Dates you&apos;re looking for</legend>
+        {openDates.length > 0 && (
+          <>
+            <p className={FORM.hint}>
+              Dates we&apos;re hoping to fill: tap any that work for you. Not set in stone, so if a
+              different day suits your bill better, add it below.
+            </p>
+            <label className="text-body-3 mb-3 flex w-fit cursor-pointer items-center gap-2">
+              <input
+                type="checkbox"
+                checked={allPicked}
+                onChange={() => {
+                  setPicked(allPicked ? new Set() : new Set(openDates));
+                  if (datesError) setDatesError(null);
+                }}
+                className="accent-surface-ink focus-visible:outline-accent-red size-4 cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2"
+              />
+              We&apos;re flexible: any of these work
+            </label>
+            <OpenDatePicker dates={openDates} picked={picked} onToggle={togglePicked} />
+            <p className={`${FORM.hint} mt-5`}>Other dates or ranges:</p>
+          </>
+        )}
+        {openDates.length === 0 && (
+          <p className={FORM.hint}>Add as many specific dates or date ranges as needed.</p>
+        )}
+        <AvailabilityPicker
+          entries={availability}
+          onChange={next => {
+            setAvailability(next);
+            if (datesError) setDatesError(null);
+          }}
+          inputClassName={`${FIELD} w-44`}
+          size="md"
+        />
+        {datesError && (
+          <p id="sr-dates-error" className={`${FORM.fieldError} mt-2`} role="alert">
+            {datesError}
+          </p>
+        )}
+      </fieldset>
+
       <div>
         <label htmlFor="sr-name" className={LABEL}>
           Your name
@@ -307,106 +518,6 @@ function ShowRequestForm({ onSent, openDates }: { onSent: () => void; openDates:
           </p>
         )}
       </div>
-      <div>
-        <label htmlFor="sr-band" className={LABEL}>
-          Band / artist name
-        </label>
-        <input
-          id="sr-band"
-          type="text"
-          required
-          value={sr.bandName}
-          onChange={e => setSr(p => ({ ...p, bandName: e.target.value }))}
-          className={FIELD}
-        />
-      </div>
-      <div>
-        <label htmlFor="sr-social" className={LABEL}>
-          Instagram, website, or social
-        </label>
-        <input
-          id="sr-social"
-          type="text"
-          placeholder="@handle or URL"
-          value={sr.social}
-          onChange={e => setSr(p => ({ ...p, social: e.target.value }))}
-          className={FIELD}
-        />
-      </div>
-      <div>
-        <label htmlFor="sr-vibe" className={LABEL}>
-          Genre / what&apos;s your vibe
-        </label>
-        <input
-          id="sr-vibe"
-          type="text"
-          placeholder="e.g. dreamy punk, ambient country, chaotic jazz..."
-          value={sr.vibe}
-          onChange={e => setSr(p => ({ ...p, vibe: e.target.value }))}
-          className={FIELD}
-        />
-      </div>
-      <fieldset>
-        <legend className={LABEL}>The bill</legend>
-        <div className="flex flex-col gap-2">
-          {BILL_CHOICES.map(([value, label]) => (
-            <label key={value} className="text-body-3 flex w-fit cursor-pointer items-center gap-2">
-              <input
-                type="radio"
-                name="bill"
-                required
-                value={value}
-                checked={bill === value}
-                onChange={() => setBill(value)}
-                className="accent-surface-ink focus-visible:outline-accent-red size-4 cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2"
-              />
-              {label}
-            </label>
-          ))}
-        </div>
-      </fieldset>
-      <fieldset aria-describedby={datesError ? 'sr-dates-error' : undefined}>
-        <legend className={LABEL}>Dates you&apos;re looking for</legend>
-        {openDates.length > 0 && (
-          <>
-            <p className={FORM.hint}>
-              Dates we&apos;re hoping to fill: tap any that work for you. Not set in stone, so if a
-              different day suits your bill better, add it below.
-            </p>
-            <OpenDatePicker
-              dates={openDates}
-              picked={picked}
-              onToggle={date => {
-                setPicked(prev => {
-                  const next = new Set(prev);
-                  if (next.has(date)) next.delete(date);
-                  else next.add(date);
-                  return next;
-                });
-                if (datesError) setDatesError(null);
-              }}
-            />
-            <p className={`${FORM.hint} mt-5`}>Other dates or ranges:</p>
-          </>
-        )}
-        {openDates.length === 0 && (
-          <p className={FORM.hint}>Add as many specific dates or date ranges as needed.</p>
-        )}
-        <AvailabilityPicker
-          entries={availability}
-          onChange={next => {
-            setAvailability(next);
-            if (datesError) setDatesError(null);
-          }}
-          inputClassName={`${FIELD} w-44`}
-          size="md"
-        />
-        {datesError && (
-          <p id="sr-dates-error" className={`${FORM.fieldError} mt-2`} role="alert">
-            {datesError}
-          </p>
-        )}
-      </fieldset>
       <div>
         <label htmlFor="sr-comments" className={LABEL}>
           Anything else

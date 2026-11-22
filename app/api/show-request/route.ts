@@ -1,6 +1,11 @@
 import { NextResponse } from 'next/server';
 import { sql } from '@/lib/db';
-import { parseAvailability, formatAvailabilityEntries, parseBillPreference } from '@/lib/submissions';
+import {
+  parseAvailability,
+  formatAvailabilityEntries,
+  parseBillPreference,
+  parseFormats,
+} from '@/lib/submissions';
 import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
 
 function nullableTrim(value: unknown): string | null {
@@ -39,11 +44,13 @@ export async function POST(request: Request) {
   }
 
   const availability = parseAvailability(body.availability) ?? [];
+  const billPreference = parseBillPreference(body.billPreference);
   const availabilityText = availability.length > 0 ? formatAvailabilityEntries(availability) : null;
 
   await sql`
     insert into submissions (
-      band_name, contact_name, email, socials, genre, availability_text, availability, bill_preference, comments, source
+      band_name, contact_name, email, socials, genre, availability_text, availability,
+      bill_preference, formats, bill_lineup, comments, source
     )
     values (
       ${bandName},
@@ -53,7 +60,9 @@ export async function POST(request: Request) {
       ${nullableTrim(body.vibe)},
       ${availabilityText},
       ${sql.json(availability)},
-      ${parseBillPreference(body.billPreference)},
+      ${billPreference},
+      ${parseFormats(body.formats)}::text[],
+      ${billPreference === 'joining' ? null : nullableTrim(body.billLineup)?.slice(0, 2000) ?? null},
       ${nullableTrim(body.comments)},
       'form'
     )

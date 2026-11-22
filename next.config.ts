@@ -30,6 +30,9 @@ const nextConfig: NextConfig = {
   async redirects() {
     return [
       ...songhausRedirects(),
+      // Short link for posts ("go to thebirdhaus.org/play"): the Contact page,
+      // which opens on the Show requests form. 307 so it can be repointed.
+      { source: '/play', destination: '/contact#contact', permanent: false },
       // Song-a-day editions (SAD-###, any casing) are Songhaus's. It has no
       // public per-edition URL yet (edition pages are members-only, by slug),
       // so these go to its home — 307, not 308, so browsers don't cache a

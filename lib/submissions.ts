@@ -53,6 +53,22 @@ export function parseBillPreference(input: unknown): BillPreference | null {
   return BILL_PREFERENCES.includes(input as BillPreference) ? (input as BillPreference) : null;
 }
 
+// Show request form: solo, full band, or both.
+export type SubmissionFormat = 'solo' | 'full_band';
+
+export const SUBMISSION_FORMATS: SubmissionFormat[] = ['solo', 'full_band'];
+
+export const FORMAT_LABELS: Record<SubmissionFormat, string> = {
+  solo: 'Solo',
+  full_band: 'Full band',
+};
+
+// Keeps known values only, deduped, in SUBMISSION_FORMATS order.
+export function parseFormats(input: unknown): SubmissionFormat[] {
+  if (!Array.isArray(input)) return [];
+  return SUBMISSION_FORMATS.filter((f) => input.includes(f));
+}
+
 export type AvailabilityEntry =
   | { type: 'date'; value: string }
   | { type: 'range'; from: string; to: string };
@@ -64,6 +80,7 @@ export type AvailabilityEntry =
 export const SUBMISSION_COLUMNS = [
   'id', 'band_name', 'contact_name', 'email', 'socials', 'genre', 'availability_text', 'comments',
   'notes', 'status', 'source', 'created_at', 'updated_at', 'availability', 'bill_preference',
+  'formats', 'bill_lineup',
 ];
 
 export interface Submission {
@@ -76,6 +93,8 @@ export interface Submission {
   availability_text: string | null;
   availability: AvailabilityEntry[];
   bill_preference: BillPreference | null;
+  formats: SubmissionFormat[];
+  bill_lineup: string | null;
   comments: string | null;
   notes: string | null;
   status: SubmissionStatus;

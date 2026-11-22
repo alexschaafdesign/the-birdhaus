@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import AvailabilityPicker from '@/components/AvailabilityPicker';
 import {
   BILL_PREFERENCE_LABELS,
+  FORMAT_LABELS,
   STATUS_LABELS,
   STATUS_SWATCH,
   SUBMISSION_STATUSES,
@@ -79,6 +80,9 @@ export default function SubmissionsBoard({
           s.email,
           s.socials,
           s.genre,
+          s.formats.map((f) => FORMAT_LABELS[f]).join(' '),
+          s.bill_preference && BILL_PREFERENCE_LABELS[s.bill_preference],
+          s.bill_lineup,
           s.availability_text,
           s.comments,
           s.notes,
@@ -86,7 +90,9 @@ export default function SubmissionsBoard({
           .filter(Boolean)
           .join(' ')
           .toLowerCase();
-        if (!haystack.includes(q)) return false;
+        // Every word has to appear somewhere, so "solo americana" finds solo
+        // acts whose genre mentions americana.
+        if (!q.split(/\s+/).every((word) => haystack.includes(word))) return false;
       }
 
       if (dateFilterActive) {
@@ -468,10 +474,18 @@ function SubmissionCard({
               </a>
             )}
             {submission.socials && <span>{submission.socials}</span>}
+            {submission.formats.length > 0 && (
+              <span>{submission.formats.map((f) => FORMAT_LABELS[f]).join(' / ')}</span>
+            )}
             {submission.bill_preference && (
               <span>{BILL_PREFERENCE_LABELS[submission.bill_preference]}</span>
             )}
           </div>
+          {submission.bill_lineup && (
+            <p className="text-body-3 text-surface-ink/80 mt-2 whitespace-pre-wrap">
+              Bill: {submission.bill_lineup}
+            </p>
+          )}
           {submission.availability_text && (
             <p className="text-body-3 text-surface-ink/80 mt-2 whitespace-pre-wrap">
               📅 {submission.availability_text}
