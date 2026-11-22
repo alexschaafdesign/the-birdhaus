@@ -44,7 +44,7 @@ export type BillPreference = 'building' | 'joining' | 'either';
 export const BILL_PREFERENCES: BillPreference[] = ['building', 'joining', 'either'];
 
 export const BILL_PREFERENCE_LABELS: Record<BillPreference, string> = {
-  building: 'Building their own bill',
+  building: 'Could put a bill together',
   joining: 'Open to joining a bill',
   either: 'Building or joining',
 };

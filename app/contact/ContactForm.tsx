@@ -59,7 +59,7 @@ const FALLBACK_ERROR = 'Something went wrong — try emailing us directly at ale
 type Tab = 'show' | 'general';
 
 const BILL_CHOICES: [BillPreference, string][] = [
-  ['building', "We're putting a bill together"],
+  ['building', 'We could put a bill together'],
   ['joining', 'Add us to an existing bill'],
   ['either', 'Either works'],
 ];
