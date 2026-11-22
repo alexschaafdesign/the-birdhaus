@@ -60,6 +60,9 @@ function entriesComplete(entries: AvailabilityEntry[]): boolean {
 }
 
 const FIELD = FORM.field;
+const CHECK =
+  'accent-surface-ink focus-visible:outline-accent-red size-4 cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2';
+const CHECK_ROW = 'text-body-3 flex w-fit cursor-pointer items-center gap-2';
 const LABEL = FORM.label;
 const FALLBACK_ERROR = 'Something went wrong — try emailing us directly at alex@thebirdhaus.org';
 
@@ -231,6 +234,9 @@ function ShowRequestForm({ onSent, openDates }: { onSent: () => void; openDates:
   const [formats, setFormats] = useState<Set<SubmissionFormat>>(new Set());
   const [bill, setBill] = useState<BillPreference | ''>('');
   const [picked, setPicked] = useState<Set<string>>(new Set());
+  // Dates: neither section open means "no specific dates in mind".
+  const [fromList, setFromList] = useState(false);
+  const [ownDates, setOwnDates] = useState(false);
   // Honeypot: hidden from real users; the API silently drops filled submissions.
   const [website, setWebsite] = useState('');
   const [availability, setAvailability] = useState<AvailabilityEntry[]>([]);
@@ -261,17 +267,16 @@ function ShowRequestForm({ onSent, openDates }: { onSent: () => void; openDates:
     }
     setFormatsError(null);
 
-    if (picked.size === 0 && availability.length === 0) {
-      setDatesError(
-        openDates.length > 0
-          ? 'Please pick at least one date, or add your own.'
-          : 'Please add at least one date or date range.'
-      );
-      return;
-    }
-    const parsed = parseAvailability(availability);
+    // Only the sections they've opened count; closing one keeps its picks in
+    // case they reopen it, but doesn't send them.
+    const listDates = fromList ? [...picked].sort() : [];
+    const parsed = ownDates ? parseAvailability(availability) : [];
     if (!parsed || !entriesComplete(parsed)) {
       setDatesError('Please fill in every date field, or remove incomplete ones.');
+      return;
+    }
+    if ((fromList || ownDates) && listDates.length === 0 && parsed.length === 0) {
+      setDatesError('Pick at least one date, or choose “No specific dates in mind.”');
       return;
     }
     setDatesError(null);
@@ -281,9 +286,7 @@ function ShowRequestForm({ onSent, openDates }: { onSent: () => void; openDates:
     setEmailError(null);
     setStatus('sending');
 
-    const pickedEntries: AvailabilityEntry[] = [...picked]
-      .sort()
-      .map(value => ({ type: 'date', value }));
+    const pickedEntries: AvailabilityEntry[] = listDates.map(value => ({ type: 'date', value }));
 
     try {
       const res = await fetch(SHOW_REQUEST_URL, {
@@ -403,7 +406,7 @@ function ShowRequestForm({ onSent, openDates }: { onSent: () => void; openDates:
         <legend className={LABEL}>The bill</legend>
         <div className="flex flex-col gap-2">
           {BILL_CHOICES.map(([value, label]) => (
-            <label key={value} className="text-body-3 flex w-fit cursor-pointer items-center gap-2">
+            <label key={value} className={CHECK_ROW}>
               <input
                 type="radio"
                 name="bill"
@@ -411,7 +414,7 @@ function ShowRequestForm({ onSent, openDates }: { onSent: () => void; openDates:
                 value={value}
                 checked={bill === value}
                 onChange={() => setBill(value)}
-                className="accent-surface-ink focus-visible:outline-accent-red size-4 cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2"
+                className={CHECK}
               />
               {label}
             </label>
@@ -435,41 +438,92 @@ function ShowRequestForm({ onSent, openDates }: { onSent: () => void; openDates:
       </fieldset>
 
       <fieldset aria-describedby={datesError ? 'sr-dates-error' : undefined}>
-        <legend className={LABEL}>Dates you&apos;re looking for</legend>
-        {openDates.length > 0 && (
-          <>
-            <p className={FORM.hint}>
-              Dates we&apos;re hoping to fill: tap any that work for you. Not set in stone, so if a
-              different day suits your bill better, add it below.
-            </p>
-            <label className="text-body-3 mb-3 flex w-fit cursor-pointer items-center gap-2">
+        <legend className={LABEL}>Dates</legend>
+        <p className={FORM.hint}>
+          Not set in stone: if a different day suits your bill better, we can work with that.
+        </p>
+        <div className="flex flex-col gap-3">
+          <label className={CHECK_ROW}>
+            <input
+              type="checkbox"
+              checked={!fromList && !ownDates}
+              onChange={() => {
+                setFromList(false);
+                setOwnDates(false);
+                if (datesError) setDatesError(null);
+              }}
+              className={CHECK}
+            />
+            No specific dates in mind
+          </label>
+
+          {openDates.length > 0 && (
+            <div>
+              <label className={CHECK_ROW}>
+                <input
+                  type="checkbox"
+                  checked={fromList}
+                  onChange={() => {
+                    setFromList(v => !v);
+                    if (datesError) setDatesError(null);
+                  }}
+                  aria-controls="sr-open-dates"
+                  className={CHECK}
+                />
+                Select from our open dates
+              </label>
+              {fromList && (
+                <div id="sr-open-dates" className="border-surface-ink/30 mt-3 ml-2 border-l pl-4">
+                  <label className={`${CHECK_ROW} mb-3`}>
+                    <input
+                      type="checkbox"
+                      checked={allPicked}
+                      onChange={() => {
+                        setPicked(allPicked ? new Set() : new Set(openDates));
+                        if (datesError) setDatesError(null);
+                      }}
+                      className={CHECK}
+                    />
+                    Any of these work
+                  </label>
+                  <OpenDatePicker dates={openDates} picked={picked} onToggle={togglePicked} />
+                </div>
+              )}
+            </div>
+          )}
+
+          <div>
+            <label className={CHECK_ROW}>
               <input
                 type="checkbox"
-                checked={allPicked}
+                checked={ownDates}
                 onChange={() => {
-                  setPicked(allPicked ? new Set() : new Set(openDates));
+                  const next = !ownDates;
+                  setOwnDates(next);
+                  // Opening it with nothing yet starts a date row to fill in.
+                  if (next && availability.length === 0) setAvailability([{ type: 'date', value: '' }]);
                   if (datesError) setDatesError(null);
                 }}
-                className="accent-surface-ink focus-visible:outline-accent-red size-4 cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2"
+                aria-controls="sr-own-dates"
+                className={CHECK}
               />
-              We&apos;re flexible: any of these work
+              Pick your own dates
             </label>
-            <OpenDatePicker dates={openDates} picked={picked} onToggle={togglePicked} />
-            <p className={`${FORM.hint} mt-5`}>Other dates or ranges:</p>
-          </>
-        )}
-        {openDates.length === 0 && (
-          <p className={FORM.hint}>Add as many specific dates or date ranges as needed.</p>
-        )}
-        <AvailabilityPicker
-          entries={availability}
-          onChange={next => {
-            setAvailability(next);
-            if (datesError) setDatesError(null);
-          }}
-          inputClassName={`${FIELD} w-44`}
-          size="md"
-        />
+            {ownDates && (
+              <div id="sr-own-dates" className="border-surface-ink/30 mt-3 ml-2 border-l pl-4">
+                <AvailabilityPicker
+                  entries={availability}
+                  onChange={next => {
+                    setAvailability(next);
+                    if (datesError) setDatesError(null);
+                  }}
+                  inputClassName={`${FIELD} w-44`}
+                  size="md"
+                />
+              </div>
+            )}
+          </div>
+        </div>
         {datesError && (
           <p id="sr-dates-error" className={`${FORM.fieldError} mt-2`} role="alert">
             {datesError}

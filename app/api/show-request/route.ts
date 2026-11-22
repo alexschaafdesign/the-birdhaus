@@ -45,7 +45,10 @@ export async function POST(request: Request) {
 
   const availability = parseAvailability(body.availability) ?? [];
   const billPreference = parseBillPreference(body.billPreference);
-  const availabilityText = availability.length > 0 ? formatAvailabilityEntries(availability) : null;
+  // No dates is a choice on the form ("No specific dates in mind"); say so on
+  // the admin card. The board's date filter still treats it as undated.
+  const availabilityText =
+    availability.length > 0 ? formatAvailabilityEntries(availability) : 'No specific dates in mind';
 
   await sql`
     insert into submissions (
