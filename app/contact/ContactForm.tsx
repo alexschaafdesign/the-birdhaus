@@ -68,6 +68,10 @@ const FALLBACK_ERROR = 'Something went wrong — try emailing us directly at ale
 
 type Tab = 'show' | 'general';
 
+// The Show requests form's heading. Change it when the season you're booking
+// changes.
+const SEASON_HEADING = 'Booking January–March 2027';
+
 const BILL_CHOICES: [BillPreference, string][] = [
   ['building', 'We could put a bill together'],
   ['joining', 'Add us to an existing bill'],
@@ -154,22 +158,6 @@ function dayLabel(iso: string): string {
   return new Date(y, m - 1, d).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
 }
 
-// "January–March 2027" (or one month, or across years) for the open dates'
-// first and last months; null with no open dates.
-function seasonLabel(dates: string[]): string | null {
-  if (dates.length === 0) return null;
-  const parts = (iso: string) => {
-    const [y, m] = iso.split('-').map(Number);
-    const d = new Date(y, m - 1, 1);
-    return { y, key: iso.slice(0, 7), month: d.toLocaleDateString('en-US', { month: 'long' }) };
-  };
-  const a = parts(dates[0]);
-  const b = parts(dates[dates.length - 1]);
-  if (a.key === b.key) return `${a.month} ${a.y}`;
-  if (a.y === b.y) return `${a.month}–${b.month} ${a.y}`;
-  return `${a.month} ${a.y}–${b.month} ${b.y}`;
-}
-
 // A toggle chip: a visually hidden checkbox inside an outlined label that
 // fills with ink when on.
 function Chip({ on, onToggle, children }: { on: boolean; onToggle: () => void; children: ReactNode }) {
@@ -245,7 +233,6 @@ function ShowRequestForm({ onSent, openDates }: { onSent: () => void; openDates:
   const [formatsError, setFormatsError] = useState<string | null>(null);
   const [datesError, setDatesError] = useState<string | null>(null);
 
-  const season = seasonLabel(openDates);
   const allPicked = openDates.length > 0 && openDates.every(d => picked.has(d));
 
   function togglePicked(date: string) {
@@ -312,7 +299,7 @@ function ShowRequestForm({ onSent, openDates }: { onSent: () => void; openDates:
     <form onSubmit={handleSubmit} className="flex flex-col gap-5">
       <div>
         <h2 className="text-header-4 font-bold">
-          {season ? `Booking ${season}` : 'Want to play the Birdhaus?'}
+          {SEASON_HEADING}
         </h2>
         <p className="text-body-3 mt-1 leading-normal">
           Tell us about your project and which dates work. Shows are all ages with donation at
