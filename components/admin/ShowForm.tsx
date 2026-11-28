@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import BandNameInput, { type BandMatch, type TwinSceneBandOption } from './BandNameInput';
+import { type BandMatch, type TwinSceneBandOption } from './BandNameInput';
+import LineupEditor from './LineupEditor';
 import AddBandModal from './AddBandModal';
 import PhotographerNameInput, { type PhotographerMatch } from './PhotographerNameInput';
 import ImageUploadField from './ImageUploadField';
@@ -198,6 +199,8 @@ interface FormState {
   slug: string;
   slugTouched: boolean;
   title: string;
+  // false = the title follows the lineup (lineupTitle) until it's edited.
+  titleTouched: boolean;
   date: string;
   doorsTime: string;
   showTime: string;
@@ -231,6 +234,39 @@ interface FormState {
 }
 
 const EMPTY_CONTACT = { email: '', payout: '', savedEmail: '', savedPayout: '' };
+
+function emptyBand(): Band {
+  return { ...EMPTY_CONTACT, bandId: null, name: '', instagram: '', bio: '', photo: '', notes: '' };
+}
+
+// The lineup always shows at least bill-size rows: unfilled ones are empty
+// slots (name ''), which the save drops like any blank band.
+function padSlots(bands: Band[], target: number): Band[] {
+  if (bands.length >= target) return bands;
+  return [...bands, ...Array.from({ length: target - bands.length }, emptyBand)];
+}
+
+// The default show title, from the lineup in bill order: "A", "A and B",
+// "A, B, and C".
+function lineupTitle(names: string[]): string {
+  const n = names.map((x) => x.trim()).filter(Boolean);
+  if (n.length <= 1) return n[0] ?? '';
+  if (n.length === 2) return `${n[0]} and ${n[1]}`;
+  return `${n.slice(0, -1).join(', ')}, and ${n[n.length - 1]}`;
+}
+
+// Moves one lineup position and returns where every old position lands, so
+// position-based tags (videos, photos) can follow their band.
+function reorderMap(length: number, from: number, to: number): number[] {
+  const order = Array.from({ length }, (_, i) => i);
+  const [moved] = order.splice(from, 1);
+  order.splice(to, 0, moved);
+  const newIndexOf: number[] = [];
+  order.forEach((oldIndex, newIndex) => {
+    newIndexOf[oldIndex] = newIndex;
+  });
+  return newIndexOf;
+}
 
 // Which tab of the show workspace this form is rendered in. Each tab shows only
 // its own sections and saves only its own fields (PATCH is partial), so two
@@ -291,15 +327,18 @@ function initFormState(initial: ShowFormInitialValues | undefined, isPast: boole
       ? bands.map((_, i) => ({ youtube: '', title: '', bandIndexes: [i] }))
       : existingVideos;
 
+  const savedTitle = initial?.title ?? '';
   return {
     slug: initial?.slug ?? '',
     slugTouched: Boolean(initial?.slug),
-    title: initial?.title ?? '',
+    title: savedTitle,
+    // A saved title that isn't the lineup's default was written by hand: keep it.
+    titleTouched: Boolean(savedTitle) && savedTitle !== lineupTitle(bands.map((b) => b.name)),
     date: initial?.date ?? '',
     doorsTime: initial?.scheduleTimes?.doorsTime ?? initial?.doorsTime ?? '',
     showTime: initial?.scheduleTimes?.showTime ?? initial?.showTime ?? '',
     flyer: initial?.flyer ?? '',
-    bands,
+    bands: padSlots(bands, initial?.targetBandCount ?? 3),
     description: initial?.description ?? '',
     ticketUrl: initial?.ticketUrl ?? '',
     externalTicketUrl: initial?.externalTicketUrl ?? '',
@@ -452,6 +491,14 @@ export default function ShowForm({
     };
   }, [section]);
 
+  // Keep the title following the lineup until the operator writes their own.
+  const autoTitle = lineupTitle(form.bands.map((b) => b.name));
+  useEffect(() => {
+    if (form.titleTouched) return;
+    setForm((prev) => (prev.title === autoTitle ? prev : { ...prev, title: autoTitle }));
+  }, [autoTitle, form.titleTouched]);
+  const [editingSlug, setEditingSlug] = useState(false);
+
   // Keep the slug derived from date+title until the operator edits it directly.
   useEffect(() => {
     if (form.slugTouched) return;
@@ -461,6 +508,8 @@ export default function ShowForm({
   // A show is "past" once its night is over (5am Central the morning after).
   // Post-show edits hide the pre-show "bands available this date" helper.
   const isPastShow = /^\d{4}-\d{2}-\d{2}$/.test(form.date) && form.date < nightDate;
+
+  const hasBands = form.bands.some((b) => b.name.trim());
 
   // "Need N more" on the Bands header while the bill is short (live as bands
   // are added; only while that to-do is open, so a dismissed one stays quiet).
@@ -539,7 +588,7 @@ export default function ShowForm({
         bio: match.bio ?? '',
         photo: match.photo ?? '',
         // A set note is about this night's set, not the band — keep it.
-        notes: bands[index].notes,
+        notes: bands[index]?.notes ?? '',
         // The picked band's saved contact loads after the lineup saves; a
         // contact typed before then is saved to its profile.
         ...EMPTY_CONTACT,
@@ -548,15 +597,39 @@ export default function ShowForm({
     });
   }
   function addBand() {
-    setForm((prev) => ({
-      ...prev,
-      bands: [...prev.bands, { ...EMPTY_CONTACT, bandId: null, name: '', instagram: '', bio: '', photo: '', notes: '' }],
-    }));
+    setForm((prev) => ({ ...prev, bands: [...prev.bands, emptyBand()] }));
+  }
+  // Bill size grows the empty slots, and shrinking it drops trailing empty
+  // slots only, never a booked band.
+  function setBillSize(n: number) {
+    setForm((prev) => {
+      let bands = padSlots(prev.bands, n);
+      while (bands.length > n && !bands[bands.length - 1].name.trim()) bands = bands.slice(0, -1);
+      return { ...prev, targetBandCount: n, bands };
+    });
+  }
+  function moveBand(from: number, to: number) {
+    setForm((prev) => {
+      const newIndexOf = reorderMap(prev.bands.length, from, to);
+      const bands = [...prev.bands];
+      const [moved] = bands.splice(from, 1);
+      bands.splice(to, 0, moved);
+      return {
+        ...prev,
+        bands,
+        // Video and photo set tags are lineup positions: move them with their band.
+        videos: prev.videos.map((v) => ({ ...v, bandIndexes: v.bandIndexes.map((i) => newIndexOf[i] ?? i) })),
+        photos: prev.photos.map((p) =>
+          p.bandIndex === undefined ? p : { ...p, bandIndex: newIndexOf[p.bandIndex] ?? p.bandIndex }
+        ),
+      };
+    });
   }
   function removeBand(index: number) {
     setForm((prev) => ({
       ...prev,
-      bands: prev.bands.filter((_, i) => i !== index),
+      // The removed band's slot stays open while the bill is still short.
+      bands: padSlots(prev.bands.filter((_, i) => i !== index), prev.targetBandCount),
       // Video band tags are lineup positions: drop the removed band and shift
       // later ones down with the lineup, so each video stays on its own band.
       videos: prev.videos.map((v) => ({
@@ -730,7 +803,7 @@ export default function ShowForm({
 
     const ownsBasics = !section || section === 'overview';
     if (ownsBasics && !form.title.trim()) {
-      setError('Title is required');
+      setError(form.titleTouched ? 'Title is required' : 'Add a band to the lineup or write a title');
       setView('show');
       return;
     }
@@ -750,15 +823,16 @@ export default function ShowForm({
     const filteredIndexByOriginal = new Map(
       nonEmptyBands.map(({ originalIndex }, filteredIndex) => [originalIndex, filteredIndex])
     );
+    // Photo, bio and Instagram aren't sent: they're profile fields, edited in
+    // the band profile modal, so a show save never overwrites them with what
+    // this form loaded.
     const bandsPayload = nonEmptyBands.map(({ b }) => ({
       name: b.name.trim(),
-      ...(b.instagram.trim() ? { instagram: b.instagram.trim() } : {}),
-      ...(b.bio.trim() ? { bio: b.bio.trim() } : {}),
-      ...(b.photo.trim() ? { photo: b.photo.trim() } : {}),
       ...(b.bandId ? { bandId: b.bandId } : {}),
-      // Always sent (blank clears): the form loaded every set's note, so it's
-      // the source of truth here.
-      notes: b.notes,
+      // Set notes are edited on the post-show (Public page) tab, which saves
+      // them as setNotes. The full create form has them here; the Overview tab
+      // leaves them out so it never overwrites that tab's edits.
+      ...(section ? {} : { notes: b.notes }),
     }));
 
     const fullPayload: Record<string, unknown> = {
@@ -834,6 +908,9 @@ export default function ShowForm({
         Object.entries(fullPayload).filter(([k]) => SECTION_FIELDS[section].includes(k))
       );
       if (section === 'public') {
+        payload.setNotes = form.bands
+          .filter((b) => b.bandId != null && b.name.trim())
+          .map((b) => ({ bandId: b.bandId, notes: b.notes }));
         const idAt = (i: number) => form.bands[i]?.bandId ?? null;
         payload.videos = form.videos
           .filter((v) => v.youtube.trim())
@@ -974,13 +1051,14 @@ export default function ShowForm({
                   Remove
                 </button>
               </div>
-              {form.bands.length > 0 && (
+              {hasBands && (
                 <div>
                   <p className="text-data-caption-13 text-surface-ink/60 mb-1.5">
                     Which band(s) is this a video of? (optional)
                   </p>
                   <div className="flex flex-wrap gap-1.5">
                     {form.bands.map((band, bandIdx) => {
+                      if (!band.name.trim()) return null;
                       const selected = video.bandIndexes.includes(bandIdx);
                       return (
                         <button
@@ -1058,7 +1136,7 @@ export default function ShowForm({
               }}
             />
           </div>
-          {form.photos.length > 0 && form.bands.length > 0 && (
+          {form.photos.length > 0 && hasBands && (
             <div className="space-y-2 border border-surface-ink px-3 py-2 text-data-caption-13">
               {photoSelectMode ? (
                 <>
@@ -1091,7 +1169,7 @@ export default function ShowForm({
                   </div>
                   <div className="flex flex-wrap items-center gap-1.5">
                     <span className="text-surface-ink/60">Tag selected →</span>
-                    {form.bands.map((band, bandIdx) => (
+                    {form.bands.map((band, bandIdx) => !band.name.trim() ? null : (
                       <button
                         key={bandIdx}
                         type="button"
@@ -1124,9 +1202,10 @@ export default function ShowForm({
                   <span className="text-surface-ink/60">
                     {[
                       `Whole night ${form.photos.filter((p) => p.bandIndex === undefined).length}`,
-                      ...form.bands.map(
-                        (band, bandIdx) =>
-                          `${band.name || `Band ${bandIdx + 1}`} ${form.photos.filter((p) => p.bandIndex === bandIdx).length}`
+                      ...form.bands.flatMap((band, bandIdx) =>
+                        band.name.trim()
+                          ? [`${band.name} ${form.photos.filter((p) => p.bandIndex === bandIdx).length}`]
+                          : []
                       ),
                     ].join(' · ')}
                   </span>
@@ -1215,7 +1294,7 @@ export default function ShowForm({
                         <span className="text-surface-ink/60">Uncredited — click to credit</span>
                       )}
                     </button>
-                    {form.bands.length > 0 && (
+                    {hasBands && (
                       <select
                         aria-label="Set this photo is from"
                         value={photo.bandIndex ?? ''}
@@ -1229,7 +1308,7 @@ export default function ShowForm({
                         <option value="" className="bg-surface-paper">
                           Whole night
                         </option>
-                        {form.bands.map((band, bandIdx) => (
+                        {form.bands.map((band, bandIdx) => !band.name.trim() ? null : (
                           <option key={bandIdx} value={bandIdx} className="bg-surface-paper">
                             {band.name || `Band ${bandIdx + 1}`}
                           </option>
@@ -1350,27 +1429,55 @@ export default function ShowForm({
       </div>
       )}
 
+      {shows('lineup') && (
+      <>
+      <Section
+        title={`Lineup · ${form.bands.filter((b) => b.name.trim()).length} of ${form.targetBandCount}`}
+        id="bands"
+        todo={bandsTodo}
+        action={
+          <div className="flex items-center gap-3">
+            <label className="flex items-center gap-2 text-data-caption-13 text-surface-ink/60">
+              Bill size
+              <input
+                type="number"
+                min={1}
+                value={form.targetBandCount}
+                onChange={(e) => setBillSize(Math.max(1, Number(e.target.value) || 1))}
+                className={`${FIELD_INLINE} w-14 text-center`}
+              />
+            </label>
+            <button type="button" onClick={addBand} className="text-data-caption-13 border border-surface-ink px-2 py-1 cursor-pointer hover:bg-surface-paper-shade">
+              + slot
+            </button>
+          </div>
+        }
+      >
+        <LineupEditor
+          bands={form.bands}
+          billSize={form.targetBandCount}
+          showContacts={section === 'overview'}
+          twinSceneBands={twinSceneBands}
+          onNameChange={(index, name) => updateBand(index, 'name', name)}
+          onSelect={selectBand}
+          onAddNew={(index, name) => setAddBandModal({ index, name })}
+          onEditProfile={(index) => {
+            const band = form.bands[index];
+            setAddBandModal({ index, name: band.name, editBandId: band.bandId ?? undefined });
+          }}
+          onContactChange={(index, field, value) => updateBand(index, field, value)}
+          onRemove={removeBand}
+          onMove={moveBand}
+        />
+        <p className="mt-2 text-data-caption-13 text-surface-ink/60">Headliner first. Drag ⠿ to reorder.</p>
+      </Section>
+      </>
+      )}
+
       {shows('overview') && (
       <>
       <Section title="Show details">
-      <div className="grid gap-3 sm:grid-cols-2">
-        <div>
-          <label className={FORM.label}>Title*</label>
-          <input
-            required
-            value={form.title}
-            onChange={(e) => set('title', e.target.value)}
-            className={`${inputClass} w-full`}
-          />
-        </div>
-        <div>
-          <label className={FORM.label}>Slug</label>
-          <input
-            value={form.slug}
-            onChange={(e) => setForm((prev) => ({ ...prev, slug: e.target.value, slugTouched: true }))}
-            className={`${inputClass} w-full `}
-          />
-        </div>
+      <div className="grid gap-3 sm:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1.4fr)]">
         <div>
           <label className={FORM.label}>Date*</label>
           <input
@@ -1475,7 +1582,7 @@ export default function ShowForm({
           </div>
         </div>
         {(scheduleTimes?.doorsTime || scheduleTimes?.showTime) && initialValues?.id && (
-          <p className="sm:col-span-2 -mt-1 text-data-caption-13 text-surface-ink/60">
+          <p className="col-span-full -mt-1 text-data-caption-13 text-surface-ink/60">
             {scheduleTimes.doorsTime && scheduleTimes.showTime ? 'These come' : 'The locked time comes'} from the{' '}
             <a
               href="#schedule"
@@ -1487,7 +1594,68 @@ export default function ShowForm({
             {timesOutOfDate && ' The public page still shows the old times: Save changes to update it.'}
           </p>
         )}
-        <div id="flyer" className="sm:col-span-2 scroll-mt-6">
+        <div className="col-span-full space-y-2 border-t border-surface-ink/20 pt-3">
+          {form.titleTouched || !autoTitle ? (
+            <div>
+              <div className="flex items-baseline justify-between gap-3">
+                <label htmlFor="show-title" className={FORM.label}>Title*</label>
+                {autoTitle && form.title !== autoTitle && (
+                  <button
+                    type="button"
+                    onClick={() => setForm((prev) => ({ ...prev, titleTouched: false }))}
+                    className="text-data-caption-13 text-surface-ink/70 underline underline-offset-2 hover:text-accent-red"
+                  >
+                    Use the lineup: {autoTitle}
+                  </button>
+                )}
+              </div>
+              <input
+                id="show-title"
+                required
+                placeholder={autoTitle ? undefined : 'Fills in from the lineup, or write one'}
+                value={form.title}
+                onChange={(e) => setForm((prev) => ({ ...prev, title: e.target.value, titleTouched: true }))}
+                className={`${inputClass} w-full`}
+              />
+            </div>
+          ) : (
+            <p className="text-body-3">
+              <span className="text-surface-ink/60">Title </span>
+              <span className="font-bold">{form.title}</span>
+              <span className="text-surface-ink/60"> (from the lineup) </span>
+              <button
+                type="button"
+                onClick={() => setForm((prev) => ({ ...prev, titleTouched: true }))}
+                className="text-data-caption-13 underline underline-offset-2 hover:text-accent-red"
+              >
+                edit
+              </button>
+            </p>
+          )}
+          {editingSlug ? (
+            <div>
+              <label htmlFor="show-slug" className={FORM.label}>Slug</label>
+              <input
+                id="show-slug"
+                value={form.slug}
+                onChange={(e) => setForm((prev) => ({ ...prev, slug: e.target.value, slugTouched: true }))}
+                className={`${inputClass} w-full`}
+              />
+            </div>
+          ) : (
+            <p className="text-data-caption-13 text-surface-ink/60">
+              Slug {form.slug || '(from the date and title)'}{' '}
+              <button
+                type="button"
+                onClick={() => setEditingSlug(true)}
+                className="underline underline-offset-2 hover:text-accent-red"
+              >
+                edit
+              </button>
+            </p>
+          )}
+        </div>
+        <div id="flyer" className="col-span-full scroll-mt-6">
           <ImageUploadField
             label={
               <span className="flex items-center gap-3">
@@ -1506,122 +1674,7 @@ export default function ShowForm({
       </>
       )}
 
-      {shows('lineup') && (
-      <>
-      <Section
-        title="Bands"
-        id="bands"
-        todo={bandsTodo}
-        // Its own tab in the workspace: always open there.
-        collapsible={!section}
-        action={
-          <div className="flex items-center gap-3">
-            <label className="flex items-center gap-2 text-data-caption-13 text-surface-ink/60">
-              Bill size
-              <input
-                type="number"
-                min={1}
-                value={form.targetBandCount}
-                onChange={(e) => set('targetBandCount', Math.max(1, Number(e.target.value) || 1))}
-                className={`${FIELD_INLINE} w-14 text-center`}
-              />
-            </label>
-            <button type="button" onClick={addBand} className="text-data-caption-13 border border-surface-ink px-2 py-1 cursor-pointer hover:bg-surface-paper-shade">
-              + add band
-            </button>
-          </div>
-        }
-      >
-        <div className="space-y-3">
-          {form.bands.map((band, index) => (
-            <div key={index} className="border border-surface-ink p-3 space-y-2">
-              <div className="grid gap-2 sm:grid-cols-[1fr_1fr_auto] items-start">
-                <div>
-                  <BandNameInput
-                    placeholder="Band name"
-                    value={band.name}
-                    onChange={(value) => updateBand(index, 'name', value)}
-                    onSelect={(match) => selectBand(index, match)}
-                    onAddNew={(name) => setAddBandModal({ index, name })}
-                    twinSceneBands={twinSceneBands}
-                    className={`${inputClass} w-full`}
-                  />
-                  {band.bandId && (
-                    <p className="text-data-caption-13 mt-1 flex items-center gap-2">
-                      <span className="text-surface-ink">🔗 Linked to existing band profile</span>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setAddBandModal({ index, name: band.name, editBandId: band.bandId ?? undefined })
-                        }
-                        className="text-surface-ink/60 underline underline-offset-2 hover:text-accent-red"
-                      >
-                        Edit band profile
-                      </button>
-                    </p>
-                  )}
-                </div>
-                <input
-                  placeholder="Instagram URL"
-                  value={band.instagram}
-                  onChange={(e) => updateBand(index, 'instagram', e.target.value)}
-                  className={`${inputClass} w-full`}
-                />
-                <button
-                  type="button"
-                  onClick={() => removeBand(index)}
-                  className="text-accent-red cursor-pointer hover:underline text-body-3 px-2"
-                >
-                  Remove
-                </button>
-              </div>
-              {section === 'overview' && (
-                <div className="grid gap-2 sm:grid-cols-2">
-                  <input
-                    type="email"
-                    placeholder="Contact email — gets the Portal invite"
-                    value={band.email}
-                    onChange={(e) => updateBand(index, 'email', e.target.value)}
-                    className={`${inputClass} w-full`}
-                    aria-label={`${band.name || 'Band'} contact email`}
-                  />
-                  <input
-                    placeholder="Payout handle (Venmo) — private"
-                    value={band.payout}
-                    onChange={(e) => updateBand(index, 'payout', e.target.value)}
-                    className={`${inputClass} w-full`}
-                    aria-label={`${band.name || 'Band'} payout handle`}
-                  />
-                </div>
-              )}
-              <ImageUploadField
-                value={band.photo}
-                onChange={(url) => updateBand(index, 'photo', url)}
-                folder="bands"
-                placeholder="Photo URL"
-                previewClassName="mt-2 w-9 h-9  object-cover"
-              />
-              <textarea
-                placeholder="Bio (optional) — a sentence or a few paragraphs"
-                rows={3}
-                value={band.bio}
-                onChange={(e) => updateBand(index, 'bio', e.target.value)}
-                className={`${inputClass} w-full resize-y`}
-              />
-              <textarea
-                placeholder="Set notes (optional) — e.g. played with a string section, or a setlist"
-                rows={2}
-                value={band.notes}
-                onChange={(e) => updateBand(index, 'notes', e.target.value)}
-                className={`${inputClass} w-full resize-y`}
-              />
-            </div>
-          ))}
-          {form.bands.length === 0 && <p className="text-data-caption-13 text-surface-ink/60">No bands added yet.</p>}
-        </div>
-      </Section>
-
-{!section && (
+      {shows('lineup') && !section && (
       <Section title="Sound">
         <div>
           <label className="flex items-center gap-2 text-body-3">
@@ -1638,8 +1691,6 @@ export default function ShowForm({
           </p>
         </div>
       </Section>
-      )}
-      </>
       )}
 
       {shows('public') && (
@@ -1766,6 +1817,28 @@ export default function ShowForm({
       )}
 
       {videosPhotosSection(isPastShow)}
+
+      {hasBands && (
+        <Section title="Set notes" collapsible defaultOpen={isPastShow}>
+          <div className="space-y-3">
+            {form.bands.map((band, index) =>
+              band.name.trim() && (section !== 'public' || band.bandId != null) ? (
+                <div key={index}>
+                  <label htmlFor={`set-note-${index}`} className={FORM.label}>{band.name}</label>
+                  <textarea
+                    id={`set-note-${index}`}
+                    rows={2}
+                    placeholder="Played with a string section, or a setlist"
+                    value={band.notes}
+                    onChange={(e) => updateBand(index, 'notes', e.target.value)}
+                    className={`${inputClass} w-full resize-y`}
+                  />
+                </div>
+              ) : null
+            )}
+          </div>
+        </Section>
+      )}
 
       <Section
         title="Audio"

@@ -20,6 +20,8 @@ import {
   resolveShowBandEntries,
   resolvePhotoBandIds,
   resolveVideoBandIds,
+  parseSetNotesInput,
+  setShowBandNotes,
   setShowBands,
   stripSetNotes,
   toShowBandPairs,
@@ -164,6 +166,15 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     bandsInput = normalizedBands;
   }
 
+  let setNotesInput: Array<{ bandId: number; notes: string | null }> | undefined;
+  if ('setNotes' in body) {
+    const parsed = parseSetNotesInput(body.setNotes);
+    if (!parsed) {
+      return NextResponse.json({ error: 'Invalid setNotes' }, { status: 400 });
+    }
+    setNotesInput = parsed;
+  }
+
   let videosInput: unknown[] | undefined;
   if ('videos' in body) {
     const normalizedVideos = normalizeBandIds(body.videos);
@@ -263,7 +274,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     bandsInput === undefined &&
     videosInput === undefined &&
     photosInput === undefined &&
-    soundEngineersInput === undefined
+    soundEngineersInput === undefined &&
+    setNotesInput === undefined
   ) {
     return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 });
   }
@@ -299,6 +311,11 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
       if (soundEngineersInput !== undefined) {
         await setShowSoundEngineers(showId, soundEngineersInput, tx);
+      }
+
+      // After any lineup write above, so notes land on the saved show_bands rows.
+      if (setNotesInput !== undefined) {
+        await setShowBandNotes(showId, setNotesInput, tx);
       }
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any

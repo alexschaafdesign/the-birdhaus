@@ -537,6 +537,33 @@ export async function setShowBands(showId: number, bands: ShowBandPair[], tx: Tx
   }
 }
 
+// Set notes saved on their own, without the lineup: the show form's post-show
+// (Public page) tab edits notes but doesn't own the lineup. Only touches bands
+// already on this show; '' / blank clears.
+export function parseSetNotesInput(input: unknown): Array<{ bandId: number; notes: string | null }> | null {
+  if (!Array.isArray(input)) return null;
+  const out: Array<{ bandId: number; notes: string | null }> = [];
+  for (const entry of input) {
+    if (!entry || typeof entry !== 'object') return null;
+    const { bandId, notes } = entry as { bandId?: unknown; notes?: unknown };
+    const id = Number(bandId);
+    if (!Number.isInteger(id) || id <= 0) return null;
+    if (notes !== null && typeof notes !== 'string') return null;
+    out.push({ bandId: id, notes: typeof notes === 'string' ? notes.trim() || null : null });
+  }
+  return out;
+}
+
+export async function setShowBandNotes(
+  showId: number,
+  notes: Array<{ bandId: number; notes: string | null }>,
+  tx: Tx
+): Promise<void> {
+  for (const n of notes) {
+    await tx`update show_bands set notes = ${n.notes} where show_id = ${showId} and band_id = ${n.bandId}`;
+  }
+}
+
 // Maps each video's transient `bandIndexes` (positions within the *same
 // request's* bands array, as sent by ShowForm.tsx) to the real bandIds that
 // resolveShowBandEntries just resolved those positions to — bridges "which
