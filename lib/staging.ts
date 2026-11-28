@@ -1,10 +1,9 @@
 // The staging switch. next.thebirdhaus.org runs the `staging` branch against a
 // Neon branch copied from prod, so it holds real names and emails, real Square
-// links and real Twin Scene band ids. Everything that leaves the app asks this
+// links. Everything that leaves the app asks this
 // file first.
 //
-// Fail-safe on purpose: outbound (email, payments, Mailchimp, Twin Scene writes,
-// the contact form) is allowed ONLY on a production deploy that isn't staging.
+// Fail-safe on purpose: outbound (email, payments, Mailchimp, the contact form) is allowed ONLY on a production deploy that isn't staging.
 // A preview deploy, local dev, or staging with BH_STAGING missing all come out
 // "not allowed" — a forgotten env var blocks a send, it never permits one.
 //

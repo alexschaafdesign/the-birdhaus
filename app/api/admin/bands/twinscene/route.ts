@@ -1,14 +1,15 @@
 import { NextResponse } from 'next/server';
 import { revalidatePath } from 'next/cache';
 import { getTwinSceneBands } from '@/lib/twinscene';
-import { syncBandFromTwinScene } from '@/lib/bands';
+import { importBandFromTwinScene } from '@/lib/bands';
 import { requireAdmin } from '@/lib/admin-session';
 
-// Fetched once per Edit Show form load (see ShowForm.tsx) and cached
-// client-side for the rest of the session — BandNameInput filters this list
-// locally on every keystroke rather than re-fetching. Best-effort: if Twin
-// Scene is unreachable, the form's local-only typeahead (/api/admin/bands)
-// still works on its own.
+// Read-only use of Twin Scene's directory (see lib/twinscene.ts).
+//
+// GET: fetched once per Edit Show form load (ShowForm.tsx) and filtered
+// client-side by BandNameInput, so the typeahead can offer bands Birdhaus
+// doesn't have yet. Best-effort: if Twin Scene is unreachable, the local
+// typeahead (/api/admin/bands?q=) still works on its own.
 export async function GET() {
   const denied = await requireAdmin();
   if (denied) return denied;
@@ -29,13 +30,9 @@ export async function GET() {
   }
 }
 
-// Just-in-time sync: the operator selected a Twin-Scene-only typeahead result
-// with no local bands row yet. Re-fetches Twin Scene's directory (there's no
-// per-id lookup upstream) for authoritative field values, creates (or, on a
-// race, updates) the local overlay row, and hands back a real bandId so the
-// show can link to it like any other match. Distinct from the bulk
-// enrichment pull at POST /api/admin/bands/sync-twinscene, which only fills
-// gaps on bands already linked — this is the one-time create path.
+// POST: the operator picked a Twin-Scene-only typeahead result. Copy that
+// band's public profile into a new Birdhaus row (a one-time copy, no ongoing
+// sync) and hand back a real bandId for the show.
 export async function POST(request: Request) {
   const denied = await requireAdmin();
   if (denied) return denied;
@@ -49,7 +46,7 @@ export async function POST(request: Request) {
   try {
     twinSceneBands = await getTwinSceneBands();
   } catch (error) {
-    console.error('[admin/bands/twinscene] sync fetch failed', error);
+    console.error('[admin/bands/twinscene] import fetch failed', error);
     return NextResponse.json({ error: 'Twin Scene unavailable' }, { status: 502 });
   }
 
@@ -58,7 +55,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Band not found in Twin Scene' }, { status: 404 });
   }
 
-  const band = await syncBandFromTwinScene(match);
+  const band = await importBandFromTwinScene(match);
 
   revalidatePath('/bands/[slug]', 'page');
   revalidatePath('/bands');

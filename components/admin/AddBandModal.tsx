@@ -1,33 +1,24 @@
 'use client';
 
 import { FORM } from '@/components/night/form';
-import { FIELD_INLINE, buttonClassName } from './ui';
+import { ADMIN_TYPE, buttonClassName } from './ui';
 import { useEffect, useState } from 'react';
 import ImageUploadField from './ImageUploadField';
+import { prefillFromTwinScene } from './twinScenePrefill';
 import type { BandMatch } from './BandNameInput';
 
 const inputClass = FORM.field;
 const labelClass = FORM.label;
 
-interface FeaturedLinkRow {
-  url: string;
-  label: string;
-}
-
-// The full Band form — mirrors Twin Scene's own "Add your band" fields
-// (lib/bands.ts BandSubmissionInput). Reached from the Edit Show band row two
-// ways:
-//   • Create (no editBandId): the operator typed a name not in the directory.
-//     On submit it creates the band in Twin Scene (with enrichment) and the
-//     linked Birdhaus overlay row via POST /api/admin/bands/twinscene/create.
-//   • Edit (editBandId set): the operator clicked "Edit full profile" on a band
-//     already on the bill. On open it pre-fills from the canonical Twin Scene
-//     profile (GET /api/admin/bands/twinscene/[bandId]); on submit it PUTs the
-//     full profile back — a full replace, same writer Twin Scene's own correct
-//     form uses.
-// Either way the resolved match (name/instagram/bio/photo) is handed back to the
-// show row via onCreated. Comma-separated inputs cover the list fields (genres,
-// members, …); the photo reuses the R2 ImageUploadField.
+// The band form, opened from an Edit Show band row. Same fields as the admin
+// Bands page form (BandForm), saved to the same Birdhaus `bands` row through
+// the same routes:
+//   • Create (no editBandId): the operator typed a name not in the list.
+//     POST /api/admin/bands.
+//   • Edit (editBandId set): "Edit band profile" on a band already on the bill.
+//     GET then PATCH /api/admin/bands/[id].
+// "Prefill from Twin Scene" copies Instagram/photo/bio into empty fields once.
+// Either way the resolved match is handed back to the show row via onCreated.
 export default function AddBandModal({
   initialName = '',
   editBandId,
@@ -35,34 +26,24 @@ export default function AddBandModal({
   onClose,
 }: {
   initialName?: string;
-  // When set, the modal edits this local band's canonical Twin Scene profile in
-  // place instead of creating a new band.
   editBandId?: number;
   onCreated: (match: BandMatch) => void;
   onClose: () => void;
 }) {
   const isEdit = editBandId != null;
   const [name, setName] = useState(initialName);
-  const [genres, setGenres] = useState('');
-  const [similarTo, setSimilarTo] = useState('');
-  const [city, setCity] = useState('');
-  const [locality, setLocality] = useState('');
-  const [neighborhoods, setNeighborhoods] = useState('');
-  const [members, setMembers] = useState('');
-  const [website, setWebsite] = useState('');
   const [instagram, setInstagram] = useState('');
-  const [facebook, setFacebook] = useState('');
-  const [bandcamp, setBandcamp] = useState('');
-  const [bandcampLink, setBandcampLink] = useState('');
-  const [youtubeChannel, setYoutubeChannel] = useState('');
   const [contactEmail, setContactEmail] = useState('');
-  const [contactMethod, setContactMethod] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState('');
+  const [isTouring, setIsTouring] = useState(false);
+  const [hometown, setHometown] = useState('');
   const [bio, setBio] = useState('');
-  const [photoUrl, setPhotoUrl] = useState('');
-  const [featuredLinks, setFeaturedLinks] = useState<FeaturedLinkRow[]>([]);
-  // Edit mode fetches the current profile before the form is usable.
+  const [photo, setPhoto] = useState('');
+  const [twinsceneSlug, setTwinsceneSlug] = useState('');
   const [loading, setLoading] = useState(isEdit);
   const [submitting, setSubmitting] = useState(false);
+  const [prefilling, setPrefilling] = useState(false);
+  const [prefillNote, setPrefillNote] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   // Esc closes, matching typical modal behavior. Best-effort — no focus trap.
@@ -74,43 +55,24 @@ export default function AddBandModal({
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose, submitting]);
 
-  // Edit mode: pull the band's current canonical profile in to pre-fill every
-  // field, since a save is a full replace and must round-trip untouched values.
   useEffect(() => {
     if (!isEdit) return;
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch(`/api/admin/bands/twinscene/${editBandId}`);
+        const res = await fetch(`/api/admin/bands/${editBandId}`);
         if (!res.ok) throw new Error(`Load failed (${res.status})`);
-        const { editable } = await res.json();
-        if (cancelled || !editable) return;
-        const join = (v: unknown) => (Array.isArray(v) ? v.join(', ') : '');
-        setName(editable.name ?? '');
-        setGenres(join(editable.genres));
-        setSimilarTo(join(editable.similarTo));
-        setCity(editable.city ?? '');
-        setLocality(editable.locality ?? '');
-        setNeighborhoods(join(editable.neighborhoods));
-        setMembers(join(editable.members));
-        setWebsite(editable.website ?? '');
-        setInstagram(editable.instagram ?? '');
-        setFacebook(editable.facebook ?? '');
-        setBandcamp(editable.bandcamp ?? '');
-        setBandcampLink(editable.bandcampLink ?? '');
-        setYoutubeChannel(editable.youtubeChannel ?? '');
-        setContactEmail(editable.contactEmail ?? '');
-        setContactMethod(editable.contactMethod ?? '');
-        setBio(editable.bio ?? '');
-        setPhotoUrl(editable.photoUrl ?? '');
-        setFeaturedLinks(
-          Array.isArray(editable.featuredLinks)
-            ? editable.featuredLinks.map((l: { url?: string; label?: string }) => ({
-                url: l.url ?? '',
-                label: l.label ?? '',
-              }))
-            : [],
-        );
+        const row = await res.json();
+        if (cancelled) return;
+        setName(row.name ?? '');
+        setInstagram(row.instagram ?? '');
+        setContactEmail(row.contact_email ?? '');
+        setPaymentMethod(row.payment_method ?? '');
+        setIsTouring(Boolean(row.is_touring));
+        setHometown(row.hometown ?? '');
+        setBio(row.bio ?? '');
+        setPhoto(row.photo ?? '');
+        setTwinsceneSlug(row.twinscene_slug ?? '');
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : 'Failed to load band.');
       } finally {
@@ -122,7 +84,22 @@ export default function AddBandModal({
     };
   }, [isEdit, editBandId]);
 
-  const csv = (s: string) => s.split(',').map((x) => x.trim()).filter(Boolean);
+  async function handlePrefill() {
+    setPrefilling(true);
+    setPrefillNote(null);
+    try {
+      const { values, message } = await prefillFromTwinScene(name, { instagram, bio, photo, twinsceneSlug });
+      setInstagram(values.instagram);
+      setBio(values.bio);
+      setPhoto(values.photo);
+      setTwinsceneSlug(values.twinsceneSlug);
+      setPrefillNote(message);
+    } catch (e) {
+      setPrefillNote(e instanceof Error ? e.message : 'Lookup failed.');
+    } finally {
+      setPrefilling(false);
+    }
+  }
 
   async function handleSubmit() {
     const trimmed = name.trim();
@@ -132,41 +109,34 @@ export default function AddBandModal({
     }
     setSubmitting(true);
     setError(null);
+    // Explicit nulls so clearing a field clears it (PATCH only touches keys
+    // that are present).
     const payload = {
       name: trimmed,
-      genres: csv(genres),
-      similarTo: csv(similarTo),
-      city,
-      locality,
-      neighborhoods: csv(neighborhoods),
-      members: csv(members),
-      website,
-      instagram,
-      facebook,
-      bandcamp,
-      bandcampLink,
-      youtubeChannel,
-      contactEmail,
-      contactMethod,
-      bio,
-      photoUrl,
-      featuredLinks: featuredLinks.filter((l) => l.url.trim()),
+      instagram: instagram.trim() || null,
+      contactEmail: contactEmail.trim() || null,
+      paymentMethod: paymentMethod.trim() || null,
+      isTouring,
+      hometown: isTouring ? hometown.trim() || null : null,
+      bio: bio.trim() || null,
+      photo: photo.trim() || null,
+      twinsceneSlug: twinsceneSlug.trim() || null,
     };
     try {
-      const res = await fetch(
-        isEdit ? `/api/admin/bands/twinscene/${editBandId}` : '/api/admin/bands/twinscene/create',
-        {
-          method: isEdit ? 'PUT' : 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        },
-      );
-      if (!res.ok) {
-        const body = await res.json().catch(() => null);
-        throw new Error(body?.error || `${isEdit ? 'Save' : 'Create'} failed (${res.status})`);
-      }
-      const synced = await res.json();
-      onCreated({ ...synced, id: Number(synced.id) });
+      const res = await fetch(isEdit ? `/api/admin/bands/${editBandId}` : '/api/admin/bands', {
+        method: isEdit ? 'PATCH' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const row = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(row?.error || `${isEdit ? 'Save' : 'Create'} failed (${res.status})`);
+      onCreated({
+        id: Number(row.id),
+        name: row.name,
+        instagram: row.instagram ?? null,
+        bio: row.bio ?? null,
+        photo: row.photo ?? null,
+      });
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Something went wrong.');
       setSubmitting(false);
@@ -182,9 +152,7 @@ export default function AddBandModal({
     >
       <div className="my-8 w-full max-w-2xl border-2 border-surface-ink bg-surface-paper p-5">
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-header-4 font-bold">
-            {isEdit ? 'Edit band in Twin Scene' : 'Add a new band to Twin Scene'}
-          </h2>
+          <h2 className="text-header-4 font-bold">{isEdit ? 'Edit band' : 'Add a new band'}</h2>
           <button
             type="button"
             onClick={onClose}
@@ -196,8 +164,8 @@ export default function AddBandModal({
         </div>
         <p className="mb-4 text-data-caption-13 text-surface-ink/60">
           {isEdit
-            ? "Editing this band's shared Twin Scene profile. Changes save to the directory both sites read. Only the name is required."
-            : "This band isn't in the directory yet. Fill in what you know — it's created in Twin Scene's shared directory and linked here. Only the name is required."}
+            ? 'Saves to this band’s Birdhaus profile, the same one the Bands page edits. Only the name is required.'
+            : 'Saved to Birdhaus’s band list, so it’s here next time you book them. Only the name is required.'}
         </p>
 
         {loading ? (
@@ -207,132 +175,89 @@ export default function AddBandModal({
             <div>
               <label className={labelClass}>Band name *</label>
               <input value={name} onChange={(e) => setName(e.target.value)} className={`${inputClass} w-full`} />
-            </div>
-
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div>
-                <label className={labelClass}>Genres (comma-separated)</label>
-                <input value={genres} onChange={(e) => setGenres(e.target.value)} className={`${inputClass} w-full`} />
-              </div>
-              <div>
-                <label className={labelClass}>For fans of (comma-separated)</label>
-                <input value={similarTo} onChange={(e) => setSimilarTo(e.target.value)} className={`${inputClass} w-full`} />
-              </div>
-              <div>
-                <label className={labelClass}>City</label>
-                <input value={city} onChange={(e) => setCity(e.target.value)} className={`${inputClass} w-full`} />
-              </div>
-              <div>
-                <label className={labelClass}>Locality</label>
-                <select value={locality} onChange={(e) => setLocality(e.target.value)} className={`${inputClass} w-full`}>
-                  <option value="">Unspecified</option>
-                  <option value="local">Local</option>
-                  <option value="touring">Touring</option>
-                </select>
-              </div>
-              <div>
-                <label className={labelClass}>Neighborhoods (comma-separated)</label>
-                <input value={neighborhoods} onChange={(e) => setNeighborhoods(e.target.value)} className={`${inputClass} w-full`} />
-              </div>
-              <div>
-                <label className={labelClass}>Members (comma-separated)</label>
-                <input value={members} onChange={(e) => setMembers(e.target.value)} className={`${inputClass} w-full`} />
+              <div className="mt-2 flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  onClick={handlePrefill}
+                  disabled={prefilling || !name.trim()}
+                  className={buttonClassName('secondary', 's')}
+                >
+                  {prefilling ? 'Looking…' : 'Prefill from Twin Scene'}
+                </button>
+                <span role="status" className={ADMIN_TYPE.meta}>
+                  {prefillNote ?? 'Copies Instagram, photo and bio into empty fields, once.'}
+                </span>
               </div>
             </div>
 
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div>
-                <label className={labelClass}>Instagram</label>
-                <input value={instagram} onChange={(e) => setInstagram(e.target.value)} className={`${inputClass} w-full`} />
-              </div>
-              <div>
-                <label className={labelClass}>Facebook</label>
-                <input value={facebook} onChange={(e) => setFacebook(e.target.value)} className={`${inputClass} w-full`} />
-              </div>
-              <div>
-                <label className={labelClass}>Website</label>
-                <input value={website} onChange={(e) => setWebsite(e.target.value)} className={`${inputClass} w-full`} />
-              </div>
-              <div>
-                <label className={labelClass}>Bandcamp (URL or embed)</label>
-                <input value={bandcamp} onChange={(e) => setBandcamp(e.target.value)} className={`${inputClass} w-full`} />
-              </div>
-              <div>
-                <label className={labelClass}>Bandcamp link</label>
-                <input value={bandcampLink} onChange={(e) => setBandcampLink(e.target.value)} className={`${inputClass} w-full`} />
-              </div>
-              <div>
-                <label className={labelClass}>YouTube channel</label>
-                <input value={youtubeChannel} onChange={(e) => setYoutubeChannel(e.target.value)} className={`${inputClass} w-full`} />
-              </div>
+            <div>
+              <label className={labelClass}>Instagram URL</label>
+              <input value={instagram} onChange={(e) => setInstagram(e.target.value)} className={`${inputClass} w-full`} />
             </div>
 
             <div className="grid gap-3 sm:grid-cols-2">
               <div>
                 <label className={labelClass}>Contact email</label>
-                <input value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} className={`${inputClass} w-full`} />
+                <input
+                  type="email"
+                  value={contactEmail}
+                  onChange={(e) => setContactEmail(e.target.value)}
+                  placeholder="band@example.com"
+                  className={`${inputClass} w-full`}
+                />
               </div>
               <div>
-                <label className={labelClass}>Contact method</label>
+                <label className={labelClass}>Payout handle (Venmo)</label>
                 <input
-                  value={contactMethod}
-                  onChange={(e) => setContactMethod(e.target.value)}
-                  placeholder="email | instagram | website"
+                  value={paymentMethod}
+                  onChange={(e) => setPaymentMethod(e.target.value)}
+                  placeholder="@their-venmo (or other)"
                   className={`${inputClass} w-full`}
                 />
               </div>
             </div>
 
             <div>
+              <label className={labelClass}>Local or touring?</label>
+              <div role="group" aria-label="Local or touring" className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsTouring(false);
+                    setHometown('');
+                  }}
+                  aria-pressed={!isTouring}
+                  className={buttonClassName(!isTouring ? 'primary' : 'secondary', 's')}
+                >
+                  Local
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsTouring(true)}
+                  aria-pressed={isTouring}
+                  className={buttonClassName(isTouring ? 'primary' : 'secondary', 's')}
+                >
+                  Touring
+                </button>
+              </div>
+              {isTouring && (
+                <input
+                  placeholder="Hometown — e.g. Austin, TX"
+                  value={hometown}
+                  onChange={(e) => setHometown(e.target.value)}
+                  className={`${inputClass} w-full mt-2`}
+                />
+              )}
+            </div>
+
+            <div>
               <label className={labelClass}>Photo</label>
-              <ImageUploadField value={photoUrl} onChange={setPhotoUrl} folder="bands" placeholder="Photo URL" />
+              <ImageUploadField value={photo} onChange={setPhoto} folder="bands" placeholder="Photo URL" />
             </div>
 
             <div>
               <label className={labelClass}>Bio</label>
               <textarea value={bio} onChange={(e) => setBio(e.target.value)} rows={5} className={`${inputClass} w-full resize-y`} />
-            </div>
-
-            <div>
-              <div className="mb-1 flex items-center justify-between">
-                <label className={labelClass}>Featured links</label>
-                <button
-                  type="button"
-                  onClick={() => setFeaturedLinks((prev) => [...prev, { url: '', label: '' }])}
-                  className="cursor-pointer border border-surface-ink px-2 py-0.5 text-data-caption-13 hover:bg-surface-paper-shade"
-                >
-                  + add link
-                </button>
-              </div>
-              <div className="space-y-2">
-                {featuredLinks.map((link, i) => (
-                  <div key={i} className="flex gap-2">
-                    <input
-                      value={link.url}
-                      onChange={(e) =>
-                        setFeaturedLinks((prev) => prev.map((l, j) => (j === i ? { ...l, url: e.target.value } : l)))
-                      }
-                      placeholder="URL"
-                      className={`${FIELD_INLINE} flex-1`}
-                    />
-                    <input
-                      value={link.label}
-                      onChange={(e) =>
-                        setFeaturedLinks((prev) => prev.map((l, j) => (j === i ? { ...l, label: e.target.value } : l)))
-                      }
-                      placeholder="Label"
-                      className={`${FIELD_INLINE} flex-1`}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setFeaturedLinks((prev) => prev.filter((_, j) => j !== i))}
-                      className="px-2 text-body-3 text-accent-red cursor-pointer hover:underline"
-                    >
-                      ✕
-                    </button>
-                  </div>
-                ))}
-              </div>
             </div>
           </div>
         )}
@@ -344,12 +269,7 @@ export default function AddBandModal({
         )}
 
         <div className="mt-5 flex justify-end gap-2">
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={submitting}
-            className={buttonClassName('secondary', 's')}
-          >
+          <button type="button" onClick={onClose} disabled={submitting} className={buttonClassName('secondary', 's')}>
             Cancel
           </button>
           <button

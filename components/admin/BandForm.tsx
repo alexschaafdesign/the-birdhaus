@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import type { BandShow } from '@/lib/bands';
 import ImageUploadField from './ImageUploadField';
+import { prefillFromTwinScene } from './twinScenePrefill';
 import { FORM } from '@/components/night/form';
 import { PageHeader, Panel, ADMIN_TYPE, buttonClassName } from './ui';
 
@@ -31,6 +32,7 @@ export interface BandFormInitialValues {
   hometown?: string | null;
   contactEmail?: string | null;
   paymentMethod?: string | null;
+  twinsceneSlug?: string | null;
 }
 
 export default function BandForm({
@@ -53,12 +55,32 @@ export default function BandForm({
   const [hometown, setHometown] = useState(initialValues?.hometown ?? '');
   const [contactEmail, setContactEmail] = useState(initialValues?.contactEmail ?? '');
   const [paymentMethod, setPaymentMethod] = useState(initialValues?.paymentMethod ?? '');
+  const [twinsceneSlug, setTwinsceneSlug] = useState(initialValues?.twinsceneSlug ?? '');
+  const [prefilling, setPrefilling] = useState(false);
+  const [prefillNote, setPrefillNote] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   function selectLocal() {
     setIsTouring(false);
     setHometown(''); // clear rather than just hide, so a stale value can't linger
+  }
+
+  async function handlePrefill() {
+    setPrefilling(true);
+    setPrefillNote(null);
+    try {
+      const { values, message } = await prefillFromTwinScene(name, { instagram, bio, photo, twinsceneSlug });
+      setInstagram(values.instagram);
+      setBio(values.bio);
+      setPhoto(values.photo);
+      setTwinsceneSlug(values.twinsceneSlug);
+      setPrefillNote(message);
+    } catch (err) {
+      setPrefillNote(err instanceof Error ? err.message : 'Lookup failed.');
+    } finally {
+      setPrefilling(false);
+    }
   }
 
   async function handleSubmit(e: FormEvent) {
@@ -82,6 +104,7 @@ export default function BandForm({
       // Explicit null so clearing the field actually clears the stored email.
       contactEmail: contactEmail.trim() || null,
       paymentMethod: paymentMethod.trim() || null,
+      twinsceneSlug: twinsceneSlug.trim() || null,
     };
 
     setSubmitting(true);
@@ -147,6 +170,19 @@ export default function BandForm({
             onChange={(e) => setName(e.target.value)}
             className={`${inputClass} w-full`}
           />
+          <div className="mt-2 flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              onClick={handlePrefill}
+              disabled={prefilling || !name.trim()}
+              className={buttonClassName('secondary', 's')}
+            >
+              {prefilling ? 'Looking…' : 'Prefill from Twin Scene'}
+            </button>
+            <span role="status" className={ADMIN_TYPE.meta}>
+              {prefillNote ?? 'Copies Instagram, photo and bio into empty fields, once.'}
+            </span>
+          </div>
         </div>
 
         <div>

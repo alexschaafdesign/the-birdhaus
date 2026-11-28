@@ -12,18 +12,15 @@
 
 **Why waiting matters:** the JSONB columns are the fallback if the join-table read path has an edge case we haven't hit yet. Don't collapse this early just because it feels done.
 
-## Part D: Remove deprecated /api/public/bands
+## Drop Twin Scene overlay columns from `bands`
 
-**Status:** Deprecated 2026-07-17 — do not remove before 2026-08-17
-**Prereq:** Confirm no traffic to this route in the intervening month (check logs/analytics for GET/POST hits with a valid x-api-key).
+**Status:** Open — any deploy after the 2026-11-27 bands cleanup has been live a while.
 
-**Why it's deprecated:** Twin Scene's scraper lineup matcher (`resolveLineupBandSlugs()`) was repointed from this endpoint to a local canonical-table query in Twin Scene's own DB, and Crawlspace's `createTwinSceneBand()` now posts through Twin Scene's own `/api/public/bands` API instead of this one. Nothing in either partner project calls this route anymore as of the repoint.
-
-**What this covers:**
-- Delete `app/api/public/bands/route.ts` (GET + POST) and `app/api/public/bands/[slug]` if present
-- Revoke/delete any `api_keys` rows that existed solely for this integration
-- Remove the CORS/auth plumbing (`authenticate()`, `CORS_HEADERS`) if nothing else in the app uses it
-- Confirm no other consumer exists before deleting — this was a semi-public integration point, so check for anyone besides Twin Scene/Crawlspace who might have a key
+Birdhaus's bands table stopped mirroring Twin Scene on 2026-11-27 (writes, nightly sync and the deprecated `/api/public/bands` endpoint removed; never-played bands pruned with `scripts/prune-unplayed-bands.mjs`). These are now unused and can be dropped in their own migration, after the code that stopped reading them is live:
+- `bands.twin_scene_band_id`, `bands.synced_at`, `bands.visible`, `bands.unreviewed`
+- the never-displayed mirror fields: `genres`, `city`, `neighborhoods`, `members`, `contact_method`, `website`, `bandcamp`, `bandcamp_embed_url`, `bandcamp_embed_height`, `featured_links` (check nothing reads them first; `importBandFromTwinScene` in `lib/bands.ts` still writes them)
+- the `api_keys` table (only the deleted public endpoint used it)
+Keep `twinscene_slug` (Twin Scene page and stage-plot links).
 
 ## Move audio/photos JSONB to join tables
 

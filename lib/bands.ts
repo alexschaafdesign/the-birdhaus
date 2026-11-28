@@ -2,13 +2,7 @@ import postgres from 'postgres';
 import { sql } from './db';
 import { normalizePhotosInput, type Show, type ShowPhoto } from './shows';
 import { isPaidMethod, type PaidMethod } from './settlements';
-import {
-  getTwinSceneBands,
-  createTwinSceneBand,
-  cleanBandcampUrl,
-  splitGenres,
-  type TwinSceneBand,
-} from './twinscene';
+import { cleanBandcampUrl, splitGenres, type TwinSceneBand } from './twinscene';
 
 export interface FeaturedLink {
   url: string;
@@ -25,9 +19,8 @@ export interface Band {
   photo?: string;
   isTouring: boolean;
   hometown?: string;
-  // Fields absorbed from the Twin Scene directory — not yet surfaced in
-  // Birdhaus's own admin/public UI, but stored so a future consumer (Twin
-  // Scene, or another project) can read them from this shared table.
+  // Copied from Twin Scene when a band is imported. Not shown anywhere in
+  // Birdhaus's admin or public UI yet.
   genres: string[];
   city?: string;
   neighborhoods: string[];
@@ -121,8 +114,7 @@ export async function getAllBands(): Promise<Band[]> {
 
 // Same as getAllBands, plus how many Birdhaus shows each band has actually
 // played — used by the public gallery to default to "played here" while
-// still letting the full shared directory (including Twin Scene imports
-// that never played Birdhaus) be revealed on demand.
+// still letting bands with no show yet be revealed on demand.
 export async function getAllBandsWithPlayCount(): Promise<Array<Band & { playCount: number }>> {
   const rows = await sql<Array<BandRow & { play_count: number }>>`
     select ${sql(BAND_COLUMNS)},
@@ -386,47 +378,6 @@ async function uniqueSlug(tx: Tx, base: string): Promise<string> {
   }
 }
 
-// Pre-pass for the Edit Show save flow, run BEFORE the DB transaction (external
-// HTTP must not happen inside sql.begin). For any entry that's a genuinely new
-// band — no bandId yet and no existing local row by name — it creates the band
-// in Twin Scene's canonical directory and annotates the entry with the returned
-// twinSceneBandId/twinsceneSlug, so resolveShowBandEntries can insert the local
-// overlay row already linked. This is the deliberate, human-triggered write
-// path the architecture allows (analogous to Crawlspace's picker "add new"),
-// NOT the scraper auto-import that was removed after the stub flood — see
-// ../twinscene/ARCHITECTURE.md. Best-effort: if Twin Scene is unreachable or
-// the write is refused, the entry is left untouched and falls back to a
-// Birdhaus-only local band, exactly as before this write-back existed.
-export async function attachTwinSceneLinks(bands: Show['bands']): Promise<Show['bands']> {
-  const result: NonNullable<unknown>[] = [];
-  for (const raw of bands) {
-    const band = typeof raw === 'string' ? { name: raw } : raw;
-    const hasBandId = (band as { bandId?: number }).bandId;
-    const name = typeof band.name === 'string' ? band.name.trim() : '';
-    if (hasBandId || !name) {
-      result.push(band);
-      continue;
-    }
-    // Skip existing local bands — they're already linked, or deliberately
-    // Birdhaus-only. Only names with no local row at all get pushed up.
-    const [existing] = await sql<Array<{ id: number }>>`
-      select id from bands where lower(name) = lower(${name}) limit 1
-    `;
-    if (existing) {
-      result.push(band);
-      continue;
-    }
-    try {
-      const ts = await createTwinSceneBand(name);
-      result.push({ ...band, twinSceneBandId: ts.id, twinsceneSlug: ts.slug });
-    } catch (error) {
-      console.error('[bands] Twin Scene create failed; creating Birdhaus-only band', name, error);
-      result.push(band);
-    }
-  }
-  return result as Show['bands'];
-}
-
 // Resolves each show band entry to a real bands.id, creating a new band
 // profile for any name that doesn't already match one. Runs inside the
 // caller's transaction so a failed show save can't leave orphan bands, and
@@ -479,22 +430,9 @@ export async function resolveShowBandEntries(bands: Show['bands'], tx: Tx): Prom
     const instagram = (band as { instagram?: string }).instagram ?? null;
     const bio = (band as { bio?: string }).bio ?? null;
     const photo = (band as { photo?: string }).photo ?? null;
-    // attachTwinSceneLinks() ran before this transaction and, for a genuinely
-    // new band, pushed it up to Twin Scene's canonical directory — so link the
-    // local overlay row to it here. on conflict (twin_scene_band_id) covers the
-    // case where Twin Scene *matched* an existing band already synced locally
-    // under a different name: reuse that row rather than hitting the unique
-    // constraint. When there's no link (Twin Scene unreachable/unconfigured),
-    // twin_scene_band_id is null — nulls never conflict, so it's a plain insert.
-    const twinSceneBandId = (band as { twinSceneBandId?: number }).twinSceneBandId ?? null;
-    const twinsceneSlug = (band as { twinsceneSlug?: string }).twinsceneSlug ?? null;
     const [created] = await tx<Array<{ id: number }>>`
-      insert into bands (slug, name, instagram, bio, photo, twin_scene_band_id, twinscene_slug, synced_at)
-      values (
-        ${slug}, ${name}, ${instagram}, ${bio}, ${photo},
-        ${twinSceneBandId}, ${twinsceneSlug}, ${twinSceneBandId != null ? new Date() : null}
-      )
-      on conflict (twin_scene_band_id) do update set updated_at = now()
+      insert into bands (slug, name, instagram, bio, photo)
+      values (${slug}, ${name}, ${instagram}, ${bio}, ${photo})
       returning id
     `;
     resolved.push({ ...band, bandId: Number(created.id) });
@@ -503,194 +441,40 @@ export async function resolveShowBandEntries(bands: Show['bands'], tx: Tx): Prom
   return resolved as Show['bands'];
 }
 
-export interface ResolvedBand {
-  slug: string;
-  created: boolean;
-}
-
-// Optional profile data Twin Scene can send alongside a lineup-matcher call,
-// so a band it already has full data on doesn't land in Birdhaus as a bare
-// stub. twinSceneBandId links this row to its canonical Twin Scene record
-// (bands.twin_scene_band_id — see migration 017).
-export interface TwinSceneBandProfile {
-  bio?: string | null;
-  photo?: string | null;
-  instagram?: string | null;
-  genres?: string[];
-  city?: string | null;
-  neighborhoods?: string[];
-  members?: string[];
-  contactEmail?: string | null;
-  contactMethod?: string | null;
-  website?: string | null;
-  bandcamp?: string | null;
-  bandcampEmbedUrl?: string | null;
-  bandcampEmbedHeight?: number | null;
-  featuredLinks?: FeaturedLink[];
-  twinSceneBandId?: number | null;
-}
-
-// Field -> column, for the fill-only-if-empty merge onto an existing match.
-// Mirrors scripts/import-twinscene-bands.mjs's MERGE_FIELDS — same semantics,
-// just applied live off the API call instead of a one-off CSV import.
-const TWINSCENE_MERGE_FIELDS: Array<[keyof TwinSceneBandProfile, string, boolean]> = [
-  ['bio', 'bio', false],
-  ['photo', 'photo', false],
-  ['instagram', 'instagram', false],
-  ['genres', 'genres', true],
-  ['city', 'city', false],
-  ['neighborhoods', 'neighborhoods', true],
-  ['members', 'members', true],
-  ['contactEmail', 'contact_email', false],
-  ['contactMethod', 'contact_method', false],
-  ['website', 'website', false],
-  ['bandcamp', 'bandcamp', false],
-  ['bandcampEmbedUrl', 'bandcamp_embed_url', false],
-  ['bandcampEmbedHeight', 'bandcamp_embed_height', false],
-  ['featuredLinks', 'featured_links', true],
-];
-
-function isEmptyValue(value: unknown): boolean {
-  if (value == null) return true;
-  if (typeof value === 'string') return value.trim() === '';
-  if (Array.isArray(value)) return value.length === 0;
-  return false;
-}
-
-// Used by the public write-back endpoint (Twin Scene lineup matching against
-// our band directory). Same case-insensitive match + slug generation as
-// resolveShowBandEntries, but standalone rather than operating over a show's
-// bands array, and marks new rows unreviewed so they can be triaged in admin
-// before being treated as a real Birdhaus band rather than scraper noise.
-//
-// `profile`, when Twin Scene sends it, is merged fill-only-if-empty onto an
-// existing match (never clobbers a value someone already edited in Birdhaus)
-// or written wholesale onto a newly-created stub — this is what closes the
-// gap where a lineup-matcher hit used to create a permanently-blank stub.
-export async function findOrCreateBandByName(
-  name: string,
-  profile: TwinSceneBandProfile = {}
-): Promise<ResolvedBand> {
+// One-shot import for the Edit Show form's band typeahead: the operator picked
+// a band that only exists in Twin Scene's directory, so copy its public profile
+// into a new Birdhaus row and hand back a real bands.id for the show. This is a
+// copy, not a link: nothing syncs afterwards, and the Birdhaus row is edited
+// only in Birdhaus. twinscene_slug is kept for the "Twin Scene" links on the
+// band page and Inputs desk. Re-importing a band already copied returns the
+// existing row untouched.
+export async function importBandFromTwinScene(band: TwinSceneBand): Promise<Band> {
   return sql.begin(async (tx) => {
-    const [existing] = await tx<Array<Record<string, unknown> & { id: number; slug: string }>>`
-      select ${tx(BAND_COLUMNS)} from bands where lower(name) = lower(${name}) limit 1
+    const [existing] = await tx<BandRow[]>`
+      select ${tx(BAND_COLUMNS)} from bands
+      where twin_scene_band_id = ${band.id} or twinscene_slug = ${band.slug}
+      limit 1
     `;
-
-    if (existing) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const assignments: any[] = [];
-
-      for (const [field, column, isJson] of TWINSCENE_MERGE_FIELDS) {
-        if (!isEmptyValue(existing[column])) continue;
-        const incoming = profile[field];
-        if (isEmptyValue(incoming)) continue;
-        assignments.push(
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          isJson ? tx`${tx(column)} = ${tx.json(incoming as any)}` : tx`${tx(column)} = ${incoming as any}`
-        );
-      }
-
-      // Never overwrite an existing link — only claim it the first time.
-      if (profile.twinSceneBandId != null && existing.twin_scene_band_id == null) {
-        assignments.push(tx`twin_scene_band_id = ${profile.twinSceneBandId}`);
-        assignments.push(tx`synced_at = now()`);
-      }
-
-      if (assignments.length > 0) {
-        const setClause = assignments.reduce(
-          (acc, fragment) => (acc === null ? fragment : tx`${acc}, ${fragment}`),
-          null
-        );
-        await tx`update bands set ${setClause}, updated_at = now() where id = ${existing.id}`;
-      }
-
-      return { slug: existing.slug, created: false };
-    }
-
-    const slug = await uniqueSlug(tx, slugify(name) || 'band');
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const featuredLinksJson = tx.json((profile.featuredLinks ?? []) as any);
-    const [created] = await tx<Array<{ slug: string }>>`
-      insert into bands (
-        slug, name, unreviewed, bio, photo, instagram, genres, city, neighborhoods,
-        members, contact_email, contact_method, website, bandcamp, bandcamp_embed_url,
-        bandcamp_embed_height, featured_links, twin_scene_band_id, synced_at
-      )
-      values (
-        ${slug}, ${name}, true, ${profile.bio ?? null}, ${profile.photo ?? null},
-        ${profile.instagram ?? null}, ${tx.json(profile.genres ?? [])}, ${profile.city ?? null},
-        ${tx.json(profile.neighborhoods ?? [])}, ${tx.json(profile.members ?? [])},
-        ${profile.contactEmail ?? null}, ${profile.contactMethod ?? null}, ${profile.website ?? null},
-        ${profile.bandcamp ?? null}, ${profile.bandcampEmbedUrl ?? null}, ${profile.bandcampEmbedHeight ?? null},
-        ${featuredLinksJson},
-        ${profile.twinSceneBandId ?? null}, ${profile.twinSceneBandId != null ? new Date() : null}
-      )
-      returning slug
-    `;
-    return { slug: created.slug, created: true };
-  });
-}
-
-// Just-in-time sync for the Edit Show form's band typeahead: the operator
-// picked a result that only exists in Twin Scene's directory, so create (or,
-// on a race with some other sync path, update) the local overlay row and
-// hand back a real bands.id to link into the show. `slug` is only set on the
-// true-insert path — an existing row keeps its own Birdhaus slug (it's the
-// band's public page URL) rather than being renamed by a later re-sync.
-// `visible` is untouched here by design (defaults false; see migration 017 —
-// flipping it is owned by the show_bands insert path, not this sync).
-export async function syncBandFromTwinScene(band: TwinSceneBand): Promise<Band> {
-  return sql.begin(async (tx) => {
-    const genres = splitGenres(band.genre);
-    const { neighborhoods, members, featuredLinks } = band;
-    const instagram = band.socials.instagram ?? null;
-    const website = band.socials.website ?? null;
-    const bandcamp = cleanBandcampUrl(band.socials);
-    const bio = band.bio || null;
-    const photo = band.photo || null;
-    const city = band.city || null;
-    const bandcampEmbedUrl = band.bandcampEmbedUrl || null;
+    if (existing) return rowToBand(existing);
 
     const slug = await uniqueSlug(tx, slugify(band.name) || 'band');
-
-    const genresJson = tx.json(genres);
-    const neighborhoodsJson = tx.json(neighborhoods);
-    const membersJson = tx.json(members);
     // postgres.js's JSONValue type can't express a readonly-property interface array.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const featuredLinksJson = tx.json(featuredLinks as any);
-
+    const featuredLinksJson = tx.json(band.featuredLinks as any);
     const [row] = await tx<BandRow[]>`
       insert into bands (
         slug, name, instagram, bio, photo, genres, city, neighborhoods, members,
         website, bandcamp, bandcamp_embed_url, bandcamp_embed_height, featured_links,
-        twinscene_slug, twin_scene_band_id, unreviewed, synced_at
+        twinscene_slug, twin_scene_band_id
       ) values (
-        ${slug}, ${band.name}, ${instagram}, ${bio}, ${photo},
-        ${genresJson}, ${city}, ${neighborhoodsJson}, ${membersJson},
-        ${website}, ${bandcamp}, ${bandcampEmbedUrl}, ${band.bandcampEmbedHeight}, ${featuredLinksJson},
-        ${band.slug}, ${band.id}, false, now()
+        ${slug}, ${band.name}, ${band.socials.instagram ?? null}, ${band.bio || null}, ${band.photo || null},
+        ${tx.json(splitGenres(band.genre))}, ${band.city || null}, ${tx.json(band.neighborhoods)},
+        ${tx.json(band.members)}, ${band.socials.website ?? null}, ${cleanBandcampUrl(band.socials)},
+        ${band.bandcampEmbedUrl || null}, ${band.bandcampEmbedHeight}, ${featuredLinksJson},
+        ${band.slug}, ${band.id}
       )
-      on conflict (twin_scene_band_id) do update set
-        name = excluded.name,
-        instagram = excluded.instagram,
-        bio = excluded.bio,
-        photo = excluded.photo,
-        genres = excluded.genres,
-        city = excluded.city,
-        neighborhoods = excluded.neighborhoods,
-        members = excluded.members,
-        website = excluded.website,
-        bandcamp = excluded.bandcamp,
-        bandcamp_embed_url = excluded.bandcamp_embed_url,
-        bandcamp_embed_height = excluded.bandcamp_embed_height,
-        featured_links = excluded.featured_links,
-        twinscene_slug = excluded.twinscene_slug,
-        synced_at = now(),
-        updated_at = now()
       returning ${tx(BAND_COLUMNS)}
     `;
-
     return rowToBand(row);
   });
 }
@@ -801,115 +585,4 @@ export function resolvePhotoBandIds(
       return { ...rest, bandId: typeof bandId === 'number' && bandId > 0 ? bandId : undefined };
     })
   );
-}
-
-export interface TwinSceneSyncResult {
-  checked: number;
-  updated: number;
-  updates: Array<{ slug: string; fields: string[] }>;
-}
-
-// Column -> isJson, for the pull-based fill-only-if-empty merge from Twin
-// Scene's canonical directory. hometown/isTouring are deliberately excluded —
-// Birdhaus-owned booking concepts, not Twin Scene profile data (same
-// exclusion scripts/import-twinscene-bands.mjs made for the old CSV import).
-// contact_email/contact_method aren't in Twin Scene's public API response at
-// all, so there's nothing to pull for them.
-const TWINSCENE_PULL_FIELDS: Array<[string, boolean]> = [
-  ['bio', false],
-  ['photo', false],
-  ['city', false],
-  ['neighborhoods', true],
-  ['members', true],
-  ['featured_links', true],
-  ['bandcamp_embed_url', false],
-  ['bandcamp_embed_height', false],
-  ['genres', true],
-  ['instagram', false],
-  ['website', false],
-];
-
-// Twin Scene's `genre` is a single comma-separated string; Birdhaus's
-// `genres` is an array — same split Birdhaus would use if it modeled genre
-// the same way. `socials.bandcamp` is deliberately not read (see
-// lib/twinscene.ts) — bandcampEmbedUrl is the clean source for that.
-function deriveIncomingFields(tsBand: TwinSceneBand): Record<string, unknown> {
-  return {
-    bio: tsBand.bio,
-    photo: tsBand.photo,
-    city: tsBand.city,
-    neighborhoods: tsBand.neighborhoods,
-    members: tsBand.members,
-    featured_links: tsBand.featuredLinks,
-    bandcamp_embed_url: tsBand.bandcampEmbedUrl,
-    bandcamp_embed_height: tsBand.bandcampEmbedHeight,
-    genres: tsBand.genre
-      ? tsBand.genre.split(',').map((g) => g.trim()).filter(Boolean)
-      : [],
-    instagram: tsBand.socials.instagram ?? null,
-    website: tsBand.socials.website ?? null,
-  };
-}
-
-// Pulls Twin Scene's canonical band directory and, on every Birdhaus band
-// linked via twin_scene_band_id, fills any currently-empty profile field
-// (fill-only-if-empty — never clobbers a value someone already edited in
-// Birdhaus admin) AND overwrites the band's name to match Twin Scene's (name
-// is treated as authoritative there, so a rename upstream propagates here).
-// This is the live counterpart to Twin Scene's own backfill-band-photos.mjs /
-// backfill-band-profile-fields.mjs, run in the opposite direction: Twin Scene
-// stopped pushing band data to Birdhaus after its lineup-matcher flooded
-// Birdhaus with thousands of bare stub bands (see cleanup-unreviewed-stub-bands.mjs),
-// so enrichment now has to be Birdhaus pulling, not Twin Scene pushing.
-export async function enrichBandsFromTwinScene(): Promise<TwinSceneSyncResult> {
-  const [twinSceneBands, linkedBands] = await Promise.all([
-    getTwinSceneBands(),
-    sql<Array<Record<string, unknown> & { id: number; slug: string }>>`
-      select ${sql(BAND_COLUMNS)} from bands where twin_scene_band_id is not null
-    `,
-  ]);
-
-  const byTwinSceneId = new Map(twinSceneBands.map((b) => [b.id, b]));
-  const updates: TwinSceneSyncResult['updates'] = [];
-
-  for (const band of linkedBands) {
-    const tsBand = byTwinSceneId.get(Number(band.twin_scene_band_id));
-    if (!tsBand) continue;
-
-    const incoming = deriveIncomingFields(tsBand);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const assignments: any[] = [];
-    const filled: string[] = [];
-
-    // Name is authoritative from Twin Scene — overwritten (not fill-only) so a
-    // rename in Twin Scene propagates to Birdhaus on the next sync. Slug is left
-    // untouched by design (it's this band's stable public URL). tsBand.name can
-    // be '' defensively, in which case we keep the existing local name.
-    if (tsBand.name && tsBand.name !== band.name) {
-      assignments.push(sql`name = ${tsBand.name}`);
-      filled.push('name');
-    }
-
-    for (const [column, isJson] of TWINSCENE_PULL_FIELDS) {
-      if (!isEmptyValue(band[column])) continue;
-      const value = incoming[column];
-      if (isEmptyValue(value)) continue;
-      assignments.push(
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        isJson ? sql`${sql(column)} = ${sql.json(value as any)}` : sql`${sql(column)} = ${value as any}`
-      );
-      filled.push(column);
-    }
-
-    if (assignments.length === 0) continue;
-
-    const setClause = assignments.reduce(
-      (acc, fragment) => (acc === null ? fragment : sql`${acc}, ${fragment}`),
-      null
-    );
-    await sql`update bands set ${setClause}, updated_at = now() where id = ${band.id}`;
-    updates.push({ slug: band.slug as string, fields: filled });
-  }
-
-  return { checked: linkedBands.length, updated: updates.length, updates };
 }

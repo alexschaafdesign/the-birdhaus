@@ -19,7 +19,7 @@ export async function GET(request: Request) {
     // Typeahead path — hit on every keystroke from ShowForm, so keep this cheap
     // (no show-count subquery).
     const rows = await sql`
-      select id, slug, name, instagram, bio, photo, twin_scene_band_id
+      select id, slug, name, instagram, bio, photo, twin_scene_band_id, twinscene_slug
       from bands
       where name ilike ${'%' + q.trim() + '%'}
       order by name asc
@@ -58,10 +58,13 @@ export async function POST(request: Request) {
 
   try {
     const [row] = await sql`
-      insert into bands (slug, name, instagram, bio, photo, is_touring, hometown, contact_email, payment_method)
+      insert into bands (
+        slug, name, instagram, bio, photo, is_touring, hometown, contact_email, payment_method, twinscene_slug
+      )
       values (
         ${slug}, ${name}, ${nullableTrim(body.instagram)}, ${nullableTrim(body.bio)}, ${nullableTrim(body.photo)},
-        ${isTouring}, ${hometown}, ${nullableTrim(body.contactEmail)}, ${nullableTrim(body.paymentMethod)}
+        ${isTouring}, ${hometown}, ${nullableTrim(body.contactEmail)}, ${nullableTrim(body.paymentMethod)},
+        ${nullableTrim(body.twinsceneSlug)}
       )
       returning ${sql(BAND_COLUMNS)}
     `;

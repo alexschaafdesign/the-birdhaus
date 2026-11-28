@@ -1,10 +1,12 @@
 # Cross-project architecture
 
 This repo is one of three sibling projects (the-birdhaus, twinscene, crawlspace)
-that share band and show data. Before touching anything that talks to Twin
-Scene's bands API, the local `bands` overlay table, or the shows pipeline, read
+that share show data. Before touching anything that talks to Twin Scene's bands
+API or the shows pipeline, read
 [`../twinscene/ARCHITECTURE.md`](../twinscene/ARCHITECTURE.md) — it covers how
-the three repos divide ownership and why.
+the three repos divide ownership and why. Exception, newer than that doc: since
+2026-11-27 Birdhaus's `bands` table is Birdhaus-only. It reads Twin Scene only
+to copy a profile once, and never writes to it or syncs (see docs/db-safety.md).
 
 @docs/db-safety.md
 
@@ -24,7 +26,7 @@ No select *, alias.* or returning * in app code; the build enforces it. A migrat
   [`docs/staging.md`](docs/staging.md).
 - Merging into `main` deploys **production** (and runs pending migrations on
   prod; see docs/db-safety.md).
-- Outbound (email, Square, Mailchimp, Twin Scene writes, the contact form) is
+- Outbound (email, Square, Mailchimp, the contact form) is
   blocked off production by `lib/staging.ts`. New code that leaves the app must
   go through it.
 - Never point a preview deployment at the prod database.

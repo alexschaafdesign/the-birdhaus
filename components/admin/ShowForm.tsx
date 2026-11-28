@@ -414,7 +414,7 @@ export default function ShowForm({
   const photoPickAnchor = useRef<number | null>(null);
   const [twinSceneBands, setTwinSceneBands] = useState<TwinSceneBandOption[]>([]);
   // Which band row (index) opened the full band modal, and the name to prefill
-  // it with. `editBandId` set → edit that existing band's Twin Scene profile;
+  // it with. `editBandId` set → edit that existing band's Birdhaus profile;
   // absent → create a new band. null when the modal is closed.
   const [addBandModal, setAddBandModal] = useState<{
     index: number;
@@ -1556,7 +1556,7 @@ export default function ShowForm({
                         }
                         className="text-surface-ink/60 underline underline-offset-2 hover:text-accent-red"
                       >
-                        Edit full profile
+                        Edit band profile
                       </button>
                     </p>
                   )}

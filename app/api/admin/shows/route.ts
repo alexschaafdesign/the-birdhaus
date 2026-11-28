@@ -16,7 +16,6 @@ import {
   SHOW_COLUMNS,
 } from '@/lib/shows';
 import {
-  attachTwinSceneLinks,
   resolveShowBandEntries,
   resolvePhotoBandIds,
   resolveVideoBandIds,
@@ -103,14 +102,9 @@ export async function POST(request: Request) {
   // Opt-in: only flagged shows go in the sound-coverage queue (and email it).
   const needsSoundEngineer = Boolean(body?.needsSoundEngineer);
 
-  // Push any brand-new band up to Twin Scene's canonical directory before the
-  // transaction (external HTTP must not run inside sql.begin), so the local
-  // overlay row gets created already linked. Best-effort — see attachTwinSceneLinks.
-  const linkedBands = await attachTwinSceneLinks(bands);
-
   try {
     const row = await sql.begin(async (tx) => {
-      const resolvedBands = await resolveShowBandEntries(linkedBands, tx);
+      const resolvedBands = await resolveShowBandEntries(bands, tx);
       const resolvedVideos = resolveVideoBandIds(videos, resolvedBands);
       const resolvedVideoRows = await resolveShowVideos(resolvedVideos, tx);
       const photos = resolvePhotoBandIds(body?.photos, resolvedBands);

@@ -12,6 +12,7 @@ export interface BandMatch {
 
 // A band from Twin Scene's directory that ShowForm fetched once for the
 // whole form session — see /api/admin/bands/twinscene and ShowForm.tsx.
+// Picking one copies it into Birdhaus's band list once (no ongoing sync).
 export interface TwinSceneBandOption {
   twinSceneId: number;
   name: string;
@@ -22,7 +23,7 @@ export interface TwinSceneBandOption {
 
 // One dropdown row: either a real local match, or a Twin-Scene-only result
 // with no local bands row yet (id is null until the operator picks it and
-// the JIT sync in handleSelect resolves a real id).
+// the import in handleSelect resolves a real id).
 interface DisplayMatch {
   id: number | null;
   twinSceneId?: number;
@@ -96,13 +97,19 @@ export default function BandNameInput({
   }, [value]);
 
   const query = value.trim().toLowerCase();
-  // Any Twin Scene band already represented among the local matches (i.e.
-  // already synced) shows once, as the local result — not duplicated.
+  // A Twin Scene band Birdhaus already has (copied earlier, or same name)
+  // shows once, as the local result — not duplicated.
   const syncedTwinSceneIds = new Set(matches.map((m) => m.twinSceneId).filter((id): id is number => id != null));
+  const localNames = new Set(matches.map((m) => m.name.trim().toLowerCase()));
   const twinSceneOnlyMatches: DisplayMatch[] =
     query.length >= 2
       ? (twinSceneBands ?? [])
-          .filter((b) => !syncedTwinSceneIds.has(b.twinSceneId) && b.name.toLowerCase().includes(query))
+          .filter(
+            (b) =>
+              !syncedTwinSceneIds.has(b.twinSceneId) &&
+              !localNames.has(b.name.trim().toLowerCase()) &&
+              b.name.toLowerCase().includes(query)
+          )
           .slice(0, 8)
           .map((b) => ({
             id: null,
@@ -120,10 +127,10 @@ export default function BandNameInput({
   const hasExactMatch = displayMatches.some((m) => m.name.trim().toLowerCase() === query);
   const showAddNew = !!onAddNew && trimmed.length >= 2 && !hasExactMatch;
 
-  // Local match: select immediately, as before. Twin-Scene-only match: sync
-  // it into Birdhaus's local bands table first so it gets a real bandId,
-  // then select the resolved result. Best-effort — a failed sync just leaves
-  // the dropdown open so the operator can retry or pick something else.
+  // Local match: select immediately. Twin-Scene-only match: copy it into
+  // Birdhaus's bands table first so it gets a real bandId, then select the
+  // result. Best-effort — a failed import just leaves the dropdown open so
+  // the operator can retry or pick something else.
   function handleSelect(match: DisplayMatch) {
     if (match.id !== null) {
       onSelect({ id: match.id, name: match.name, instagram: match.instagram, bio: match.bio, photo: match.photo });
@@ -181,7 +188,7 @@ export default function BandNameInput({
               {match.instagram && <span className={ui.meta}>{match.instagram}</span>}
               {match.id === null && (
                 <span className={`${ui.meta} italic`}>
-                  {syncingId === match.twinSceneId ? 'linking…' : 'Twin Scene'}
+                  {syncingId === match.twinSceneId ? 'adding…' : 'from Twin Scene'}
                 </span>
               )}
             </button>

@@ -9,18 +9,37 @@ const TEXT_FIELD_MAP: Record<string, string> = {
   instagram: 'instagram',
   bio: 'bio',
   photo: 'photo',
-  // Band contact email, edited here and reused for advance emails. Safe to own
-  // in the Birdhaus admin: the Twin Scene sync is fill-only-if-empty and never
-  // overwrites a value set here (../twinscene/ARCHITECTURE.md, bands overlay).
+  // Band contact email, reused for advance emails. Private, admin-only.
   contactEmail: 'contact_email',
-  // Private payment handle (Venmo, etc.) for paying the band out. Admin-only —
-  // never exposed publicly or pushed to Twin Scene.
+  // Private payment handle (Venmo, etc.) for paying the band out. Admin-only.
   paymentMethod: 'payment_method',
+  // Twin Scene page slug, set by "Prefill from Twin Scene" — only used to link
+  // to the band's Twin Scene page and stage plot.
+  twinsceneSlug: 'twinscene_slug',
 };
 
 function parseId(id: string): number | null {
   const parsed = Number(id);
   return Number.isInteger(parsed) ? parsed : null;
+}
+
+// The band form's fields, for the show form's band modal to pre-fill from.
+export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+  const { id } = await params;
+  const bandId = parseId(id);
+  if (bandId === null) {
+    return NextResponse.json({ error: 'Invalid id' }, { status: 400 });
+  }
+  const [row] = await sql`
+    select id, name, instagram, bio, photo, is_touring, hometown, contact_email, payment_method, twinscene_slug
+    from bands where id = ${bandId}
+  `;
+  if (!row) {
+    return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  }
+  return NextResponse.json(row);
 }
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -60,10 +79,6 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
   if ('isTouring' in body) {
     assignments.push(sql`is_touring = ${Boolean(body.isTouring)}`);
-  }
-
-  if ('unreviewed' in body) {
-    assignments.push(sql`unreviewed = ${Boolean(body.unreviewed)}`);
   }
 
   if ('hometown' in body) {

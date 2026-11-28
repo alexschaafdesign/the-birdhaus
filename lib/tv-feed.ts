@@ -37,7 +37,7 @@ import { buildBoardFromSchedule } from './schedule-board';
 //                                                   board — see withAutoBoard)
 // Not invalidated on purpose (don't feed the tube): preset create/rename/delete;
 // non-date shows writes (square, tokens, photos, sound-engineer);
-// the sync-twinscene-bands cron; offline scripts (import-shows etc. run with no
+// offline scripts (import-shows etc. run with no
 // request context — the safety TTL below covers their staleness).
 export const TV_FEED_TAG = 'tv-feed';
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { imageSource } from '@/lib/image-source';
@@ -16,32 +16,14 @@ interface GalleryBand {
 }
 
 export default function BandsGallery({ bands }: { bands: GalleryBand[] }) {
-  const [showAll, setShowAll] = useState(false);
-
-  const visible = useMemo(
-    () => (showAll ? bands : bands.filter((b) => b.playCount > 0)),
-    [bands, showAll]
-  );
-
-  const playedCount = bands.filter((b) => b.playCount > 0).length;
+  // Only bands on at least one show; a band added in admin but not on any
+  // show yet stays off the public gallery.
+  const visible = useMemo(() => bands.filter((b) => b.playCount > 0), [bands]);
 
   return (
     <div className="flex flex-col gap-6">
       <div className="text-body-3 flex flex-col gap-2 leading-normal">
-        <p>
-          {showAll
-            ? 'Every artist in the Twin Cities scene database.'
-            : `Every artist that's played the Birdhaus (${playedCount}).`}
-        </p>
-        <label className="flex w-fit items-center gap-2 select-none">
-          <input
-            type="checkbox"
-            checked={showAll}
-            onChange={(e) => setShowAll(e.target.checked)}
-            className="accent-surface-ink size-4"
-          />
-          Show all Twin Cities bands (in-progress)
-        </label>
+        <p>{`Every artist that's played the Birdhaus (${visible.length}).`}</p>
       </div>
 
       {visible.length === 0 ? (
